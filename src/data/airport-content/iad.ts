@@ -2,7 +2,7 @@ import { AirportContent } from "./types";
 
 const iadContent: AirportContent = {
   publishedOn: "2026-04-25",
-  updatedOn: "2026-04-25",
+  updatedOn: "2026-11-05",
   metaDescription:
     "Compare bookable off-airport IAD parking lots, including a 24/7 shuttle lot, at today's prices. Save vs $15–$39/day on-airport rates. Free EV charging on-airport, Silver Line Metro to D.C. Free cancellation.",
 

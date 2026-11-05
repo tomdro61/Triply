@@ -2,7 +2,7 @@ import { AirportContent } from "./types";
 
 const lasContent: AirportContent = {
   publishedOn: "2026-04-25",
-  updatedOn: "2026-04-25",
+  updatedOn: "2026-11-05",
   metaDescription:
     "Compare bookable off-airport LAS parking lots, including a 24/7 shuttle lot, at today's prices. Save vs $18–$36/day on-airport garages. The Strip is just 1.5 miles away. Skip surge pricing during major events. Free cancellation.",
 

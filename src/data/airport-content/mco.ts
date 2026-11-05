@@ -2,7 +2,7 @@ import { AirportContent } from "./types";
 
 const mcoContent: AirportContent = {
   publishedOn: "2026-04-25",
-  updatedOn: "2026-04-25",
+  updatedOn: "2026-11-05",
   metaDescription:
     "Compare bookable off-airport MCO parking lots, including 24/7 shuttle lots, at today's prices. Save vs $10–$28/day on-airport rates. Brightline rail to South Florida from Terminal C. Free cancellation.",
 
@@ -68,7 +68,7 @@ The most passenger-impactful is the Gate Link replacement — single tram operat
     {
       question: "What is the cheapest parking at Orlando airport?",
       answer:
-        "The cheapest on-airport option is North or South Park Place Economy at $10/day with free continuous shuttle. Off-airport lots usually cost less: Holiday Inn Orlando Airport, Gold Park and Omni Airport Parking include a free 24/7 shuttle, while Best Rate Airport Parking's shuttle stops 10 PM–4 AM. Off-airport prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.",
+        "The cheapest on-airport option is North or South Park Place Economy at $10/day with free continuous shuttle. Off-airport rates run both above and below that. Holiday Inn Orlando Airport, Gold Park and Omni Airport Parking include a free 24/7 shuttle, while Best Rate Airport Parking's shuttle stops 10 PM–4 AM. Off-airport prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.",
     },
     {
       question: "How much does it cost to park at MCO?",

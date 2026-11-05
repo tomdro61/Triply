@@ -2,7 +2,7 @@ import { AirportContent } from "./types";
 
 const dtwContent: AirportContent = {
   publishedOn: "2026-04-25",
-  updatedOn: "2026-04-25",
+  updatedOn: "2026-11-05",
   metaDescription:
     "Compare bookable off-airport DTW parking lots, all with 24/7 shuttles, at today's prices. Save vs $14–$32/day on-airport rates. Shuttles serve McNamara and Evans terminals. Free cancellation.",
 

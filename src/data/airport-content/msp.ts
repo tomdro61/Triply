@@ -2,7 +2,7 @@ import { AirportContent } from "./types";
 
 const mspContent: AirportContent = {
   publishedOn: "2026-04-25",
-  updatedOn: "2026-04-25",
+  updatedOn: "2026-11-05",
   metaDescription:
     "Compare bookable off-airport MSP parking at today's prices. Save vs $19–$50/day on-airport rates. Free EV charging, METRO Blue Line to downtown for $2. Free cancellation.",
 

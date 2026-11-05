@@ -2,7 +2,7 @@ import { AirportContent } from "./types";
 
 const tpaContent: AirportContent = {
   publishedOn: "2026-04-25",
-  updatedOn: "2026-04-25",
+  updatedOn: "2026-11-05",
   metaDescription:
     "Compare bookable off-airport TPA parking lots at today's prices. Save vs $12–$32/day on-airport rates. Free SkyConnect to terminal, free EV charging in all garages. Free cancellation.",
 

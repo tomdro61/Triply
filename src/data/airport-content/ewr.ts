@@ -2,7 +2,7 @@ import { AirportContent } from "./types";
 
 const ewrContent: AirportContent = {
   publishedOn: "2026-04-25",
-  updatedOn: "2026-04-25",
+  updatedOn: "2026-11-05",
   metaDescription:
     "Compare bookable off-airport EWR parking lots, including 24/7 shuttle lots, at today's prices. Save vs $35–$70/day on-airport rates. Shuttles skip the $8.75 AirTrain fee. Free cancellation.",
 

@@ -2,7 +2,7 @@ import { AirportContent } from "./types";
 
 const ordContent: AirportContent = {
   publishedOn: "2026-04-25",
-  updatedOn: "2026-04-25",
+  updatedOn: "2026-11-05",
   metaDescription:
     "Compare bookable off-airport ORD parking lots, including 24/7 shuttle lots, at today's prices. Save vs $15–$43/day on-airport rates. CTA Blue Line to downtown for $5. Free cancellation.",
 
@@ -74,7 +74,7 @@ Note: All rideshare pickups are centralized at Terminal 2 Upper Level — regard
     {
       question: "What is the cheapest parking at O'Hare?",
       answer:
-        "The cheapest on-airport option is Economy Lot G at $15/day with free ATS access. Off-airport lots usually cost less: Pride Airport Parking and Routes Airport Parking include a 24/7 on-demand shuttle, while Super 8 Chicago O'Hare Airport has no shuttle, so add a rideshare each way before comparing. Off-airport prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.",
+        "The cheapest on-airport option is Economy Lot G at $15/day with free ATS access. Off-airport rates run both above and below that. Pride Airport Parking and Routes Airport Parking include a 24/7 on-demand shuttle, while Super 8 Chicago O'Hare Airport has no shuttle, so add a rideshare each way before comparing. Off-airport prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.",
     },
     {
       question: "How much does it cost to park at ORD?",

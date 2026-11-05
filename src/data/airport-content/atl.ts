@@ -2,7 +2,7 @@ import { AirportContent } from "./types";
 
 const atlContent: AirportContent = {
   publishedOn: "2026-04-25",
-  updatedOn: "2026-04-25",
+  updatedOn: "2026-11-05",
   metaDescription:
     "Compare bookable off-airport ATL parking lots, including 24/7 shuttle lots, at today's prices. Save vs $20–$35/day on-airport rates. MARTA to downtown for $2.50. Free cancellation.",
 
@@ -60,7 +60,7 @@ Concourse D construction is the most impactful for travelers — some gates are 
     {
       question: "What is the cheapest parking at Atlanta airport?",
       answer:
-        "Off-airport lots are usually the lowest-cost way to park at ATL. Among them, PreFlight Airport Parking Atlanta and Sky Lot run a 24/7 shuttle, while Four Points by Sheraton and Routes run limited hours. The cheapest on-airport parking is the Domestic Park-Ride Lot at $15/day. Off-airport prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.",
+        "Off-airport lots usually cost less than ATL's $30/day Daily Decks. PreFlight Airport Parking Atlanta and Sky Lot run a 24/7 shuttle, while Four Points by Sheraton and Routes run limited hours. The cheapest on-airport parking is the Domestic Park-Ride Lot at $15/day; off-airport rates run both above and below that. Off-airport prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.",
     },
     {
       question: "How much does it cost to park at ATL?",

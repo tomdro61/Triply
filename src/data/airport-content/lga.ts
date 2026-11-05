@@ -2,7 +2,7 @@ import { AirportContent } from "./types";
 
 const lgaContent: AirportContent = {
   publishedOn: "2026-03-20",
-  updatedOn: "2026-03-20",
+  updatedOn: "2026-11-05",
   metaDescription:
     "Compare bookable off-airport LGA parking lots, including 24/7 shuttle lots, at today's prices. Save vs $55–$89/day on-airport garages. No AirTrain needed — the Q70 bus is free. Free cancellation.",
 

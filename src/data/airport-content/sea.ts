@@ -2,7 +2,7 @@ import { AirportContent } from "./types";
 
 const seaContent: AirportContent = {
   publishedOn: "2026-04-25",
-  updatedOn: "2026-04-25",
+  updatedOn: "2026-11-05",
   metaDescription:
     "Compare bookable off-airport SEA parking lots, including 24/7 shuttle lots, at today's prices. Save vs $32–$39/day on-airport rates. Free EV charging, Link Light Rail to downtown for $3. Free cancellation.",
 
@@ -13,7 +13,7 @@ const seaContent: AirportContent = {
 
 SEA has a single terminal with 4 concourses (A, B, C, D) plus 2 satellite terminals (North and South) connected by underground trains. The Link Light Rail station is on the airport's mezzanine level, accessible via skybridge from the main terminal.
 
-On-airport parking at SEA centers on the **largest parking garage under one roof in North America** — 13,000+ spaces across 8 floors. General Parking is $32/day; Reserved Parking on Floor 4 is $39/day (must pre-book). Off-airport parking through Triply typically costs a fraction of the General Parking rate; the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.`,
+On-airport parking at SEA centers on the **largest parking garage under one roof in North America** — 13,000+ spaces across 8 floors. General Parking is $32/day; Reserved Parking on Floor 4 is $39/day (must pre-book). Off-airport parking through Triply usually costs less than the General Parking rate; the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.`,
     },
     {
       heading: "Best Off-Airport Parking Lots Near SEA",
@@ -75,7 +75,7 @@ The airport remains fully operational throughout. Parking garage stays open.`,
     {
       question: "What is the cheapest parking at SEA?",
       answer:
-        "Off-airport lots booked through Triply typically cost a fraction of on-airport rates. Seattle Airport Marriott, Evods and Fox Parking SeaTac run 24/7 shuttles; Motel 6's shuttle runs hourly 7 AM–10 PM only. The cheapest on-airport option is General Parking at $32/day. Off-airport prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.",
+        "Off-airport lots booked through Triply usually cost less than on-airport rates. Seattle Airport Marriott, Evods and Fox Parking SeaTac run 24/7 shuttles; Motel 6's shuttle runs hourly 7 AM–10 PM only. The cheapest on-airport option is General Parking at $32/day. Off-airport prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.",
     },
     {
       question: "How much does it cost to park at SEA?",

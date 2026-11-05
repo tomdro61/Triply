@@ -2,7 +2,7 @@ import { AirportContent } from "./types";
 
 const bwiContent: AirportContent = {
   publishedOn: "2026-04-25",
-  updatedOn: "2026-04-25",
+  updatedOn: "2026-11-05",
   metaDescription:
     "Compare bookable off-airport BWI parking lots, including 24/7 shuttle lots, at today's prices. Save vs $11–$30/day on-airport rates. Free EV charging on-airport, MARC train to D.C. for $8. Free cancellation.",
 
@@ -25,7 +25,7 @@ BWI also offers FREE Level 2 EV charging in the Hourly and Daily Garages — a p
 
 **Country Inn & Suites** — **Closest bookable lot** at 1.7 miles. Parking behind the hotel, monitored by security cameras, with a 24-hour front desk. On-demand shuttle about every 30 minutes, 4:30 AM–noon and 4 PM–midnight — **no shuttle noon–4 PM or midnight–4:30 AM**, so check your flight time. Don't park in the Chili's lot next door — cars there may be towed.
 
-**Clarion Hotel BWI North** — **Cruise parking, not airport parking.** 3 miles out with 24/7 lot access, but its only shuttle goes to the Port of Baltimore (on demand 10 AM–2 PM, $25 round trip for up to 4 passengers, $5 each extra, paid at the hotel). No airport shuttle — book it only if you're sailing from Baltimore.`,
+**Clarion Hotel BWI North** — 3 miles out with 24/7 lot access, listed twice: once for the airport and once for cruises. The **airport** listing's shuttle runs every 30 minutes 4–10 AM and 5–11 PM, with no shuttle 10 AM–5 PM or overnight; on return, call the hotel for pickup at door 14 (2nd level, near Spirit). The **cruise** listing's shuttle goes only to the Port of Baltimore (on demand 10 AM–2 PM, $25 round trip for up to 4 passengers, $5 each extra, paid at the hotel). Check which one you're booking.`,
     },
     {
       heading: "Skip Parking Entirely — Rail Connections from BWI",
@@ -56,7 +56,7 @@ Both Concourses A and B are exclusive Southwest Airlines territory. The connecto
       body: `• **Pre-book online for the best rates** — Pre-booked off-site rates beat walk-up rates; the lot list on this page shows today's rates.
 • **Free EV charging at BWI** — Hourly and Daily Garages both offer free Level 2 charging on the ground floor. DC fast chargers via BGE EVsmart available at the Cell Phone Lot. One of the best EV charging deals at any major U.S. airport.
 • **Use rail to skip parking** — For Baltimore travelers, Light Rail at $2 from the terminal beats every parking option. For D.C. travelers, MARC at $8 beats parking unless your trip is over a week.
-• **Verify shuttle hours at hotel lots** — Country Inn & Suites has no shuttle noon–4 PM or midnight–4:30 AM. For red-eyes, pick a 24-hour shuttle lot (Doubletree, The Westin, Sheraton). Clarion Hotel BWI North shuttles to the cruise port only, not the airport.
+• **Verify shuttle hours at hotel lots** — Country Inn & Suites has no shuttle noon–4 PM or midnight–4:30 AM. For red-eyes, pick a 24-hour shuttle lot (Doubletree, The Westin, Sheraton). Clarion Hotel BWI North's airport shuttle doesn't run 10 AM–5 PM or 11 PM–4 AM.
 • **Southwest dominance affects timing** — Morning Southwest departure banks (5–7 AM) are the busiest hours. Allow extra time for security during peak periods.
 • **Watch for winter storms** — BWI is in the Mid-Atlantic snow belt. Nor'easters in January–February can cause 4–12 hour delays or full-day cancellations. Travel insurance recommended for winter travel.`,
     },

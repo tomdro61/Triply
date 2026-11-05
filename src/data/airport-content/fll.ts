@@ -2,7 +2,7 @@ import { AirportContent } from "./types";
 
 const fllContent: AirportContent = {
   publishedOn: "2026-04-25",
-  updatedOn: "2026-04-25",
+  updatedOn: "2026-11-05",
   metaDescription:
     "Compare bookable off-airport FLL parking lots, including 24/7 shuttle lots, at today's prices. Save vs $20–$36/day on-airport rates. Cruise parking for Port Everglades too. Free cancellation.",
 

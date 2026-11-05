@@ -2,7 +2,7 @@ import { AirportContent } from "./types";
 
 const miaContent: AirportContent = {
   publishedOn: "2026-04-25",
-  updatedOn: "2026-04-25",
+  updatedOn: "2026-11-05",
   metaDescription:
     "Compare bookable off-airport MIA parking lots, including 24/7 shuttle lots, at today's prices. Save vs $12–$39/day on-airport rates. Metrorail to downtown for $2.25. Free cancellation.",
 
@@ -27,7 +27,7 @@ On-airport parking at MIA is moderate by major airport standards. Dolphin, Flami
 
 **Courtyard by Marriott Miami Airport West/Doral** — Hotel lot 2.5 miles out. Shuttle at the top of each hour, 5 AM–11 PM — no shuttle overnight. Call the front desk for your return pickup.
 
-**Cruising instead of flying?** These bookable garages near the Port of Miami are about 6 miles from MIA and don't shuttle to the airport: **Bayfront Garage Miami** (covered, downtown, no shuttle, 6' 10" height limit), **WePark in Miami Cruise Parking** (cruise-terminal shuttle 11 AM–2:30 PM, 6' 7" height limit, no oversize vehicles) and **Premier Cruise Parking** (cruise-terminal shuttle for up to 4 passengers, 7' 0" clearance, cash only at the lot).`,
+**Cruising instead of flying?** These bookable garages near the Port of Miami are about 6 miles from MIA and don't shuttle to the airport: **Bayfront Garage Miami** (covered, downtown, no shuttle, 6' 10" height limit), **WePark in Miami Cruise Parking** (cruise-terminal shuttle 11 AM–2:30 PM, 6' 7" height limit, no oversize vehicles) and **Premier Cruise Parking** (cruise-terminal shuttle for up to 4 passengers, 7' 0" clearance, most of the price is paid at the lot, in cash only).`,
     },
     {
       heading: "Metrorail to Downtown — $2.25 Beats Surge Pricing",

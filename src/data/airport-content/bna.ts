@@ -2,7 +2,7 @@ import { AirportContent } from "./types";
 
 const bnaContent: AirportContent = {
   publishedOn: "2026-04-25",
-  updatedOn: "2026-04-25",
+  updatedOn: "2026-11-05",
   metaDescription:
     "Compare bookable off-airport BNA parking lots, including 24/7 shuttle lots, at today's prices. Save vs $16–$26/day on-airport rates. $25 flat-rate taxi to downtown Nashville. Free cancellation.",
 
