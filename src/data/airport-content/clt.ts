@@ -1,8 +1,10 @@
 import { AirportContent } from "./types";
 
 const cltContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-11-05",
   metaDescription:
-    "Compare 6+ off-airport CLT parking lots from $5/day. Save vs $14–$50/day on-airport rates. Free shuttle, walkable single-terminal design, $2.20 Sprinter bus to Uptown. Free cancellation.",
+    "Compare bookable off-airport CLT parking lots with 24/7 shuttles at today's prices. Save vs $14–$50/day on-airport rates. Walkable single terminal, $2.20 Sprinter bus to Uptown. Free cancellation.",
 
   sections: [
     {
@@ -11,21 +13,13 @@ const cltContent: AirportContent = {
 
 CLT's defining feature is its single-terminal design with five concourses (A, B, C, D, E). Unlike most major hubs, you can walk between any two gates without trams or people movers. American Airlines and American Eagle dominate operations.
 
-On-airport parking rates climbed in March 2026: the Hourly Deck is now $35/day, Daily Decks $28/day, Express Decks $24/day, Daily North $18/day, Long Term Lots $14/day, and Valet $50/day. Off-airport parking through Triply starts at around $5/day pre-booked — saving up to 90% compared to the Hourly Deck.`,
+On-airport parking rates climbed in March 2026: the Hourly Deck is now $35/day, Daily Decks $28/day, Express Decks $24/day, Daily North $18/day, Long Term Lots $14/day, and Valet $50/day. Off-airport parking through Triply typically costs a fraction of the Daily Deck rate; the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees. Every bookable lot runs a shuttle around the clock.`,
     },
     {
       heading: "Best Off-Airport Parking Lots Near CLT",
-      body: `**Red Lion Hotel Charlotte Airport** — The cheapest at around $5/day. Hotel lot 3.5 miles out. Verify shuttle hours before booking — may not run 24/7.
+      body: `**Sheraton Charlotte Airport Hotel** — **Closest bookable lot** at 2 miles. **24/7 shuttle every 30 minutes.** Well-lit parking with overnight monitoring and handicap-accessible spaces. Check in at the front desk for a dashboard pass and arrive at least 15 minutes before your check-in time.
 
-**Country Inn & Suites Charlotte Airport** — Around $6.50/day pre-booked. 24-hour shuttle is a major advantage over many CLT off-site lots with limited hours. Gated lot with security cameras.
-
-**Microtel Inn & Suites Charlotte Airport** — Around $6.95/day pre-booked. Hotel parking 2 miles from CLT. Free airport shuttle. Pre-booking saves ~$1/day.
-
-**DoubleTree by Hilton Charlotte Airport** — Around $7.95/day pre-booked. Full-service Hilton hotel 4.5 miles out. Reliable Hilton brand with airport shuttle.
-
-**The Parking Spot CLT** — Around $9.95/day pre-booked. The best-known off-site brand at CLT — just 0.8 miles from the airport. 24/7 shuttle every 5–10 minutes. Both covered and uncovered options. EV charging stations on-site. 4.4/5 rating.
-
-**Royal Inn CLT Airport Parking** — Around $4.99/day. **WARNING:** No shuttle service included. You must arrange your own transportation to the terminal. Only suitable if you have someone to drop you off.`,
+**Radisson Hotel Charlotte Airport** — Hotel lot 3.9 miles out, right off I-77. Complimentary 24/7 shuttle every hour on the hour or on request; airport pickups are at Zone 1. Monitored by 24/7 surveillance cameras, and two blocks from the Woodlawn light rail station for trips to Uptown.`,
     },
     {
       heading: "CATS Airport Sprinter — Cheap Transit to Uptown",
@@ -53,7 +47,7 @@ The airport remains fully operational. Concourse E renovations may cause tempora
       heading: "Tips for Parking at CLT",
       body: `• **Pre-book on parkCLT.com** — 16,000 of 25,000 on-airport spaces are reservable online. Pre-booking is recommended during holidays and NASCAR weekends.
 • **Single terminal = walkable** — All five concourses are walkable. No trams or people movers needed. Connecting passengers can walk between any two gates in under 15 minutes.
-• **Verify off-site shuttle hours** — Royal Inn ($4.99/day) has NO shuttle. Red Lion's shuttle hours are limited. The Parking Spot and Country Inn run 24/7. Always confirm before booking.
+• **Check the shuttle frequency** — Every bookable off-site lot runs 24/7: Sheraton every 30 minutes, Radisson hourly or on request. Call the Radisson for a pickup once you have your bags.
 • **Watch for ice storms in winter** — Charlotte rarely gets snow but freezing rain and ice storms (January–February) can shut down the airport for 1–2 days. Travel insurance recommended.
 • **NASCAR weekends spike traffic** — Coca-Cola 600 (May), Bank of America Roval 400 (October), and other Charlotte Motor Speedway events create significant airport surges. Book parking ahead and arrive earlier than usual.
 • **All concourses connected post-security** — You can clear at any checkpoint and walk to any gate. Checkpoint 2 (near Concourse C) is the primary TSA PreCheck location.`,
@@ -64,17 +58,17 @@ The airport remains fully operational. Concourse E renovations may cause tempora
     {
       question: "What is the cheapest parking at Charlotte airport?",
       answer:
-        "Red Lion Hotel Charlotte Airport at around $5/day is the cheapest off-airport option with shuttle (verify shuttle hours). Royal Inn at $4.99/day has the lowest raw rate but offers NO shuttle service. The cheapest on-airport option is Long Term Parking at $14/day. All prices are based on a sample 7-day booking and may vary.",
+        "Off-airport hotel lots are usually the lowest-cost way to park at CLT. Sheraton Charlotte Airport Hotel (2 miles) and Radisson Hotel Charlotte Airport (3.9 miles) both include a 24/7 shuttle. The cheapest on-airport option is Long Term Parking at $14/day. Off-airport prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.",
     },
     {
       question: "How much does it cost to park at CLT?",
       answer:
-        "On-airport parking at CLT ranges from $14/day (Long Term Lots) to $50/day (Valet). Daily Decks are $28/day, Express Decks $24/day, Daily North $18/day, Hourly Deck $35/day max. Rates increased March 1, 2026. Off-airport parking through Triply starts at around $5/day pre-booked — saving up to 90% compared to the Hourly Deck.",
+        "On-airport parking at CLT ranges from $14/day (Long Term Lots) to $50/day (Valet). Daily Decks are $28/day, Express Decks $24/day, Daily North $18/day, Hourly Deck $35/day max. Rates increased March 1, 2026. Off-airport parking through Triply typically costs a fraction of the Daily Deck rate — see the lot list on this page for current rates.",
     },
     {
       question: "Do CLT off-airport parking lots run shuttles 24/7?",
       answer:
-        "Some do. The Parking Spot CLT and Country Inn & Suites Charlotte Airport offer 24-hour shuttle service. CRITICAL: Royal Inn ($4.99/day) has NO shuttle service — you must arrange your own transport. Red Lion Hotel and several other hotel lots have limited shuttle hours. Verify before booking.",
+        "Yes — every bookable lot does. Sheraton Charlotte Airport Hotel runs every 30 minutes around the clock, and Radisson Hotel Charlotte Airport runs every hour on the hour or on request, 24/7, with pickups at Zone 1.",
     },
     {
       question: "How do I get from CLT to Uptown Charlotte?",

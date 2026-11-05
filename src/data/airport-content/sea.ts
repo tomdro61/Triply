@@ -1,8 +1,10 @@
 import { AirportContent } from "./types";
 
 const seaContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-11-05",
   metaDescription:
-    "Compare 7+ off-airport SEA parking lots from $9.95/day. Save vs $32–$39/day on-airport rates. Free shuttle, free EV charging, Link Light Rail to downtown for $3. Free cancellation.",
+    "Compare bookable off-airport SEA parking lots, including 24/7 shuttle lots, at today's prices. Save vs $32–$39/day on-airport rates. Free EV charging, Link Light Rail to downtown for $3. Free cancellation.",
 
   sections: [
     {
@@ -11,25 +13,17 @@ const seaContent: AirportContent = {
 
 SEA has a single terminal with 4 concourses (A, B, C, D) plus 2 satellite terminals (North and South) connected by underground trains. The Link Light Rail station is on the airport's mezzanine level, accessible via skybridge from the main terminal.
 
-On-airport parking at SEA centers on the **largest parking garage under one roof in North America** — 13,000+ spaces across 8 floors. General Parking is $32/day; Reserved Parking on Floor 4 is $39/day (must pre-book). Off-airport parking through Triply starts at around $9.95/day pre-booked — saving up to 75% compared to General Parking.
-
-For a 7-day trip for 2 travelers, off-site parking saves $112–$160 vs SEA garage rates.`,
+On-airport parking at SEA centers on the **largest parking garage under one roof in North America** — 13,000+ spaces across 8 floors. General Parking is $32/day; Reserved Parking on Floor 4 is $39/day (must pre-book). Off-airport parking through Triply usually costs less than the General Parking rate; the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.`,
     },
     {
       heading: "Best Off-Airport Parking Lots Near SEA",
-      body: `**MasterPark Lot A** — Around $9.95/day pre-booked. **38+ years in business.** Eco-friendly yellow shuttle fleet (largest at SEA). EV charging via Juicer. Loyalty rewards program. 24/7 on-demand shuttle.
+      body: `**Seattle Airport Marriott** — **Closest bookable lot** at 0.9 miles. Free 24/7 shuttle every 15 minutes from the hotel entrance, no reservation needed (between 1:00 and 2:00 AM, call the hotel for a pickup). Well-lit, gated outdoor lot with onsite security. Standard vehicles only — large trucks, extended vans, trailers and oversized racks may be turned away.
 
-**Ajax Parking R Us** — Around $9.99/day pre-booked. Budget-friendly fenced lot. 1.5 miles out.
+**Evods Parking at Spark by Hilton SEA-TAC Airport** — Valet lot 1.0 mile out: hand your keys to the attendant at drop-off. 24/7 shuttle every 30 minutes, on the hour and half hour. Perimeter fencing, controlled access, 24/7 video surveillance and on-site staff.
 
-**WallyPark Outdoor Self Park** — Around $9.95/day pre-booked. Same shuttle and amenities (free WiFi, coffee, bottled water) as the Premier Garage at half the price.
+**Fox Parking SeaTac** — 2.6 miles out (about 5–10 minutes). Free 24/7 shuttle every 15–20 minutes or on demand; request your return pickup with the E-Parking link texted at check-in. Outdoor self-park with valet help available, staffed 24/7. EV drivers can book an all-inclusive Valet + Charging rate.
 
-**ShuttlePark2** — Around $10.95/day pre-booked. Self-park-and-lock 2 miles north in Tukwila. **Drops off at the 3rd floor of the airport parking garage** — easy terminal access. Weekly $80.
-
-**Jiffy Airport Parking** — Around $10.95/day pre-booked. 24/7 shuttle with car-side pickup. ~6-minute ride. Weekly $69.95 — competitive for longer trips.
-
-**Doug Fox Airport Parking** — Around $11.95/day pre-booked. **Closest off-site lot** at 0.8 miles. Operating 50+ years. ~3-minute shuttle ride is the fastest at SEA.
-
-**WallyPark Premier Garage** — Around $13.95/day pre-booked. Premium covered garage with WiFi, coffee, water, EV charging. Best covered option at SEA. Text-to-shuttle return service.`,
+**Motel 6** — 2.0 miles out. Free shuttle once an hour, on the hour, 7:00 AM–10:00 PM only — no shuttle overnight, so check your flight time. Fully fenced and monitored by security cameras.`,
     },
     {
       heading: "Link Light Rail — Beat I-5 Traffic for $3",
@@ -55,7 +49,7 @@ For Eastside destinations (Bellevue, Redmond, Kirkland), there's no direct rail 
       heading: "Free EV Charging and the Sustainable Airport Master Plan",
       body: `SEA leads all North American airports in free EV charging. **48 ChargePoint Level 2 stations** are spread across multiple floors of the main parking garage — completely free for parking garage users (included in the parking fee). Available first-come, first-served.
 
-Off-site, MasterPark Lot A and Garage offer EV charging via Juicer. WallyPark Premier Garage also has EV charging.
+Off-site, Fox Parking SeaTac offers an all-inclusive Valet + Charging rate for EV drivers.
 
 What's coming under the Sustainable Airport Master Plan (SAMP):
 • **C Concourse Expansion ($260M)** — 10+ new restaurants, new retail, artwork, airside observation deck. **Substantial completion Q2 2026** ahead of FIFA World Cup matches in Seattle.
@@ -67,12 +61,11 @@ The airport remains fully operational throughout. Parking garage stays open.`,
     },
     {
       heading: "Tips for Parking at SEA",
-      body: `• **Pre-book online** — Pre-booking saves $1–$5/day at most off-site lots. WallyPark Outdoor drops from $14.95 to $9.95 pre-booked.
+      body: `• **Pre-book online** — Pre-booked rates are typically lower than walk-up rates, and pre-booking guarantees your space.
 • **Free EV charging on-airport** — 48 ChargePoint Level 2 stations included with parking. First-come, first-served. Use the ChargePoint app to find availability.
 • **Take Light Rail when possible** — At $3, it beats the $30–$50 rideshare to downtown and is often faster during rush hour. Walk from baggage claim to the mezzanine via skybridge.
-• **MasterPark's eco shuttle** — All-electric yellow shuttle fleet. 38+ years operating. Strong rewards program — earn free parking days.
 • **Cell Phone Lot is free** — South of the terminal off Airport Expressway. 30-minute max stay.
-• **Verify off-site shuttle hours** — Doug Fox, MasterPark, Jiffy, ShuttlePark2 all run 24/7. Hotel-based lots have limited hours.
+• **Verify off-site shuttle hours** — Seattle Airport Marriott, Evods and Fox Parking SeaTac all run 24/7. Motel 6's shuttle runs hourly 7 AM–10 PM only.
 • **Watch for cruise ship arrivals** — Pier 91 cruise season (May–October) creates major airport surges on turnaround days. Allow extra time.
 • **2026 World Cup impact** — FIFA matches in Seattle will spike demand. Book parking weeks ahead.`,
     },
@@ -82,17 +75,17 @@ The airport remains fully operational throughout. Parking garage stays open.`,
     {
       question: "What is the cheapest parking at SEA?",
       answer:
-        "MasterPark Lot A and WallyPark Outdoor Self Park are tied as the cheapest off-airport options at around $9.95/day pre-booked. Ajax Parking R Us at $9.99/day is also very competitive. The cheapest on-airport option is General Parking at $32/day. All prices are based on a sample 7-day booking and may vary.",
+        "Off-airport lots booked through Triply usually cost less than on-airport rates. Seattle Airport Marriott, Evods and Fox Parking SeaTac run 24/7 shuttles; Motel 6's shuttle runs hourly 7 AM–10 PM only. The cheapest on-airport option is General Parking at $32/day. Off-airport prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.",
     },
     {
       question: "How much does it cost to park at SEA?",
       answer:
-        "On-airport parking at SEA is $32/day for General Parking and $39/day for Reserved Parking on Floor 4 (must pre-book — drive-up was discontinued March 2024). Weekly rates: $149/week General, $273/week Reserved. Off-airport parking through Triply starts at around $9.95/day pre-booked — saving up to 75%.",
+        "On-airport parking at SEA is $32/day for General Parking and $39/day for Reserved Parking on Floor 4 (must pre-book — drive-up was discontinued March 2024). Weekly rates: $149/week General, $273/week Reserved. Off-airport parking through Triply typically costs a fraction of the garage rate — see the lot list on this page for current rates.",
     },
     {
       question: "Does SEA have free EV charging?",
       answer:
-        "Yes. SEA leads all North American airports in free EV charging — 48 ChargePoint Level 2 stations spread across multiple floors of the main parking garage. All free for parking garage users (included in the parking fee). First-come, first-served. Off-site, MasterPark and WallyPark also offer EV charging.",
+        "Yes. SEA leads all North American airports in free EV charging — 48 ChargePoint Level 2 stations spread across multiple floors of the main parking garage. All free for parking garage users (included in the parking fee). First-come, first-served. Off-site, Fox Parking SeaTac offers an all-inclusive Valet + Charging rate.",
     },
     {
       question: "How do I get from SEA to downtown Seattle?",
@@ -102,7 +95,7 @@ The airport remains fully operational throughout. Parking garage stays open.`,
     {
       question: "Do SEA off-airport parking lots run shuttles 24/7?",
       answer:
-        "Yes. Doug Fox, WallyPark, MasterPark, Jiffy, ShuttlePark2, and other major operators all run free 24/7 shuttle service. Most shuttles drop off and pick up at the 3rd floor of the airport parking garage (Courtesy Vehicle area). Doug Fox has the fastest shuttle (~3 minutes) as the closest lot at 0.8 miles.",
+        "Three bookable lots do: Seattle Airport Marriott (free, every 15 minutes; call the hotel between 1 and 2 AM), Evods Parking at Spark by Hilton (every 30 minutes), and Fox Parking SeaTac (free, every 15–20 minutes or on demand). Motel 6 runs hourly from 7 AM to 10 PM only. Return pickups are from the airport's courtesy vehicle islands — each lot's page names its island.",
     },
     {
       question: "How early should I arrive at SEA?",

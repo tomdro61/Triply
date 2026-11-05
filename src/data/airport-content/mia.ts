@@ -1,8 +1,10 @@
 import { AirportContent } from "./types";
 
 const miaContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-11-05",
   metaDescription:
-    "Compare 6+ off-airport MIA parking lots from $6.95/day. Save vs $12–$39/day on-airport rates. Free shuttle to terminals, Metrorail to downtown for $2.25. Free cancellation.",
+    "Compare bookable off-airport MIA parking lots, including 24/7 shuttle lots, at today's prices. Save vs $12–$39/day on-airport rates. Metrorail to downtown for $2.25. Free cancellation.",
 
   sections: [
     {
@@ -11,21 +13,21 @@ const miaContent: AirportContent = {
 
 Located 8 miles west of downtown Miami, MIA serves three terminals: North Terminal (Concourse D, American Airlines hub), Central Terminal (Concourses E, F, G — most international carriers), and South Terminal (Concourses H, J — international focus). All three are connected to the Miami Intermodal Center via the free MIA Mover automated people mover.
 
-On-airport parking at MIA is moderate by major airport standards. Dolphin, Flamingo, and Ibis Garages all cap at $25/day. Valet runs $39/day. Economy Park & Ride is $12/day with limited capacity (350 spaces). Off-airport parking through Triply starts at around $6.95/day pre-booked — saving up to 80% compared to terminal garages.`,
+On-airport parking at MIA is moderate by major airport standards. Dolphin, Flamingo, and Ibis Garages all cap at $25/day. Valet runs $39/day. Economy Park & Ride is $12/day with limited capacity (350 spaces). Off-airport parking through Triply typically costs a fraction of the terminal garage rate; the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.`,
     },
     {
       heading: "Best Off-Airport Parking Lots Near MIA",
-      body: `**Deal Airport Parking** — Around $6.95/day pre-booked. 24/7 on-demand shuttle every 15 minutes. 2.1 miles out. Both self-park and valet at $6.95/day pre-booked.
+      body: `**Hilton Miami Airport Blue Lagoon** — **Closest bookable lot** at 1.1 miles. Free shuttle every 30 minutes from 4 AM to 1 AM — no shuttle 1 AM–4 AM.
 
-**Green Airport Parking** — Around $6.99/day. The CLOSEST off-site lot at 1.1 miles. **WARNING:** Shuttle only runs 8 AM – 8 PM. Not for late-night or early-morning flights.
+**Holiday Inn Miami Airport** — **Free 24/7 on-demand shuttle**, 1.7 miles out. Gated lot, open 24 hours, with security cameras. After your return flight, collect your bags and call the hotel for pickup.
 
-**MIA Park Pro** — Around $7.95/day. 24/7 on-demand shuttle. 6.1 miles out — furthest off-site lot but reliable. 4.5/5 rating.
+**EVEN Hotel Miami** — **Covered garage** 2.2 miles out, with a 24/7 on-demand shuttle. Surveillance cameras and security patrols; accessible parking on the first level.
 
-**La Quinta Inn & Suites Miami Airport East** — Around $7.95/day. Hotel parking 2 miles out. Hourly shuttle 5 AM–10 PM.
+**La Quinta Inn & Suites Miami Airport East** — Hotel lot 1.7 miles out. Free hourly shuttle 5 AM–10 PM only. Gated lot with security cameras. No vehicles larger than a Suburban-size SUV.
 
-**EVEN Hotel Miami Airport** — Around $7.99/day. **Best covered off-site option.** Covered garage parking 1.6 miles out. 24/7 on-demand shuttle. Excellent value for protected parking.
+**Courtyard by Marriott Miami Airport West/Doral** — Hotel lot 2.5 miles out. Shuttle at the top of each hour, 5 AM–11 PM — no shuttle overnight. Call the front desk for your return pickup.
 
-**Hampton Inn Miami Airport West** — Around $9.50/day. Highly rated (4.8/5). 5.4 miles out. First shuttle at 4:30 AM is good for early flights. On-demand pickup from airport.`,
+**Cruising instead of flying?** These bookable garages near the Port of Miami are about 6 miles from MIA and don't shuttle to the airport: **Bayfront Garage Miami** (covered, downtown, no shuttle, 6' 10" height limit), **WePark in Miami Cruise Parking** (cruise-terminal shuttle 11 AM–2:30 PM, 6' 7" height limit, no oversize vehicles) and **Premier Cruise Parking** (cruise-terminal shuttle for up to 4 passengers, 7' 0" clearance, most of the price is paid at the lot, in cash only).`,
     },
     {
       heading: "Metrorail to Downtown — $2.25 Beats Surge Pricing",
@@ -65,7 +67,7 @@ MIA also offers an MIA Rewards program at mia.thanksagain.com — earn points on
       heading: "Tips for Parking at MIA",
       body: `• **Pre-book Economy Park & Ride** — Only 350 spaces. Fills up during peak periods. Reserve at booking.mia-parking.com.
 • **EV charging at MIA is paid** — Unlike free EV airports (BOS, IAD, MSP, IAH), MIA charges $0.38/kWh via ChargePoint at Ibis Garage (50 ports — most at the airport).
-• **Verify off-site shuttle hours** — Green Airport Parking ($6.99/day) has NO shuttle outside 8 AM–8 PM. Use 24/7 lots like Deal Airport Parking, EVEN Hotel, or MIA Park Pro for early/late flights.
+• **Verify off-site shuttle hours** — La Quinta's shuttle stops at 10 PM, Courtyard Doral's at 11 PM, and Hilton Blue Lagoon's runs 4 AM–1 AM. For red-eyes, pick a 24/7 lot like Holiday Inn Miami Airport or EVEN Hotel Miami.
 • **MIA Mover is essential** — Free automated people mover from Level 3 between Dolphin and Flamingo garages to the Miami Intermodal Center. Connects to Metrorail, Tri-Rail, rental cars, and bus connections every 2–3 minutes 24/7.
 • **Hurricane season** — June through November. MIA has been shut down multiple times by major hurricanes. Travel insurance recommended.
 • **Use flat-rate taxi for South Beach** — $35 flat rate avoids meter anxiety and surge pricing during Art Basel, Ultra Music Festival, Super Bowl weekends, and spring break.
@@ -78,12 +80,12 @@ MIA also offers an MIA Rewards program at mia.thanksagain.com — earn points on
     {
       question: "What is the cheapest parking at Miami airport?",
       answer:
-        "Deal Airport Parking is the cheapest off-airport option at around $6.95/day pre-booked, with 24/7 shuttle. Green Airport Parking at $6.99/day is also very cheap and is the closest off-site lot at 1.1 miles, BUT its shuttle only runs 8 AM–8 PM. The cheapest on-airport option is Economy Park & Ride at $12/day (350 spaces). All prices are based on a sample 7-day booking and may vary.",
+        "The cheapest on-airport option is Economy Park & Ride at $12/day (350 spaces). Off-airport lots usually cost less: Holiday Inn Miami Airport and EVEN Hotel Miami run a 24/7 shuttle, while the La Quinta, Courtyard and Hilton lots run shorter shuttle hours. Off-airport prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.",
     },
     {
       question: "How much does it cost to park at MIA?",
       answer:
-        "On-airport parking at MIA ranges from $12/day (Economy Park & Ride, 350 spaces) to $39/day (Valet). Dolphin, Flamingo, and Ibis Garages all cap at $25/day. Off-airport parking through Triply starts at around $6.95/day pre-booked — saving up to 80% compared to terminal garages.",
+        "On-airport parking at MIA ranges from $12/day (Economy Park & Ride, 350 spaces) to $39/day (Valet). Dolphin, Flamingo, and Ibis Garages all cap at $25/day. Off-airport parking through Triply typically costs a fraction of the terminal garage rate — see the lot list on this page for current rates.",
     },
     {
       question: "How do I get from MIA to South Beach?",
@@ -103,7 +105,7 @@ MIA also offers an MIA Rewards program at mia.thanksagain.com — earn points on
     {
       question: "Do MIA off-airport parking lots run shuttles 24/7?",
       answer:
-        "Some do. Deal Airport Parking, MIA Park Pro, and EVEN Hotel all run 24/7 shuttles. CRITICAL: Green Airport Parking only runs shuttles 8 AM–8 PM despite being the closest lot. Hampton Inn Miami Airport West has on-demand pickup from the airport. Verify before booking for early/late flights.",
+        "These bookable lots do: Holiday Inn Miami Airport and EVEN Hotel Miami, both on demand. Hilton Miami Airport Blue Lagoon, the closest lot at 1.1 miles, runs every 30 minutes from 4 AM to 1 AM. La Quinta Inn & Suites Miami Airport East (5 AM–10 PM) and Courtyard Doral (5 AM–11 PM) run hourly. Verify before booking for early/late flights.",
     },
     {
       question: "How early should I arrive at MIA?",
