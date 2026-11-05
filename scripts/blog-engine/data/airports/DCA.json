@@ -1,7 +1,7 @@
 {
   "code": "DCA",
   "fullName": "Ronald Reagan Washington National Airport",
-  "lastVerified": "2026-10-26",
+  "lastVerified": "2026-11-02",
   "overview": {
     "location": "Arlington County, Virginia — directly across the Potomac River from Washington, D.C., 5 miles south of the White House",
     "iataCode": "DCA",
@@ -242,7 +242,7 @@
       "knownCoupons": ["Online discounts available through theparkingspot.com"],
       "notes": "Garage parking (covered). Shuttle NOT 24/7 (5 AM - 11:30 PM). Not suitable for very early/late flights.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "Sheraton Pentagon City Hotel",
@@ -261,7 +261,7 @@
       "knownCoupons": ["Pre-book via airportparkingreservations.com from $9/day"],
       "notes": "Shuttle runs once per hour only. NOT 24/7 (6 AM - 11:15 PM). Allow extra time for shuttle wait.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "Crystal Gateway Marriott",
@@ -281,7 +281,7 @@
       "knownCoupons": ["Book via cheapairportparking.org from $10/day", "Book via parkon.com for competitive rates"],
       "notes": "Covered garage parking. Convenient Crystal City location near Metro. Shuttle every 30 min. One of the best value DCA off-site options.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "Renaissance Arlington Capital View",
@@ -300,7 +300,7 @@
       "knownCoupons": ["Book via parkon.com from $10/day"],
       "notes": "Newer hotel with good amenities. Free shuttle included.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "Hyatt Regency Crystal City",
@@ -320,7 +320,7 @@
       "knownCoupons": ["Pre-book online for $12/day valet parking"],
       "notes": "Covered valet parking — your car stays in a garage. Higher rate but premium service. Close to Metro if you prefer train to shuttle.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "The Westin Crystal City (DCA)",
@@ -340,9 +340,9 @@
       "notes": "Closest off-site option. Covered parking is a differentiator — most DCA off-site lots are uncovered. $12.90/day is competitive for covered.",
       "taxesFor8Days": 0,
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26",
+      "rateVerified": "2026-11-02",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "Sheraton Suites Old Town Alexandria (DCA)",
@@ -363,9 +363,9 @@
       "notes": "Budget option but limited availability — often sells out. Furthest off-site lot at 2.6 mi but cheapest at $8.50/day.",
       "taxesFor8Days": 0,
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26",
+      "rateVerified": "2026-11-02",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "DoubleTree by Hilton Crystal City",
@@ -384,7 +384,7 @@
       "knownCoupons": ["Book via cheapairportparking.org from $8.50/day"],
       "notes": "Best budget option for DCA off-site parking. Pre-book to secure lowest rate.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "Hilton Crystal City at Washington Reagan National Airport",
@@ -403,7 +403,7 @@
       "knownCoupons": ["Park-Sleep-Fly packages available via parksleepfly.com"],
       "notes": "Good balance of price and amenities. Walking distance to Crystal City Metro for downtown DC access.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     }
   ],
   "shuttleInfo": "Most off-site hotel lots include free shuttle to DCA. Frequency varies: Crystal Gateway Marriott (every 30 min, 5:30 AM-midnight), Sheraton Pentagon (hourly, 6 AM-11:15 PM), Hyatt Regency (on schedule), Westin (on demand). Economy Lot has its own shuttle. NOTE: Most hotel shuttles are NOT 24/7 — check hours for early morning/late night flights. Metro is the backup: Crystal City station is walking distance from most hotels, Yellow/Blue Line direct to airport.",

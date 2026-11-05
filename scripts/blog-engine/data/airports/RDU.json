@@ -1,7 +1,7 @@
 {
   "code": "RDU",
   "fullName": "Raleigh-Durham International Airport",
-  "lastVerified": "2026-10-26",
+  "lastVerified": "2026-11-02",
   "overview": {
     "location": "Morrisville, Wake County, North Carolina — between Raleigh and Durham, next to Research Triangle Park (RTP) and William B. Umstead State Park. The airport's mailing addresses are in Morrisville (e.g., Cell Lot at 1000 Trade Drive, Morrisville, NC 27560).",
     "iataCode": "RDU",
@@ -173,8 +173,8 @@
     {
       "name": "Sheraton Imperial Raleigh-Durham Airport",
       "slug": "sheraton-imperial-raleigh-durham-airport",
-      "dailyRate": 8.36,
-      "reservationRate": 8.36,
+      "dailyRate": 7.65,
+      "reservationRate": 7.65,
       "sampleQuote": "$65.61 total for Nov 2-9, 2026 (subtotal $58.32 + fees $2.92 + tax $4.37); Nov 16-23 quoted $78.44",
       "parkingType": "Self-park hotel lot (type not specified in listing)",
       "amenities": ["24/7 Front Desk", "Restaurant"],
@@ -185,9 +185,10 @@
       "phone": "(919) 941-5050",
       "notes": "The only sellable RDU lot with a 24/7 shuttle. Present your reservation at the front desk for a validation code, then register your vehicle via QR code and park in any space not marked 'Reserved'. Arrive before the airline's 2-hour pre-flight window. Listing address also shows '282 Page Rd I-40' — verify.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02",
+      "rateSpreadPct": 55.38
     },
     {
       "name": "Embassy Suites by Hilton Research Triangle",
@@ -204,9 +205,9 @@
       "phone": "919-677-1840",
       "notes": "Most consistent price across Nov dates (marked 'lowest total' on Nov 16-23). Bring the email confirmation (phone or printed). Booking asks for license plate and number of passengers. No shuttle midnight-4 AM.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Cambria Hotel Raleigh - Durham Airport",
@@ -223,9 +224,9 @@
       "phone": "919-361-3311",
       "notes": "Go inside to sign in and get a parking sign for your vehicle. Be on site at least 30 minutes before you need the shuttle. No overnight shuttle.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Microtel Inn & Suites",
@@ -242,9 +243,9 @@
       "phone": "919-462-0061",
       "notes": "Show your reservation (phone, email or printed) at check-in. No shuttle 11:45 PM-4:15 AM. Missing from the Nov 16-23 search — availability can run out.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Quality Inn & Suites",
@@ -261,9 +262,9 @@
       "phone": "(919) 481-3600",
       "notes": "Check in at the front desk on arrival. Highest-priced sellable lot but still well under ParkRDU Economy ($14.50). Slug is shared with the CVG Quality Inn & Suites listing — refer to it as 'Quality Inn & Suites Morrisville' in copy to avoid confusion.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     }
   ],
   "shuttleInfo": "On-airport: ParkRDU Economy shuttle 24/7 every 20 minutes; ParkRDU Express 24/7 trunk-to-terminal shuttle with luggage help. Off-site: all five Triply lots are hotel lots with free shuttles using the red curb hotel-shuttle zones outside each terminal — call the hotel after you collect bags. Only Sheraton Imperial runs 24/7 (hourly); Embassy Suites (4 AM-12 AM), Quality Inn & Suites (4 AM-12 AM), Cambria (4:15 AM-12 AM) and Microtel (4:15 AM-11:45 PM) do not run overnight.",

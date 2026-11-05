@@ -1,7 +1,7 @@
 {
   "code": "RIC",
   "fullName": "Richmond International Airport",
-  "lastVerified": "2026-10-26",
+  "lastVerified": "2026-11-02",
   "overview": {
     "location": "Sandston, Virginia (unincorporated Henrico County) — about 7 miles southeast of downtown Richmond, between I-64 and Williamsburg Road (US 60), reached by Airport Drive. Dedicated in 1927 as Richard Evelyn Byrd Flying Field; renamed Richmond International Airport in 1984.",
     "iataCode": "RIC",
@@ -161,9 +161,9 @@
       "phone": "804-222-8200",
       "notes": "Lowest sellable rate at RIC on 2026-10-16 ($41.58 grand total for a 7-night Nov 2-9 stay, 8 billed days; same on Nov 9-16 and 16-23). NO SHUTTLE — never describe it as having one; frame as cheapest but you need a ride, which can eat the saving vs Economy ($80).",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "DoubleTree by Hilton Richmond Airport",
@@ -179,9 +179,9 @@
       "phone": "804-236-1111",
       "notes": "$83.58 grand total for Nov 2-9 (8 billed days), same on all three test weeks. About $4 more than RIC Economy ($80) for the week, ~$36 less than the Daily Garage ($120). No shuttle 12-5 AM.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Sheraton Richmond Airport",
@@ -197,23 +197,23 @@
       "phone": "804-226-6400",
       "notes": "$83.92 grand total for Nov 2-9 (8 billed days). Closest Triply RIC lot and the longest shuttle window (4 AM-1 AM). About $4 more than RIC Economy ($80) for the week, ~$36 less than the Daily Garage ($120).",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Four Points by Sheraton Richmond Airport",
       "parkingType": "Hotel park-and-fly (not on Triply)",
       "notes": "Comparison only — not sold on Triply. Do not use as a CTA.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "Courtyard by Marriott Richmond Airport",
       "parkingType": "Hotel park-and-fly (not on Triply)",
       "notes": "Comparison only — not sold on Triply. Do not use as a CTA.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     }
   ],
   "shuttleInfo": "On-airport: Economy Lot free shuttle 24/7 (frequency not published). Off-site: Triply's RIC lots are 1.1-1.6 mi away in Sandston. Sheraton runs 4 AM-1 AM (none 1-4 AM); DoubleTree 5 AM-12 AM (none 12-5 AM); Best Western Plus has NO shuttle — you need your own ride. Call the hotel after collecting bags.",

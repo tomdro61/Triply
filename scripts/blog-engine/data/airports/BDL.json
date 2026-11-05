@@ -1,7 +1,7 @@
 {
   "code": "BDL",
   "fullName": "Bradley International Airport",
-  "lastVerified": "2026-10-26",
+  "lastVerified": "2026-11-02",
   "overview": {
     "location": "Windsor Locks, Connecticut — about halfway between Hartford and Springfield, Massachusetts, off I-91 Exit 40. The airport puts the drive at about 15-20 minutes to Hartford and 15 minutes to Springfield. Address: Schoephoester Road, Windsor Locks, CT 06096.",
     "iataCode": "BDL",
@@ -213,9 +213,9 @@
       "phone": "860-623-2533",
       "notes": "Lowest sellable rate at BDL on 2026-10-16 ($52.90 grand total for a 7-night Nov 2-9 stay, 8 billed days; same on Nov 9-16 and 16-23). No box trucks, RVs or commercial vehicles. Early flights: 3:15-5:15 AM rides need a call 24 hours ahead. Overstays are settled at the front desk before you get your keys.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Motel 6 Windsor Locks",
@@ -231,9 +231,9 @@
       "phone": "860-370-5350",
       "notes": "$53.00 grand total for Nov 2-9 (8 billed days), same on all three test weeks. Only Triply BDL lot with a 24/7 shuttle and no advance-call window. If your return is delayed, call the hotel — unannounced late pickups can mean extra fees or towing.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Days Inn Windsor Locks Bradley",
@@ -250,9 +250,9 @@
       "phone": "(860) 623-9417",
       "notes": "$78.82 grand total for Nov 2-9 (8 billed days), same on all three test weeks. Closest Triply BDL lot. Scheduled shuttles from 3:25 AM suit 5-6 AM departures.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "The Parking Spot (BDL)",
@@ -261,7 +261,7 @@
       "phone": "860-627-8201",
       "notes": "Major off-airport operator near BDL. Not sold on Triply — comparison only; never use in a CTA.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "LAZ Fly Airport Parking",
@@ -269,7 +269,7 @@
       "parkingType": "Valet and self-park lots (off-airport operator)",
       "notes": "Off-airport operator with lots on Route 75. Not sold on Triply — comparison only; never use in a CTA.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     }
   ],
   "shuttleInfo": "On-airport: Express Lot 1, Economy Lot 3 and Economy Lot 4 run free shuttles to Terminal A on a continuous 24/7 loop (airport FAQ: every ten minutes); Lot 2 and the Garage are walk-to. Off-site: Triply's three BDL lots are 1.1-1.3 mi away. Motel 6 runs 24/7 every 30-45 min; Days Inn every 30 min from 3:25 AM, on demand otherwise (none 3:20-3:25 AM); Econo Lodge every 30 min but 3:15-5:15 AM rides must be booked 24 hours ahead. Call the lot after collecting bags.",
