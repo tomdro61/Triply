@@ -34,13 +34,13 @@ function secretsMatch(a: string, b: string): boolean {
   return timingSafeEqual(bufA, bufB);
 }
 
-/** Rebuild the customer's confirmation URL. The `email` param is REQUIRED —
- *  /confirmation's guest branch 403s without it — and is derived server-side
- *  from the PaymentIntent, never taken from the request. */
+/** Rebuild the customer's confirmation URL — WITHOUT the guest's email, which
+ *  analytics and Sentry would record. The email goes back as `guestEmail`
+ *  beside the URL; the finishing page hands it to /confirmation in
+ *  sessionStorage (lib/confirmation/guest-email.ts). */
 async function buildConfirmationUrl(
   reservationNumber: string,
-  piId: string,
-  derivedEmail: string
+  piId: string
 ): Promise<string> {
   const supabase = await createAdminClient();
   const { data } = await supabase
@@ -59,11 +59,9 @@ async function buildConfirmationUrl(
       if (k !== "email" && typeof v === "string") params.set(k, v);
     }
   }
-  params.set("email", derivedEmail);
 
-  return `/confirmation/${encodeURIComponent(
-    reservationNumber
-  )}?${params.toString()}`;
+  const query = params.toString();
+  return `/confirmation/${encodeURIComponent(reservationNumber)}${query ? `?${query}` : ""}`;
 }
 
 /**
@@ -141,11 +139,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
           state: "booked",
           reservationNumber,
-          confirmationUrl: await buildConfirmationUrl(
-            reservationNumber,
-            piId,
-            derivedEmail
-          ),
+          confirmationUrl: await buildConfirmationUrl(reservationNumber, piId),
+          // The guest's proof for /confirmation, derived server-side from the
+          // PaymentIntent (never taken from the request). The caller already
+          // proved it holds this PaymentIntent's client secret.
+          guestEmail: derivedEmail,
         });
       }
 

@@ -1,7 +1,7 @@
 {
   "code": "HOU",
   "fullName": "William P. Hobby Airport",
-  "lastVerified": "2026-10-26",
+  "lastVerified": "2026-11-02",
   "overview": {
     "location": "Greater Hobby neighborhood, southeast Houston, Texas — about 7 miles southeast of downtown Houston. NOT George Bush Intercontinental (IAH), Houston's larger airport ~23 miles north of downtown.",
     "iataCode": "HOU",
@@ -161,9 +161,9 @@
       "phone": "713-645-3000",
       "notes": "Cheapest at HOU on 2026-10-16 (same $4.73/day across Nov 2-9, 9-16 and 16-23 searches). All vehicles must be registered via QR code after front-desk validation. Badge 'lowest_total' on search.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Houston Hobby Marriott South",
@@ -180,9 +180,9 @@
       "phone": "(713) 943-7979",
       "notes": "Daily-rate lot (minimum 1 booking day). Hotel offers room-and-parking packages directly. Arrive before the 2-hour pre-flight window.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Hobby Airport Parking",
@@ -199,9 +199,9 @@
       "phone": "1-844-376-2435",
       "notes": "Listing description says 'half a mile' from HOU but the search result distance is 1.4 mi — use 1.4 mi. Listing says 'hotel front desk' check-in; confirm what the check-in point is before describing it in detail.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Hampton Inn Houston Hobby Airport",
@@ -218,9 +218,9 @@
       "phone": "713-641-6400",
       "notes": "NOT a shuttle lot — the transfer is a hotel-booked Lyft that needs 24 hours' notice. Flag this clearly in every article.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     }
   ],
   "shuttleInfo": "On-airport: ecopark shuttle runs continuously about every 10 minutes to the terminal curb (hours not published — verify); Red and Blue Garages are walk-in. Off-site: DoubleTree (24/7 every 15 min) and Hobby Airport Parking (24/7 every 15 min) run the most frequent shuttles; Marriott South runs 24/7 every 30 minutes; Hampton Inn uses a complimentary Lyft booked 24 hours ahead.",

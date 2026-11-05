@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { markPurchaseToTrack } from "@/lib/analytics/purchase-once";
+import { confirmationHandOff } from "@/lib/confirmation/guest-email";
 import { captureBookingError, capturePaymentError } from "@/lib/sentry";
 import {
   clearRecoveryMarker,
@@ -145,7 +146,19 @@ export default function CheckoutCompleteClient() {
                 { step: "confirmation", fingerprint: ["complete-booked-no-reservation-number"] }
               );
             }
-            router.replace(data.confirmationUrl);
+            {
+              // The email (the guest's proof on /confirmation) is handed over
+              // in sessionStorage, never in the URL Clarity/Sentry record.
+              // Storage blocked → the URL carries it and the page is a FULL
+              // load (replace, so Back never returns to this finishing page).
+              const guestEmail = typeof data.guestEmail === "string" ? data.guestEmail : "";
+              const { url, fullLoad } =
+                typeof data.reservationNumber === "string"
+                  ? confirmationHandOff(data.confirmationUrl, data.reservationNumber, guestEmail)
+                  : { url: data.confirmationUrl, fullLoad: false };
+              if (fullLoad) window.location.replace(url);
+              else router.replace(url);
+            }
             return;
           case "payment_failed":
           case "payment_incomplete":

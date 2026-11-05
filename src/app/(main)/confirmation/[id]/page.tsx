@@ -21,6 +21,11 @@ import { trackPurchase } from "@/lib/analytics/gtag";
 import { takePurchaseToTrack } from "@/lib/analytics/purchase-once";
 import { convertTo12Hour } from "@/lib/utils/time";
 import { captureBookingError } from "@/lib/sentry";
+import {
+  recallConfirmationEmail,
+  rememberConfirmationEmail,
+  stripEmailFromAddressBar,
+} from "@/lib/confirmation/guest-email";
 import type { AtLotEstimateView } from "@/lib/direct/reservation-view";
 import type { CostBreakdownResult, FallbackDue } from "@/lib/booking/cost-breakdown";
 import type { CardSummary } from "@/lib/booking/confirmation-payment";
@@ -123,10 +128,19 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
   const checkOutParam = searchParams.get("checkout");
   const serviceFeeParam = searchParams.get("serviceFee");
   const emailParam = searchParams.get("email");
+  // An emailed ?email= link: kept from the first render, because the effect
+  // below strips it from the address bar (GA4, Clarity and Sentry record page
+  // URLs — see lib/confirmation/guest-email.ts).
+  const arrivalEmailRef = useRef(emailParam);
 
   const [reservation, setReservation] = useState<ReservationData | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchStatus, setFetchStatus] = useState<"ok" | "auth-required" | "not-found" | "error" | null>(null);
+  // The email a guest typed on the "Open Your Confirmation Link" screen (a
+  // copied, shared or bookmarked link has no email in it). A new object per
+  // submit, so re-trying the same address fetches again.
+  const [typedEmail, setTypedEmail] = useState<{ email: string } | null>(null);
+  const [emailInput, setEmailInput] = useState("");
   const [user, setUser] = useState<User | null>(null);
   const [showAccountPrompt, setShowAccountPrompt] = useState(true);
   const hasFiredPurchase = useRef(false);
@@ -176,17 +190,35 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
     getUser();
   }, [supabase.auth]);
 
-  // Fetch reservation data from API. Forward ?email= so guests (not logged in)
-  // can authenticate via the email verification path in /api/reservations/[id].
+  // Emailed ?email= arrival: remember the address for reloads, then take it
+  // out of the URL. Only once it is stored — if storage is blocked the URL
+  // keeps it (a reload still works) and the layout's guards keep it out of
+  // Clarity, GA4's page_view and Sentry.
   useEffect(() => {
+    const arrivalEmail = arrivalEmailRef.current;
+    if (!arrivalEmail) return;
+    if (rememberConfirmationEmail(confirmationId, arrivalEmail)) stripEmailFromAddressBar();
+  }, [confirmationId]);
+
+  // Fetch reservation data from API. A guest (not signed in) proves ownership
+  // with the checkout email, sent in the x-booking-email header — never in the
+  // URL — via /api/reservations/[id]. Refetches when the guest types an email
+  // on the "Open Your Confirmation Link" screen.
+  useEffect(() => {
+    let active = true;
     const fetchReservation = async () => {
       try {
-        const url = emailParam
-          ? `/api/reservations/${confirmationId}?email=${encodeURIComponent(emailParam)}`
-          : `/api/reservations/${confirmationId}`;
-        const response = await fetch(url);
+        const guestEmail =
+          typedEmail?.email ?? arrivalEmailRef.current ?? recallConfirmationEmail(confirmationId);
+        const response = await fetch(`/api/reservations/${confirmationId}`, {
+          headers: guestEmail ? { "x-booking-email": guestEmail } : undefined,
+        });
+        if (!active) return;
         if (response.ok) {
           const data = await response.json();
+          if (!active) return;
+          // A typed email that opened the booking is kept for reloads.
+          if (typedEmail) rememberConfirmationEmail(confirmationId, typedEmail.email);
           setReservation(data.reservation);
           setFetchStatus("ok");
         } else if (response.status === 403) {
@@ -201,18 +233,22 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
           );
         }
       } catch (err) {
+        if (!active) return;
         setFetchStatus("error");
         const wrapped = err instanceof Error
           ? new Error(`Confirmation ${confirmationId}: ${err.message}`)
           : new Error(`Confirmation ${confirmationId}: ${String(err)}`);
         captureBookingError(wrapped, { step: "confirmation" });
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
 
     fetchReservation();
-  }, [confirmationId, emailParam]);
+    return () => {
+      active = false;
+    };
+  }, [confirmationId, typedEmail]);
 
   // Get lot data - either from reservation, sessionStorage, or mock data
   const lot = useMemo<UnifiedLot | null>(() => {
@@ -377,6 +413,48 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
             <AlertCircle size={48} className="mx-auto text-amber-500 mb-4" />
             <h1 className="text-2xl font-bold text-gray-900 mb-4">{headline}</h1>
             <p className="text-gray-600 mb-8">{message}</p>
+            {fetchStatus === "auth-required" && !user && (
+              // A copied, shared or bookmarked link has no email in it; the
+              // email typed here is the same proof the emailed link carries.
+              // Guests only: the API checks a signed-in visitor by account.
+              <form
+                className="max-w-sm mx-auto mb-8 text-left"
+                data-clarity-mask="true"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const email = emailInput.trim();
+                  if (!email) return;
+                  setLoading(true);
+                  setTypedEmail({ email });
+                }}
+              >
+                <label htmlFor="booking-email" className="block text-sm font-medium text-gray-700 mb-1">
+                  Or enter the email you booked with
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    id="booking-email"
+                    type="email"
+                    required
+                    autoComplete="email"
+                    value={emailInput}
+                    onChange={(e) => setEmailInput(e.target.value)}
+                    className="flex-1 min-w-0 rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-orange"
+                  />
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-brand-orange text-white font-bold rounded-lg hover:bg-orange-600 transition-colors"
+                  >
+                    View booking
+                  </button>
+                </div>
+                {typedEmail && (
+                  <p className="mt-2 text-sm text-red-600">
+                    That email doesn&apos;t match this booking. Use the email you booked with, or the link in your confirmation email.
+                  </p>
+                )}
+              </form>
+            )}
             <Link
               href="/"
               className="inline-flex items-center px-6 py-3 bg-brand-orange text-white font-bold rounded-lg hover:bg-orange-600 transition-colors"
@@ -442,8 +520,9 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
                 : "grid grid-cols-1 lg:grid-cols-2 gap-8"
             }
           >
-            {/* Left Column */}
-            <div className="space-y-6">
+            {/* Left Column — masked in Clarity recordings: it shows the
+                guest's name, contact and vehicle details (see /privacy §6). */}
+            <div className="space-y-6" data-clarity-mask="true">
               <BookingDetails
                 lot={lot}
                 checkIn={checkIn}
@@ -495,7 +574,8 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
 
           {/* Create Account Prompt (for guests only) */}
           {!isCancelled && !user && showAccountPrompt && customerEmail && (
-            <div className="mt-8">
+            // Masked in Clarity: shows the guest's email (and takes a password).
+            <div className="mt-8" data-clarity-mask="true">
               <CreateAccountPrompt
                 email={customerEmail}
                 onClose={() => setShowAccountPrompt(false)}

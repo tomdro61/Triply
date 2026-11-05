@@ -86,7 +86,9 @@ export function VehicleDetailsStep({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    // data-clarity-mask: Clarity session recordings never capture what the
+    // customer types here (name, email, phone, plate) — see /privacy §6.
+    <form onSubmit={handleSubmit} className="space-y-6" data-clarity-mask="true">
       <div>
         <h2 className="text-xl font-bold text-gray-900 mb-1">Vehicle Information</h2>
         <p className="text-gray-500 text-sm">

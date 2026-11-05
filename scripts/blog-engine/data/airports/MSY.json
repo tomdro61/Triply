@@ -1,7 +1,7 @@
 {
   "code": "MSY",
   "fullName": "Louis Armstrong New Orleans International Airport",
-  "lastVerified": "2026-10-26",
+  "lastVerified": "2026-11-02",
   "overview": {
     "location": "City of Kenner, Jefferson Parish, Louisiana — about 11 miles west of downtown New Orleans, off I-10. Address: 1 Terminal Drive, Kenner, LA 70062. The current terminal (north side of the airfield) opened in November 2019; the old south terminal is no longer used by passengers.",
     "iataCode": "MSY",
@@ -149,8 +149,8 @@
     {
       "name": "Comfort Inn New Orleans Airport South",
       "slug": "comfort-inn-new-orleans-airport-south",
-      "dailyRate": 9.4,
-      "reservationRate": 9.4,
+      "dailyRate": 10.15,
+      "reservationRate": 10.15,
       "parkingType": "Self-park (hotel lot)",
       "amenities": ["24/7 Front Desk", "Restaurant"],
       "shuttleInfo": "On demand 6:00 AM-11:00 AM and 5:00 PM-11:00 PM only. NO shuttle 11:00 AM-5:00 PM or 11:00 PM-6:00 AM. Check in at the front desk to show your reservation and get a parking registration tag for your vehicle. On return, call 504-443-5100 after collecting bags; pickup is at B5, outside Door 3.",
@@ -161,9 +161,9 @@
       "phone": "504-443-5100",
       "notes": "Lowest grand total at MSY on 2026-10-16: $78.76 for a 7-night Nov 2-9 stay (8 billed days; $71.60 subtotal + fees/tax); same on Nov 9-16 and 16-23. Shuttle gaps 11 AM-5 PM and 11 PM-6 AM — midday and red-eye travelers need a backup plan (rideshare) or the Hilton.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "DoubleTree New Orleans Airport",
@@ -180,9 +180,9 @@
       "phone": "504-467-3111",
       "notes": "$81.22 grand total for Nov 2-9 (8 billed days; $72.00 subtotal + fees/tax), same on all three test weeks. No shuttle — add two rideshare trips to the real cost. No in/out privileges: once you exit, you cannot re-enter on the same reservation. Listing description says 2.2 miles; the search API says 1.5 mi.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Hilton New Orleans Airport",
@@ -198,9 +198,9 @@
       "phone": "504-469-5000",
       "notes": "$83.77 grand total for Nov 2-9 (8 billed days; $71.60 subtotal + $12.17 fees), same on all three test weeks. Minimum booking 2 days. The only Triply MSY lot with a 24/7 shuttle. Listing description says 'three miles' from the airport; the search API says 0.8 mi — it sits next to the Economy Garage (900 Airline Dr).",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "NOLA Airport Parking",
@@ -209,7 +209,7 @@
       "address": "1601 Airline Dr, Kenner, LA 70062",
       "notes": "Independent off-site lot with its own airport shuttle. Not sold on Triply — mention only as a comparison, never as a CTA.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "Days Inn / Ramada New Orleans Airport",
@@ -218,7 +218,7 @@
       "address": "1021 Airline Dr, Kenner, LA 70062",
       "notes": "Hotel park-and-fly on Airline Drive. Not sold on Triply — mention only as a comparison, never as a CTA.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     }
   ],
   "shuttleInfo": "On-airport: Economy Garage shuttle runs 24/7 to the far curb outside Door 9 with a 15-minute ride guarantee. Off-site via Triply: Hilton New Orleans Airport runs a 24/7 shuttle every 15 minutes; Comfort Inn New Orleans Airport South runs on demand only 6-11 AM and 5-11 PM (none 11 AM-5 PM or 11 PM-6 AM); DoubleTree New Orleans Airport has NO shuttle — use Uber/Lyft. Hotel shuttles pick up at the Ground Transportation Center, Baggage Claim Doors 1-5 (B5).",

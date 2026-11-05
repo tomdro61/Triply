@@ -1,5 +1,5 @@
 // Removes credentials that travel in URLs from Sentry events before they leave
-// the server. The post-trip review link /review/{token} is a bearer credential
+// the server or the browser. The post-trip review link /review/{token} is a bearer credential
 // for that booking's review: the landing route redirects it away at once, but
 // server tracing records the original request URL (sendDefaultPii does not
 // cover URLs). Also the `token=` query of the unsubscribe links — including
@@ -15,12 +15,53 @@ const REVIEW_PATH = /\/review\/[0-9a-zA-Z._-]{20,}/g;
 const TOKEN_QUERY = /((?:^|[?&"])token=)[^&#\s"'\\]+/g;
 // Any id segment, not just digits: a mistyped webhook URL still carries a real token.
 const DISCORD_WEBHOOK = /(\/api\/(?:v\d+\/)?webhooks\/(?!stripe\b)[^/\s?#"'\\]+\/)[^/\s?#"'\\]+/g;
+// The guest's email on an emailed confirmation link (/confirmation/{n}?email=)
+// and Stripe's 3-D Secure return (?payment_intent_client_secret=), which
+// /api/reservations/complete trades for that email — see
+// lib/privacy/recorded-url-params.ts. Matched by param NAME: `utm_medium=email`
+// is a value and is left alone.
+const SECRET_QUERY = /((?:^|[?&"])(?:email|payment_intent_client_secret)=)[^&#\s"'\\]+/g;
+// The same inside a URL that is itself encoded into another URL (…%3Femail%3D…).
+const SECRET_QUERY_ENCODED = /((?:%3F|%26)(?:email|payment_intent_client_secret)%3D)(?:(?!%26)[^&#\s"'\\])+/gi;
+// A Stripe client secret anywhere (a message, an encoded URL — so no \b: after
+// "%3D" there is no word boundary): keep the PaymentIntent id, drop the secret.
+const CLIENT_SECRET = /(pi_[A-Za-z0-9]+)_secret_[A-Za-z0-9]+/g;
+// The confirmation page's guest proof travels in this request header. The
+// server SDK attaches request headers to events ("x-booking-email") AND copies
+// them onto the root span as "http.request.header.x_booking_email"; it only
+// filters header names containing words like auth/token/session itself. The
+// value may contain JSON escapes.
+const BOOKING_EMAIL_HEADER = /("(?:http\.request\.header\.)?x[-_]booking[-_]email"\s*:\s*")(?:[^"\\]|\\.)*(")/gi;
 
 export function scrubUrlCredentials(text: string): string {
   return text
     .replace(REVIEW_PATH, "/review/[token]")
     .replace(TOKEN_QUERY, "$1[redacted]")
-    .replace(DISCORD_WEBHOOK, "$1[token]");
+    .replace(DISCORD_WEBHOOK, "$1[token]")
+    .replace(SECRET_QUERY, "$1[redacted]")
+    .replace(SECRET_QUERY_ENCODED, "$1[redacted]")
+    .replace(CLIENT_SECRET, "$1_secret_[redacted]")
+    .replace(BOOKING_EMAIL_HEADER, "$1[redacted]$2");
+}
+
+/**
+ * A browser breadcrumb with URL credentials removed from its strings only
+ * (message, data.url / from / to). Not the JSON round-trip of
+ * scrubEventCredentials: breadcrumbs reach this hook before Sentry normalises
+ * them, and a round-trip would empty any Error or class instance they carry.
+ */
+export function scrubBreadcrumbUrls<T extends { message?: string; data?: { [key: string]: unknown } }>(crumb: T): T {
+  const out: T = { ...crumb };
+  if (typeof out.message === "string") out.message = scrubUrlCredentials(out.message);
+  if (out.data) {
+    const data = { ...out.data };
+    for (const key of ["url", "from", "to"]) {
+      const value = data[key];
+      if (typeof value === "string") data[key] = scrubUrlCredentials(value);
+    }
+    out.data = data;
+  }
+  return out;
 }
 
 /**

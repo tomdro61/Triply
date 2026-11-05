@@ -16,7 +16,7 @@ import { maxAdvanceBookingDate } from "@/lib/booking-window";
 import { format, parse } from "date-fns";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
-import { trackLotView } from "@/lib/analytics/gtag";
+import { trackLotView, trackBookingTimeChange } from "@/lib/analytics/gtag";
 import { priceViewFromPricing } from "@/lib/pricing/price-view";
 import { useLivePrice } from "./use-live-price";
 import { isUnavailable, shownPrice } from "./shown-price";
@@ -397,7 +397,10 @@ export function BookingWidget({
                   <Clock size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
                   <select
                     value={selectedCheckInTime}
-                    onChange={(e) => setCheckInTime(e.target.value)}
+                    onChange={(e) => {
+                      setCheckInTime(e.target.value);
+                      trackBookingTimeChange({ surface: "lot_page", which: "checkin", time: e.target.value });
+                    }}
                     className={`w-full pl-7 pr-6 py-1 border rounded text-xs font-medium appearance-none cursor-pointer ${
                       selectedCheckInTime
                         ? "bg-gray-50 border-gray-200 text-gray-900"
@@ -437,7 +440,10 @@ export function BookingWidget({
                   <Clock size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
                   <select
                     value={checkOutTime}
-                    onChange={(e) => setCheckOutTime(e.target.value)}
+                    onChange={(e) => {
+                      setCheckOutTime(e.target.value);
+                      trackBookingTimeChange({ surface: "lot_page", which: "checkout", time: e.target.value });
+                    }}
                     className={`w-full pl-7 pr-6 py-1 border rounded text-xs font-medium appearance-none cursor-pointer ${
                       checkOutTime
                         ? "bg-gray-50 border-gray-200 text-gray-900"

@@ -1,7 +1,7 @@
 {
   "code": "SDF",
   "fullName": "Louisville Muhammad Ali International Airport",
-  "lastVerified": "2026-10-26",
+  "lastVerified": "2026-11-02",
   "overview": {
     "location": "South side of Louisville, Kentucky, at the intersection of I-65 and I-264. Terminal address: 600 Terminal Dr, Louisville, KY 40209. Formerly Standiford Field and Louisville International Airport; the Louisville Regional Airport Authority voted on January 16, 2019 to rename it for Muhammad Ali.",
     "iataCode": "SDF",
@@ -219,9 +219,9 @@
       "phone": "502-366-8100",
       "notes": "$66.78 grand total for a 7-night Nov 2-9, 2026 stay (8 billed days, 10 AM drop-off / 2 PM pickup), same on Nov 16-23; tagged 'lowest total' on Triply. Shuttle may not run on major holidays — flag this for Thanksgiving/Christmas trips. Listed on the airport's courtesy-van page as 'Hampton Inn Airport'.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "SpringHill Suites",
@@ -237,9 +237,9 @@
       "phone": "502-361-9009",
       "notes": "$66.78 grand total for Nov 2-9, 2026 (8 billed days), same on Nov 16-23. Minimum booking 1 day. Next door to Hampton Inn on Phillips Lane.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Residence Inn",
@@ -255,9 +255,9 @@
       "phone": "502-363-8800",
       "notes": "$66.78 grand total for Nov 2-9, 2026 (8 billed days), same on Nov 16-23. Minimum booking 1 day. Listing description mentions a 24/7 front desk.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "SDF Express Shuttle Parking Lot",
@@ -267,7 +267,7 @@
       "dailyRate": 9,
       "notes": "$6/day if pre-booked online. Not sold on Triply.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "SDF Surface Parking Lot",
@@ -275,7 +275,7 @@
       "parkingType": "Airport-owned surface lot (walk)",
       "dailyRate": 13,
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "SDF Premier East Lot",
@@ -283,7 +283,7 @@
       "parkingType": "Airport-owned surface lot (walk)",
       "dailyRate": 15,
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "SDF Premier West Lot",
@@ -291,7 +291,7 @@
       "parkingType": "Airport-owned surface lot (walk)",
       "dailyRate": 15,
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "SDF Parking Garage",
@@ -299,7 +299,7 @@
       "parkingType": "Airport-owned garage (attached)",
       "dailyRate": 22,
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "SDF Valet Parking",
@@ -307,7 +307,7 @@
       "parkingType": "Airport valet (upper-level curb)",
       "dailyRate": 35,
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "Holiday Inn Express (Bishop Lane)",
@@ -317,7 +317,7 @@
       "phone": "502-456-4411",
       "notes": "On the airport's courtesy-van list. Not returned by Triply search on 2026-10-16.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     }
   ],
   "shuttleInfo": "On-airport: Express Shuttle Lot shuttle runs 24 hours (real-time QR tracking; call (502) 363-3490). No shuttle from the Surface Lot; Garage and Premier lots are walkable. Off-site: Triply's three Phillips Lane lots (Hampton Inn, SpringHill Suites, Residence Inn), 1.2 mi away, all run 24/7 on-demand shuttles; Hampton Inn warns service may be unavailable on major holidays. Hotel vans use the Commercial Ground Transportation Lot (baggage claim level, west side). Call the hotel after collecting bags.",

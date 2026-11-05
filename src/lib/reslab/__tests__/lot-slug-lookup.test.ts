@@ -84,6 +84,17 @@ describe("findLotBySlug — duplicate names across the channel", () => {
     expect(reslabMock.getLocation).toHaveBeenCalledWith(9);
   });
 
+  it("a lot priced in CAD is not found by slug, with no detail fetch", async () => {
+    searchMock.getChannelLocationsCached.mockResolvedValue({
+      data: [{ ...loc(558, "Car Park Pearson"), currency: { id: 1, name: "Canadian Dollar", code: "CAD" } }],
+      incomplete: false,
+      stale: false,
+    });
+
+    expect(await findLotBySlug("car-park-pearson", FROM, TO)).toBeNull();
+    expect(reslabMock.getLocation).not.toHaveBeenCalled();
+  });
+
   it("a slug whose only match is blocked is a firm 404 even on a THIN list — never a retryable 503", async () => {
     searchMock.getChannelLocationsCached.mockResolvedValue({
       data: [loc(416, "Parking 4 Airport")],
