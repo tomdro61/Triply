@@ -93,6 +93,18 @@ export function isHiddenReslabLocation(locationId: number): boolean {
 }
 
 /**
+ * Only lots priced in US dollars are sold. ResLab prices our Canadian lots
+ * (YYZ, YUL, YYC, YOW) in CAD, and checkout charges in USD with no conversion,
+ * so a C$100 stay was shown as "$100" and charged US$100 (5 bookings,
+ * Oct 18 – Nov 2, 2026). Hidden like a blocked lot — out of search, lot page
+ * and checkout not found — until checkout converts. A location with no
+ * currency is USD, as transformLocation reads it.
+ */
+export function isUsdPricedLocation(location: { currency?: { code?: string } | null }): boolean {
+  return (location.currency?.code || "USD").toUpperCase() === "USD";
+}
+
+/**
  * Transform ResLab location to UnifiedLot format
  */
 export function transformLocation(
@@ -1527,9 +1539,10 @@ export async function searchParking(
     directLots.map((l) => l.reslabLocationId).filter((id): id is number => id !== null)
   );
 
-  // Drop lots we've deliberately hidden (blocked list + test lots in production — see hiddenReslabLocationIds).
+  // Drop lots we've deliberately hidden (blocked list + test lots in production — see hiddenReslabLocationIds)
+  // and lots not priced in USD (isUsdPricedLocation).
   locations = locations.filter(
-    (loc) => !isHiddenReslabLocation(loc.id) && !suppressedReslabIds.has(loc.id)
+    (loc) => !isHiddenReslabLocation(loc.id) && isUsdPricedLocation(loc) && !suppressedReslabIds.has(loc.id)
   );
   const locationsConsidered = locations.length + directLots.length;
 

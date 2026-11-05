@@ -29,6 +29,33 @@ const withPWA = withPWAInit({
         handler: "NetworkOnly",
         options: { cacheName: "park-stay-private" },
       },
+      // Checkout pages: /checkout/complete's URL carries a Stripe client
+      // secret, which the default `pages` rule would store as a cache key, and
+      // checkout never works offline anyway.
+      {
+        urlPattern: ({ sameOrigin, url: { pathname } }) =>
+          sameOrigin && (pathname === "/checkout" || pathname.startsWith("/checkout/")),
+        handler: "NetworkOnly",
+        options: { cacheName: "checkout-private" },
+      },
+      // Booking answers stay cacheable (as with the default `apis` rule) so a
+      // customer can reopen their confirmation with no signal at the lot. The
+      // route sends `Vary: x-booking-email`: a guest's cached booking is never
+      // served for another email or for none. (A signed-in answer has no
+      // header, so a later header-less request on the same browser can still
+      // get it offline — as on main.) Expiry must ignore Vary, or its
+      // delete-by-URL never matches a guest entry and they are kept forever.
+      {
+        urlPattern: ({ sameOrigin, url: { pathname } }) =>
+          sameOrigin && pathname.startsWith("/api/reservations/"),
+        handler: "NetworkFirst",
+        method: "GET",
+        options: {
+          cacheName: "reservations",
+          networkTimeoutSeconds: 10,
+          expiration: { maxEntries: 16, maxAgeSeconds: 86400, matchOptions: { ignoreVary: true } },
+        },
+      },
     ],
   },
 });

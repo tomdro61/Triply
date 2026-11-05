@@ -6,6 +6,7 @@ import { format, parseISO, isPast, isToday } from "date-fns";
 import { CancelReservationButton } from "./cancel-reservation-button";
 import { formatUsd } from "@/lib/booking/cost-breakdown";
 import { reservationCardAmounts } from "@/lib/bookings/reservation-card-amounts";
+import { rememberConfirmationEmail } from "@/lib/confirmation/guest-email";
 
 /** One row of `GET /api/user/bookings` as the card renders it. */
 export interface ReservationCardBooking {
@@ -55,7 +56,8 @@ export interface ReservationCardBooking {
 interface ReservationCardProps {
   booking: ReservationCardBooking;
   /**
-   * Logged-in customer's email — passed in the confirmation URL as a
+   * Logged-in customer's email — handed to the confirmation page on click
+   * (sessionStorage, never the URL: GA4/Clarity record page URLs) as a
    * fallback auth token for the `/api/reservations/[id]` GET. The API
    * prefers the session, but if it expired between this page load and
    * the click, the email keeps the deep-link working instead of 403-ing.
@@ -115,9 +117,12 @@ export function ReservationCard({
     );
   };
 
-  // Build confirmation URL with lot info + (when known) the customer email
-  // as a fallback auth token for the API GET. See the prop comment above.
-  const emailParam = customerEmail ? `&email=${encodeURIComponent(customerEmail)}` : "";
+  // The customer email (fallback auth for the API GET) goes to the
+  // confirmation page through sessionStorage on click, not the URL. See the
+  // prop comment above.
+  const handOverEmail = () => {
+    if (customerEmail) rememberConfirmationEmail(booking.reslab_reservation_number, customerEmail);
+  };
   // ?lot= is the confirmation page's sessionStorage key for the lot's photos;
   // a direct booking's lot id is "direct-<CMS id>" (never "reslab-null"). A
   // direct row missing its direct_lot_id gets NO lot param rather than a bogus
@@ -135,11 +140,11 @@ export function ReservationCard({
   // the confirmation page is the one place that states the charge. null (an
   // unreadable money column, or cancelled) renders no amount, never $0.00.
   const { bookingTotalCents, dueAtLocationCents, dueUnconfirmed, atLotCents } = reservationCardAmounts(booking);
-  const confirmationUrl = `/confirmation/${booking.reslab_reservation_number}?${lotQuery}checkin=${format(checkInDate, "yyyy-MM-dd")}&checkout=${format(checkOutDate, "yyyy-MM-dd")}${emailParam}`;
+  const confirmationUrl = `/confirmation/${booking.reslab_reservation_number}?${lotQuery}checkin=${format(checkInDate, "yyyy-MM-dd")}&checkout=${format(checkOutDate, "yyyy-MM-dd")}`;
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-lg hover:border-brand-orange/30 transition-all duration-200">
-      <Link href={confirmationUrl} className="block cursor-pointer">
+      <Link href={confirmationUrl} onClick={handOverEmail} className="block cursor-pointer">
         <div className="flex items-start justify-between mb-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
