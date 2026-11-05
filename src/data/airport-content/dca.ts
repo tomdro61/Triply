@@ -1,8 +1,10 @@
 import { AirportContent } from "./types";
 
 const dcaContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-11-05",
   metaDescription:
-    "Compare 9+ off-airport DCA parking lots from $8.50/day. Save vs $25–$35/day on-airport rates. Free shuttle to terminals, $2.25 Metro to downtown D.C. Free cancellation.",
+    "Compare bookable off-airport DCA parking lots, including covered garages, at today's prices. Save vs $25–$35/day on-airport rates. Free shuttle, $2.25 Metro to downtown D.C. Free cancellation.",
 
   sections: [
     {
@@ -11,27 +13,13 @@ const dcaContent: AirportContent = {
 
 DCA is unique among major U.S. airports: it has a 1,250-mile perimeter rule limiting most nonstop flights, plus federal slot controls capping operations at 67/hour. Both rules keep DCA at capacity year-round. The airport handled 24.89 million passengers in 2025.
 
-On-airport parking at DCA ranges from $25/day (Economy Lot) to $35/day (Parking 1). Off-airport parking through Triply starts at around $8.50/day pre-booked — saving up to 75% compared to terminal garages. But here's the most important fact: a round-trip Metro fare for two people ($9–$27) costs less than ONE day of any on-airport parking option.`,
+On-airport parking at DCA ranges from $25/day (Economy Lot) to $35/day (Parking 1). Off-airport parking through Triply typically costs a fraction of the terminal garage rate; the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees. But here's the most important fact: a round-trip Metro fare for two people ($9–$27) costs less than ONE day of any on-airport parking option.`,
     },
     {
       heading: "Best Off-Airport Parking Lots Near DCA",
-      body: `**Sheraton Suites Old Town Alexandria** — Tied for cheapest at around $8.50/day. 2.6 miles out — the furthest off-site lot but the lowest rate. Limited availability, often sells out.
+      body: `**Westin Crystal City** — **Closest bookable lot** at 0.8 miles. Underground garage parking, free shuttle every 30 minutes from 4:30 AM to 10:30 PM — no shuttle overnight. Seats are first-come, first-served with priority for hotel guests, so a full shuttle can mean an Uber or Lyft. No extra charge for full-size vans, pickups or large SUVs. Enroll your car at the front desk or you won't get out of the gate.
 
-**DoubleTree by Hilton Crystal City** — Around $8.50/day pre-booked. 1.5 miles from DCA. Free shuttle included. One of the best budget options.
-
-**The Parking Spot (Crystal Gateway Marriott)** — Around $9/day. Garage parking 1.25 miles from DCA. Shuttle every 30 minutes from 5 AM to 11:30 PM. Not 24/7 — not suitable for very early/late flights.
-
-**Sheraton Pentagon City Hotel** — Around $9/day pre-booked. 2 miles out. Hourly shuttle from 6 AM to 11:15 PM. Close to Pentagon City Metro and shops.
-
-**Crystal Gateway Marriott** — Around $10/day. Covered garage parking 1 mile from DCA. Shuttle every 30 minutes from 5:30 AM to midnight. Walking distance to Crystal City Metro.
-
-**The Westin Crystal City** — Around $12.90/day. Closest off-site lot at just 0.8 miles. Covered garage parking — most DCA off-site lots are uncovered. Walking distance to Crystal City Metro.
-
-**Hyatt Regency Crystal City** — Around $12/day pre-booked. Covered valet parking. Premium service. Walking distance to Crystal City Metro.
-
-**Hilton Crystal City at Reagan National** — Around $12/day pre-booked. Full-service Hilton in Crystal City with airport shuttle for non-guests.
-
-**Renaissance Arlington Capital View** — Around $10/day pre-booked. Modern hotel with regular shuttle service.`,
+**Sheraton Suites Old Town Alexandria** — Covered underground garage 2.6 miles out in Old Town, with 24-hour access to your car and 24-hour monitoring. Free shuttle every hour on the hour, 7 AM–10:30 PM, with on-demand airport pickups — **no shuttle 11 PM–7 AM**. Park on Level P2 only, or risk being towed. EV charging on site (first 4 hours complimentary, $2.50/hour after).`,
     },
     {
       heading: "The Metro Changes the Math at DCA",
@@ -41,13 +29,12 @@ Metro fares from DCA:
 • **L'Enfant Plaza** (near National Mall) — 10 minutes, $2.25 off-peak / $6.75 peak
 • **Pentagon** — 3 minutes, 1 stop
 • **Metro Center** (downtown D.C.) — 19 minutes via Blue Line
-• **Crystal City** (where most off-site hotel lots are) — 2 minutes
+• **Crystal City** (home of the Westin Crystal City lot) — 2 minutes
 • **Foggy Bottom** (Georgetown access, GWU) — 15 minutes via Blue Line
 
 For solo travelers, a round trip on Metro costs $4.50–$13.50. For a couple, $9–$27. Compare that to:
 • ONE day of Parking 1 at $35
 • ONE day of Parking 2 at $29
-• ONE day of off-site parking at $8.50
 
 Metro round-trip beats ANY parking option for trips of any length if you're heading anywhere on the Yellow or Blue Line. This is uniquely tilted at DCA — IAD requires 60+ minutes of Metro from Rosslyn, and BWI requires MARC/Amtrak.`,
     },
@@ -66,7 +53,7 @@ Pre-booking parking is strongly recommended given Economy Lot capacity reduction
       heading: "Tips for Parking at DCA",
       body: `• **Skip parking, take Metro** — For most travelers, a round-trip Metro fare beats ANY parking option on cost. Bring a SmarTrip card or use contactless payment.
 • **First 60 minutes free in garages** — Use Parking 1 or Parking 2 for passenger pickup/drop-off — no charge for the first hour. Beats the closed Cell Phone Lot during construction.
-• **Verify shuttle hours** — Most DCA off-site hotel shuttles are NOT 24/7. Crystal Gateway Marriott runs 5:30 AM–midnight. Sheraton Pentagon runs 6 AM–11:15 PM. For very early or very late flights, take Metro from a Crystal City hotel instead.
+• **Verify shuttle hours** — No bookable off-site shuttle runs 24/7. Westin Crystal City runs 4:30 AM–10:30 PM, and Sheraton Suites Old Town Alexandria runs 7 AM–10:30 PM. For very early or very late flights, budget for a rideshare or take Metro.
 • **Pre-book Economy Lot** — With Phase 1/2 construction reducing capacity ~40%, the Economy Lot can fill up. Reserve at reserve.flyreagan.com.
 • **Watch for congressional travel patterns** — DCA sees unique Monday morning and Friday afternoon spikes from Congress members and government commuters. Allow extra time on those days.
 • **Add 30 min for Snow Emergencies** — Taxi fares go up 125% during declared Snow Emergency. Build buffer time December–March, especially January–February.`,
@@ -77,12 +64,12 @@ Pre-booking parking is strongly recommended given Economy Lot capacity reduction
     {
       question: "What is the cheapest parking at DCA?",
       answer:
-        "Sheraton Suites Old Town Alexandria and DoubleTree by Hilton Crystal City are tied as the cheapest off-airport options at around $8.50/day pre-booked. The cheapest on-airport option is the Economy Lot at $25/day. But for most travelers, a round-trip Metro fare beats parking on cost — $4.50–$13.50 for one person. All prices are based on a sample 5-day booking and may vary.",
+        "Off-airport hotel garages are usually the lowest-cost way to park at DCA: Westin Crystal City (0.8 miles) and Sheraton Suites Old Town Alexandria (2.6 miles) both offer covered garage parking with a free shuttle. The cheapest on-airport option is the Economy Lot at $25/day. But for most travelers, a round-trip Metro fare beats parking on cost — $4.50–$13.50 for one person. Off-airport prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.",
     },
     {
       question: "How much does it cost to park at DCA?",
       answer:
-        "On-airport parking at DCA is $25/day (Economy Lot), $29/day (Parking 2), or $35/day (Parking 1). DCA does not offer valet parking. Off-airport parking through Triply starts at around $8.50/day pre-booked — saving up to 75% compared to Parking 1. The first 60 minutes are FREE in Parking 1 and Parking 2 garages.",
+        "On-airport parking at DCA is $25/day (Economy Lot), $29/day (Parking 2), or $35/day (Parking 1). DCA does not offer valet parking. Off-airport parking through Triply typically costs a fraction of the Parking 1 rate — see the lot list on this page for current rates. The first 60 minutes are FREE in Parking 1 and Parking 2 garages.",
     },
     {
       question: "Is the Metro at DCA worth it instead of parking?",
@@ -92,7 +79,7 @@ Pre-booking parking is strongly recommended given Economy Lot capacity reduction
     {
       question: "Do DCA off-airport parking lots run shuttles 24/7?",
       answer:
-        "No — most DCA off-site hotel shuttles are NOT 24/7. Crystal Gateway Marriott runs 5:30 AM to midnight every 30 minutes. Sheraton Pentagon City runs 6 AM to 11:15 PM hourly. Hyatt Regency runs on schedule. For early-morning or late-night flights, consider taking Metro from a Crystal City hotel instead.",
+        "No — no bookable off-site lot runs a 24/7 shuttle. Westin Crystal City runs every 30 minutes from 4:30 AM to 10:30 PM (first-come, first-served, hotel guests first). Sheraton Suites Old Town Alexandria runs hourly on the hour from 7 AM to 10:30 PM, with on-demand airport pickups during those hours. For early-morning or late-night flights, budget for a rideshare or take Metro.",
     },
     {
       question: "Why does DCA have flight restrictions?",

@@ -1,8 +1,10 @@
 import { AirportContent } from "./types";
 
 const phlContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-11-05",
   metaDescription:
-    "Compare 6+ off-airport PHL parking lots from $6.50/day. Save vs $15–$38/day on-airport rates. Free shuttle, SEPTA Airport Line directly at terminal for $5 to Center City. Free cancellation.",
+    "Compare bookable off-airport PHL parking lots, including 24/7 shuttle lots, at today's prices. Save vs $15–$38/day on-airport rates. SEPTA Airport Line at the terminals, $5 to Center City. Free cancellation.",
 
   sections: [
     {
@@ -11,23 +13,21 @@ const phlContent: AirportContent = {
 
 The airport has 7 terminals (A-East, A-West, B, C, D, E, F) connecting domestic mainline, international, low-cost carriers (Frontier, JetBlue, Southwest, Spirit), and regional operations (American Eagle).
 
-On-airport parking at PHL is straightforward. Garages A-F all share the same rate structure: $20/day at upper levels, $38/day at ground level (short-term). The Economy Lot is $15/day flat with free 24/7 shuttle. Off-airport parking through Triply starts at around $6.50/day pre-booked — saving up to 83% compared to short-term parking.
-
-For a 7-day trip for 2 travelers, off-site parking saves $50–$100 vs on-airport long-term garage.`,
+On-airport parking at PHL is straightforward. Garages A-F all share the same rate structure: $20/day at upper levels, $38/day at ground level (short-term). The Economy Lot is $15/day flat with free 24/7 shuttle. Off-airport parking through Triply typically costs a fraction of the short-term garage rate; the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees. Two of the bookable lots (Motel 6 and Red Carpet Inn) have no shuttle, so check the shuttle line on each lot before you book.`,
     },
     {
       heading: "Best Off-Airport Parking Lots Near PHL",
-      body: `**Jet Stream Parking** — Around $6.50/day pre-booked. Cheapest off-site rate. 24/7 on-demand shuttle. 1.5 miles out in Essington, PA.
+      body: `**ARB Parking Philadelphia** — **Closest bookable lot** at 1.1 miles. Free 24/7 shuttle every 10 minutes, 365 days a year. 24/7 front desk and on-site staff; the lot is monitored around the clock.
 
-**Expresspark South Lot** — Around $12.95/day. Highly rated (4.9/5 with 2,000+ reviews, 98% 5-star Google rating). Free 24/7 shuttle. ~2-minute ride to terminals.
+**MS Parking Philly** — 2.2 miles out. 24/7 shuttle every 10–15 minutes to and from your terminal. 24/7 front desk, monitored around the clock, with valet and free Wi-Fi listed.
 
-**The Parking Spot North** — Around $12.95/day pre-booked. National brand with covered parking option. Premium service tier available. 24-hour shuttle.
+**Regal Philly Parking** — 2.3 miles out. Free 24/7 shuttle every 10–15 minutes. 24/7 front desk and on-site staff; the lot is monitored around the clock.
 
-**The Parking Spot South** — Around $12.95/day pre-booked. Same brand and quality as North location. Best for travelers from Delaware, Maryland, and South Jersey via I-95.
+**PHL Park & Ride – Holiday Inn Philadelphia Airport** — Hotel lot at the Holiday Inn Philadelphia Airport–Stadium Area, 4.1 miles out. 24/7 shuttle every 30 minutes, with on-demand pickups (airport pickup is in Zone 4). Check in at the front desk for a dashboard parking permit.
 
-**SmartPark (PHL)** — Around $13.95/day. **#1-rated PHL parking** — 4.8/5 rating with 2,000+ positive reviews. Quiet residential area in Essington. 24/7 on-demand shuttle with professional uniformed drivers. Premium service.
+**Motel 6 (Lester)** — 2.0 miles out. **No shuttle** — the airport is a few minutes away by Uber, Lyft or taxi. 24/7 front desk. No extra charge for full-size vans, pickups or large SUVs.
 
-**Park N Jet** — Around $13.95/day. 24/7 shuttle to terminal curbside. Note: $10.11 one-time surcharge plus PHL Airport Access Fee on top of daily rate. Factor into total cost.`,
+**Red Carpet Inn Philadelphia Airport** — 2.0 miles out. **No shuttle** — plan a quick rideshare or taxi. 24/7 front desk. No extra charge for full-size vans, pickups or large SUVs. Heads-up: GPS may stop you at a Wawa; keep going about 10 more blocks and the Red Carpet Inn is on the left.`,
     },
     {
       heading: "SEPTA Airport Line — Rail at the Terminal",
@@ -60,11 +60,10 @@ The airport processed 4.1 million international passengers in 2025, up 7.5% year
     },
     {
       heading: "Tips for Parking at PHL",
-      body: `• **Pre-book online** — Pre-booking on PHL.org or off-site lot websites saves $1–$5/day vs walk-up.
+      body: `• **Pre-book online** — Pre-booked rates are typically lower than walk-up rates, and pre-booking guarantees your space.
 • **Free EV charging in Garages C and D** — Each has 2 ChargePoint stations on Level 1 (4 ports total). Economy Lot has 3 ChargePoint stations near toll plaza (6 ports). All FREE while parked — you only pay regular parking rates.
 • **Use SEPTA for Center City** — At $5, it beats the $20–$35 rideshare and the $28.50 flat-rate taxi for downtown trips. 4 stations directly at the terminals.
-• **Watch for $10.11 surcharges** — Some off-site lots (Park N Jet) add a one-time surcharge plus PHL Airport Access Fee on top of daily rate. Factor this in for short stays.
-• **Verify off-site shuttle hours** — SmartPark, Expresspark, Jet Stream, and The Parking Spot all run 24/7. Hotel-based lots may have limited hours.
+• **Check the shuttle before you book** — ARB Parking, MS Parking Philly, Regal Philly Parking and the Holiday Inn Park & Ride all run 24/7 shuttles. Motel 6 and Red Carpet Inn have no shuttle, so budget for a rideshare each way.
 • **AAdvantage credit card bonus** — AAdvantage credit cardmembers earn bonus miles on PHL parking purchases — see phl.org/aadvantage for details.
 • **PA & I-95 traffic** — Watch out during weekday rush hours. Allow extra time, especially for early morning departures.`,
     },
@@ -74,12 +73,12 @@ The airport processed 4.1 million international passengers in 2025, up 7.5% year
     {
       question: "What is the cheapest parking at PHL?",
       answer:
-        "Jet Stream Parking is the cheapest off-airport option at around $6.50/day pre-booked. Expresspark South Lot at $12.95/day is also very competitive with one of the highest ratings (98% 5-star Google rating, 2,000+ reviews). The cheapest on-airport option is the Economy Lot at $15/day with free 24/7 shuttle. All prices are based on a sample 7-day booking and may vary.",
+        "Off-airport lots booked through Triply typically cost a fraction of on-airport rates. Motel 6 and Red Carpet Inn have no shuttle, so add a rideshare each way before comparing; ARB Parking, MS Parking Philly, Regal Philly Parking and the Holiday Inn Park & Ride include a 24/7 shuttle. The cheapest on-airport option is the Economy Lot at $15/day with free 24/7 shuttle. Off-airport prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.",
     },
     {
       question: "How much does it cost to park at PHL?",
       answer:
-        "On-airport parking at PHL ranges from $15/day (Economy Lot with free shuttle) to $38/day (ground-level short-term garages). Garages A-F all max at $20/day on upper levels. Off-airport parking through Triply starts at around $6.50/day pre-booked — saving up to 83%.",
+        "On-airport parking at PHL ranges from $15/day (Economy Lot with free shuttle) to $38/day (ground-level short-term garages). Garages A-F all max at $20/day on upper levels. Off-airport parking through Triply typically costs a fraction of the garage rate — see the lot list on this page for current rates.",
     },
     {
       question: "How do I get from PHL to Center City Philadelphia?",
@@ -94,7 +93,7 @@ The airport processed 4.1 million international passengers in 2025, up 7.5% year
     {
       question: "Do PHL off-airport parking lots run shuttles 24/7?",
       answer:
-        "Yes for major operators. SmartPark, Expresspark, Jet Stream, The Parking Spot North/South, and Park N Jet all offer free 24/7 on-demand shuttle service. Most are about 2 minutes from the terminals due to their close proximity in Essington, PA.",
+        "Four bookable lots do: ARB Parking Philadelphia (every 10 minutes, free), MS Parking Philly (every 10–15 minutes), Regal Philly Parking (every 10–15 minutes, free), and the PHL Park & Ride at the Holiday Inn Philadelphia Airport (every 30 minutes, plus on-demand pickups). Motel 6 and Red Carpet Inn have no shuttle — the airport is a short rideshare or taxi away.",
     },
     {
       question: "How early should I arrive at PHL?",

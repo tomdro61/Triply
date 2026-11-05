@@ -1,7 +1,7 @@
 {
   "code": "ORD",
   "fullName": "Chicago O'Hare International Airport",
-  "lastVerified": "2026-10-26",
+  "lastVerified": "2026-11-02",
   "overview": {
     "location": "Unincorporated area of Cook County, Illinois — 14 miles northwest of downtown Chicago (the Loop)",
     "iataCode": "ORD",
@@ -246,7 +246,7 @@
       "freeCancellation": true,
       "notes": "Well-established ORD off-site lot with strong reviews. Indoor option is great for Chicago winters. 24/7 shuttle runs every 10-15 minutes — one of the most frequent among off-site lots.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "PreFlight Airport Parking",
@@ -263,7 +263,7 @@
       "freeCancellation": true,
       "notes": "Premium off-site option with one of the fastest shuttle frequencies (every 5-10 min). Indoor covered parking is valuable during Chicago winters. EV charging available — unusual for off-site lots.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "WallyPark Premier Airport Parking",
@@ -280,7 +280,7 @@
       "freeCancellation": true,
       "notes": "Premium option — higher rate but fully covered garage with valet. Good for travelers who want a hassle-free experience. Luggage assistance is a nice touch. $16.95/day pre-booked still saves vs $43/day terminal garages.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "Loews Chicago O'Hare Hotel Parking",
@@ -297,7 +297,7 @@
       "freeCancellation": true,
       "notes": "Upscale hotel parking option. 24/7 shuttle every 15 min is reliable. Close to Rosemont entertainment district (MB Financial Park, Fashion Outlets). Good option if you want hotel amenities before an early flight.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "Hilton Chicago O'Hare Airport",
@@ -314,7 +314,7 @@
       "freeCancellation": true,
       "notes": "Most convenient option — walk to Terminal 2 in minutes. Price is premium ($39/day valet only) but comparable to terminal garages. Best for business travelers, early flights, or avoiding shuttle logistics. Only on-airport hotel.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "Routes Airport Parking",
@@ -331,9 +331,9 @@
       "freeCancellation": true,
       "notes": "Budget-friendly option on the Mannheim Road corridor. $7.95/day pre-booked is solid value. 24/7 shuttle. Good for price-conscious long-term parkers.",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26",
+      "rateVerified": "2026-11-02",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     }
   ],
   "shuttleInfo": "On-airport: FREE Airport Transit System (ATS) automated people mover connects all terminals (1, 2, 3, 5), Multi-Modal Facility, Economy Lots, and Kiss 'n' Fly — trains every 3-5 minutes, 24/7. Off-site: Most Mannheim Road lots (Park 'N Jet, PreFlight, WallyPark) offer free 24/7 shuttle every 5-15 minutes, with 7-10 minute ride to terminals. The Hilton O'Hare requires no shuttle — it's connected directly to Terminal 2.",

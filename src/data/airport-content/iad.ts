@@ -1,33 +1,23 @@
 import { AirportContent } from "./types";
 
 const iadContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-11-05",
   metaDescription:
-    "Compare 7+ off-airport IAD parking lots from $5.95/day. Save vs $15–$45/day on-airport rates. Free shuttle to terminals, free EV charging on-airport. Silver Line Metro to D.C. Free cancellation.",
+    "Compare bookable off-airport IAD parking lots, including a 24/7 shuttle lot, at today's prices. Save vs $15–$39/day on-airport rates. Free EV charging on-airport, Silver Line Metro to D.C. Free cancellation.",
 
   sections: [
     {
       heading: "Dulles Airport Parking — D.C.'s International Gateway",
       body: `Washington Dulles International Airport (IAD) is the Washington, D.C. region's primary international airport, handling all long-haul international flights for the metro area. It's United Airlines' East Coast hub and one of the few U.S. airports without a perimeter rule or slot controls — meaning airlines can fly anywhere in the world with no restrictions.
 
-Located 26 miles west of downtown D.C., IAD is significantly farther from the city than DCA (5 miles). On-airport parking is among the most reasonable in the D.C. region: Garages 1 & 2 are $21/day, Economy Lot is $15/day, Terminal Lot $32/day, Valet $39/day. Off-airport parking through Triply starts at around $5.95/day pre-booked — saving up to 75% compared to terminal lots.
-
-For an 8-day trip for 2 travelers, off-site parking saves $88–$120 vs Garage 1/2.`,
+Located 26 miles west of downtown D.C., IAD is significantly farther from the city than DCA (5 miles). On-airport parking is among the most reasonable in the D.C. region: Garages 1 & 2 are $21/day, Economy Lot is $15/day, Terminal Lot $32/day, Valet $39/day. Off-airport parking through Triply typically costs a fraction of the Terminal Lot rate; the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.`,
     },
     {
       heading: "Best Off-Airport Parking Lots Near IAD",
-      body: `**Hyatt Regency Dulles Airport** — Around $5.95/day pre-booked. 1.9 miles from IAD with 24/7 shuttle (every 30 minutes daytime, on-demand overnight). 4.7/5 rating. No hotel stay required.
+      body: `**Hyatt Regency Dulles Airport** — **Closest bookable lot** at 1.9 miles, in Herndon. Free shuttle runs 24/7: every 30 minutes 6 AM–11 PM (top and bottom of the hour), on demand overnight. Airport pickups at curb 2B or 2G outside lower-level baggage claim. Check in at the front desk first (allow about 15 minutes) and park only in Hyatt-marked spots — the lot is shared with other businesses. 24/7 front desk; parking-only guests can use the hotel Wi-Fi and lounge. No hotel stay required.
 
-**Comfort Suites Chantilly - Dulles Airport** — Around $5.99/day. Cheapest budget option. 6 miles in Chantilly. **Limited shuttle hours (6:15 AM – 9:30 PM)** — not for late or early flights. 4.7/5 rating.
-
-**Spark By Hilton Sterling Dulles Airport** — Around $6.50/day. 3.7 miles in Sterling. Hourly shuttle 6 AM–10 PM only. 4.6/5 rating with 610+ reviews.
-
-**Hyatt House Dulles Airport** — Around $6.95/day. Extended-stay hotel parking. Shuttle every 30 minutes 6 AM–11 PM, first-come-first-served.
-
-**DoubleTree by Hilton Dulles Airport - Sterling** — Around $6.95/day. On-demand shuttle 6 AM–10 PM. Highly rated (4.7/5 with 1,168 reviews). 6.4 miles out — furthest off-site lot.
-
-**DoubleTree Washington Dulles Airport (Formerly Hilton)** — Around $8.25/day pre-booked. Extended shuttle hours: 4 AM–midnight covers most flight times. 4.9/5 rating.
-
-**Crowne Plaza Dulles Airport** — Around $9.95/day. Best covered option — 75% covered parking deck. 24/7 shuttle every 30 minutes. EV charging available. 4.7/5 rating.`,
+**DoubleTree Washington Dulles Airport** — Outdoor lot 2.1 miles out in Herndon. Free shuttle 4 AM–midnight, every 30 minutes, with return pickups by phone during shuttle hours — **no shuttle midnight–4 AM**. Arrive at least 1 hour before you want to leave to check in and get your security sticker. No extra charge for full-size vans, pickup trucks or large SUVs.`,
     },
     {
       heading: "Silver Line Metro — Cheap But Slow Transit",
@@ -59,7 +49,7 @@ The airport's iconic main terminal (Eero Saarinen, 1962) with its dramatic suspe
       heading: "Tips for Parking at IAD",
       body: `• **Free EV charging at IAD** — Garage 1 has 96 EV charging stations and Garage 2 has 66 — all free with parking (you only pay standard parking rates). Garage 1 has the most chargers. Stations are 120V Level 1 — best for long-term parkers.
 • **Pre-book for guaranteed space** — Reserve at reserve.flydulles.com. Especially important during international travel peaks.
-• **Verify shuttle hours** — Most off-site hotel shuttles are NOT 24/7. Hyatt Regency runs 24/7 (best). Comfort Suites runs 6:15 AM–9:30 PM only. DoubleTree Formerly Hilton runs 4 AM–midnight. Match shuttle hours to your flight times.
+• **Verify shuttle hours** — Hyatt Regency Dulles runs 24/7 (on demand overnight). DoubleTree Washington Dulles runs 4 AM–midnight only. Match shuttle hours to your flight times.
 • **Express Valet text service** — Text your valet ticket number to (703) 214-4455 upon landing — your vehicle is ready at the Service Center when you arrive.
 • **Allow time for inter-terminal transit** — AeroTrain stations connect Concourses A, B, C. Concourse D requires a mobile lounge. Allow 10–15 minutes for connections.
 • **Capital One Venture X opens new lounge soon** — If you're a Venture X cardholder, the new Capital One Lounge opens in Main Terminal in 2026.
@@ -71,12 +61,12 @@ The airport's iconic main terminal (Eero Saarinen, 1962) with its dramatic suspe
     {
       question: "What is the cheapest parking at Dulles airport?",
       answer:
-        "Hyatt Regency Dulles at around $5.95/day pre-booked is the cheapest off-airport option with 24/7 shuttle. Comfort Suites Chantilly at $5.99/day is also very cheap but has limited shuttle hours (6:15 AM–9:30 PM only). The cheapest on-airport option is the Economy Lot at $15/day. All prices are based on a sample 8-day booking and may vary.",
+        "The cheapest on-airport option is the Economy Lot at $15/day. Off-airport, Hyatt Regency Dulles Airport (24/7 shuttle) and DoubleTree Washington Dulles Airport (shuttle 4 AM–midnight) both include a free shuttle. Their prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.",
     },
     {
       question: "How much does it cost to park at IAD?",
       answer:
-        "On-airport parking at IAD ranges from $15/day (Economy Lot) to $39/day (Valet). Garages 1 & 2 are $21/day, Terminal Lot $32/day. Off-airport parking through Triply starts at around $5.95/day pre-booked — saving up to 75% compared to terminal lots.",
+        "On-airport parking at IAD ranges from $15/day (Economy Lot) to $39/day (Valet). Garages 1 & 2 are $21/day, Terminal Lot $32/day. Off-airport parking through Triply typically costs a fraction of the Terminal Lot rate — see the lot list on this page for current rates.",
     },
     {
       question: "Does IAD have free EV charging?",

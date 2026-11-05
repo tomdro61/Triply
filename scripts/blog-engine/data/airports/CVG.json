@@ -1,7 +1,7 @@
 {
   "code": "CVG",
   "fullName": "Cincinnati/Northern Kentucky International Airport",
-  "lastVerified": "2026-10-26",
+  "lastVerified": "2026-11-02",
   "overview": {
     "location": "Hebron, Boone County, Kentucky — across the Ohio River from Cincinnati, Ohio. Despite the 'Cincinnati' name, CVG is in KENTUCKY, not Ohio (a common traveler mix-up).",
     "iataCode": "CVG",
@@ -188,10 +188,9 @@
       "phone": "(859) 647-1170",
       "notes": "Lowest sellable rate at CVG on 2026-10-13 ($36.03 for a 6-night Nov 2-8 stay, 7 billed days). 24/7 shuttle makes it safe for 5-6 AM departures.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26",
-      "rateSpreadPct": 17.49
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Quality Inn & Suites",
@@ -208,9 +207,9 @@
       "phone": "(859) 746-0300",
       "notes": "Allow at least 30 minutes for check-in before your shuttle. No overnight shuttle (12-5 AM) — late-night arrivals need another ride. Good pick for oversized vehicles.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Holiday Inn Cincinnati Airport",
@@ -227,9 +226,9 @@
       "phone": "(859) 371-2233",
       "notes": "Shuttle return line is (859) 746-5611 (different from the main number). Quoted $38.46 total for Nov 2-8.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Holiday Inn Express & Suites",
@@ -246,9 +245,9 @@
       "phone": "(859) 817-0337",
       "notes": "Allow 30 minutes for check-in. Shuttle does not run 11 PM-6:30 AM, so not ideal for 6 AM departures. Bring your own child car seat — shuttle rides are denied without proper seating.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Hilton Cincinnati Airport",
@@ -265,9 +264,9 @@
       "phone": "(859) 371-4400",
       "notes": "Display the front-desk dashboard sticker or risk towing; do not park in the Rafferty's lot. Shuttle cannot take mobility scooters. 18-wheelers prohibited. Quoted $50.40 total (incl. tax) for Nov 2-8.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     }
   ],
   "shuttleInfo": "On-airport: Economy Lot shuttle every 15 minutes, ValuPark continuous 24/7 pickup with luggage help; both trackable live on BusGenius. Off-site: all Triply partner lots are hotel lots with free shuttles that pick up at Ground Transport West (Baggage Claim level) — call the hotel after you collect bags. Hyatt Place, Holiday Inn Cincinnati Airport and Hilton run 24/7; Quality Inn & Suites (5 AM-12 AM) and Holiday Inn Express & Suites (6:30 AM-11 PM) do not run overnight.",
