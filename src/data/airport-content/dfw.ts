@@ -1,6 +1,8 @@
 import { AirportContent } from "./types";
 
 const dfwContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-04-25",
   metaDescription:
     "Compare bookable off-airport DFW parking lots, including 24/7 shuttle lots, at today's prices. Save vs $10–$34/day on-airport rates. DART/TEXRail to Dallas/Fort Worth from $2.50. Free cancellation.",
 

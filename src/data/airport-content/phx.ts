@@ -1,6 +1,8 @@
 import { AirportContent } from "./types";
 
 const phxContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-11-01",
   metaDescription:
     "Compare bookable off-airport PHX parking lots, including 24/7 shuttle lots, at today's prices. Save vs $16–$43/day on-airport rates. Free 24/7 PHX Sky Train, Valley Metro Rail to downtown for $2. Free cancellation.",
 

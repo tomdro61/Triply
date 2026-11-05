@@ -1,6 +1,8 @@
 import { AirportContent } from "./types";
 
 const pdxContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-04-25",
   metaDescription:
     "Compare bookable off-airport PDX parking lots with 24/7 shuttles at today's prices. Save vs $12–$35/day on-airport rates. MAX Red Line at the terminal, $2.80 to downtown. Free cancellation.",
 

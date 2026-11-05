@@ -1,6 +1,8 @@
 import { AirportContent } from "./types";
 
 const mcoContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-04-25",
   metaDescription:
     "Compare bookable off-airport MCO parking lots, including 24/7 shuttle lots, at today's prices. Save vs $10–$28/day on-airport rates. Brightline rail to South Florida from Terminal C. Free cancellation.",
 

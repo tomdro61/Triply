@@ -1,6 +1,8 @@
 import { AirportContent } from "./types";
 
 const slcContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-04-25",
   metaDescription:
     "Check bookable off-airport SLC parking for your dates at today's prices. Save vs $12–$60/day on-airport rates. Free EV charging on-airport, TRAX to downtown for $2.50. Free cancellation.",
 

@@ -109,7 +109,14 @@ export default async function AirportParkingPage({ params }: PageProps) {
   const emptyState = emptyStateCopy(airport.name, data.locationsConsidered);
   // FAQPage JSON-LD only when the FAQ is actually shown (it isn't at 0 lots) —
   // Google requires FAQ markup to match visible content.
-  const schemas = buildAirportSchemas(airport, data, data.totalLots > 0 ? faqs : []);
+  // Article only when the hand-written guide is on screen (it isn't at 0 lots).
+  const showsGuide = data.totalLots > 0 && customContent !== null;
+  const schemas = buildAirportSchemas(
+    airport,
+    data,
+    data.totalLots > 0 ? faqs : [],
+    showsGuide ? customContent : null
+  );
 
   return (
     <>
@@ -125,7 +132,10 @@ export default async function AirportParkingPage({ params }: PageProps) {
         <>
           <LotGrid airport={airport} lots={data.topLots} />
           <RatesTable airport={airport} lots={data.lots} />
-          <SEOContent sections={seoSections} />
+          <SEOContent
+            sections={seoSections}
+            updatedOn={customContent?.updatedOn}
+          />
           <ComparisonCallout airport={airport} />
           <AirportFAQ faqs={faqs} airportCode={airport.code} />
         </>

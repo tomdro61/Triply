@@ -1,6 +1,8 @@
 import { AirportContent } from "./types";
 
 const laxContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-04-25",
   metaDescription:
     "Compare bookable off-airport LAX parking lots, including 24/7 shuttle lots, at today's prices. Save vs $35–$60/day on-airport rates. Hosting the 2028 Olympics — APM and rail opening soon. Free cancellation.",
 

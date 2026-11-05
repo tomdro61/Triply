@@ -1,6 +1,8 @@
 import { AirportContent } from "./types";
 
 const bwiContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-04-25",
   metaDescription:
     "Compare bookable off-airport BWI parking lots, including 24/7 shuttle lots, at today's prices. Save vs $11–$30/day on-airport rates. Free EV charging on-airport, MARC train to D.C. for $8. Free cancellation.",
 

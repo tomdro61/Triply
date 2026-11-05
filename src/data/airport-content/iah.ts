@@ -1,6 +1,8 @@
 import { AirportContent } from "./types";
 
 const iahContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-04-25",
   metaDescription:
     "Compare bookable off-airport IAH parking lots, including hotel lots with airport shuttles, at today's prices. Save vs $25/day on-airport garages. Free EV charging on-airport, $4.50 express bus to downtown Houston. Free cancellation.",
 

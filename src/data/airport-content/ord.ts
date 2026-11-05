@@ -1,6 +1,8 @@
 import { AirportContent } from "./types";
 
 const ordContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-04-25",
   metaDescription:
     "Compare bookable off-airport ORD parking lots, including 24/7 shuttle lots, at today's prices. Save vs $15–$43/day on-airport rates. CTA Blue Line to downtown for $5. Free cancellation.",
 

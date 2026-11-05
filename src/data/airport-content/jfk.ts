@@ -1,6 +1,8 @@
 import { AirportContent } from "./types";
 
 const jfkContent: AirportContent = {
+  publishedOn: "2026-03-20",
+  updatedOn: "2026-03-20",
   metaDescription:
     "Compare bookable off-airport JFK parking lots, including 24/7 shuttle lots, at today's prices. Save vs $48–$80/day on-airport garages. Lot shuttles to the terminals — skip the $8.50 AirTrain. Free cancellation.",
 
