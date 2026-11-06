@@ -480,6 +480,22 @@ test('round 2 · 2: only the generated CTA ends a section; an ordinary booking-l
   assert.deepEqual(kidsOf(applyEdit(doc(h('h2', 'Rates'), p('x'), linkFirst), e).after), ['h2:Rates', 'Rates change daily.'])
 })
 
+test('round 3: an all-caps lot name ("THE PARKING POINT") blocks; a CTA whose anchor was formatted still ends the section', () => {
+  const pst: PostLike = { ...doc(h('h2', 'A'), p('Old line.')), airportCode: 'EWR' }
+  const e: EditSpec = { replace: [{ text: 'Old line.', html: '<p>THE PARKING POINT EWR Parking Guide</p>' }] }
+  assert.ok(checkEdit(pst, applyEdit(pst, e), e, known, lotNamesFor('EWR')).blockers.some((b) => b.includes('"The Parking Point (EWR)"')))
+  // an editor bolded "IAD" in the anchor: three runs, still the generated CTA, still outside the last section
+  const cta = JSON.parse(JSON.stringify(makeCtaParagraph(CTA)))
+  cta.children[0].children = [text('Compare '), { ...text('IAD'), format: 1 }, text(' parking rates')]
+  const post = doc(h('h2', 'A'), p('a'), h('h2', 'Rates'), p('Rates vary.'), cta)
+  const sec: EditSpec = { replace: [{ section: 'Rates', html: '<p>Rates change daily.</p>' }] }
+  assert.deepEqual(kidsOf(applyEdit(post, sec).after), ['h2:A', 'a', 'h2:Rates', 'Rates change daily.', CTA.fullText])
+  // an empty text run before the link renders nothing and doesn't hide the CTA either
+  const lead = JSON.parse(JSON.stringify(makeCtaParagraph(CTA)))
+  lead.children = [text(''), ...lead.children]
+  assert.deepEqual(kidsOf(applyEdit(doc(h('h2', 'A'), p('a'), h('h2', 'Rates'), p('Rates vary.'), lead), sec).after), ['h2:A', 'a', 'h2:Rates', 'Rates change daily.', CTA.fullText])
+})
+
 test('round 2 · 3: a booking link is our host and the exact path, not a URL that contains the path', () => {
   const path = '/washington-iad/airport-parking'
   assert.equal(isBookingUrl('https://example.com/?next=/washington-iad/airport-parking', path), false)

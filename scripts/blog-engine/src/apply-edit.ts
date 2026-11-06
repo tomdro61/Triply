@@ -86,7 +86,7 @@ import { lintArticle, formatLint, stripTags, loadApprovedCodes, loadApprovedOffe
 // P3 price check + allow-list live in lint.ts (generate uses them too, W1.8 P3c); re-exported for callers and tests.
 export { priceCheck, collectMoneyFigures } from './lint.js'
 import { stampField, factsDiff, lexicalText, type FactsDiff } from './stamp.js'
-import { bookingPathFor, findExistingCta, airportFullName, SITE_BASE_URL } from './booking-links.js'
+import { bookingPathFor, airportFullName, SITE_BASE_URL } from './booking-links.js'
 import { loadParkingLots, airportPageLots } from './airport-data.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -207,9 +207,13 @@ export function isBookingUrl(url: string, path: string): boolean {
  * booking page (a Rates section's last line with an old price) is ordinary section content (review round 2).
  */
 function isBookingCta(n: Node, t: BookingTarget): boolean {
-  const first = n.type === 'paragraph' ? n.children?.[0] : undefined
+  if (n.type !== 'paragraph') return false
+  // Empty text runs before the link render nothing, and the anchor is read across all its runs: an editor bolding
+  // "IAD" splits it into three, which findExistingCta (first run only) no longer recognises (round-3 Codex).
+  const first = (n.children ?? []).find((c) => !(c.type === 'text' && !(c.text ?? '').trim()))
   const url = (first?.fields as { url?: string } | undefined)?.url
-  return first?.type === 'link' && typeof url === 'string' && isBookingUrl(url, t.path) && findExistingCta({ root: { children: [n] } }, t.path, t.code) !== null
+  if (first?.type !== 'link' || typeof url !== 'string' || !isBookingUrl(url, t.path)) return false
+  return new RegExp(`^Compare\\s+${t.code}\\s+parking rates$`, 'i').test(nodeText(first).replace(/\s+/g, ' ').trim())
 }
 
 /**
@@ -777,7 +781,7 @@ function isGenericLotName(phrase: string, airportWords: readonly string[]): bool
 
 /**
  * A lot name matched as a proper noun: every word in order, a hyphen or spaces between them, each capital where the
- * name has one (an all-caps word stays all caps) and a leading "The" in either case. So "Deal Airport Parking" never
+ * name has one (an all-caps word stays all caps) and a leading "The", "the" or "THE". So "Deal Airport Parking" never
  * matches "a good deal", "US Park" never "let us park", "The Parking Spot" never "the parking spot you booked".
  */
 export function lotNameRe(name: string): RegExp {
@@ -785,7 +789,7 @@ export function lotNameRe(name: string): RegExp {
   const loose = (c: string) => (/[a-z]/i.test(c) ? `[${c.toLowerCase()}${c.toUpperCase()}]` : esc(c))
   const word = (w: string, i: number) => {
     if (/^[A-Z]{2,}$/.test(w)) return w
-    if (i === 0 && /^the$/i.test(w)) return '[Tt]he'
+    if (i === 0 && /^the$/i.test(w)) return '(?:[Tt]he|THE)'
     return [...w].map((c, k) => (k === 0 && /[A-Z]/.test(c) ? c : loose(c))).join('')
   }
   return new RegExp(`(?<![A-Za-z0-9])${name.trim().split(/[\s-]+/).filter(Boolean).map(word).join('[\\s-]+')}(?![A-Za-z0-9])`)
