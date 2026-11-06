@@ -8,6 +8,7 @@ import {
   inRange,
   mergeRedirectedSlugs,
   MIN_CLICKS_FLAG,
+  MAX_NET_RANGE_DAYS,
   netTakeOfDetail,
   rangeDays,
   type BlogBookingRow,
@@ -57,6 +58,10 @@ describe("classifyBooking", () => {
     const b = classifyBooking(row({ first: "/blog/a", last: "/search" }));
     expect(b).toMatchObject({ state: "valid", firstSlug: "a", lastSlug: null, airport: "JFK" });
   });
+  it("maps a merged post's old landing slug to its survivor", () => {
+    const b = classifyBooking(row({ first: "/blog/old-a", last: "/blog/b" }), { "old-a": "a" });
+    expect(b).toMatchObject({ firstSlug: "a", lastSlug: "b" });
+  });
   it("with no `last` in the cookie, the first touch is the last touch too", () => {
     // The cookie writes `last` only for a later visit with a signal.
     expect(classifyBooking(row({ first: "/blog/a" }))).toMatchObject({ firstSlug: "a", lastSlug: "a" });
@@ -83,10 +88,11 @@ describe("date filter", () => {
     expect(inRange("2026-10-01T04:00:00Z", RANGE)).toBe(true);
     expect(inRange("not a date", RANGE)).toBe(false);
   });
-  it("defaultRange is 90 ET days including today", () => {
+  it("defaultRange is 60 ET days including today (net take loads on it)", () => {
     const r = defaultRange("2026-11-05");
-    expect(r).toEqual({ from: "2026-08-08", to: "2026-11-05" });
-    expect(rangeDays(r)).toBe(90);
+    expect(r).toEqual({ from: "2026-09-07", to: "2026-11-05" });
+    expect(rangeDays(r)).toBe(60);
+    expect(rangeDays(r)).toBeLessThanOrEqual(MAX_NET_RANGE_DAYS);
   });
   it("drops out-of-range rows from every count", () => {
     const rep = aggregateBlogBookings({
@@ -294,6 +300,36 @@ describe("aggregateBlogBookings", () => {
     const rep = aggregateBlogBookings({ range: RANGE, rows: [row({ first: "/blog/a" })] });
     expect(rep.articles[0]).toMatchObject({ gscClicks: null, bookingsPer100Clicks: null, flagClicksNoBookings: false });
     expect(rep.gscClicksNoAirport).toBeNull();
+  });
+});
+
+describe("redirects in aggregateBlogBookings", () => {
+  it("puts bookings' landing slugs through the same map as the Search Console pages", () => {
+    const rep = aggregateBlogBookings({
+      range: RANGE,
+      rows: [
+        row({ first: "/blog/old-a" }), // landed on the merged post's old URL
+        row({ first: "/", last: "/blog/a" }),
+      ],
+      gscWindow: RANGE,
+      gscBySlug: new Map([
+        ["old-a", { clicks: 30, impressions: 300 }],
+        ["a", { clicks: 20, impressions: 200 }],
+      ]),
+      articleMeta: new Map([["a", { title: "A", airport: "JFK" }]]),
+      redirects: { "old-a": "a" },
+    });
+    // Both bookings and all 50 clicks are on the survivor, so per 100 clicks
+    // compares like with like (2 ÷ 50 × 100).
+    expect(rep.articles.find((x) => x.slug === "a")).toMatchObject({
+      firstTouch: 1,
+      lastTouch: 2,
+      bookings: 2,
+      gscClicks: 50,
+      bookingsPer100Clicks: 4,
+    });
+    expect(rep.articles.find((x) => x.slug === "old-a")).toBeUndefined();
+    expect(rep.airports.find((r) => r.airport === "JFK")).toMatchObject({ gscClicks: 50, bookingsPer100Clicks: 4 });
   });
 });
 

@@ -196,7 +196,7 @@ describe("reconcileRevenue time bounds (fetchTimeoutMs / deadline, opt-in)", () 
     expect(aborts()).toBe(1); // one chunk, one page
   });
 
-  it("past the deadline, reads not yet started are not made and count as fetch errors", async () => {
+  it("past the deadline, no request is made (not even the login) and every row is a fetch error", async () => {
     db.seed("bookings", Array.from({ length: 3 }, (_, i) => booking(i)));
     const calls = stubReslab();
     const result = await reconcileRevenue({
@@ -205,7 +205,7 @@ describe("reconcileRevenue time bounds (fetchTimeoutMs / deadline, opt-in)", () 
       bookingIds: ["bk-00000", "bk-00001", "bk-00002"],
       deadline: clock.now - 1,
     });
-    expect(reservationReads(calls)).toHaveLength(0);
+    expect(calls).toHaveLength(0);
     expect(result.reslab.fetchErrors.map((e) => e.err)).toEqual([
       RESLAB_SKIPPED_TIME_BUDGET,
       RESLAB_SKIPPED_TIME_BUDGET,

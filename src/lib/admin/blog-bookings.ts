@@ -37,11 +37,15 @@ export { blogSlug };
  *  bookings are real (ResLab still bills them); cancelled / refunded are not. */
 export const LIVE_STATUSES = ["confirmed", "completed", "disputed"] as const;
 
-export const DEFAULT_RANGE_DAYS = 90;
+/** 60, so the default range can load net take (MAX_NET_RANGE_DAYS) without the admin changing it. */
+export const DEFAULT_RANGE_DAYS = 60;
 export const MAX_RANGE_DAYS = 366;
-/** Net take runs one ResLab read per blog booking; past ~3 months that
- *  outgrows the route's 60 s budget, so the net section refuses wider ranges. */
-export const MAX_NET_RANGE_DAYS = 92;
+/** Net take runs one ResLab read per blog booking (~4 a day at today's
+ *  volume). 60 days is ~260 reads, ~26 s at concurrency 10, inside the
+ *  route's 40 s deadline with room for slow days; 92 days (~400 reads, ~40 s)
+ *  hit the deadline and came back partial — and so never cached. Wider ranges
+ *  get a net section error. */
+export const MAX_NET_RANGE_DAYS = 60;
 /** Below this many Google clicks, "no bookings" is just a quiet page. */
 export const MIN_CLICKS_FLAG = 25;
 
@@ -98,7 +102,25 @@ function airportOf(code: string | null, apt: string | undefined): string {
   return UNKNOWN_AIRPORT;
 }
 
-export function classifyBooking(row: BlogBookingRow): ClassifiedBooking {
+/** Merged posts' old slug → survivor (src/config/blog-redirects.json). */
+export type BlogRedirects = Readonly<Record<string, string>>;
+const NO_REDIRECTS: BlogRedirects = {};
+
+/** The slug that serves an article today: a merged post's survivor, else itself. */
+export function resolveRedirect(slug: string, redirects: BlogRedirects): string {
+  return Object.hasOwn(redirects, slug) ? redirects[slug] : slug;
+}
+
+/**
+ * `redirects` maps a landing slug of a merged post to its survivor, so a
+ * booking that landed on the old URL is credited where the old URL's Search
+ * Console clicks go (see aggregateBlogBookings).
+ */
+export function classifyBooking(row: BlogBookingRow, redirects: BlogRedirects = NO_REDIRECTS): ClassifiedBooking {
+  const slugOf = (land: string | undefined): string | null => {
+    const slug = blogSlug(land);
+    return slug === null ? null : resolveRedirect(slug, redirects);
+  };
   const attr = normalizeStoredAttribution(row.attribution);
   if (attr === null) {
     return { id: row.id, airport: airportOf(row.airport_code, undefined), state: "absent", firstSlug: null, lastSlug: null };
@@ -110,8 +132,8 @@ export function classifyBooking(row: BlogBookingRow): ClassifiedBooking {
     id: row.id,
     airport: airportOf(row.airport_code, attr.apt),
     state: "valid",
-    firstSlug: blogSlug(attr.first.land),
-    lastSlug: blogSlug((attr.last ?? attr.first).land),
+    firstSlug: slugOf(attr.first.land),
+    lastSlug: slugOf((attr.last ?? attr.first).land),
   };
 }
 
@@ -125,7 +147,8 @@ export function inRange(createdAt: string, r: DateRange): boolean {
 
 /**
  * Ids of live bookings in the range whose first or last touch is a blog
- * article — the only bookings net take is computed for.
+ * article — the only bookings net take is computed for. (No redirect map:
+ * a redirect renames a slug, it never makes one appear or disappear.)
  */
 export function blogTouchedIds(rows: readonly BlogBookingRow[], range: DateRange): string[] {
   const ids: string[] = [];
@@ -165,11 +188,11 @@ export interface GscPage {
  */
 export function mergeRedirectedSlugs(
   pages: Iterable<readonly [string, GscPage]>,
-  redirects: Readonly<Record<string, string>>
+  redirects: BlogRedirects
 ): Map<string, GscPage> {
   const out = new Map<string, GscPage>();
   for (const [slug, page] of pages) {
-    const to = Object.hasOwn(redirects, slug) ? redirects[slug] : slug;
+    const to = resolveRedirect(slug, redirects);
     const p = out.get(to) ?? { clicks: 0, impressions: 0 };
     p.clicks += page.clicks;
     p.impressions += page.impressions;
@@ -267,6 +290,10 @@ export interface AggregateInput {
   gscWindow?: DateRange;
   /** Article slug → CMS title / airport. */
   articleMeta?: ReadonlyMap<string, ArticleMeta>;
+  /** Merged posts' old slug → survivor. Applied here to BOTH sides — the
+   *  bookings' landing slugs and the Search Console pages — so a merge can't
+   *  leave bookings on the old slug and its clicks on the survivor. */
+  redirects?: BlogRedirects;
 }
 
 const emptyCounts = (): Counts => ({
@@ -299,7 +326,9 @@ const blogShareOf = (c: Counts): number | null => {
 };
 
 export function aggregateBlogBookings(input: AggregateInput): BlogBookingsReport {
-  const { range, netById, gscBySlug, articleMeta, gscWindow } = input;
+  const { range, netById, articleMeta, gscWindow } = input;
+  const redirects = input.redirects ?? NO_REDIRECTS;
+  const gscBySlug = input.gscBySlug && mergeRedirectedSlugs(input.gscBySlug, redirects);
   const hasNet = netById !== undefined;
   const hasGsc = gscBySlug !== undefined;
   // Airport clicks group articles by their CMS airport tag: without the CMS
@@ -323,7 +352,7 @@ export function aggregateBlogBookings(input: AggregateInput): BlogBookingsReport
       dropped += 1;
       continue;
     }
-    const b = classifyBooking(row);
+    const b = classifyBooking(row, redirects);
     const a = byAirport.get(b.airport) ?? { c: emptyCounts(), net: emptyNet(), inGsc: 0 };
     byAirport.set(b.airport, a);
     for (const c of [totals, a.c]) {

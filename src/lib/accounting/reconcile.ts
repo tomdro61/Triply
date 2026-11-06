@@ -462,13 +462,15 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
 
   const reslabPromise = (async (): Promise<ReslabSlice[]> => {
     if (!opts.includeReslab || real.length === 0) return real.map(() => ({ ...emptyReslab }));
-    const token = await reslabAuth(opts.fetchTimeoutMs);
+    // Opt-in (opts.deadline): past it, a read not yet started is not made —
+    // nor the login, when the deadline has already passed. Each skipped row
+    // counts as a fetch error, so the caller can't take the result for
+    // complete. The accounting page sets no deadline.
+    const pastDeadline = () => opts.deadline !== undefined && Date.now() >= opts.deadline;
+    const token = pastDeadline() ? null : await reslabAuth(opts.fetchTimeoutMs);
     return withConcurrency(real, opts.reslabConcurrency ?? RESLAB_CONCURRENCY, async (b) => {
       if (!b.reslab_reservation_number) return { ...emptyReslab };
-      // Opt-in (opts.deadline): past it, a read not yet started is not made.
-      // It counts as a fetch error, so the caller can't take the result for
-      // complete. The accounting page sets no deadline.
-      if (opts.deadline !== undefined && Date.now() >= opts.deadline) {
+      if (token === null || pastDeadline()) {
         reslabFetchErrors.push({ resNum: b.reslab_reservation_number, err: RESLAB_SKIPPED_TIME_BUDGET });
         return { ...emptyReslab, error: RESLAB_SKIPPED_TIME_BUDGET };
       }

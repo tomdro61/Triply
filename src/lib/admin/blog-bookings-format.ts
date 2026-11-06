@@ -54,6 +54,16 @@ export function netGapParts(c: NetCountsInput): string[] {
   return parts;
 }
 
+/**
+ * The page's "net take is partial" notice, or null. Null while a net load is
+ * in flight: the cells show "…" then, and a notice about the previous load's
+ * figures would describe numbers no longer on screen.
+ */
+export function partialNetNotice(c: NetCountsInput | null, loading: boolean): string | null {
+  if (loading || c === null || c.fetchErrors === 0) return null;
+  return `Net take is partial: it covers ${c.known} of ${c.bookings} blog bookings (${netGapParts(c).join("; ")}).`;
+}
+
 /** The net section's error when fewer than half the blog bookings have a figure. */
 export function netShortfallText(c: NetCountsInput): string {
   const parts = netGapParts(c);

@@ -77,12 +77,15 @@ async function accessToken(): Promise<string> {
   return cachedToken.token;
 }
 
-async function post(url: string, payload: object): Promise<unknown> {
+/** `signal`: optional caller cancellation, on top of the per-request timeout. */
+async function post(url: string, payload: object, signal?: AbortSignal): Promise<unknown> {
+  const authorization = `Bearer ${await accessToken()}`;
+  signal?.throwIfAborted();
   const res = await fetch(url, {
     method: "POST",
-    headers: { authorization: `Bearer ${await accessToken()}`, "content-type": "application/json" },
+    headers: { authorization, "content-type": "application/json" },
     body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(TIMEOUT_MS),
+    signal: signal ? AbortSignal.any([AbortSignal.timeout(TIMEOUT_MS), signal]) : AbortSignal.timeout(TIMEOUT_MS),
     cache: "no-store",
   });
   const body: unknown = await res.json().catch(() => null);
@@ -170,14 +173,20 @@ export type GscRow = { keys: string[]; clicks: number; impressions: number };
 
 const GSC_PAGE = 25_000;
 
-/** Search Console searchAnalytics.query, all pages (`startRow`) — a full page means more follow. */
-export async function gscQuery(query: object): Promise<GscRow[]> {
+/**
+ * Search Console searchAnalytics.query, all pages (`startRow`) — a full page means more follow.
+ * `opts.signal` (optional): once it fires, the request in flight is aborted
+ * and no further page is requested.
+ */
+export async function gscQuery(query: object, opts: { signal?: AbortSignal } = {}): Promise<GscRow[]> {
   const out: GscRow[] = [];
   for (let page = 0; page < MAX_PAGES; page++) {
+    opts.signal?.throwIfAborted();
     const body = gscResponseSchema.parse(
       await post(
         `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(GSC_SITE)}/searchAnalytics/query`,
-        { ...query, rowLimit: GSC_PAGE, startRow: page * GSC_PAGE }
+        { ...query, rowLimit: GSC_PAGE, startRow: page * GSC_PAGE },
+        opts.signal
       )
     );
     const rows = body.rows ?? [];

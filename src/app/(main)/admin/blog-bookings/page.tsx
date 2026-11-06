@@ -5,9 +5,10 @@
  * bookings. Bookings are credited from bookings.attribution (first / last
  * touch landing page); Google clicks come from Search Console; article
  * airport + title from the CMS. Net take loads only on "Load net take" (it
- * calls ResLab once per blog booking via the accounting reconciler, <= 92 days);
- * the first load may come from the route's 6 h cache, "Reload net take"
- * (net=fresh) always recomputes, and the figure shows when it was computed.
+ * calls ResLab once per blog booking via the accounting reconciler, <= 60 days);
+ * the first load may come from the route's cache (the current 6-hour window,
+ * so computed at most 6 h ago), "Reload net take" (net=fresh) always
+ * recomputes, and the figure shows when it was computed.
  *
  * Shows "unavailable" rather than zeros for any source that fails.
  */
@@ -21,11 +22,12 @@ import type {
   DateRange,
   NetFigures,
 } from "@/lib/admin/blog-bookings";
-import { fmtNet, netGapParts } from "@/lib/admin/blog-bookings-format";
+import { fmtNet, partialNetNotice } from "@/lib/admin/blog-bookings-format";
 
-const DEFAULT_DAYS = 90;
+/** Mirrors DEFAULT_RANGE_DAYS in src/lib/admin/blog-bookings.ts (60, so net take loads on the default range). */
+const DEFAULT_DAYS = 60;
 /** Mirrors MAX_NET_RANGE_DAYS in src/lib/admin/blog-bookings.ts (the route enforces it). */
-const MAX_NET_DAYS = 92;
+const MAX_NET_DAYS = 60;
 const ARTICLE_PAGE = 100;
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sept", "Oct", "Nov", "Dec"];
@@ -426,8 +428,8 @@ export default function AdminBlogBookingsPage() {
 
   const flagged = useMemo(() => (data ? data.report.articles.filter((a) => a.flagClicksNoBookings) : []), [data]);
   const netOk = data?.net?.ok ? data.net.data : null;
-  const netGaps = netOk ? netGapParts(netOk) : [];
   const netPartial = netOk !== null && netOk.fetchErrors > 0;
+  const partialNotice = partialNetNotice(netOk, netLoading);
   // Airport clicks group articles by their CMS airport, so they need both sources.
   const airportClicksOk = data !== null && data.gsc.ok && data.cms.ok;
 
@@ -502,11 +504,7 @@ export default function AdminBlogBookingsPage() {
             ))}
           {!data.cms.ok && <Notice>Article titles and airports unavailable — {data.cms.error}</Notice>}
           {typeof netState === "object" && <Notice>Net take unavailable — {netState.error}</Notice>}
-          {netPartial && netOk && (
-            <Notice>
-              Net take is partial: it covers {netOk.known} of {netOk.bookings} blog bookings ({netGaps.join("; ")}).
-            </Notice>
-          )}
+          {partialNotice && <Notice>{partialNotice}</Notice>}
           <div className="mb-2 flex flex-wrap items-center gap-3 text-xs text-gray-500">
             {netLoading ? (
               <span className="flex items-center gap-2">
@@ -525,7 +523,7 @@ export default function AdminBlogBookingsPage() {
             {netOk && !netLoading && <span>Net take as of {fmtEtTime(netOk.computedAt)}.</span>}
             <span>
               {netTooWide
-                ? `Net take covers at most ${MAX_NET_DAYS} days — narrow the range.`
+                ? `Net take covers at most ${MAX_NET_DAYS} days — pick a shorter range.`
                 : "One ResLab read per blog booking; up to a minute the first time."}
             </span>
           </div>

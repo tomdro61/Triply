@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fmtNet, netGapParts, netShortfallText } from "../blog-bookings-format";
+import { fmtNet, netGapParts, netShortfallText, partialNetNotice } from "../blog-bookings-format";
 
 describe("fmtNet", () => {
   it("is an ellipsis while loading and a dash before net is loaded", () => {
@@ -37,5 +37,21 @@ describe("net take wording", () => {
   });
   it("is empty when every booking has a figure", () => {
     expect(netGapParts({ bookings: 3, known: 3, fetchErrors: 0, skipped: 0 })).toEqual([]);
+  });
+});
+
+describe("partialNetNotice", () => {
+  const partial = { bookings: 10, known: 8, fetchErrors: 2, skipped: 0 };
+  it("describes a partial result", () => {
+    expect(partialNetNotice(partial, false)).toBe(
+      "Net take is partial: it covers 8 of 10 blog bookings (2 ResLab reads failed)."
+    );
+  });
+  it("is hidden while a reload is in flight (the cells show … then)", () => {
+    expect(partialNetNotice(partial, true)).toBeNull();
+  });
+  it("is null with no failed read, or nothing loaded", () => {
+    expect(partialNetNotice({ ...partial, fetchErrors: 0 }, false)).toBeNull();
+    expect(partialNetNotice(null, false)).toBeNull();
   });
 });
