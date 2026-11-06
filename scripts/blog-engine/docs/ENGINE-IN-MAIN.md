@@ -122,18 +122,30 @@ leaves the post contradicting itself). An array of operations, run in order, bef
   diff and `.meta.json`) — so a stale `$26/day` two paragraphs down is still seen. It warns, it does not block:
   old posts carry computed totals the allow-list never holds.
 
-Review round 2 (Nov 2026) — each with a regression test in `src/apply-edit-replace.test.ts` (R1–R10):
+Review round 2 (Nov 2026) — each with a regression test in `src/apply-edit-replace.test.ts` (R1–R10, then
+"round 2 · 1–6" for the review of those fixes):
 - **The booking CTA is protected.** `booking-links` appends the "Compare … parking rates" paragraph as the last
   root node of ~3,700 posts. A section never runs into it: when a section reaches the end of the post, it stops
   before trailing booking-CTA paragraphs (so `remove` / `section` on the last heading, and `insert` at `"end"`, leave
-  the CTA last). As a backstop, an edit whose result has no link to the airport's booking page, when the live post
+  the CTA last). Only the generated CTA counts (`makeCtaParagraph`'s shape: the first child links the booking page
+  with the anchor "Compare <CODE> parking rates", as `findExistingCta` reads it); any other paragraph that links the
+  booking page, such as a Rates section's last line with an old price, is section content.
+  As a backstop, an edit whose result has no link to the airport's booking page, when the live post
   had one, is **refused** unless edit.json sets `"allowBookingLinkRemoval": true` (strict like every key, bound by
   the preview hash; the preview log, `.diff.txt` and `.meta.json` then say the link goes). To remove a CTA on purpose,
-  target it with a `text` op and set the flag.
+  target it with a `text` op and set the flag. A booking link is a relative link or one on `triplypro.com` /
+  `www.triplypro.com` with exactly that path (a trailing slash or query is fine); a URL that merely contains the path
+  (`https://example.com/?next=/washington-iad/airport-parking`) is not. With no `airportCode` the check can't run and
+  says so (`booking-link check NOT RUN`).
 - **Links and images must survive conversion.** HTML → Lexical silently drops an `<img>` inside a `<p>`/`<li>`/`<td>`/
   `<a>`, an `<img>` with no numeric `data-media-id`, and a link with no text. Every op's html (and `insert` html) is
   compared with what it converts to, by URL / media id, and any loss is refused before the removed-content allowance
   exists. Put each image in its own block (`<img data-media-id="…">` or `<figure>`).
+- **Inline html is wrapped, not garbled.** The converter's top level trims every text node and unwraps inline tags
+  (`Economy is <strong>$18/day</strong> now.` became "Economy is$18/daynow." with no bold), so html with no block at
+  the top level is wrapped in `<p>`. Inline text mixed with blocks at the top level, or a stray `<li>`/`<td>` there,
+  is refused. A list-item `text` op whose html leaves the list (`<li>A</li></ul><p>…</p><ul><li>B</li>`) is refused
+  instead of keeping only the first list.
 - **Prices are checked block by block**: each converted node on its own, and the html as written, split at every
   block tag (conversion merges the `<p>`s of a `<blockquote>`, so a converted quote could carry a source link the
   author put in another paragraph). `lint.ts priceCheck` now also splits at `</blockquote>`, and the whole-body
@@ -141,8 +153,17 @@ Review round 2 (Nov 2026) — each with a regression test in `src/apply-edit-rep
 - **Promo codes:** new html is checked for unapproved codes whenever the post (before or after the edit) talks about
   promo / coupon codes, even if the new html itself doesn't ("SpotHero's SPOT10 offer…" used to pass, reported as
   pre-existing, when the live post already printed SPOT10).
-- **Unsold lots:** new html, renamed headings and new field text may not name a lot in the airport file's
-  `unsellableLotNames` (same name matching as the writer prompt, `unsellableNameMatchers` in `prompts/write.ts`).
+- **Unsold lots:** new html, renamed headings and new field text may not name a lot the airport file marks unsold
+  (the same split as `loadAirportData`; `lotNamesFor` in `apply-edit.ts`). The match is the lot's **whole name** with
+  its parenthetical removed ("Airlines Parking (DTW)" → "Airlines Parking"), as a proper noun: each capital where the
+  name has one, all-caps words in caps, hyphen or space between words. So "all other airlines", "a good deal", "parking
+  4 days" and "let us park" pass, while "Airlines Parking", "Deal Airport Parking", "Parking 4 Airport" and "US Park"
+  block. A name made only of parking words and the airport's own code / name ("Newark Airport Long Term Parking", also
+  the EWR hub's title) is a **warning**, not a blocker. A lot may carry `"aliases": ["NALTP"]` in its data file; an
+  alias always blocks (no data file has one yet). A name that is part of a lot we do sell names that lot, not this one
+  (matched hyphen-or-space alike on both sides). This is deliberately narrower than the writer prompt's brand-key rule
+  (`dropOffSiteSentences` in `prompts/write.ts`, unchanged): that key is "airlines" / "deal" / "parking 4", fine for
+  dropping a sentence from a prompt, not for blocking an edit.
 - **Table-pattern lists** (bullet lists the site draws as a table: every item `<strong>Header:</strong> … | …`, 2+
   items, `RichText.tsx isTablePattern`): an item edit that breaks the pattern is refused, and the error shows the
   `<li><strong>Lot:</strong> … | <strong>Rate:</strong> …</li>` shape to use. Replace the whole list or section to
@@ -152,7 +173,9 @@ Review round 2 (Nov 2026) — each with a regression test in `src/apply-edit-rep
   empty blocks and every image). Whitespace-only `insert` html is refused too.
 - **A check that could not run is said out loud**: with no `airportCode` or no `data/airports/<code>.json`, the log,
   `.diff.txt` and `.meta.json` (`notRun`) carry `whole-body price check NOT RUN: <reason>` (and the same for the
-  unsold-lot check) instead of an empty list.
+  unsold-lot check, and `booking-link check NOT RUN` with no `airportCode`) instead of an empty list.
+- **Settle and the post-save check compare structure**, including a list's table form (the headers and cells the site
+  draws for a table-pattern list), so a list switched between bullets and a table is never taken for the unchanged post.
 
 ## Flags
 
@@ -194,3 +217,5 @@ npx tsx src/apply-edit.ts --slug <slug> --edit edit.json --preview
 No secrets: `.env` is gitignored; `.env.example` lists every variable.
 
 *Updated November 6, 2026 — apply-edit `replace` review round 2: booking-CTA protection + `allowBookingLinkRemoval`, conversion-loss refusal, per-block price check, promo/unsold-lot/table-pattern checks, structural settle + post-save check, NOT RUN notices.*
+
+*Updated November 6, 2026 (later) — review of those fixes: unsold lots matched by whole name as a proper noun (generic names warn, `aliases` block), only the generated CTA ends a section, booking links need our host + exact path, table form in the structural compare, inline html wrapped in `<p>`, list-item html may not leave its list.*

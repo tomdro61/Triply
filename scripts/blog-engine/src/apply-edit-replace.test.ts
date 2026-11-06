@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { applyEdit, applyReplace, parseEdit, checkEdit, guardLoss, removedNodes, replaceDiff, previewMismatch, sha256, blockText, applyWithSettle, editLive, refsNotRemoved, mediaRefs, isTablePatternList, priceCheck } from './apply-edit.js'
+import { applyEdit, applyReplace, parseEdit, checkEdit, guardLoss, removedNodes, replaceDiff, previewMismatch, sha256, blockText, applyWithSettle, editLive, refsNotRemoved, mediaRefs, isTablePatternList, priceCheck, lotNamesFor, isBookingUrl } from './apply-edit.js'
 import type { PostLike, EditSpec } from './apply-edit.js'
 import { buildCta, makeCtaParagraph } from './booking-links.js'
 
@@ -422,13 +422,113 @@ test('R9: a whitespace-only match text is refused (it matched empty blocks and i
 })
 
 test('R10: new html and new field text may not name a lot we do not sell', () => {
-  const lots = { unsellable: ['Gone Lot Airport Parking'], sellable: ['Economy Lot'] }
-  const e: EditSpec = { replace: [{ text: 'Economy is $20/day.', html: '<p>Gone Lot runs a shuttle too.</p>' }] }
+  const lots = { unsellable: [{ name: 'Gone Lot Airport Parking (IAD)' }], sellable: ['Economy Lot'], airportWords: ['IAD'] }
+  const e: EditSpec = { replace: [{ text: 'Economy is $20/day.', html: '<p>Gone Lot Airport Parking runs a shuttle too.</p>' }] }
   const c = checkEdit(post(), applyEdit(post(), e), e, known, lots)
-  assert.ok(c.blockers.some((b) => b.includes(`names a lot we don't sell at IAD: "Gone Lot Airport Parking"`)), c.blockers.join(' | '))
-  const title: EditSpec = { fields: { title: 'Gone Lot vs the Dulles garage' } }
+  assert.ok(c.blockers.some((b) => b.includes(`names a lot we don't sell at IAD: "Gone Lot Airport Parking (IAD)"`)), c.blockers.join(' | '))
+  const title: EditSpec = { fields: { title: 'Gone Lot Airport Parking vs the Dulles garage' } }
   assert.ok(checkEdit(post(), applyEdit(post(), title), title, known, lots).blockers.some((b) => b.includes('Gone Lot Airport Parking')))
-  // a brand we also sell is not the unsold lot (the writer prompt's rule, shared)
-  assert.deepEqual(checkEdit(post(), applyEdit(post(), e), e, known, { unsellable: ['Gone Lot Airport Parking'], sellable: ['Gone Lot Premium'] }).blockers, [])
-  assert.deepEqual(checkEdit(post(), applyEdit(post(), e), e, known).blockers, [], 'no list, no check (main() always passes it)')
+  // a name inside a lot we DO sell names that lot
+  assert.deepEqual(checkEdit(post(), applyEdit(post(), e), e, known, { ...lots, sellable: ['Gone Lot Airport Parking Premium'] }).blockers, [])
+  assert.deepEqual(checkEdit(post(), applyEdit(post(), e), e, known).blockers, [], 'an empty list finds nothing (main() passes lotNamesFor)')
+})
+
+// ── Review round 2 on e6d0bd1 (Codex + Opus, Nov 2026) ──────────────────────
+const boom = async () => { throw new Error('Payload API error 502') }
+const quiet = () => {}
+
+test('round 2 · 1: an unsold lot is named only by its whole name (real DTW / MIA / EWR / JFK data)', () => {
+  const at = (code: string, html: string, lots = lotNamesFor(code)) => {
+    const pst: PostLike = { ...doc(h('h2', 'A'), p('Old line.')), airportCode: code }
+    const e: EditSpec = { replace: [{ text: 'Old line.', html }] }
+    return checkEdit(pst, applyEdit(pst, e), e, known, lots)
+  }
+  const blocked = (c: ReturnType<typeof checkEdit>, name: string) => c.blockers.some((b) => b.startsWith("names a lot we don't sell") && b.includes(`"${name}"`))
+  // ordinary words that the brand key ("airlines", "deal", "parking 4") used to catch
+  assert.deepEqual(at('DTW', '<p>Shuttles serve all other airlines too.</p>').blockers, [])
+  assert.deepEqual(at('DTW', '<p>Airlines at the McNamara Terminal use the same garage.</p>').blockers, [])
+  assert.deepEqual(at('DTW', '<p>Let us park your car for you.</p>').blockers, [], '"US Park" is all caps in the name')
+  assert.deepEqual(at('MIA', '<p>Booking early is a good deal.</p>').blockers, [])
+  assert.deepEqual(at('JFK', '<p>For parking 4 days or more, book ahead.</p>').blockers, [])
+  // the lot's whole name still blocks
+  assert.ok(blocked(at('DTW', '<p>Airlines Parking runs a shuttle.</p>'), 'Airlines Parking (DTW)'))
+  assert.ok(blocked(at('DTW', '<p>US Park is next to the airport.</p>'), 'US Park (DTW)'))
+  assert.ok(blocked(at('MIA', '<p>Deal Airport Parking is close by.</p>'), 'Deal Airport Parking (MIA)'))
+  assert.ok(blocked(at('JFK', '<p>Parking 4 Airport closed in 2026.</p>'), 'Parking 4 Airport (JFK)'))
+  // a generic name ("Newark Airport Long Term Parking", also the EWR hub's title) warns, never blocks
+  const ewr = at('EWR', '<p><a href="/blog/newark-airport-long-term-parking">Back to Newark Airport Long Term Parking Guide</a></p>')
+  assert.deepEqual(ewr.blockers, [])
+  assert.ok(ewr.warnings.some((w) => w.rule === 'unsold-lot-name' && w.message.includes('"Newark Airport Long Term Parking (NALTP)"')))
+  // a human-added alias blocks, even for a generic name
+  const naltp = { ...lotNamesFor('EWR')!, unsellable: [{ name: 'Newark Airport Long Term Parking (NALTP)', aliases: ['NALTP'] }] }
+  assert.ok(blocked(at('EWR', '<p>NALTP runs a shuttle.</p>', naltp), 'Newark Airport Long Term Parking (NALTP)" (as "NALTP'))
+  // hyphen or space, on both sides of the sold-name protection
+  const westin = (unsold: string, sold: string) => at('DFW', '<p>The Westin Dallas Fort Worth Airport has a garage.</p>', { unsellable: [{ name: unsold }], sellable: [sold], airportWords: ['DFW'] }).blockers
+  assert.deepEqual(westin('Westin Dallas-Fort Worth', 'Westin Dallas Fort Worth Airport'), [])
+  assert.deepEqual(westin('Westin Dallas Fort Worth', 'Westin Dallas-Fort Worth Airport'), [])
+  // no data file: said, not silent
+  assert.ok(at('DTW', '<p>Shuttles run all day.</p>', null).notRun.includes('unsold lot-name check NOT RUN: no data/airports/DTW.json'))
+})
+
+test('round 2 · 2: only the generated CTA ends a section; an ordinary booking-linked paragraph is section content', () => {
+  const rates = (...tail: unknown[]) => doc(h('h2', 'A'), p('a'), h('h2', 'Rates'), p('Rates vary.'), pl('Book from $26/day on ', CTA.url, 'our Dulles page'), ...tail)
+  const e: EditSpec = { replace: [{ section: 'Rates', html: '<p>Rates change daily.</p>' }] }
+  assert.deepEqual(kidsOf(applyEdit(rates(), e).after), ['h2:A', 'a', 'h2:Rates', 'Rates change daily.'], 'the stale $26 line goes with its section')
+  assert.deepEqual(kidsOf(applyEdit(rates(makeCtaParagraph(CTA)), e).after), ['h2:A', 'a', 'h2:Rates', 'Rates change daily.', CTA.fullText])
+  // a paragraph that starts with a booking link but is not the CTA's "Compare IAD parking rates" anchor
+  const linkFirst = { type: 'paragraph', children: [a(CTA.url, 'Book IAD parking'), text(' from $26/day.')], direction: 'ltr', format: '', indent: 0, version: 1 }
+  assert.deepEqual(kidsOf(applyEdit(doc(h('h2', 'Rates'), p('x'), linkFirst), e).after), ['h2:Rates', 'Rates change daily.'])
+})
+
+test('round 2 · 3: a booking link is our host and the exact path, not a URL that contains the path', () => {
+  const path = '/washington-iad/airport-parking'
+  assert.equal(isBookingUrl('https://example.com/?next=/washington-iad/airport-parking', path), false)
+  assert.equal(isBookingUrl('https://evil-triplypro.com/washington-iad/airport-parking', path), false)
+  assert.equal(isBookingUrl('https://www.triplypro.com/washington-iad/airport-parking-guide', path), false)
+  assert.equal(isBookingUrl('https://www.triplypro.com/washington-iad/airport-parking/', path), true)
+  assert.equal(isBookingUrl('https://triplypro.com/washington-iad/airport-parking?ref=blog', path), true)
+  assert.equal(isBookingUrl('/washington-iad/airport-parking', path), true)
+  const swap: EditSpec = { replace: [{ text: CTA.fullText, html: '<p><a href="https://example.com/?next=/washington-iad/airport-parking">Compare IAD parking rates</a> elsewhere.</p>' }] }
+  assert.ok(checkEdit(withCta(), applyEdit(withCta(), swap), swap, known).blockers.some((b) => b.includes('would remove the link to the booking page')))
+  const relative: EditSpec = { replace: [{ text: CTA.fullText, html: '<p><a href="/washington-iad/airport-parking/">Compare IAD parking rates</a> on Triply.</p>' }] }
+  assert.deepEqual(checkEdit(withCta(), applyEdit(withCta(), relative), relative, known).blockers, [])
+})
+
+test('round 2 · 4: a list turned from bullets into a table (same text runs once joined) is not settled as applied', async () => {
+  const bt = (t: string) => ({ ...text(t), format: 1 })
+  const item = (...runs: unknown[]) => ({ type: 'listitem', value: 1, checked: false, children: runs, direction: 'ltr', format: '', indent: 0, version: 1 })
+  const bullets = () => doc(h('h2', 'Lots'), { type: 'list', listType: 'bullet', tag: 'ul', start: 1, children: [item(bt('Lot: A'), text(' | '), bt('Rate: $20/day')), item(bt('Lot: B'), text(' | '), bt('Rate: $15/day'))], direction: 'ltr', format: '', indent: 0, version: 1 })
+  assert.ok(!isTablePatternList(bullets().content.root.children[1]))
+  const row = (lot: string, rate: string) => `<li><strong>Lot: </strong><strong>${lot}</strong> | <strong>Rate: </strong><strong>${rate}</strong></li>`
+  const r = applyEdit(bullets(), { replace: [{ text: 'Lot: A | Rate: $20/day Lot: B | Rate: $15/day', html: `<ul>${row('A', '$20/day')}${row('B', '$15/day')}</ul>` }] })
+  assert.ok(isTablePatternList(r.after.content.root.children[1]), 'the edit makes it a table on the site')
+  assert.equal(await applyWithSettle('1', r.patch, { updatePost: boom, readPost: async () => bullets(), log: quiet }), 'not-live')
+  assert.equal(editLive(r.after, r.patch), true)
+})
+
+test('round 2 · 5: top-level inline html becomes one paragraph, spaces, bold and links intact', () => {
+  const r = applyEdit(post(), { replace: [{ text: 'Economy is $20/day.', html: 'Economy is <strong>$20/day</strong> now.' }] })
+  const last = r.after.content.root.children.at(-1)!
+  assert.equal(last.type, 'paragraph')
+  assert.equal(blockText(last), 'Economy is $20/day now.')
+  assert.ok(last.children!.some((c) => c.format === 1 && c.text === '$20/day'), 'bold kept')
+  const l = applyEdit(post(), { replace: [{ text: 'Economy is $20/day.', html: 'See <a href="/blog/iad-summary">the summary</a>.' }] })
+  assert.equal(mediaRefs(l.after.content.root.children).get('link:/blog/iad-summary'), 1, 'a top-level link is kept, not refused as lost')
+  assert.equal(blockText(l.after.content.root.children.at(-1)!), 'See the summary.')
+  assert.throws(() => applyEdit(post(), { replace: [{ section: 'Summary', html: 'Intro <p>Para.</p>' }] }), /mixes inline text with blocks/)
+  assert.throws(() => applyEdit(post(), { replace: [{ section: 'Summary', html: '<li>a</li><li>b</li>' }] }), /<li> at the top level/)
+})
+
+test('round 2 · 6: list-item html that leaves the list is refused, not cut short', () => {
+  assert.throws(() => applyEdit(post(), { replace: [{ text: 'Book early.', html: '<li>New lot</li></ul><p>Note about the lot.</p><ul><li>Other</li>' }] }), /leaves the list \(it converts to 3 blocks\)/)
+  // several <li> items stay one list
+  const two = applyEdit(post(), { replace: [{ text: 'Book early.', html: '<li>Book early.</li><li>Book online.</li>' }] })
+  assert.equal(two.after.content.root.children.find((n) => n.type === 'list')!.children!.length, 4)
+})
+
+test('round 2: a body edit on a post with no airportCode says the booking-link check did not run', () => {
+  const noCode: PostLike = { ...post(), airportCode: undefined }
+  const e: EditSpec = { replace: [{ text: 'Economy is $20/day.', html: '<p>Economy is the cheapest on-airport lot.</p>' }] }
+  assert.ok(checkEdit(noCode, applyEdit(noCode, e), e, known).notRun.includes('booking-link check NOT RUN: the post has no airportCode'))
+  assert.ok(!checkEdit(post(), applyEdit(post(), e), e, known).notRun.some((n) => n.startsWith('booking-link')))
 })
