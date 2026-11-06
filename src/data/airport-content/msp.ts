@@ -1,8 +1,10 @@
 import { AirportContent } from "./types";
 
 const mspContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-11-05",
   metaDescription:
-    "Compare 6+ off-airport MSP parking lots from $8.95/day. Save vs $19–$50/day on-airport rates. Free 24/7 shuttle, free EV charging, METRO Blue Line to downtown for $2. Free cancellation.",
+    "Compare bookable off-airport MSP parking at today's prices. Save vs $19–$50/day on-airport rates. Free EV charging, METRO Blue Line to downtown for $2. Free cancellation.",
 
   sections: [
     {
@@ -11,23 +13,13 @@ const mspContent: AirportContent = {
 
 Two terminals: Terminal 1 (Lindbergh, 117 gates across 7 concourses A-G, dominated by Delta) and Terminal 2 (Humphrey, 14 gates on Concourse H, serving budget carriers, Sun Country, and Icelandair). Free METRO Blue Line light rail connects the terminals every ~10 minutes 24/7.
 
-On-airport parking at MSP runs from $19/day (Quick Ride Ramp with free shuttle) to $50/day (Valet). Terminal 1 Daily Ramps are $30/day. Terminal 2 Value Parking is $21/day. Off-airport parking through Triply starts at around $8.95/day pre-booked — saving up to 82% compared to Terminal 1 ramps.
-
-For a 7-day trip for 2 travelers, off-site parking saves $112–$147 vs Terminal 1 Daily Ramps.`,
+On-airport parking at MSP runs from $19/day (Quick Ride Ramp with free shuttle) to $50/day (Valet). Terminal 1 Daily Ramps are $30/day. Terminal 2 Value Parking is $21/day. Off-airport parking through Triply typically costs a fraction of the Terminal 1 ramp rate; the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.`,
     },
     {
       heading: "Best Off-Airport Parking Lots Near MSP",
-      body: `**Comfort Inn Minneapolis Airport** — Around $8.95/day pre-booked. Hotel parking 3 miles out. Affordable park-sleep-fly packages from $179/night. Verify shuttle hours for late arrivals.
+      body: `**Hyatt Regency Bloomington** — Hotel lot 1.9 miles out. Shuttle every 30 minutes from 3:30 AM to 1:30 AM, with on-demand pickups — **no shuttle 1:30 AM–3:30 AM**. Check in at the front desk for your parking permit and validation code, and don't pay for parking on-site, even if a text asks you to. Call or text the hotel from the Hotel Shuttle Pickup area at either terminal for your return ride. One parking space per reservation; no large vehicles that take more than one space.
 
-**Fairfield Inn & Suites Minneapolis Airport** — Around $9.95/day pre-booked. Marriott property with reliable 24/7 shuttle. 2.8 miles out.
-
-**EZ Air Park** — Around $12.95/day. **1 free day per 7 paid days** — best for week-long trips. 24/7 shuttle every 15 minutes. Long-running MSP off-site operator with strong reputation. 2.5 miles out.
-
-**Shepard Road Airport Parking** — Around $14/day pre-booked uncovered ($16/day covered). **The only off-site lot with covered ramp parking** — important for Minnesota winters. 24/7 shuttle every 5–10 minutes peak.
-
-**Park 'N Go (MSP)** — Around $16/day pre-booked. Premium service with attendant-greeted gate. 24/7 shuttle every 5–10 minutes. 3.5 miles in Bloomington.
-
-**InterContinental MSP Airport** — Around $25–$29/day. **Skyway-connected to Terminal 1** — only off-site option where you walk indoor from car to gate. No shuttle needed. Premium price but unmatched winter convenience. In-hotel TSA checkpoint (5 AM–10 AM, carry-on only).`,
+Off-airport availability at MSP changes with your dates: the lot list on this page shows what's bookable and the current per-day rates, and a search with your dates shows your total with taxes and fees.`,
     },
     {
       heading: "Free EV Charging and Winter Operations",
@@ -38,7 +30,7 @@ For a 7-day trip for 2 travelers, off-site parking saves $112–$147 vs Terminal
 **World-class winter operations** — Despite averaging 33+ inches of snow annually and temperatures regularly below 0°F (-18°C), MSP maintains one of the best on-time records among cold-weather airports. The airport has a massive snow removal fleet and efficient de-icing procedures.
 
 That said, 2-3 major blizzards per winter still cause significant disruptions. For winter travel:
-• **Use covered parking** — Shepard Road covered ramp ($16/day) or InterContinental garage. Snow-buried cars and dead batteries are real risks.
+• **Use covered parking** — The on-airport Terminal 1 ramps and Terminal 2 Value Parking are covered. Snow-buried cars and dead batteries are real risks.
 • **Allow extra shuttle time** — Off-site shuttles take longer in snow/ice conditions.
 • **Build buffer for de-icing** — De-icing operations can add 30–60 minutes to departures even on smaller storms.
 • **Travel insurance** — Recommended for January–February travel.`,
@@ -60,12 +52,13 @@ For Saint Paul (8 miles east of MSP), there's no direct rail connection. Ridesha
     },
     {
       heading: "Tips for Parking at MSP",
-      body: `• **Pre-book online** — Pre-booking saves $1–$5/day vs walk-up at most off-site lots.
+      body: `• **Pre-book online** — Book ahead for holiday and State Fair weeks, when demand spikes.
 • **Free EV charging at both terminals** — Terminal 1 Level 8 of Blue, Red, Silver Ramps. Terminal 2 Level 7 of Orange Ramp. No time limit, first-come first-served. 50+ stations total.
 • **METRO Blue Line is unbeatable for downtown** — $2 per ride, 25 minutes to downtown Minneapolis. Free between terminals 24/7.
 • **Quick Ride Ramp is cheapest on-airport** — $19/day with free 24/7 curbside shuttle. Reliable even for early/late flights.
-• **Cover matters in winter** — Shepard Road covered ramp ($16/day) or on-airport ramps protect your vehicle from snow, ice, and extreme cold. Engine block heater outlets are common at MSP-area facilities.
-• **InterContinental skyway-connected** — The only hotel with a direct skyway to Terminal 1. Premium pricing ($25-29/day) but unmatched for winter travel — walk indoor from your car to your gate.
+• **Cover matters in winter** — On-airport ramps protect your vehicle from snow, ice, and extreme cold. Engine block heater outlets are common at MSP-area facilities.
+• **InterContinental skyway-connected** — The only hotel with a direct skyway to Terminal 1 — unmatched for winter travel, since you walk indoors to your gate.
+• **Mind the off-airport shuttle gap** — Hyatt Regency Bloomington's shuttle doesn't run 1:30 AM–3:30 AM, so plan around very early departures.
 • **State Fair traffic** — Late August through Labor Day brings significant traffic spikes from the Minnesota State Fair.
 • **Sun Country headquarters at Terminal 2** — If you're flying Sun Country, you'll be at Terminal 2 and Value Parking ($21/day) is the cheapest on-airport option.`,
     },
@@ -75,12 +68,12 @@ For Saint Paul (8 miles east of MSP), there's no direct rail connection. Ridesha
     {
       question: "What is the cheapest parking at MSP?",
       answer:
-        "Comfort Inn Minneapolis Airport is the cheapest off-airport option at around $8.95/day pre-booked. Fairfield Inn & Suites at $9.95/day is also very cheap with 24/7 shuttle. EZ Air Park at $12.95/day offers 1 free day per 7 paid days — best for week-long trips. The cheapest on-airport option is Quick Ride Ramp at $19/day with free 24/7 shuttle. All prices are based on a sample 7-day booking and may vary.",
+        "The cheapest on-airport option is Quick Ride Ramp at $19/day with free 24/7 shuttle. Off-airport, Hyatt Regency Bloomington (1.9 miles, shuttle 3:30 AM–1:30 AM) is bookable through Triply. Off-airport prices and availability change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.",
     },
     {
       question: "How much does it cost to park at MSP?",
       answer:
-        "On-airport parking at MSP ranges from $19/day (Quick Ride Ramp with free shuttle) to $50/day (Valet). Terminal 2 Value Parking is $21/day. Terminal 1 Daily Ramps are $30/day. Off-airport parking through Triply starts at around $8.95/day pre-booked — saving up to 82% compared to Terminal 1 ramps.",
+        "On-airport parking at MSP ranges from $19/day (Quick Ride Ramp with free shuttle) to $50/day (Valet). Terminal 2 Value Parking is $21/day. Terminal 1 Daily Ramps are $30/day. Off-airport parking through Triply typically costs a fraction of the Terminal 1 ramp rate — see the lot list on this page for current rates.",
     },
     {
       question: "Does MSP have free EV charging?",
@@ -95,7 +88,7 @@ For Saint Paul (8 miles east of MSP), there's no direct rail connection. Ridesha
     {
       question: "Does MSP have an on-airport hotel?",
       answer:
-        "Yes. The InterContinental MSP Airport is the only hotel with a direct enclosed skyway to Terminal 1 — you can walk from your car to your gate without going outside. Park-stay-go packages include 1 night + up to 15 nights parking. The hotel also has an in-building TSA checkpoint (5 AM–10 AM, carry-on passengers only). Premium pricing at $25–$29/day for parking-only.",
+        "Yes. The InterContinental MSP Airport is the only hotel with a direct enclosed skyway to Terminal 1 — you can walk from your car to your gate without going outside. Park-stay-go packages include 1 night + up to 15 nights parking. The hotel also has an in-building TSA checkpoint (5 AM–10 AM, carry-on passengers only).",
     },
     {
       question: "How early should I arrive at MSP?",
@@ -110,7 +103,7 @@ For Saint Paul (8 miles east of MSP), there's no direct rail connection. Ridesha
     {
       question: "Should I park covered at MSP in winter?",
       answer:
-        "Strongly recommended. MSP averages 33+ inches of snow annually with temperatures regularly below 0°F (-18°C). Snow-buried cars, dead batteries from extreme cold, and ice damage are real risks for uncovered parking. Covered options: Shepard Road covered ramp ($16/day), on-airport Terminal 1 ramps ($30/day), Terminal 2 Value Parking ($21/day), or InterContinental garage ($25–$29/day).",
+        "Strongly recommended. MSP averages 33+ inches of snow annually with temperatures regularly below 0°F (-18°C). Snow-buried cars, dead batteries from extreme cold, and ice damage are real risks for uncovered parking. Covered options: on-airport Terminal 1 ramps ($30/day) or Terminal 2 Value Parking ($21/day).",
     },
   ],
 };

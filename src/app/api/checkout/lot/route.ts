@@ -244,6 +244,10 @@ const checkoutPostSchema = z.object({
   // default 2026-09-17 → 2026-11-02). null means parking-only. Later changes
   // on the payment step go through /api/checkout/lot/update-pi.
   protectionPlanCode: protectionPlanCodeSchema,
+  // The terms-checkbox version this checkout renders; stamped on the
+  // PaymentIntent only if known (dispute evidence quotes it). Optional: a tab
+  // opened before versioning sends none.
+  termsVersion: z.string().max(32).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -278,6 +282,7 @@ export async function POST(request: NextRequest) {
       customerEmail,
       promoCode,
       protectionPlanCode,
+      termsVersion,
     } = result.data;
 
     // A hidden lot (blocked list, or a ResLab test lot in production) never gets a PaymentIntent: the GET above already
@@ -415,7 +420,7 @@ export async function POST(request: NextRequest) {
       // Explicit on both branches (A-28): readers select the inventory adapter
       // from this, never from the absence of a direct key.
       inventorySource: "reslab",
-    });
+    }, termsVersion);
 
     return NextResponse.json({
       clientSecret: paymentIntent.client_secret,
@@ -532,6 +537,8 @@ const directCheckoutPostSchema = z
     promoCode: z.string().optional(),
     // Required key, nullable value (see checkoutPostSchema).
     protectionPlanCode: protectionPlanCodeSchema,
+    // See checkoutPostSchema: the rendered terms-checkbox version, optional.
+    termsVersion: z.string().max(32).optional(),
   })
   .strict();
 
@@ -554,7 +561,7 @@ async function postDirect(body: unknown): Promise<NextResponse> {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
   }
-  const { lotId, checkin, checkout, checkinTime, checkoutTime, customerEmail, promoCode, protectionPlanCode } =
+  const { lotId, checkin, checkout, checkinTime, checkoutTime, customerEmail, promoCode, protectionPlanCode, termsVersion } =
     parsed.data;
   const payloadId = parseDirectLotUnifiedId(lotId);
   if (payloadId === null) {
@@ -612,7 +619,7 @@ async function postDirect(body: unknown): Promise<NextResponse> {
     // R5: the terms the at-lot vehicle estimate is computed from.
     [DIRECT_TAX_RATE_KEY]: String(lot.taxRatePercent),
     [DIRECT_SURCHARGES_KEY]: encodeSurchargeRates(lot.vehicleSurcharges),
-  });
+  }, termsVersion);
 
   return NextResponse.json({
     clientSecret: paymentIntent.client_secret,

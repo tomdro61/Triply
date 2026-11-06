@@ -1,7 +1,7 @@
 {
   "code": "LAX",
   "fullName": "Los Angeles International Airport",
-  "lastVerified": "2026-10-26",
+  "lastVerified": "2026-11-02",
   "overview": {
     "location": "Westchester neighborhood, Los Angeles, California — 16 miles southwest of downtown Los Angeles, bordered by El Segundo, Inglewood, and the Pacific Ocean",
     "passengerVolume": "73.7 million passengers in 2025 (down 3.8% from 76.6 million in 2024) — 5th busiest in the U.S., busiest in California, busiest origin-and-destination airport in the world",
@@ -903,7 +903,7 @@
       "website": "https://www.theparkingspot.com/locations/los-angeles/lax/the-parking-spot-century",
       "notes": "Well-known national brand on LAX's main hotel corridor (Century Blvd). Covered and valet options available.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "The Parking Spot Sepulveda",
@@ -921,7 +921,7 @@
       "website": "https://www.theparkingspot.com",
       "notes": "Second Parking Spot location. Uncovered from $19.95/day, covered from $24.95/day, valet from $25.95/day.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "WallyPark Premier Garage",
@@ -937,7 +937,7 @@
       "website": "https://www.wallypark.com/lax-airport-parking/",
       "notes": "Premium indoor garage parking. All-electric shuttle fleet. Self park $25.95/day, valet $29.95/day. Car wash service available.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "WallyPark Express",
@@ -950,7 +950,7 @@
       "website": "https://www.wallypark.com",
       "notes": "WallyPark's express option. ~$138.86/week.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "105 Airport Parking",
@@ -965,7 +965,7 @@
       "freeCancellation": true,
       "notes": "Budget option off Sepulveda Blvd near I-105. 3 levels indoor + 1 rooftop outdoor. One of the cheapest LAX parking options starting at ~$7.72/day pre-booked.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "QuikPark LAX",
@@ -983,7 +983,7 @@
       "website": "https://www.quikparklosangelesairport.com/",
       "notes": "Closest off-site lot — one block east of the airport, adjacent to the Concourse hotel. Self park $16.95/day, valet $17.95/day. Very fast shuttle due to proximity.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "Joe's Airport Parking",
@@ -998,7 +998,7 @@
       "website": "https://www.cheapairportparking.org/lot/Joes-LAX",
       "notes": "Large covered facility with 1,400+ spaces on Century Blvd. ~$208.76/week. Solid mid-range option.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "9750 AIRPORT BLVD (LAX) Formerly Four Points by Sheraton (LAX)",
@@ -1017,9 +1017,9 @@
       "bookableOnTriply": true,
       "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 46). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Fox Parking (LAX)",
@@ -1040,9 +1040,9 @@
       "bookableOnTriply": true,
       "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 201). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "405 Airport Parking (LAX)",
@@ -1061,9 +1061,9 @@
       "bookableOnTriply": true,
       "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 476). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Simply Park (LAX)",
@@ -1083,9 +1083,9 @@
       "bookableOnTriply": true,
       "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 418). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Travelodge by Wyndham LAX South (LAX)",
@@ -1105,14 +1105,14 @@
       "bookableOnTriply": true,
       "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 238). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Sheraton Gateway Los Angeles Hotel (LAX)",
       "slug": "sheraton-gateway-los-angeles-hotel",
-      "dailyRate": 18.85,
+      "dailyRate": 28.08,
       "address": "6101 W Century Blvd, Los Angeles, CA 90045",
       "reslabLocationId": 372,
       "amenities": [
@@ -1129,9 +1129,9 @@
       "bookableOnTriply": true,
       "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 372). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Sonesta Los Angeles Airport (LAX)",
@@ -1154,9 +1154,9 @@
       "bookableOnTriply": true,
       "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 192). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     }
   ],
   "shuttleInfo": "All off-site lots include free shuttle service to LAX terminals. On-airport Economy Parking connects via free shuttle every 10-15 minutes. When APM opens (~June 2026), terminal connections will be via elevated train to Economy Parking, Metro Transit Center, and ConRAC.",

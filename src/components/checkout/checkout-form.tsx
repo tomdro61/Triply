@@ -48,6 +48,7 @@ import { capturePaymentError, captureAPIError } from "@/lib/sentry";
 import { isVehicleFieldName } from "@/lib/booking/vehicle-field-aliases";
 import { checkoutExtraFields, extraFieldStepErrors } from "@/lib/booking/required-extra-fields";
 import { VehicleSizeSelector } from "./vehicle-size-selector";
+import { TERMS_VERSION } from "@/lib/checkout/terms-acceptance";
 import {
   atLotEstimate,
   initialVehicleChoice,
@@ -467,6 +468,8 @@ export function CheckoutForm({
           checkoutTime: checkOutTime,
           customerEmail: customerDetails.email,
           protectionPlanCode: protectionPlanCodeForPI,
+          // The checkbox version this bundle renders (dispute evidence quotes it).
+          termsVersion: TERMS_VERSION,
           ...(promoCode && { promoCode }),
         };
       } else {
@@ -484,6 +487,8 @@ export function CheckoutForm({
           parkingTypeId,
           customerEmail: customerDetails.email,
           protectionPlanCode: protectionPlanCodeForPI,
+          // The checkbox version this bundle renders (dispute evidence quotes it).
+          termsVersion: TERMS_VERSION,
           ...(promoCode && { promoCode }),
         };
       }

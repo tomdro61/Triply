@@ -1,7 +1,7 @@
 {
   "code": "MKE",
   "fullName": "Milwaukee Mitchell International Airport",
-  "lastVerified": "2026-10-26",
+  "lastVerified": "2026-11-02",
   "overview": {
     "location": "South side of Milwaukee, Wisconsin — about 5.8 miles south of downtown Milwaukee, between I-41/I-94 and Howell Avenue (WI 38). Renamed from 'General Mitchell International' in February 2019; the FAA and U.S. government still use the old name.",
     "iataCode": "MKE",
@@ -229,9 +229,9 @@
       "phone": "414-481-2400",
       "notes": "Lowest sellable rate at MKE on 2026-10-16 ($47.28 grand total for a 7-night Nov 2-9 stay, 8 billed days; same on Nov 9-16 and 16-23). Minimum booking 2 days. No shuttle 1-4 AM. Listing name is 'Royle Hotel' but its own description says 'Royce Hotel' — verify spelling before publishing.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Best Western Plus",
@@ -248,9 +248,9 @@
       "phone": "414-769-2100",
       "notes": "$61.44 grand total for Nov 2-9 (8 billed days), same on all three test weeks. No shuttle 12-4 AM.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Crowne Plaza Milwaukee Airport",
@@ -267,9 +267,9 @@
       "phone": "414-764-5300",
       "notes": "$69.58 grand total for Nov 2-9 (8 billed days). Minimum booking 2 days. Crew members get shuttle priority — build in a buffer. Good pick for oversized vehicles. No shuttle 11 PM-4 AM.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "ExecPark Valet Parking & Shuttle",
@@ -286,9 +286,9 @@
       "phone": "(414) 747-1000",
       "notes": "$103.45 grand total for Nov 2-9 (8 billed days). Lot accepts arrivals only 2:30 AM-7 PM CST — closed for drop-off 7 PM-2:30 AM (office 24/7). Only Triply MKE lot with 24/7 shuttle and winter snow clearing.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     }
   ],
   "shuttleInfo": "On-airport: Saver Lot shuttle every 5-10 minutes, 24 hours, 'Trunk to Terminal' pickup at your car. Off-site: Triply's four MKE lots are 0.7-2.2 mi away. ExecPark runs 24/7 on demand; Royle Hotel (no shuttle 1-4 AM), Best Western Plus (4 AM-12 AM) and Crowne Plaza (4 AM-11 PM) do not run overnight. Call the lot after collecting bags.",

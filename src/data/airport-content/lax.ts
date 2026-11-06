@@ -1,8 +1,10 @@
 import { AirportContent } from "./types";
 
 const laxContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-11-05",
   metaDescription:
-    "Compare 7+ off-airport LAX parking lots from $7.72/day. Save vs $20–$60/day on-airport rates. Free shuttle to terminals, hosting 2028 Olympics — APM and rail opening soon. Free cancellation.",
+    "Compare bookable off-airport LAX parking lots, including 24/7 shuttle lots, at today's prices. Save vs $35–$60/day on-airport rates. Hosting the 2028 Olympics — APM and rail opening soon. Free cancellation.",
 
   sections: [
     {
@@ -11,23 +13,25 @@ const laxContent: AirportContent = {
 
 LAX is host airport for the 2028 Summer Olympics and is in the middle of the largest construction program in its history — multi-billion dollars across the Automated People Mover (APM), the new Consolidated Rent-A-Car Facility (ConRAC, opened March 2026), Terminal 4/5 modernization, TBIT renovations, and the Midfield Satellite Concourse South (8 new gates, opened October 2025).
 
-On-airport parking is among the most expensive at any U.S. airport. CTA terminal garages run $60/day general or $70/day premium. Valet hits $75/day. Economy Parking is $35/day. Budget Parking is $20/day. Off-airport parking through Triply starts at around $7.72/day pre-booked — saving up to 87% compared to terminal garages.`,
+On-airport parking is among the most expensive at any U.S. airport. CTA terminal garages run $60/day general or $70/day premium. Valet hits $75/day. Economy Parking is $35/day. Budget Parking is $20/day. Off-airport parking through Triply typically costs a fraction of the terminal garage rate; the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.`,
     },
     {
       heading: "Best Off-Airport Parking Lots Near LAX",
-      body: `**105 Airport Parking** — Around $7.72/day. The cheapest off-site option at LAX. 3 levels indoor + outdoor rooftop. Free 24/7 shuttle every 25–30 minutes. ~2 miles out off Sepulveda Blvd.
+      body: `**Sheraton Gateway Los Angeles Hotel** — **Closest bookable lot** at 1.0 mile. Hotel valet parking (operated by AAA Parking) with a 24/7 airport shuttle every 25–30 minutes. Shuttle pickup at LAX is on the upper departures level under the red "Hotel shuttles and private parking shuttle" sign.
 
-**QuikPark LAX** — Around $16.95/day self-park ($17.95/day valet). The CLOSEST off-site lot — one block from LAX. Covered garage. Free shuttle every 5–10 minutes 24/7. 2–3 minute ride to terminals.
+**Sonesta Los Angeles Airport** — Hotel valet parking 1.1 miles out. 24/7 shuttle every 25–30 minutes from the same upper-level red-sign pickup.
 
-**Joe's Airport Parking** — Around $17.95/day. Covered facility on Century Blvd with 1,400+ spaces. Free shuttle every 15–20 minutes.
+**South Bay Airport Parking - 105** — Covered garage 1.2 miles out, just off Sepulveda Blvd near the 105 and 405. Valet or self-park (levels 3 and above). 24/7 shuttle every 20–30 minutes. **Free EV charging** (Blink, on six valet-only spaces). Max clearance 6'10".
 
-**The Parking Spot Century** — Around $19.95/day. Covered self-park or valet. On Century Blvd's main hotel corridor (between Westin and Hilton). Free 24/7 shuttle. EV charging.
+**Travelodge by Wyndham LAX South** — Hotel lot 1.2 miles out. Shuttle every 30 minutes from 5 AM to 12:30 AM — **no shuttle 12:30–5 AM**, so plan a rideshare for very early flights.
 
-**The Parking Spot Sepulveda** — Around $19.95/day uncovered, $24.95 covered, $25.95 valet. 1.7 miles out. Free 24/7 shuttle. EV charging available.
+**Fox Parking** — Valet lot 2.1 miles out with luggage assistance. 24/7 shuttle every 15–20 minutes. SUVs, trucks and minivans pay $1.50–$8/day extra at the lot depending on size; no trailers, campers or RVs.
 
-**WallyPark Premier Garage** — Around $25.95/day self-park ($29.95 valet). Premium indoor garage. **All-electric shuttle fleet** since 2016. Real-time shuttle tracking via app. Car wash service available.
+**Simply Park** — Seven levels of covered self-parking plus a rooftop, 2.2 miles out off I-405 and Century Blvd. Complimentary 24/7 shuttle every 30 minutes. Staff on site 24/7. Max clearance 6'8".
 
-**WallyPark Express** — Around $31.95/day. Indoor self-park. ~$138.86/week.`,
+**405 Airport Parking** — Gated lot 2.2 miles out off I-405 and Century Blvd, with security cameras and staff on site. 24/7 on-demand shuttle — call for your airport pickup.
+
+**9750 Airport Blvd (formerly Four Points by Sheraton)** — 1.4 miles out. **No shuttle** — you arrange your own ride to the terminal. Nothing larger than a minivan, and no trailers. Keep the ticket you take on arrival and show it with your reservation when you leave, or you may be charged the drive-up rate.`,
     },
     {
       heading: "Why LAX-it Matters and What's Coming Next",
@@ -49,15 +53,13 @@ Once APM opens, rideshare pickup is expected to transition to a new location con
 **On-Airport CTA Garages (general):** $300 (5 × $60)
 **On-Airport Economy Parking:** $175 (5 × $35) — free shuttle every 10–15 minutes
 **On-Airport Budget Parking:** $100 (5 × $20) — drive-up only
-**Off-Site The Parking Spot (Century):** $99.75 (5 × $19.95)
-**Off-Site QuikPark:** $84.75 (5 × $16.95) — 1 block from LAX
-**Off-Site 105 Airport Parking:** $38.60 (5 × $7.72) — cheapest
+**Off-site via Triply:** the lot list on this page shows current per-day rates, and a search with your dates shows your 5-day total with taxes and fees
 
 **Public transit alternatives:**
 • **FlyAway Bus to Union Station:** $25.50 round-trip per person. 30–60 minutes.
 • **Metro C/K Lines + LAX Shuttle:** $3.50 round-trip per person. 60–90 minutes (depending on origin).
 
-For solo travelers headed downtown, FlyAway at $25.50 round-trip beats parking for any trip length. For couples or groups with luggage, off-site parking ($38.60–$99.75 for 5 days) plus rideshare is often the better play.`,
+For solo travelers headed downtown, FlyAway at $25.50 round-trip beats parking for any trip length. For couples or groups with luggage, off-site parking is often the better play.`,
     },
     {
       heading: "Tips for Parking at LAX",
@@ -75,12 +77,12 @@ For solo travelers headed downtown, FlyAway at $25.50 round-trip beats parking f
     {
       question: "What is the cheapest parking at LAX?",
       answer:
-        "105 Airport Parking is the cheapest off-airport option at around $7.72/day pre-booked. The cheapest on-airport option is Budget Parking at $20/day. LAX Economy Parking is $35/day with free shuttle every 10–15 minutes. CTA general garages cost $60/day. All prices are based on a sample 5-day booking and may vary.",
+        "The cheapest on-airport option is Budget Parking at $20/day. LAX Economy Parking is $35/day with free shuttle every 10–15 minutes. CTA general garages cost $60/day. Off-airport lots typically cost a fraction of the garage rate, but prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees. Check the shuttle line too — 9750 Airport Blvd has no shuttle, and Travelodge LAX South's stops 12:30–5 AM.",
     },
     {
       question: "How much does it cost to park at LAX?",
       answer:
-        "On-airport parking at LAX ranges from $20/day (Budget Parking) to $75/day (Valet). Economy Parking is $35/day, CTA general garages $60/day, CTA premium garages $70/day. Off-airport parking through Triply starts at around $7.72/day pre-booked — saving up to 87% compared to terminal garages.",
+        "On-airport parking at LAX ranges from $20/day (Budget Parking) to $75/day (Valet). Economy Parking is $35/day, CTA general garages $60/day, CTA premium garages $70/day. Off-airport parking through Triply typically costs a fraction of the terminal garage rate — see the lot list on this page for current rates.",
     },
     {
       question: "What is LAX-it and do I have to use it?",
@@ -95,7 +97,7 @@ For solo travelers headed downtown, FlyAway at $25.50 round-trip beats parking f
     {
       question: "Does LAX have EV charging?",
       answer:
-        "Yes. LAX has the largest EV charging deployment at any U.S. airport — 305 stations on Level 1 of Economy Parking alone, plus additional stations across all CTA garages and valet. Level 2 chargers are $2/session + $0.45/kWh; DC Fast Charging is $2/session + $0.80/kWh. Use the PowerFlex app to start charging.",
+        "Yes. LAX has the largest EV charging deployment at any U.S. airport — 305 stations on Level 1 of Economy Parking alone, plus additional stations across all CTA garages and valet. Level 2 chargers are $2/session + $0.45/kWh; DC Fast Charging is $2/session + $0.80/kWh. Use the PowerFlex app to start charging. Off-site, South Bay Airport Parking - 105 offers free EV charging on six valet-only spaces.",
     },
     {
       question: "Is Terminal 5 open at LAX?",

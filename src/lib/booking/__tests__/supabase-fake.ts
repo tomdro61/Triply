@@ -207,6 +207,12 @@ function violatedUnique(table: string, row: Row, rows: Row[]): string | null {
       return rows.some((r) => r.booking_id === row.booking_id && r.kind === row.kind && r.source === row.source)
         ? "direct_lot_resends_booking_id_kind_source_key"
         : null;
+    case "disputes":
+      // 045: stripe_dispute_id is the PRIMARY KEY.
+      return rows.some((r) => r.stripe_dispute_id === row.stripe_dispute_id) ? "disputes_pkey" : null;
+    case "fraud_warnings":
+      // 046: stripe_warning_id is the PRIMARY KEY.
+      return rows.some((r) => r.stripe_warning_id === row.stripe_warning_id) ? "fraud_warnings_pkey" : null;
     case "review_emails":
       // 037: UNIQUE (booking_id, kind), the review cron's claim-before-send lock.
       return rows.some((r) => r.booking_id === row.booking_id && r.kind === row.kind)
@@ -553,9 +559,10 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
     if (!this.selectStr.includes("customers!inner") && !this.selectStr.includes("customers(")) return row;
     const cust = this.db.tables.customers.find((c) => c.id === row.customer_id);
     if (!cust) return { ...row, customers: null };
-    // first_name only when the select asks for it (the review cron does).
+    // Names only when the select asks for them (the review cron, disputes).
     const embed: Row = { email: cust.email };
     if (this.selectStr.includes("first_name")) embed.first_name = cust.first_name ?? null;
+    if (this.selectStr.includes("last_name")) embed.last_name = cust.last_name ?? null;
     if (this.selectStr.includes("user_id")) embed.user_id = cust.user_id ?? null;
     return { ...row, customers: embed };
   }
