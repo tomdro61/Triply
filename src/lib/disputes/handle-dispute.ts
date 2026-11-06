@@ -2,7 +2,14 @@ import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe/client";
 import { capturePaymentError } from "@/lib/sentry";
 import { sendDisputeClosedAlert, sendDisputeOpenedAlert } from "@/lib/resend/send-dispute-alert";
-import { buildEvidence, DISPUTE_BOOKING_SELECT, playbookFor, type DisputeBooking } from "./evidence";
+import {
+  buildEvidence,
+  DISPUTE_BOOKING_SELECT,
+  playbookFor,
+  type ChargeFacts,
+  type DisputeBooking,
+  type DisputeContact,
+} from "./evidence";
 import type { createAdminClient } from "@/lib/supabase/server";
 
 type Db = Awaited<ReturnType<typeof createAdminClient>>;
@@ -11,9 +18,10 @@ type Db = Awaited<ReturnType<typeof createAdminClient>>;
  * What the webhook should do with Stripe's delivery. `flipBooking`: this
  * delivery stored the booking's pre-dispute status (or the ledger is
  * unavailable), so the webhook should now flip the booking to `disputed` —
- * exactly once, even when it also asks for a retry.
+ * exactly once, even when it also asks for a retry. `statusBefore`: the
+ * status the flip must still find (compare-and-set); null = unknown.
  */
-export type DisputeOutcome = { retryable: boolean; flipBooking?: boolean };
+export type DisputeOutcome = { retryable: boolean; flipBooking?: boolean; statusBefore?: string | null };
 
 type DbError = { message: string; code?: string };
 
@@ -21,6 +29,17 @@ type DbError = { message: string; code?: string };
 // fix that, and a 503 would block the booking's status flip for Stripe's
 // whole ~3-day retry window. Report it loudly and let the webhook carry on.
 const MISSING_TABLE = new Set(["42P01", "PGRST205"]);
+
+// Every Stripe call here is capped well inside the route's 60 s budget, so a
+// slow one fails (and is reported) instead of the function being killed
+// mid-step. The SDK default is 80 s with 2 retries. One retry stays: the draft
+// is one-shot (draft_attempted_at), so a single 429/ECONNRESET must not lose
+// it. Worst case: charge read ~17 s + draft ~17 s + Resend 10 s.
+const STRIPE_OPTS = { timeout: 8_000, maxNetworkRetries: 1 };
+
+// A send lease older than this belongs to a delivery that died: the route
+// cannot run past 60 s, so no live delivery still holds it.
+const ALERT_LEASE_MS = 120_000;
 
 function failWith(
   d: Stripe.Dispute,
@@ -34,7 +53,7 @@ function failWith(
     new Error(`Dispute ${d.id}: ${what}: ${e.message}${missing ? " — is migration 045 applied?" : ""}`),
     ctx
   );
-  return missing ? { retryable: false, flipBooking: true } : { retryable: true };
+  return missing ? { retryable: false, flipBooking: true, statusBefore: null } : { retryable: true };
 }
 
 const CLOSED = new Set(["won", "lost", "warning_closed", "prevented"]);
@@ -45,6 +64,7 @@ const idOf = (x: string | { id: string } | null | undefined) => (typeof x === "s
 const dueByISO = (d: Stripe.Dispute) =>
   d.evidence_details?.due_by ? new Date(d.evidence_details.due_by * 1000).toISOString() : null;
 const now = () => new Date().toISOString();
+const messageOf = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
 type LedgerRow = {
   booking_id: string | null;
@@ -72,7 +92,7 @@ function ledgerRow(d: Stripe.Dispute) {
 /**
  * Atomically set `col` from NULL to now. True only for the one caller that
  * flipped it — Stripe delivers events concurrently and out of order, so a
- * "does the row exist" check is not enough to send exactly one email.
+ * "does the row exist" check is not enough to run a side effect once.
  */
 async function claim(supabase: Db, disputeId: string, col: string, extra: Record<string, unknown> = {}) {
   const { data, error } = await supabase
@@ -86,6 +106,97 @@ async function claim(supabase: Db, disputeId: string, col: string, extra: Record
 }
 
 /**
+ * The alert email's lease. `alert_claimed_at` is held only while a delivery
+ * sends; `alert_sent_at` is written only after Resend accepted the email. So a
+ * delivery that dies mid-send leaves an unsent, expiring lease — not a "sent"
+ * mark that would suppress every redelivery (review pass 1 Critical).
+ *   taken — this delivery sends it
+ *   sent  — already sent
+ *   held  — another delivery is sending right now, or died < 2 min ago
+ */
+async function takeAlertLease(supabase: Db, disputeId: string): Promise<"taken" | "sent" | "held"> {
+  // Two conditional UPDATEs, never one `.or()`: PostgREST rejects `.or()` on
+  // an UPDATE (reference_postgrest_or_on_update).
+  const take = async (stale: boolean) => {
+    const base = supabase
+      .from("disputes")
+      .update({ alert_claimed_at: now() })
+      .eq("stripe_dispute_id", disputeId)
+      .is("alert_sent_at", null);
+    const q = stale
+      ? base.lt("alert_claimed_at", new Date(Date.now() - ALERT_LEASE_MS).toISOString())
+      : base.is("alert_claimed_at", null);
+    const { data, error } = await q.select("stripe_dispute_id");
+    if (error) throw new Error(`alert lease failed: ${error.message}`);
+    return Array.isArray(data) && data.length > 0;
+  };
+  if ((await take(false)) || (await take(true))) return "taken";
+
+  const { data, error } = await supabase
+    .from("disputes")
+    .select("alert_sent_at")
+    .eq("stripe_dispute_id", disputeId)
+    .maybeSingle();
+  if (error) throw new Error(`alert lease read failed: ${error.message}`);
+  return (data as { alert_sent_at: string | null } | null)?.alert_sent_at ? "sent" : "held";
+}
+
+/**
+ * The disputed charge as Stripe records it — the only source for "charged" and
+ * "refunded" in the evidence. null (reported) when it can't be read; the draft
+ * then states no amount and makes no "no refund" claim.
+ */
+async function readCharge(
+  d: Stripe.Dispute,
+  ctx: { stripePaymentIntentId: string; amount: number }
+): Promise<ChargeFacts | null> {
+  const chargeId = idOf(d.charge);
+  if (!chargeId) return null;
+  try {
+    const c = await stripe.charges.retrieve(chargeId, {}, STRIPE_OPTS);
+    return { capturedCents: c.amount_captured, refundedCents: c.amount_refunded, currency: c.currency };
+  } catch (err) {
+    capturePaymentError(new Error(`Dispute ${d.id}: charge read failed, draft states no amount: ${messageOf(err)}`), ctx);
+    return null;
+  }
+}
+
+/**
+ * The name and email typed at checkout (`pending_bookings.customer`). The
+ * linked customers row can be a signed-in user's own row when they booked for
+ * someone else, so it is only a labelled fallback. A failed read is reported
+ * and falls back to that label — it must not hold up the alert.
+ */
+async function readContact(
+  supabase: Db,
+  d: Stripe.Dispute,
+  ctx: { stripePaymentIntentId: string; amount: number },
+  paymentIntentId: string,
+  booking: DisputeBooking
+): Promise<DisputeContact | null> {
+  const { data, error } = await supabase
+    .from("pending_bookings")
+    .select("customer")
+    .eq("stripe_payment_intent_id", paymentIntentId)
+    .maybeSingle();
+  if (error) {
+    capturePaymentError(new Error(`Dispute ${d.id}: checkout contact lookup failed: ${error.message}`), ctx);
+  }
+  type Typed = { firstName?: string | null; lastName?: string | null; email?: string | null };
+  const typed = (data as { customer: Typed | null } | null)?.customer ?? null;
+  if (typed) {
+    return {
+      name: [typed.firstName, typed.lastName].filter(Boolean).join(" ") || null,
+      email: typed.email ?? null,
+      source: "checkout",
+    };
+  }
+  const c = booking.customers;
+  if (!c) return null;
+  return { name: [c.first_name, c.last_name].filter(Boolean).join(" ") || null, email: c.email, source: "account" };
+}
+
+/**
  * charge.dispute.created: ledger row, evidence DRAFT on Stripe, alert email.
  * MUST run before the webhook flips the booking to `disputed`: the evidence
  * describes the booking as it was (cancelled or not), and that status is
@@ -94,8 +205,7 @@ async function claim(supabase: Db, disputeId: string, col: string, extra: Record
  * Each side effect is claimed by its own column, so a redelivery, a
  * concurrent delivery or an `updated` event that arrived first can neither
  * duplicate nor suppress it. A failed draft is reported, not retried (a
- * person fills it in by hand); a failed email releases its claim and asks
- * Stripe to redeliver.
+ * person fills it in by hand); an unsent alert asks Stripe to redeliver.
  */
 export async function handleDisputeCreated(supabase: Db, d: Stripe.Dispute): Promise<DisputeOutcome> {
   const paymentIntentId = idOf(d.payment_intent);
@@ -163,29 +273,46 @@ export async function handleDisputeCreated(supabase: Db, d: Stripe.Dispute): Pro
   // redelivery also flips while the booking still has exactly that status —
   // the earlier delivery died before its flip (e.g. a function timeout), and
   // without this the booking would never read `disputed`. A booking whose
-  // status has moved on since (refunded, cancelled) is left alone.
+  // status has moved on since (refunded, cancelled) is left alone. A NULL
+  // status stored as NULL counts as "still the same" (`?? null`).
   const unflipped =
-    booking?.status != null && booking.status !== "disputed" && booking.status === row.booking_status_at_dispute;
+    booking != null && booking.status !== "disputed" && (booking.status ?? null) === row.booking_status_at_dispute;
   const flip = storedStatus || unflipped;
-  const frozen = (o: DisputeOutcome): DisputeOutcome => ({ ...o, flipBooking: flip });
+  const statusBefore = row.booking_status_at_dispute;
+  const frozen = (o: DisputeOutcome): DisputeOutcome => ({ ...o, flipBooking: flip, statusBefore });
 
   // Evidence describes the booking as it was before the dispute.
   const asDisputed = booking ? { ...booking, status: row.booking_status_at_dispute } : null;
+  // Read on every delivery: the alert needs it too (the confirmation went to
+  // the checkout address, which is what ops searches for in Resend).
+  const contact = booking && paymentIntentId ? await readContact(supabase, d, ctx, paymentIntentId, booking) : null;
 
   let draftSaved = Boolean(row.evidence_drafted_at);
   let draftError = row.evidence_draft_error;
-  try {
-    if (asDisputed && NEEDS_RESPONSE.has(d.status) && (await claim(supabase, d.id, "draft_attempted_at"))) {
+  let draftUnknown = false;
+  if (asDisputed && paymentIntentId && NEEDS_RESPONSE.has(d.status)) {
+    let claimed: boolean;
+    try {
+      claimed = await claim(supabase, d.id, "draft_attempted_at");
+    } catch (err) {
+      return frozen(fail("claim failed", messageOf(err)));
+    }
+    if (claimed) {
+      const charge = await readCharge(d, ctx);
       try {
-        await stripe.disputes.update(d.id, {
-          evidence: buildEvidence(asDisputed, d.reason),
-          submit: false,
-          metadata: { booking_id: asDisputed.id },
-        });
+        await stripe.disputes.update(
+          d.id,
+          {
+            evidence: buildEvidence(asDisputed, d.reason, { contact, charge }),
+            submit: false,
+            metadata: { booking_id: asDisputed.id },
+          },
+          STRIPE_OPTS
+        );
         draftSaved = true;
         draftError = null;
       } catch (err) {
-        draftError = err instanceof Error ? err.message : String(err);
+        draftError = messageOf(err);
         capturePaymentError(new Error(`Dispute ${d.id}: evidence draft failed: ${draftError}`), ctx);
       }
       const { error } = await supabase
@@ -193,12 +320,27 @@ export async function handleDisputeCreated(supabase: Db, d: Stripe.Dispute): Pro
         .update(draftSaved ? { evidence_drafted_at: now() } : { evidence_draft_error: draftError })
         .eq("stripe_dispute_id", d.id);
       if (error) capturePaymentError(new Error(`Dispute ${d.id}: draft status write failed: ${error.message}`), ctx);
+    } else if (!draftSaved && !draftError) {
+      // Another delivery took the draft and recorded no result: it is still
+      // running, or it died mid-call. Whether Stripe kept anything is unknown.
+      draftUnknown = true;
+      capturePaymentError(
+        new Error(`Dispute ${d.id}: an earlier evidence-draft attempt recorded no result — check the dispute in Stripe`),
+        ctx
+      );
     }
-
-    if (!(await claim(supabase, d.id, "alert_sent_at"))) return frozen({ retryable: false });
-  } catch (err) {
-    return frozen(fail("claim failed", err instanceof Error ? err.message : String(err)));
   }
+
+  let lease: "taken" | "sent" | "held";
+  try {
+    lease = await takeAlertLease(supabase, d.id);
+  } catch (err) {
+    return frozen(fail("alert lease failed", messageOf(err)));
+  }
+  if (lease === "sent") return frozen({ retryable: false });
+  // Another delivery is sending now, or died less than ALERT_LEASE_MS ago.
+  // Ask Stripe to come back: by then it is sent, or the lease has expired.
+  if (lease === "held") return frozen({ retryable: true });
 
   try {
     const lot = booking ? [booking.location_name, booking.location_address].filter(Boolean).join(", ") : null;
@@ -209,20 +351,43 @@ export async function handleDisputeCreated(supabase: Db, d: Stripe.Dispute): Pro
       dueByISO: dueByISO(d),
       livemode: d.livemode,
       confirmationNumber: booking?.reslab_reservation_number ?? null,
-      customerEmail: booking?.customers?.email ?? null,
+      customerEmail: contact?.email
+        ? contact.source === "checkout"
+          ? contact.email
+          : `${contact.email} (account email; no checkout record)`
+        : null,
       lot: lot || null,
       checkIn: booking?.check_in ?? null,
       playbook: playbookFor(d.reason),
       draftSaved,
       draftError,
+      draftUnknown,
     });
   } catch (err) {
-    // Release the claim so Stripe's redelivery sends it.
-    const { error } = await supabase.from("disputes").update({ alert_sent_at: null }).eq("stripe_dispute_id", d.id);
-    if (error) capturePaymentError(new Error(`Dispute ${d.id}: alert claim release failed: ${error.message}`), ctx);
-    return frozen(fail("alert email failed", err instanceof Error ? err.message : String(err)));
+    // Free the lease so Stripe's redelivery sends it. If this write fails
+    // too, the lease simply expires after ALERT_LEASE_MS.
+    const { error } = await supabase
+      .from("disputes")
+      .update({ alert_claimed_at: null })
+      .eq("stripe_dispute_id", d.id)
+      .is("alert_sent_at", null);
+    if (error) {
+      capturePaymentError(
+        new Error(`Dispute ${d.id}: alert lease release failed (a redelivery sends it after the lease expires): ${error.message}`),
+        ctx
+      );
+    }
+    return frozen(fail("alert email failed", messageOf(err)));
   }
 
+  const { error: sentErr } = await supabase
+    .from("disputes")
+    .update({ alert_sent_at: now() })
+    .eq("stripe_dispute_id", d.id);
+  if (sentErr) {
+    // The email went out. Not retried: a redelivery would only send it twice.
+    capturePaymentError(new Error(`Dispute ${d.id}: alert sent but not recorded: ${sentErr.message}`), ctx);
+  }
   return frozen({ retryable: false });
 }
 
@@ -265,7 +430,7 @@ export async function handleDisputeChanged(supabase: Db, d: Stripe.Dispute): Pro
   try {
     first = await claim(supabase, d.id, "closed_at", { status: d.status, outcome: d.status });
   } catch (err) {
-    return fail("close claim failed", err instanceof Error ? err.message : String(err));
+    return fail("close claim failed", messageOf(err));
   }
   if (!first) return { retryable: false };
 

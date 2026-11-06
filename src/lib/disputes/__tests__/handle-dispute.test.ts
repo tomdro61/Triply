@@ -7,22 +7,25 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import type Stripe from "stripe";
 
-const { db, disputesUpdate, sentry, alerts } = await vi.hoisted(async () => {
+const { db, disputesUpdate, chargesRetrieve, sentry, alerts } = await vi.hoisted(async () => {
   const { FakeSupabase } = await import("@/lib/booking/__tests__/supabase-fake");
   return {
     db: new FakeSupabase(),
     disputesUpdate: vi.fn(),
+    chargesRetrieve: vi.fn(),
     sentry: { capturePaymentError: vi.fn() },
     alerts: { sendDisputeOpenedAlert: vi.fn(), sendDisputeClosedAlert: vi.fn() },
   };
 });
 
-vi.mock("@/lib/stripe/client", () => ({ stripe: { disputes: { update: disputesUpdate } } }));
+vi.mock("@/lib/stripe/client", () => ({
+  stripe: { disputes: { update: disputesUpdate }, charges: { retrieve: chargesRetrieve } },
+}));
 vi.mock("@/lib/sentry", () => sentry);
 vi.mock("@/lib/resend/send-dispute-alert", () => alerts);
 
 import { handleDisputeCreated, handleDisputeChanged } from "../handle-dispute";
-import { buildEvidence, playbookFor } from "../evidence";
+import { buildEvidence, playbookFor, type ChargeFacts, type DisputeContact } from "../evidence";
 
 type Db = Parameters<typeof handleDisputeCreated>[0];
 const sb = db as unknown as Db; // test double only
@@ -51,14 +54,22 @@ const BOOKING = {
   airport_code: "EWR",
   check_in: "2026-10-10T08:00:00",
   check_out: "2026-10-14T18:00:00",
-  grand_total: 50.57,
+  // grand_total is deliberately NOT selected: it is not the card amount.
+  due_at_location: 0,
   status: "completed",
   created_at: "2026-10-01T12:00:00+00:00",
   cancellation_reason: null,
   cancelled_by: null,
   inventory_source: "reslab",
-  customers: { email: "a@b.com", first_name: "Ann", last_name: "Lee" },
+  // The account row: a signed-in user who booked for someone else.
+  customers: { email: "account@b.com", first_name: "Acct", last_name: "Holder" },
 };
+
+// Bounded, but keeps one SDK retry: the draft is one-shot.
+const STRIPE_OPTS = { timeout: 8_000, maxNetworkRetries: 1 };
+const CHECKOUT: DisputeContact = { name: "Ann Lee", email: "ann@typed.com", source: "checkout" };
+const PAID: ChargeFacts = { capturedCents: 6356, refundedCents: 0, currency: "usd" };
+const FACTS = { contact: CHECKOUT, charge: PAID };
 
 function seedBooking(over: Record<string, unknown> = {}) {
   db.seed("bookings", [{ ...BOOKING, customer_id: "c1", ...over }]);
@@ -67,8 +78,13 @@ function seedBooking(over: Record<string, unknown> = {}) {
 beforeEach(() => {
   db.clearFailures();
   seedBooking();
-  db.seed("customers", [{ id: "c1", email: "a@b.com", first_name: "Ann", last_name: "Lee" }]).seed("disputes", []);
+  db.seed("customers", [{ id: "c1", email: "account@b.com", first_name: "Acct", last_name: "Holder" }])
+    .seed("pending_bookings", [
+      { stripe_payment_intent_id: "pi_1", customer: { firstName: "Ann", lastName: "Lee", email: "ann@typed.com" } },
+    ])
+    .seed("disputes", []);
   disputesUpdate.mockReset().mockResolvedValue({});
+  chargesRetrieve.mockReset().mockResolvedValue({ amount_captured: 6356, amount_refunded: 0, currency: "usd" });
   sentry.capturePaymentError.mockReset();
   alerts.sendDisputeOpenedAlert.mockReset().mockResolvedValue(undefined);
   alerts.sendDisputeClosedAlert.mockReset().mockResolvedValue(undefined);
@@ -92,13 +108,62 @@ describe("handleDisputeCreated", () => {
     expect(db.tables.disputes[0].alert_sent_at).toBeTruthy();
 
     expect(disputesUpdate).toHaveBeenCalledTimes(1);
-    const [, params] = disputesUpdate.mock.calls[0];
+    const [, params, opts] = disputesUpdate.mock.calls[0];
     expect(params.submit).toBe(false);
-    expect(params.evidence.customer_email_address).toBe("a@b.com");
     expect(params.evidence.service_date).toBe("2026-10-10");
+    // Bounded: a hung Stripe call fails inside the route's 60 s.
+    expect(opts).toEqual(STRIPE_OPTS);
+    expect(chargesRetrieve).toHaveBeenCalledWith("ch_1", {}, STRIPE_OPTS);
 
     expect(alerts.sendDisputeOpenedAlert).toHaveBeenCalledTimes(1);
-    expect(alerts.sendDisputeOpenedAlert.mock.calls[0][0]).toMatchObject({ confirmationNumber: "RTL828863", draftSaved: true });
+    expect(alerts.sendDisputeOpenedAlert.mock.calls[0][0]).toMatchObject({
+      confirmationNumber: "RTL828863",
+      draftSaved: true,
+      draftUnknown: false,
+    });
+  });
+
+  it("the draft names the person typed at checkout and the amount Stripe charged", async () => {
+    await handleDisputeCreated(sb, dispute());
+    const { evidence } = disputesUpdate.mock.calls[0][1];
+    expect(evidence.customer_email_address).toBe("ann@typed.com");
+    expect(evidence.customer_name).toBe("Ann Lee");
+    expect(evidence.uncategorized_text).toContain("Charged online by Triply: $63.56.");
+    expect(evidence.uncategorized_text).not.toContain("account@b.com");
+    // The alert names the address the confirmation went to (what ops searches in Resend).
+    expect(alerts.sendDisputeOpenedAlert.mock.calls[0][0].customerEmail).toBe("ann@typed.com");
+  });
+
+  it("the alert labels an account email when there is no checkout record", async () => {
+    db.seed("pending_bookings", []);
+    await handleDisputeCreated(sb, dispute());
+    expect(alerts.sendDisputeOpenedAlert.mock.calls[0][0].customerEmail).toBe("account@b.com (account email; no checkout record)");
+  });
+
+  it("no checkout record: the account contact is labelled, never put in the matched fields", async () => {
+    db.seed("pending_bookings", []);
+    await handleDisputeCreated(sb, dispute());
+    const { evidence } = disputesUpdate.mock.calls[0][1];
+    expect(evidence.customer_email_address).toBeUndefined();
+    expect(evidence.uncategorized_text).toContain("Triply account linked to the reservation: Acct Holder, account@b.com.");
+  });
+
+  it("a failed checkout-contact read is reported and still drafts and alerts", async () => {
+    db.failOnce("pending_bookings", "select", "timeout");
+    const r = await handleDisputeCreated(sb, dispute());
+    expect(r.retryable).toBe(false);
+    expect(disputesUpdate.mock.calls[0][1].evidence.customer_email_address).toBeUndefined();
+    expect(sentry.capturePaymentError.mock.calls.some(([e]) => e.message.includes("checkout contact lookup failed"))).toBe(true);
+    expect(alerts.sendDisputeOpenedAlert).toHaveBeenCalledTimes(1);
+  });
+
+  it("an unreadable charge: the draft states no amount and makes no 'no refund' claim", async () => {
+    chargesRetrieve.mockRejectedValueOnce(new Error("Stripe 500"));
+    await handleDisputeCreated(sb, dispute({ reason: "credit_not_processed" }));
+    const { evidence } = disputesUpdate.mock.calls[0][1];
+    expect(evidence.uncategorized_text).not.toContain("Charged");
+    expect(evidence.refund_refusal_explanation).toBeUndefined();
+    expect(sentry.capturePaymentError.mock.calls.some(([e]) => e.message.includes("charge read failed"))).toBe(true);
   });
 
   it("a redelivered event does nothing (no second draft, no second email)", async () => {
@@ -154,16 +219,16 @@ describe("handleDisputeCreated", () => {
       { stripe_dispute_id: "dp_1", booking_id: "b1", booking_status_at_dispute: "completed", draft_attempted_at: "t", alert_sent_at: "t", closed_at: null },
     ]);
     const r = await handleDisputeCreated(sb, dispute());
-    expect(r).toEqual({ retryable: false, flipBooking: false });
+    expect(r).toEqual({ retryable: false, flipBooking: false, statusBefore: "completed" });
     expect(disputesUpdate).not.toHaveBeenCalled();
     expect(alerts.sendDisputeOpenedAlert).not.toHaveBeenCalled();
   });
 
   it("only the delivery that stores the status asks for the booking flip", async () => {
     alerts.sendDisputeOpenedAlert.mockRejectedValueOnce(new Error("Resend down"));
-    expect(await handleDisputeCreated(sb, dispute())).toEqual({ retryable: true, flipBooking: true });
+    expect(await handleDisputeCreated(sb, dispute())).toEqual({ retryable: true, flipBooking: true, statusBefore: "completed" });
     db.tables.bookings[0].status = "disputed"; // the webhook's flip
-    expect(await handleDisputeCreated(sb, dispute())).toEqual({ retryable: false, flipBooking: false });
+    expect(await handleDisputeCreated(sb, dispute())).toEqual({ retryable: false, flipBooking: false, statusBefore: "completed" });
   });
 
   it("a delivery that died before its flip is flipped by the redelivery", async () => {
@@ -171,7 +236,7 @@ describe("handleDisputeCreated", () => {
     db.seed("disputes", [
       { stripe_dispute_id: "dp_1", booking_id: "b1", booking_status_at_dispute: "completed", draft_attempted_at: "t", alert_sent_at: "t", closed_at: null },
     ]);
-    expect(await handleDisputeCreated(sb, dispute())).toEqual({ retryable: false, flipBooking: true });
+    expect(await handleDisputeCreated(sb, dispute())).toEqual({ retryable: false, flipBooking: true, statusBefore: "completed" });
     expect(alerts.sendDisputeOpenedAlert).not.toHaveBeenCalled();
   });
 
@@ -185,7 +250,7 @@ describe("handleDisputeCreated", () => {
 
   it("a missing ledger table (migration not applied) degrades: no retry, flip the booking", async () => {
     db.failOnce("disputes", "select", "relation does not exist", "42P01");
-    expect(await handleDisputeCreated(sb, dispute())).toEqual({ retryable: false, flipBooking: true });
+    expect(await handleDisputeCreated(sb, dispute())).toEqual({ retryable: false, flipBooking: true, statusBefore: null });
     expect(sentry.capturePaymentError.mock.calls[0][0].message).toContain("migration 045");
   });
 
@@ -197,15 +262,75 @@ describe("handleDisputeCreated", () => {
     expect(alerts.sendDisputeOpenedAlert.mock.calls[0][0]).toMatchObject({ draftSaved: false, draftError: "evidence too long" });
   });
 
-  it("a failed email releases its claim and asks for a retry; the retry sends it", async () => {
+  it("a failed email releases its lease and asks for a retry; the retry sends it", async () => {
     alerts.sendDisputeOpenedAlert.mockRejectedValueOnce(new Error("Resend down"));
     const r1 = await handleDisputeCreated(sb, dispute());
     expect(r1.retryable).toBe(true);
-    expect(db.tables.disputes[0].alert_sent_at).toBeNull();
+    expect(db.tables.disputes[0].alert_sent_at).toBeFalsy();
+    expect(db.tables.disputes[0].alert_claimed_at).toBeNull();
     const r2 = await handleDisputeCreated(sb, dispute());
     expect(r2.retryable).toBe(false);
+    expect(db.tables.disputes[0].alert_sent_at).toBeTruthy();
     expect(alerts.sendDisputeOpenedAlert).toHaveBeenCalledTimes(2);
     expect(disputesUpdate).toHaveBeenCalledTimes(1); // the draft is not redone
+  });
+
+  // Review pass 1 Critical: the old claim marked the alert "sent" BEFORE
+  // Resend ran, so a delivery killed mid-send suppressed every redelivery.
+  const leased = (claimedAt: string) => ({
+    stripe_dispute_id: "dp_1",
+    booking_id: "b1",
+    booking_status_at_dispute: "completed",
+    draft_attempted_at: "t",
+    evidence_drafted_at: "t",
+    alert_claimed_at: claimedAt,
+    alert_sent_at: null,
+    closed_at: null,
+  });
+
+  it("a lease held by a live delivery: ask Stripe to come back, send nothing", async () => {
+    db.seed("disputes", [leased(new Date().toISOString())]);
+    expect((await handleDisputeCreated(sb, dispute())).retryable).toBe(true);
+    expect(alerts.sendDisputeOpenedAlert).not.toHaveBeenCalled();
+  });
+
+  it("a lease left by a delivery that died mid-send is taken over and the alert goes out", async () => {
+    db.seed("disputes", [leased(new Date(Date.now() - 3 * 60_000).toISOString())]);
+    expect((await handleDisputeCreated(sb, dispute())).retryable).toBe(false);
+    expect(alerts.sendDisputeOpenedAlert).toHaveBeenCalledTimes(1);
+    expect(db.tables.disputes[0].alert_sent_at).toBeTruthy();
+  });
+
+  it("a failed send whose lease release also fails still goes out once the lease expires", async () => {
+    alerts.sendDisputeOpenedAlert.mockRejectedValueOnce(new Error("Resend down"));
+    db.failWhen("disputes", "update", (p) => p != null && "alert_claimed_at" in p && p.alert_claimed_at === null, "connection reset");
+    expect((await handleDisputeCreated(sb, dispute())).retryable).toBe(true);
+    expect(db.tables.disputes[0].alert_sent_at).toBeFalsy();
+    expect(sentry.capturePaymentError.mock.calls.some(([e]) => e.message.includes("lease release failed"))).toBe(true);
+
+    // Stripe redelivers before the lease expires: still held, retry again.
+    expect((await handleDisputeCreated(sb, dispute())).retryable).toBe(true);
+    // ...and after it expires: sent.
+    db.tables.disputes[0].alert_claimed_at = new Date(Date.now() - 3 * 60_000).toISOString();
+    expect((await handleDisputeCreated(sb, dispute())).retryable).toBe(false);
+    expect(alerts.sendDisputeOpenedAlert).toHaveBeenCalledTimes(2);
+  });
+
+  it("an alert that went out but couldn't be marked sent is reported, not retried", async () => {
+    db.failWhen("disputes", "update", (p) => p != null && "alert_sent_at" in p, "connection reset");
+    expect((await handleDisputeCreated(sb, dispute())).retryable).toBe(false);
+    expect(alerts.sendDisputeOpenedAlert).toHaveBeenCalledTimes(1);
+    expect(sentry.capturePaymentError.mock.calls.some(([e]) => e.message.includes("alert sent but not recorded"))).toBe(true);
+  });
+
+  it("an earlier draft attempt that recorded no result: the alert says to check Stripe", async () => {
+    db.seed("disputes", [
+      { stripe_dispute_id: "dp_1", booking_id: "b1", booking_status_at_dispute: "completed", draft_attempted_at: "t", closed_at: null },
+    ]);
+    await handleDisputeCreated(sb, dispute());
+    expect(disputesUpdate).not.toHaveBeenCalled();
+    expect(alerts.sendDisputeOpenedAlert.mock.calls[0][0]).toMatchObject({ draftSaved: false, draftUnknown: true });
+    expect(sentry.capturePaymentError.mock.calls.some(([e]) => e.message.includes("recorded no result"))).toBe(true);
   });
 
   it("no booking for the charge: ledger row with no booking, no draft, still alerts", async () => {
@@ -266,26 +391,76 @@ describe("handleDisputeChanged", () => {
 
 describe("evidence", () => {
   it("keeps airport-local times as written (no timezone shift)", () => {
-    expect(buildEvidence(BOOKING, "general").uncategorized_text).toContain("check-in 2026-10-10 08:00");
+    expect(buildEvidence(BOOKING, "general", FACTS).uncategorized_text).toContain("check-in 2026-10-10 08:00");
   });
 
   it("a duplicate claim gets a duplicate explanation", () => {
-    expect(buildEvidence(BOOKING, "duplicate").duplicate_charge_explanation).toContain("RTL828863");
+    expect(buildEvidence(BOOKING, "duplicate", FACTS).duplicate_charge_explanation).toContain("RTL828863");
   });
 
-  it("an uncancelled booking rebuts a 'cancelled' claim", () => {
-    expect(buildEvidence(BOOKING, "subscription_canceled").cancellation_rebuttal).toContain("no cancellation");
+  it("an uncancelled, unrefunded booking rebuts a 'cancelled' or 'refund' claim", () => {
+    expect(buildEvidence(BOOKING, "subscription_canceled", FACTS).cancellation_rebuttal).toContain("no cancellation");
+    // Facts only — no paraphrase of when a refund is due (round 2 High).
+    expect(buildEvidence(BOOKING, "credit_not_processed", FACTS).refund_refusal_explanation).toBe(
+      "Our records show no cancellation of this reservation, and no refund has been issued on this charge."
+    );
+  });
+
+  it("the refund policy quotes the Terms (\"typically\"), not checkout", () => {
+    const e = buildEvidence(BOOKING, "general", FACTS);
+    expect(e.refund_policy_disclosure).toContain("typically appear within 5-10 business days");
+    expect(e.refund_policy_disclosure).not.toContain("disclosed at checkout");
   });
 
   it("a cancelled booking never gets a 'no cancellation' rebuttal", () => {
     const cancelled = { ...BOOKING, status: "cancelled", cancelled_by: "customer" };
-    expect(buildEvidence(cancelled, "subscription_canceled").cancellation_rebuttal).toBeUndefined();
-    expect(buildEvidence(cancelled, "credit_not_processed").refund_refusal_explanation).toBeUndefined();
+    expect(buildEvidence(cancelled, "subscription_canceled", FACTS).cancellation_rebuttal).toBeUndefined();
+    expect(buildEvidence(cancelled, "credit_not_processed", FACTS).refund_refusal_explanation).toBeUndefined();
+  });
+
+  // Review pass 1: every refund path writes `refunded`, and `cancelled_by` is
+  // NULL on every cancel before 2026-09-30.
+  it("a refunded booking with no cancelled_by gets no 'no cancellation / no refund' line", () => {
+    const refunded = { ...BOOKING, status: "refunded", cancelled_by: null };
+    const charge = { ...PAID, refundedCents: 6356 };
+    expect(buildEvidence(refunded, "credit_not_processed", { contact: CHECKOUT, charge }).refund_refusal_explanation).toBeUndefined();
+    expect(buildEvidence(refunded, "subscription_canceled", { contact: CHECKOUT, charge }).cancellation_rebuttal).toBeUndefined();
+  });
+
+  it("a partial refund (status still confirmed) gets no rebuttal and shows the refund", () => {
+    const confirmed = { ...BOOKING, status: "confirmed" };
+    const charge = { ...PAID, refundedCents: 1299 };
+    const e = buildEvidence(confirmed, "credit_not_processed", { contact: CHECKOUT, charge });
+    expect(e.refund_refusal_explanation).toBeUndefined();
+    expect(e.uncategorized_text).toContain("Refunded to the card so far: $12.99.");
+  });
+
+  it("states the card amount from Stripe and the part paid at the lot separately", () => {
+    const e = buildEvidence({ ...BOOKING, due_at_location: "12.50" }, "general", FACTS);
+    expect(e.uncategorized_text).toContain("Charged online by Triply: $63.56.");
+    // No figure: a CAD-priced lot's at-lot amount would be mislabelled in the charge currency.
+    expect(e.uncategorized_text).toContain("Part of the reservation price was payable directly at the facility; Triply did not charge it.");
+    expect(e.uncategorized_text).not.toContain("12.50");
+    expect(e.product_description).toContain("part of the price payable at the facility");
+    expect(e.product_description).not.toMatch(/prepaid/i);
+  });
+
+  it("nothing paid at the lot: no at-lot line", () => {
+    expect(buildEvidence(BOOKING, "general", FACTS).uncategorized_text).not.toContain("payable directly at the facility");
+  });
+
+  it("a booking made before the current Terms §5 gets no policy text", () => {
+    const old = { ...BOOKING, created_at: "2026-08-01T15:00:00+00:00" };
+    const e = buildEvidence(old, "subscription_canceled", FACTS);
+    expect(e.cancellation_policy_disclosure).toBeUndefined();
+    expect(e.refund_policy_disclosure).toBeUndefined();
+    expect(e.cancellation_rebuttal).toBe("Our records show no cancellation of this reservation.");
+    expect(buildEvidence(BOOKING, "general", FACTS).cancellation_policy_disclosure).toContain("Triply account");
   });
 
   it("an unknown pre-dispute status makes no cancellation claim either way", () => {
     for (const status of [null, "disputed"]) {
-      const e = buildEvidence({ ...BOOKING, status }, "credit_not_processed");
+      const e = buildEvidence({ ...BOOKING, status }, "credit_not_processed", FACTS);
       expect(e.refund_refusal_explanation).toBeUndefined();
       expect(e.uncategorized_text).toContain("status before the dispute: not recorded");
     }

@@ -6,12 +6,13 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const { db, constructEvent, disputesUpdate, sentry, alerts } = await vi.hoisted(async () => {
+const { db, constructEvent, disputesUpdate, chargesRetrieve, sentry, alerts } = await vi.hoisted(async () => {
   const { FakeSupabase } = await import("@/lib/booking/__tests__/supabase-fake");
   return {
     db: new FakeSupabase(),
     constructEvent: vi.fn(),
     disputesUpdate: vi.fn(),
+    chargesRetrieve: vi.fn(),
     sentry: {
       capturePaymentError: vi.fn(),
       captureParkGuardError: vi.fn(),
@@ -24,7 +25,7 @@ const { db, constructEvent, disputesUpdate, sentry, alerts } = await vi.hoisted(
 
 vi.mock("@/lib/supabase/server", () => ({ createAdminClient: async () => db }));
 vi.mock("@/lib/stripe/client", () => ({
-  stripe: { webhooks: { constructEvent }, disputes: { update: disputesUpdate } },
+  stripe: { webhooks: { constructEvent }, disputes: { update: disputesUpdate }, charges: { retrieve: chargesRetrieve } },
 }));
 vi.mock("@/lib/sentry", () => sentry);
 vi.mock("@/lib/resend/send-dispute-alert", () => alerts);
@@ -66,9 +67,11 @@ beforeEach(() => {
     { id: "b1", customer_id: "c1", stripe_payment_intent_id: "pi_1", reslab_reservation_number: "RTL1", status: "confirmed", cancelled_by: null },
   ])
     .seed("customers", [{ id: "c1", email: "a@b.com" }])
+    .seed("pending_bookings", [])
     .seed("disputes", []);
   constructEvent.mockReset();
   disputesUpdate.mockReset().mockResolvedValue({});
+  chargesRetrieve.mockReset().mockResolvedValue({ amount_captured: 5057, amount_refunded: 0, currency: "usd" });
   for (const m of Object.values(sentry)) m.mockReset();
   alerts.sendDisputeOpenedAlert.mockReset().mockResolvedValue(undefined);
   alerts.sendDisputeClosedAlert.mockReset().mockResolvedValue(undefined);
@@ -105,6 +108,44 @@ describe("Stripe webhook — disputes", () => {
     db.tables.bookings[0].status = "cancelled"; // e.g. refunded in the meantime
     expect((await send("charge.dispute.created", "needs_response")).status).toBe(200);
     expect(db.tables.bookings[0].status).toBe("cancelled");
+  });
+
+  it("created: a refund that lands while the delivery runs keeps its status (compare-and-set flip)", async () => {
+    alerts.sendDisputeOpenedAlert.mockImplementationOnce(async () => {
+      db.tables.bookings[0].status = "refunded"; // an admin refund mid-run
+    });
+    expect((await send("charge.dispute.created", "needs_response")).status).toBe(200);
+    expect(db.tables.bookings[0].status).toBe("refunded");
+    expect(sentry.capturePaymentError.mock.calls.some(([e]) => e.message.includes("not flipped to disputed"))).toBe(true);
+  });
+
+  it("created: a failed booking lookup for the flip returns 503 and the redelivery flips", async () => {
+    // First bookings select = the handler's evidence read; the second is the route's flip lookup.
+    let reads = 0;
+    db.failWhen("bookings", "select", () => ++reads === 2, "timeout");
+    expect((await send("charge.dispute.created", "needs_response")).status).toBe(503);
+    expect(db.tables.bookings[0].status).toBe("confirmed");
+    expect((await send("charge.dispute.created", "needs_response")).status).toBe(200);
+    expect(db.tables.bookings[0].status).toBe("disputed");
+    expect(alerts.sendDisputeOpenedAlert).toHaveBeenCalledTimes(1);
+  });
+
+  it("created: a failed flip returns 503 and the redelivery flips without a second alert", async () => {
+    db.failOnce("bookings", "update", "connection reset");
+    expect((await send("charge.dispute.created", "needs_response")).status).toBe(503);
+    expect(db.tables.bookings[0].status).toBe("confirmed");
+    expect((await send("charge.dispute.created", "needs_response")).status).toBe(200);
+    expect(db.tables.bookings[0].status).toBe("disputed");
+    expect(alerts.sendDisputeOpenedAlert).toHaveBeenCalledTimes(1);
+  });
+
+  it("created: a booking with a NULL status is still flipped, including on a redelivery after a failed flip", async () => {
+    db.tables.bookings[0].status = null;
+    db.failOnce("bookings", "update", "connection reset");
+    expect((await send("charge.dispute.created", "needs_response")).status).toBe(503);
+    expect(db.tables.bookings[0].status).toBeNull();
+    expect((await send("charge.dispute.created", "needs_response")).status).toBe(200);
+    expect(db.tables.bookings[0].status).toBe("disputed");
   });
 
   it("updated + closed reach the ledger and the outcome email goes out once", async () => {

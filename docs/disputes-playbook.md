@@ -4,10 +4,15 @@
 
 When a customer disputes a charge, Stripe sends `charge.dispute.created` to `/api/webhooks/stripe`, and the webhook:
 
-1. Sets the booking to `disputed`. This is unchanged.
-2. Writes a row to the `disputes` table (migration 045) with the amount, reason, deadline and booking.
-3. Builds evidence from the booking record (customer, lot, dates, confirmation, cancellation and refund policy) and saves it on the dispute as a **draft**. It is **never submitted**, because Stripe allows only one submission per dispute.
-4. Emails `PAYMENT_ALERT_EMAILS` with the deadline, a reason-specific checklist of what to add by hand, and a link to the dispute.
+1. Writes a row to the `disputes` table (migration 045) with the amount, reason, deadline, booking, and the booking's status before the dispute.
+2. Builds evidence and saves it on the dispute as a **draft**. It is **never submitted**, because Stripe allows only one submission per dispute. The draft states only what the records show:
+   - the name and email typed at checkout (or, if there is no checkout record, the linked account, labelled as such);
+   - the amount charged and anything refunded, read from Stripe, never from the booking total (that leaves out the service fee and Park Guard and includes what was paid at the lot);
+   - the cancellation and refund policy, only for bookings made after the current Terms §5 went live on 2026-08-12;
+   - a "no cancellation / no refund" rebuttal only when the booking was confirmed or completed, nobody cancelled it, and Stripe shows nothing refunded.
+   If Stripe can't be read, the draft states no amount and no rebuttal.
+3. Emails `PAYMENT_ALERT_EMAILS` with the deadline in Eastern time, a reason-specific checklist of what to add by hand, and a link to the dispute. The email is marked sent only after Resend accepts it; if a send fails or the function dies mid-send, Stripe's redelivery sends it (worst case: a duplicate email, never a missing one).
+4. Sets the booking to `disputed`, but only if its status hasn't changed since step 1 (a refund that landed meanwhile keeps `refunded`).
 
 On `charge.dispute.updated` / `charge.dispute.closed` the row's status and deadline stay current. On close it records the outcome (won / lost) and emails it once.
 
@@ -35,4 +40,4 @@ Code: `src/lib/disputes/` (evidence + per-reason playbook, handler) and `src/lib
 ## One-time setup
 
 - Apply `supabase/migrations/045_disputes.sql` in the Supabase SQL editor.
-- In Stripe → Developers → Webhooks → the triplypro.com endpoint, make sure `charge.dispute.created`, `charge.dispute.updated` and `charge.dispute.closed` are all enabled.
+- In Stripe → Developers → Webhooks, on both the live triplypro.com endpoint and the test-mode staging endpoint, make sure `charge.dispute.created`, `charge.dispute.updated` and `charge.dispute.closed` are all enabled.

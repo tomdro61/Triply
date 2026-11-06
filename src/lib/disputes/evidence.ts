@@ -1,7 +1,8 @@
 import type Stripe from "stripe";
 
 /**
- * Dispute evidence + playbook, built from the booking row alone.
+ * Dispute evidence + playbook, built from the booking row, the checkout
+ * contact, and the charge as Stripe records it.
  *
  * The webhook saves this to Stripe as a DRAFT (`submit: false`) — never
  * submitted automatically. A person reads it in the Stripe dashboard, adds what
@@ -10,7 +11,7 @@ import type Stripe from "stripe";
  */
 
 export const DISPUTE_BOOKING_SELECT =
-  "id, reslab_reservation_number, location_name, location_address, airport_code, check_in, check_out, grand_total, status, created_at, cancellation_reason, cancelled_by, inventory_source, customers(email, first_name, last_name)";
+  "id, reslab_reservation_number, location_name, location_address, airport_code, check_in, check_out, due_at_location, status, created_at, cancellation_reason, cancelled_by, inventory_source, customers(email, first_name, last_name)";
 
 export type DisputeBooking = {
   id: string;
@@ -20,7 +21,8 @@ export type DisputeBooking = {
   airport_code: string | null;
   check_in: string | null;
   check_out: string | null;
-  grand_total: number | string | null;
+  /** ResLab: the part of ResLab's total paid at the lot, never charged by us. Direct: always 0. */
+  due_at_location: number | string | null;
   status: string | null;
   created_at: string | null;
   cancellation_reason: string | null;
@@ -29,20 +31,53 @@ export type DisputeBooking = {
   customers: { email: string | null; first_name: string | null; last_name: string | null } | null;
 };
 
+/**
+ * Who the reservation is for. `checkout` = what the customer typed at checkout
+ * (`pending_bookings.customer`). `account` = the linked customers row, which
+ * can belong to a signed-in user who booked for someone else, so it is only
+ * ever stated with that label.
+ */
+export type DisputeContact = { name: string | null; email: string | null; source: "checkout" | "account" };
+
+/**
+ * The disputed charge as Stripe records it. `bookings.grand_total` is not the
+ * card amount: it leaves out the service fee, Park Guard and promos, and for
+ * ResLab includes the part paid at the lot. null = Stripe couldn't be read, so
+ * the draft states no amount and no refund status.
+ */
+export type ChargeFacts = { capturedCents: number; refundedCents: number; currency: string };
+
 // Booking times are airport-local literals: format the stored string, never
 // run it through Date (CLAUDE.md anti-pattern).
 const localTime = (s: string | null) => (s ? s.slice(0, 16).replace("T", " ") : "unknown");
 const day = (s: string | null) => (s ? s.slice(0, 10) : undefined);
+const money = (cents: number, currency: string) =>
+  currency.toLowerCase() === "usd" ? `$${(cents / 100).toFixed(2)}` : `${(cents / 100).toFixed(2)} ${currency.toUpperCase()}`;
+
+/**
+ * Terms §5 as quoted below (self-cancel in My Reservations, 5-10 business day
+ * refunds) went live on 2026-08-12, and §5.5 says the policy in force when the
+ * reservation was made applies. Earlier bookings get no policy text: a person
+ * writes it from the terms of the day.
+ */
+const POLICY_IN_FORCE_FROM = Date.parse("2026-08-13T00:00:00Z");
+const policyApplies = (createdAt: string | null) => {
+  const t = createdAt ? Date.parse(createdAt) : NaN;
+  return Number.isFinite(t) && t >= POLICY_IN_FORCE_FROM;
+};
 
 const CANCELLATION_POLICY =
   "Triply Terms of Service, section 5 (https://www.triplypro.com/terms#cancellation), linked from the payment step at checkout: " +
-  "reservations can be cancelled online in My Reservations more than 24 hours before the scheduled check-in time, " +
+  "an eligible reservation can be cancelled online through the customer's Triply account (My Reservations) more than 24 hours before the scheduled check-in time, " +
   "for a full refund of the amount paid online (except the non-refundable portion of any Park Guard protection plan). Reservations cannot be cancelled online within 24 hours of check-in; " +
   "late cancellations are handled case by case, and no-shows are not refunded.";
 
+// Quoted from Terms §5.2 / §5.4, not from checkout: the checkout's own
+// "partly non-refundable" wording only arrived 2026-10-13, after the policy
+// gate date.
 const REFUND_POLICY =
-  "Approved refunds go to the original payment method and appear within 5-10 business days. " +
-  "A portion of any Park Guard protection plan is non-refundable, as disclosed at checkout.";
+  "Triply Terms of Service, sections 5.2 and 5.4: approved refunds are issued to the original payment method and, depending on the bank or card issuer, typically appear within 5-10 business days. " +
+  "A portion of any Park Guard protection plan price is non-refundable.";
 
 export type Playbook = {
   label: string;
@@ -115,58 +150,88 @@ export function playbookFor(reason: string): Playbook {
   }
 }
 
-/** Text evidence for Stripe, from what the booking row already proves. */
+/**
+ * Text evidence for Stripe. Every sentence states only what the booking row,
+ * the checkout record or Stripe's charge records — a claim we can't back would
+ * be read by the card issuer, and there is no second submission. Anything
+ * unknown is left out for a person to write.
+ */
 export function buildEvidence(
   booking: DisputeBooking,
-  reason: string
+  reason: string,
+  facts: { contact: DisputeContact | null; charge: ChargeFacts | null }
 ): Stripe.DisputeUpdateParams.Evidence {
-  const c = booking.customers;
-  const name = [c?.first_name, c?.last_name].filter(Boolean).join(" ") || undefined;
+  const { contact, charge } = facts;
   const conf = booking.reslab_reservation_number ?? booking.id;
   const lot = [booking.location_name, booking.location_address].filter(Boolean).join(", ");
-  const total = booking.grand_total != null ? `$${Number(booking.grand_total).toFixed(2)}` : "the amount charged";
+  const atLotCents = Math.round(Number(booking.due_at_location ?? 0) * 100);
+  const currency = charge?.currency ?? "usd";
+  const withPolicy = policyApplies(booking.created_at);
   // `status` is the booking's status from BEFORE the dispute (the caller
-  // passes the ledger's snapshot); null means it is unknown. Every sentence
-  // below states only what the row records. A claim we can't back would be
-  // read by the card issuer, and there is no second submission.
+  // passes the ledger's snapshot); null means it is unknown.
   const status = booking.status && booking.status !== "disputed" ? booking.status : null;
-  const cancelled = status === "cancelled" || booking.cancelled_by != null;
-  const notCancelled = status != null && !cancelled;
+  // "No cancellation, no refund" needs all three: a live status (`refunded`
+  // and `payment_failed` are not, and `cancelled_by` is NULL on every cancel
+  // before 2026-09-30), nobody recorded as cancelling, and Stripe showing
+  // nothing refunded (a partial refund leaves the status `confirmed`).
+  const notCancelled =
+    (status === "confirmed" || status === "completed") &&
+    booking.cancelled_by == null &&
+    charge != null &&
+    charge.refundedCents === 0;
+
+  const contactLine = !contact
+    ? "Customer name and email: not recorded."
+    : contact.source === "checkout"
+      ? `Name and email entered at checkout: ${contact.name ?? "name not recorded"}, ${contact.email ?? "email not recorded"}.`
+      : `Triply account linked to the reservation: ${contact.name ?? "name not recorded"}, ${contact.email ?? "email not recorded"}.`;
 
   const summary = [
     `Airport parking reservation ${conf}, booked on triplypro.com on ${localTime(booking.created_at)} UTC.`,
-    `Name on the reservation: ${name ?? "not recorded"}. Email on the reservation: ${c?.email ?? "not recorded"}.`,
+    contactLine,
     `Facility: ${lot || "see booking"}${booking.airport_code ? ` (${booking.airport_code} airport)` : ""}.`,
     `Reserved stay: check-in ${localTime(booking.check_in)} to check-out ${localTime(booking.check_out)}, airport local time.`,
-    `Charged ${total}.`,
+    charge ? `Charged online by Triply: ${money(charge.capturedCents, currency)}.` : null,
+    charge && charge.refundedCents > 0 ? `Refunded to the card so far: ${money(charge.refundedCents, currency)}.` : null,
+    // No figure: ResLab prices some lots in CAD (the charge currency would
+    // mislabel it), and only the online charge is in dispute.
+    atLotCents > 0 ? "Part of the reservation price was payable directly at the facility; Triply did not charge it." : null,
     `Reservation status before the dispute: ${status ?? "not recorded"}${booking.cancelled_by ? ` (cancelled by ${booking.cancelled_by}${booking.cancellation_reason ? `, reason: ${booking.cancellation_reason}` : ""})` : ""}.`,
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 
+  // Only the checkout contact goes in the structured fields the issuer
+  // matches against the cardholder; an account contact stays a labelled line.
+  const typed = contact?.source === "checkout" ? contact : null;
   const evidence: Stripe.DisputeUpdateParams.Evidence = {
-    customer_name: name,
-    customer_email_address: c?.email ?? undefined,
+    customer_name: typed?.name ?? undefined,
+    customer_email_address: typed?.email ?? undefined,
     product_description:
-      `Prepaid airport parking reservation at ${lot || "a parking facility"}. ` +
+      `Airport parking reservation at ${lot || "a parking facility"}, booked and paid for online at triplypro.com` +
+      `${atLotCents > 0 ? ", with part of the price payable at the facility" : ""}. ` +
       "Triply is the booking agent for the facility.",
     service_date: day(booking.check_in),
-    cancellation_policy_disclosure: CANCELLATION_POLICY,
-    refund_policy_disclosure: REFUND_POLICY,
+    cancellation_policy_disclosure: withPolicy ? CANCELLATION_POLICY : undefined,
+    refund_policy_disclosure: withPolicy ? REFUND_POLICY : undefined,
     uncategorized_text: summary,
   };
 
-  // Only rebut a cancellation claim when the pre-dispute status is known and
-  // shows no cancel. Otherwise leave the field empty for a person to write.
   switch (reason) {
     case "credit_not_processed":
       if (notCancelled) {
+        // Facts only. When a refund is due is the policy's to say (its own
+        // field, quoted from Terms §5) — a paraphrase here would be read
+        // against the customer's case, not ours.
         evidence.refund_refusal_explanation =
-          "Our records show no cancellation of this reservation, so no refund was due under the cancellation policy.";
+          "Our records show no cancellation of this reservation, and no refund has been issued on this charge.";
       }
       break;
     case "subscription_canceled":
       if (notCancelled) {
         evidence.cancellation_rebuttal =
-          "Our records show no cancellation of this reservation. Cancellation is self-service in My Reservations up to 24 hours before check-in.";
+          "Our records show no cancellation of this reservation." +
+          (withPolicy ? " Cancellation is available online in My Reservations until 24 hours before check-in." : "");
       }
       break;
     case "duplicate":

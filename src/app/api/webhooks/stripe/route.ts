@@ -416,7 +416,10 @@ export async function POST(request: NextRequest) {
           .eq("stripe_payment_intent_id", paymentIntentId)
           .single();
 
+        // A failed lookup or flip asks Stripe to redeliver: the redelivery
+        // flips while the booking still has its pre-dispute status.
         if (lookupErr && lookupErr.code !== "PGRST116") {
+          retryable = true;
           capturePaymentError(
             new Error(`Webhook charge.dispute.created: lookup failed: ${lookupErr.message}`),
             { stripePaymentIntentId: paymentIntentId, amount: dispute.amount / 100 }
@@ -424,13 +427,28 @@ export async function POST(request: NextRequest) {
         }
 
         if (booking) {
-          const { error: updateErr } = await supabase
-            .from("bookings")
-            .update({ status: "disputed" })
-            .eq("id", booking.id);
+          // Compare-and-set: flip only while the booking still has the status
+          // the evidence describes, so a refund or cancel that landed while
+          // this delivery ran keeps its status. No status to compare (ledger
+          // unavailable, or a NULL status — which `<> 'disputed'` would never
+          // match): flip unconditionally, as before the ledger existed.
+          const base = supabase.from("bookings").update({ status: "disputed" }).eq("id", booking.id);
+          const { data: flipped, error: updateErr } = await (ledger.statusBefore
+            ? base.eq("status", ledger.statusBefore)
+            : base
+          ).select("id");
           if (updateErr) {
+            retryable = true;
             capturePaymentError(
               new Error(`Webhook charge.dispute.created: status update failed: ${updateErr.message}`),
+              { stripePaymentIntentId: paymentIntentId, amount: dispute.amount / 100 }
+            );
+          } else if (!flipped?.length) {
+            // Not an error to retry: the booking moved on (e.g. refunded)
+            // while this delivery ran. Recorded so the dispute and the
+            // booking's status can be reconciled by hand.
+            capturePaymentError(
+              new Error(`Webhook charge.dispute.created: booking ${booking.id} not flipped to disputed — its status changed from ${ledger.statusBefore} since the dispute opened`),
               { stripePaymentIntentId: paymentIntentId, amount: dispute.amount / 100 }
             );
           }
