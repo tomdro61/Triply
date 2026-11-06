@@ -168,11 +168,13 @@ export default function AdminSupportPage() {
         // editor next to any unsaved typing, so a re-save is a deliberate merge.
         const current = data?.current as Ticket | null | undefined;
         if (current) {
-          const typed = notesDraft !== t.notes && notesDraft.trim() !== "" && notesDraft !== current.notes;
           setSelected(current);
-          setNotesDraft(
-            typed ? `${current.notes}\n\n--- Your unsaved note (merge, then save) ---\n${notesDraft}` : current.notes
-          );
+          // Merge against the draft as it is NOW (functional update), not the
+          // copy captured when this save started.
+          setNotesDraft((live) => {
+            const typed = live !== t.notes && live.trim() !== "" && live !== current.notes;
+            return typed ? `${current.notes}\n\n--- Your unsaved note (merge, then save) ---\n${live}` : current.notes;
+          });
           setNotesBase(current.updated_at);
         }
         await load();
@@ -464,6 +466,7 @@ export default function AdminSupportPage() {
                 <textarea
                   value={notesDraft}
                   onChange={(e) => setNotesDraft(e.target.value)}
+                  readOnly={saving}
                   rows={4}
                   className="w-full resize-y rounded-lg border border-gray-200 px-3 py-2 outline-none focus:ring-2 focus:ring-brand-orange"
                   placeholder="What you did: refunded $X, called the lot, changed dates in ResLab…"

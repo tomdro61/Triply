@@ -296,14 +296,11 @@ describe("POST /api/contact — support inbox on", () => {
     expect(db.updates).toHaveLength(1);
   });
 
-  it("each email carries a stable idempotency key (a retry after a timeout doesn't email twice)", async () => {
+  it("no idempotency key: a customer's second, identical request still sends both emails", async () => {
     await POST(req(form));
     await POST(req(form));
-    const keys = resendSend.mock.calls.map((c) => c[1]?.idempotencyKey);
-    expect(keys[0]).toMatch(/^contact-team-[0-9a-f]{40}$/);
-    expect(keys[1]).toMatch(/^contact-reply-[0-9a-f]{40}$/);
-    expect(keys[2]).toBe(keys[0]);
-    expect(keys[3]).toBe(keys[1]);
+    expect(resendSend).toHaveBeenCalledTimes(4);
+    expect(resendSend.mock.calls.every((c) => c[1] === undefined)).toBe(true);
   });
 
   it("a staging (test-mode) ticket is marked test, never pings, and says so in the team email", async () => {
