@@ -157,3 +157,17 @@ test('applyWithSettle: a thrown PATCH is settled by re-reading — live = applie
   // a refused excerpt-only PATCH is NOT "applied" (perf-apply's editIsLive ignored excerpt)
   assert.equal(await applyWithSettle('7', { excerpt: 'x'.repeat(10) }, { updatePost: boom, readPost: async () => ({ ...post(), excerpt: 'old' }), log }), 'not-live')
 })
+
+test('checkEdit: a flat-amount code sources its own $ terms, only where the edit names the code', () => {
+  const figs = { DFW5: [5, 25] }
+  const named = '<p>Use DFW5 at checkout for $5 off a parking subtotal of $25 or more.</p>'
+  const rn = applyEdit(post(), { insert: ins('Shuttle', named) })
+  const cn = checkEdit(post(), rn, { insert: ins('Shuttle', named) }, new Set([1800]), undefined, figs)
+  assert.ok(!cn.blockers.some((b) => b.startsWith('price check')), cn.blockers.join(' | '))
+  const unnamed = '<p>Save $5 on a parking subtotal of $25 or more.</p>'
+  const ru = applyEdit(post(), { insert: ins('Shuttle', unnamed) })
+  const cu = checkEdit(post(), ru, { insert: ins('Shuttle', unnamed) }, new Set([1800]), undefined, figs)
+  assert.ok(cu.blockers.some((b) => b.startsWith('price check: $5')))
+  const none = checkEdit(post(), rn, { insert: ins('Shuttle', named) }, new Set([1800]), undefined, {})
+  assert.ok(none.blockers.some((b) => b.startsWith('price check: $5')))
+})

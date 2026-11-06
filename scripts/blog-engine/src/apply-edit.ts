@@ -82,7 +82,7 @@ import { z } from 'zod'
 import { parse as parseHtml, NodeType, type HTMLElement, type TextNode } from 'node-html-parser'
 import { htmlToLexical } from './html-to-lexical.js'
 import { lexicalToHtml, countNodesOfType, readUploadValue } from './lexical-to-html.js'
-import { lintArticle, formatLint, stripTags, loadApprovedCodes, loadApprovedOffers, priceCheck, collectMoneyFigures, PROMO_WORD, type LintFinding } from './lint.js'
+import { lintArticle, formatLint, stripTags, loadApprovedCodes, loadApprovedOffers, loadApprovedOfferFigures, priceCheck, collectMoneyFigures, PROMO_WORD, type LintFinding } from './lint.js'
 // P3 price check + allow-list live in lint.ts (generate uses them too, W1.8 P3c); re-exported for callers and tests.
 export { priceCheck, collectMoneyFigures } from './lint.js'
 import { stampField, factsDiff, lexicalText, type FactsDiff } from './stamp.js'
@@ -829,7 +829,7 @@ const rawBlocks = (html: string): string[] => html.split(new RegExp(BLOCK_TAG.so
  * inside content a replace removed may go; nothing else may), the booking-link backstop, and the unsold-lot names.
  * `lots`: lotNamesFor(post.airportCode); null = no data file, and the unsold-name check reports NOT RUN.
  */
-export function checkEdit(post: PostLike, res: EditResult, edit: EditSpec, known: ReadonlySet<number> | null, lots: LotNames | null = { unsellable: [], sellable: [], airportWords: [] }): CheckResult {
+export function checkEdit(post: PostLike, res: EditResult, edit: EditSpec, known: ReadonlySet<number> | null, lots: LotNames | null = { unsellable: [], sellable: [], airportWords: [] }, codeFigures: Record<string, number[]> = loadApprovedOfferFigures()): CheckResult {
   const lintOf = (p: PostLike) => lintArticle({
     title: p.title, metaTitle: p.seo?.metaTitle, metaDescription: p.seo?.metaDescription,
     html: lexicalToHtml(p.content as Parameters<typeof lexicalToHtml>[0]), excerpt: p.excerpt,
@@ -876,7 +876,10 @@ export function checkEdit(post: PostLike, res: EditResult, edit: EditSpec, known
   ].filter((e, i, arr) => arr.findIndex((x) => key(x) === key(e)) === i)
   const hasPrice = /(?:C\$|CA\$|US\$|\$)\s?\d/.test(`${newText}\n${res.fieldText}`)
   const unique = (xs: string[]) => [...new Set(xs)]
-  const badPrices = known ? unique([...blocks.flatMap((b) => priceCheck(b, '', known)), ...priceCheck('', res.fieldText, known)]) : []
+  // A flat-amount code's own terms ("DFW5: $5 off, $25 minimum") are sourced by the code, but only where the edit names it.
+  const named = Object.keys(codeFigures).filter((c) => new RegExp(`\\b${c}\\b`, 'i').test(`${newText}\n${res.fieldText}`))
+  const priceKnown = known && named.length ? new Set([...known, ...named.flatMap((c) => codeFigures[c].map((n) => Math.round(n * 100)))]) : known
+  const badPrices = priceKnown ? unique([...blocks.flatMap((b) => priceCheck(b, '', priceKnown)), ...priceCheck('', res.fieldText, priceKnown)]) : []
   const loss = guardLoss(post.content, res.after.content, removedNodes(res.replaced))
   // The whole resulting body, so a stale figure the edit did NOT remove is still caught (reported, not blocking:
   // old posts carry computed totals the allow-list never holds, and this edit may be fixing one block of many).
