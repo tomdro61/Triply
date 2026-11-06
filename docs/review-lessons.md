@@ -149,6 +149,14 @@ a human.
   the previous round's fixes.
 - A fix adds branches. Ask: *what does this new branch do when its own operation fails?*
 
+### 16. When the codebase already computes a figure, reuse its definition
+
+- **#161:** "last touch" was read as `attr.last`. The cookie writes `last` only on a later visit, so a
+  one-visit booking's last touch IS its first, and `classifyChannel` already uses `attr.last ?? attr.first`.
+  Every single-visit booking was missing from the page's last-touch numbers.
+- **Rule:** before writing a new metric, grep for the existing one (channel, airport, live/test,
+  `excludeTestBookings`, net take) and call it, or copy its exact rule and say where it came from.
+
 ---
 
 ## Log
@@ -167,6 +175,17 @@ One entry per reviewed PR: what the review found, by lesson number. Newest first
     - a foreign URL satisfied the booking-link check;
     - inline HTML was garbled.
   - **Round 3 (lesson 15):** "THE …" lot names and a bolded CTA anchor slipped through.
+  - All fixed.
+
+- **#161 blog-bookings admin page (Nov 6):**
+  - Lesson 16: last touch ignored the `last ?? first` rule, undercounting single-visit bookings.
+  - Lesson 5: a CMS outage showed 0 Google clicks per airport; partial net take read as complete.
+  - Lesson 4: net take's ResLab reads had no timeout inside a 60 s route.
+  - Lesson 13: a paging test that couldn't fail; no 401/403 tests.
+  - **Round 2 (lesson 15):**
+    - Next's cache served an expired net figure and swallowed refresh failures;
+    - timed-out sections kept fetching after the response;
+    - a 92-day net range could never finish.
   - All fixed.
 
 - **#160 lot-sync (Nov 6):**
@@ -214,4 +233,4 @@ One entry per reviewed PR: what the review found, by lesson number. Newest first
 - **#143 airport data (Nov 2):** lesson 2, stale lot prices in prose. It took 8 rounds, each finding
   bugs in the last round's fixes (lesson 15).
 
-*Created November 6, 2026 — from REVIEW-FINDINGS.md (wrapper repo) and the reviews of #143–#160.*
+*Created November 6, 2026 (lesson 16 added the same day, #161) — from REVIEW-FINDINGS.md (wrapper repo) and the reviews of #143–#160.*

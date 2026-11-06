@@ -84,6 +84,9 @@ export function captureAPIError(
      * these identical so the two branches merge cleanly.)
      */
     extra?: Record<string, unknown>;
+    /** Opt-in severity for an expected degradation (e.g. a time budget ran
+     *  out). Omitted = Sentry's default for an exception, as before. */
+    level?: "warning" | "info";
   }
 ) {
   Sentry.withScope((scope) => {
@@ -97,6 +100,7 @@ export function captureAPIError(
     if (context.extra) {
       scope.setContext("detail", context.extra);
     }
+    if (context.level) scope.setLevel(context.level);
     Sentry.captureException(error);
   });
 }

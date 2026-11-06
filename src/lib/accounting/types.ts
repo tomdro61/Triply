@@ -18,6 +18,30 @@ export interface ReconcileOptions {
   invoiceAmount: number;
   includeReslab: boolean;
   includeStripe: boolean;
+  /**
+   * Restrict the read to these booking ids (still inside from/to). Omitted =
+   * every booking in the range (the monthly accounting page). The id list is
+   * chunked and each chunk paged, so PostgREST's 1,000-row cap can't truncate
+   * it. An empty array reads nothing.
+   */
+  bookingIds?: readonly string[];
+  /** ResLab reads in flight at once. Default 5. */
+  reslabConcurrency?: number;
+  /**
+   * Opt-in time bounds for a caller with a hard function budget
+   * (/admin/blog-bookings). Omitted = no timeout and no deadline, exactly as
+   * the monthly accounting page has always run.
+   *
+   * `fetchTimeoutMs`: each ResLab request (auth and every reservation read)
+   * and each by-id bookings page is aborted after this many ms.
+   */
+  fetchTimeoutMs?: number;
+  /**
+   * Epoch ms. A ResLab read that has not started by then is not made: the
+   * row becomes a fetch error (RESLAB_SKIPPED_TIME_BUDGET), so the result
+   * reads as incomplete rather than as a figure.
+   */
+  deadline?: number;
 }
 
 export interface BookingDetail {
