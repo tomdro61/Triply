@@ -2111,8 +2111,9 @@ async function fulfilClaimed(
       {
         stripePaymentIntentId: piId,
         amount: pi.amount / 100,
+        // Per PaymentIntent where the row itself may need a look.
         fingerprint:
-          warning.kind === "refused"
+          warning.kind === "refused" || warning.kind === "unverified"
             ? ["promo-discount-stamp", warning.kind, piId]
             : ["promo-discount-stamp", warning.kind],
       }

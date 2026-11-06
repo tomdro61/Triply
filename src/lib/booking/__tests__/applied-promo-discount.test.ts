@@ -104,11 +104,35 @@ describe("appliedPromoDiscount — a usable stamp", () => {
 
 describe("appliedPromoDiscount — the backstop: a REFUSED stamp still proves a discount was applied", () => {
   it.each([
-    ["no due_at_location", { dueAtLocation: null }],
-    ["no grand_total", { grandTotal: null }],
-  ])("no checkout figures and %s on the reservation: the stamp cannot be vouched for (refused, as Step 9.5), never bounded by 'due 0'", (_label, money) => {
-    const out = appliedPromoDiscount(payload, fr(money), null, promo());
-    expect(out.stampWarnings[0]).toMatchObject({ kind: "refused", detail: expect.stringContaining("online parking is unknown") });
+    ["no due_at_location", { dueAtLocation: null }, "due_at_location"],
+    ["no grand_total", { grandTotal: null }, "grand_total"],
+  ])(
+    "no checkout figures and %s on the reservation: the stamp is recorded AS STAMPED (never derived with 'due 0') and reported unverified",
+    (_label, money, field) => {
+      // Codex round 4: derived with due 0 it would be 88 + 6 − 69 = 25.00, not 5.00.
+      const out = appliedPromoDiscount(payload, fr(money), null, promo());
+      expect(out.discountAmount).toBe(5);
+      expect(out.promoCode).toBe("JFK5");
+      expect(out.stampWarnings).toEqual([
+        {
+          kind: "unverified",
+          detail: `recorded discount_amount 5.00 as stamped: no checkout figures, and the reservation's ${field} is unknown, so it could not be bounded or derived`,
+        },
+      ]);
+    }
+  );
+
+  it("an UNUSABLE stamp and the reservation's due unknown: nothing to derive from — 0 and no code (never inflated), refused", () => {
+    const out = appliedPromoDiscount(payload, fr({ dueAtLocation: null }), null, promo({ stampedDiscount: { kind: "invalid", raw: "5.00" } }));
+    expect(out.discountAmount).toBe(0);
+    expect(out.promoCode).toBeNull();
+    expect(out.stampWarnings).toEqual([
+      {
+        kind: "refused",
+        detail:
+          `discountCents "5.00" is not a positive whole number of cents; the reservation's figures are unknown, so recorded discount_amount 0.00 and promo_code none — repair from the charge`,
+      },
+    ]);
   });
 
   it("checkout figures marked invalid by the engine (they failed the charge check): refused, derived from THIS reservation", () => {

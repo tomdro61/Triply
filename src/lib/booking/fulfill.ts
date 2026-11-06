@@ -177,10 +177,12 @@ export interface StampWarning {
    *             priced differently from checkout, so the row's totals minus
    *             the discount no longer equal Stripe's charge — not a fault
    *             (the customer pays what they authorized), reported at warning
+   *   unverified  no checkout figures and the reservation's grand / due is
+   *             unknown: the stamp is recorded as stamped, unbounded — look
    *   no_code   a stamped discount was recorded but no promoCode came with it
    *             — the booking will not count as a use of any code
    */
-  kind: "refused" | "mismatch" | "price_moved" | "no_code";
+  kind: "refused" | "mismatch" | "price_moved" | "unverified" | "no_code";
   detail: string;
 }
 
@@ -258,56 +260,79 @@ export function appliedPromoDiscount(
   // reservation's — so it never comes out of the service fee.
   const stampWarnings: StampWarning[] = [];
   const checkout = promo.checkoutFigures;
-  // An unknown reservation figure cannot vouch for a stamp (NaN refuses it),
-  // exactly as Step 9.5 treats it — never "due 0", which would let the bound
-  // grow to the whole grand total.
-  const onlineParkingCents =
-    checkout.kind === "figures"
-      ? checkout.onlineParkingCents
-      : fr.money.grandTotal === null || fr.money.dueAtLocation === null
-      ? Number.NaN
-      : Math.round((fr.money.grandTotal - fr.money.dueAtLocation) * 100);
-  const refusal =
-    checkout.kind === "invalid"
-      ? checkout.detail
-      : stampedDiscountRefusal(stamped, onlineParkingCents);
+  // This reservation's own figures, only when ResLab returned both: a missing
+  // one is UNKNOWN, never 0 — "due 0" would inflate both the bound and any
+  // discount derived from it (RTL753241: a create response without its due).
+  const reservationOnlineCents =
+    fr.money.grandTotal !== null && fr.money.dueAtLocation !== null
+      ? Math.round((fr.money.grandTotal - fr.money.dueAtLocation) * 100)
+      : null;
+  const reservationPreDiscountCents = reservationOnlineCents === null ? null : preDiscountOnlineCents();
   // With checkout's figures (checked against the charge by the engine before
   // they get here), the charge is measured against checkout's own
   // pre-discount price: a lot price that moved after checkout is not a
   // mismatch but a `price_moved`, below. Without them, against this
-  // reservation's.
+  // reservation's — or nothing, when it is unknown.
   const preDiscountCents =
     checkout.kind === "figures"
       ? checkout.preDiscountOnlineCents + Math.round(protectionPremium * 100)
-      : preDiscountOnlineCents();
-  const derivedCents = preDiscountCents - promo.chargedCents;
+      : reservationPreDiscountCents;
+  const derivedCents = preDiscountCents === null ? null : preDiscountCents - promo.chargedCents;
   // A blank code (`redeemedPromoCode` trims to "") is no code.
   const code = promo.code ? promo.code : null;
 
   let discountCents: number;
-  if (refusal === null && stamped.kind === "cents") {
+  if (checkout.kind === "absent" && reservationOnlineCents === null && stamped.kind === "cents") {
+    // Nothing to bound it by and nothing to derive from: the stamp is the
+    // only figure there is (Step 8 may well have vouched for it against a
+    // fresh price). Recorded as stamped, and each one is looked at.
     discountCents = stamped.cents;
-    if (Math.abs(derivedCents - stamped.cents) > 1) {
-      stampWarnings.push({
-        kind: "mismatch",
-        detail: `recorded discount_amount ${dollars(stamped.cents)} (discountCents ${stamped.cents}), but Stripe charged ${promo.chargedCents} of a pre-discount ${preDiscountCents}, i.e. ${derivedCents} off`,
-      });
-    } else if (checkout.kind === "figures") {
-      const reservationPreDiscountCents = preDiscountOnlineCents();
-      if (Math.abs(reservationPreDiscountCents - promo.chargedCents - stamped.cents) > 1) {
+    stampWarnings.push({
+      kind: "unverified",
+      detail: `recorded discount_amount ${dollars(stamped.cents)} as stamped: no checkout figures, and the reservation's ${
+        fr.money.grandTotal === null ? "grand_total" : "due_at_location"
+      } is unknown, so it could not be bounded or derived`,
+    });
+  } else {
+    const onlineParkingCents =
+      checkout.kind === "figures" ? checkout.onlineParkingCents : reservationOnlineCents ?? Number.NaN; // NaN refuses
+    const refusal =
+      checkout.kind === "invalid"
+        ? checkout.detail
+        : stampedDiscountRefusal(stamped, onlineParkingCents);
+    if (refusal === null && stamped.kind === "cents") {
+      discountCents = stamped.cents;
+      if (derivedCents !== null && Math.abs(derivedCents - stamped.cents) > 1) {
+        stampWarnings.push({
+          kind: "mismatch",
+          detail: `recorded discount_amount ${dollars(stamped.cents)} (discountCents ${stamped.cents}), but Stripe charged ${promo.chargedCents} of a pre-discount ${preDiscountCents}, i.e. ${derivedCents} off`,
+        });
+      } else if (
+        checkout.kind === "figures" &&
+        reservationPreDiscountCents !== null &&
+        Math.abs(reservationPreDiscountCents - promo.chargedCents - stamped.cents) > 1
+      ) {
         stampWarnings.push({
           kind: "price_moved",
           detail: `recorded discount_amount ${dollars(stamped.cents)}; checkout priced ${preDiscountCents} before the discount, this reservation ${reservationPreDiscountCents}; Stripe charged ${promo.chargedCents}`,
         });
       }
+    } else if (derivedCents === null) {
+      // Refused, and the reservation's figures are unknown: nothing to derive
+      // from. 0 under-states rather than inflates; the row needs a repair.
+      discountCents = 0;
+      stampWarnings.push({
+        kind: "refused",
+        detail: `${refusal ?? "discountCents unusable"}; the reservation's figures are unknown, so recorded discount_amount 0.00 and promo_code none — repair from the charge`,
+      });
+    } else {
+      discountCents = Math.max(0, derivedCents);
+      const recordedCode = discountCents > 0 ? code : null;
+      stampWarnings.push({
+        kind: "refused",
+        detail: `${refusal ?? "discountCents unusable"}; recorded discount_amount ${dollars(discountCents)} derived from Stripe's charge (${preDiscountCents} − ${promo.chargedCents}) and promo_code ${recordedCode ?? "none"}`,
+      });
     }
-  } else {
-    discountCents = Math.max(0, derivedCents);
-    const recordedCode = discountCents > 0 ? code : null;
-    stampWarnings.push({
-      kind: "refused",
-      detail: `${refusal ?? "discountCents unusable"}; recorded discount_amount ${dollars(discountCents)} derived from Stripe's charge (${preDiscountCents} − ${promo.chargedCents}) and promo_code ${recordedCode ?? "none"}`,
-    });
   }
   const discountAmount = discountCents / 100;
   if (discountAmount > 0 && code === null) {

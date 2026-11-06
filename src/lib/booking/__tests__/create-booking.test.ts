@@ -2550,6 +2550,21 @@ describe("a stamped discountCents — ResLab (promo plan Part 1, readers)", () =
       expect(refused[0][0].message).toMatch(/stamp_invalid/);
     });
 
+    it("Step 8 vouched for the stamp, then the created reservation omits due_at_location: books with the STAMP (5.00, not 25.00 from 'due 0'), reported unverified per PaymentIntent", async () => {
+      const r = reslabReservation();
+      delete (r.history[0] as Record<string, unknown>).due_at_location_total;
+      reslabMock.createReservation.mockResolvedValue(r);
+      db.seed("pending_bookings", [pendingRow()]);
+      stripeMock.paymentIntents.retrieve.mockResolvedValue(fixedPi());
+
+      expect((await createBooking({ source: "client", stripePaymentIntentId: PI })).kind).toBe("created");
+      expect(capturePaymentIntent).toHaveBeenCalled();
+      expect(db.tables.bookings[0]).toMatchObject({ discount_amount: 5, promo_code: "JFK5" });
+      const unverified = stampAlerts().filter(([e]) => /discountCents unverified/.test(e.message));
+      expect(unverified).toHaveLength(1);
+      expect(unverified[0][1]).toMatchObject({ fingerprint: ["promo-discount-stamp", "unverified", PI] });
+    });
+
     it("RESUME with an unusable stamp → needs_reconciliation, never captured", async () => {
       db.seed("pending_bookings", [resumeRow()]);
       stripeMock.paymentIntents.retrieve.mockResolvedValue(fixedPi({ metadata: { discountCents: "5.00" } }));
