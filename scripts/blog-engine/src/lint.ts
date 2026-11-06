@@ -53,6 +53,11 @@ export interface LintInput {
   knownSourcedPrices?: number[]
   /** W1.8 P3c rollout: report the knownPrices check as a warning instead of failing the write. */
   priceGateWarnOnly?: boolean
+  /**
+   * Overrides the PROMO_WORD gate for the code check. apply-edit lints new html on its own, and a snippet like
+   * "SpotHero's SPOT10 offer…" names no promo word: whether codes are checked is a question about the whole post.
+   */
+  promoContext?: boolean
   now?: Date
 }
 
@@ -100,7 +105,7 @@ const BARE_MONEY: RegExp[] = [
 
 // A post "talks about codes" only when it names promo/coupon/discount codes. A bare "code" is a QR code, a zip code,
 // a confirmation code — those posts must not have every all-caps word read as a promo code (NJ TRANSIT, PANYNJ).
-const PROMO_WORD = /\b(?:promo|promotional|coupon|discount|voucher)\s?codes?\b|\b(?:promo|coupon)s?\b/i
+export const PROMO_WORD = /\b(?:promo|promotional|coupon|discount|voucher)\s?codes?\b|\b(?:promo|coupon)s?\b/i
 // "verified"/"working"/… near "promo code" (any case), or near "code TRIPLY10" (an upper-case token that looks like a code).
 const VERIFIED_NEAR_CODE = /\b(?:verified|working|tested|confirmed|guaranteed)\b[^.<>]{0,60}\b(?:promo|coupon|discount)\s?codes?\b|\b(?:promo|coupon|discount)\s?codes?\b[^.<>]{0,60}\b(?:verified|working|tested|confirmed|guaranteed)\b/i
 // The token must look like a promo code (letters AND digits, "TRIPLY10"), and "gate code 4821" / "confirmation code" are not promo codes.
@@ -219,7 +224,7 @@ export function lintArticle(input: LintInput): LintResult {
   }
 
   // 4. Code strings not in the approved list — only in posts that talk about promo/coupon codes
-  if (PROMO_WORD.test(allText)) {
+  if (input.promoContext ?? PROMO_WORD.test(allText)) {
     const seen = new Set<string>()
     const candidates: { code: string; index: number }[] = []
     for (const m of allText.matchAll(CODE_STRING)) candidates.push({ code: m[1], index: m.index || 0 })
@@ -501,7 +506,8 @@ export function priceCheck(insertedHtml: string, fieldText: string, known: Reado
       }
     }
   }
-  for (const chunk of insertedHtml.split(/<\/p>|<\/li>|<\/td>|<\/th>|<\/h[1-6]>/i)) {
+  // </blockquote> too: a quote's figure must not borrow the external link of the paragraph after it (review, Nov 2026).
+  for (const chunk of insertedHtml.split(/<\/p>|<\/li>|<\/td>|<\/th>|<\/h[1-6]>|<\/blockquote>/i)) {
     if (EXTERNAL_SOURCE_LINK.test(chunk)) continue
     check(stripTags(chunk))
   }

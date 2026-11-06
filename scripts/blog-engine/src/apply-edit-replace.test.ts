@@ -1,7 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { applyEdit, applyReplace, parseEdit, checkEdit, guardLoss, removedNodes, replaceDiff, previewMismatch, sha256, blockText } from './apply-edit.js'
+import { applyEdit, applyReplace, parseEdit, checkEdit, guardLoss, removedNodes, replaceDiff, previewMismatch, sha256, blockText, applyWithSettle, editLive, refsNotRemoved, mediaRefs, isTablePatternList, priceCheck } from './apply-edit.js'
 import type { PostLike, EditSpec } from './apply-edit.js'
+import { buildCta, makeCtaParagraph } from './booking-links.js'
 
 // replace mode (Nov 2026): section / remove / text operations on an existing post.
 const text = (t: string) => ({ type: 'text', text: t, format: 0, detail: 0, mode: 'normal', style: '', version: 1 })
@@ -280,4 +281,154 @@ test('insert-only edit: remainingPrices still lists stale figures in the resulti
   const c = checkEdit(post(), applyEdit(post(), ins), ins, known)
   assert.deepEqual(c.blockers, [], c.blockers.join(' | '))
   assert.deepEqual(c.remainingPrices, ['$26'])
+})
+
+// ── Review round 2 (Nov 2026): one test per fix, each fails with its fix removed ──
+const CTA = buildCta('IAD')!
+const withCta = () => doc(h('h2', 'A'), p('a'), h('h2', 'Last'), p('last'), makeCtaParagraph(CTA))
+
+test('R1: the booking CTA after the last heading is not part of that section (remove, section, insert)', () => {
+  assert.deepEqual(kidsOf(applyEdit(withCta(), { replace: [{ remove: 'Last' }] }).after), ['h2:A', 'a', CTA.fullText])
+  assert.deepEqual(kidsOf(applyEdit(withCta(), { replace: [{ section: 'Last', html: '<p>new</p>' }] }).after), ['h2:A', 'a', 'h2:Last', 'new', CTA.fullText])
+  assert.deepEqual(kidsOf(applyEdit(withCta(), { insert: { underHeading: 'Last', html: '<p>more</p>', position: 'end' } }).after), ['h2:A', 'a', 'h2:Last', 'last', 'more', CTA.fullText])
+  // a last heading with nothing but the CTA under it: an empty section, filled above the CTA
+  const bare = () => doc(h('h2', 'A'), p('a'), h('h2', 'End'), makeCtaParagraph(CTA))
+  assert.deepEqual(kidsOf(applyEdit(bare(), { replace: [{ section: 'End', html: '<p>filled</p>' }] }).after), ['h2:A', 'a', 'h2:End', 'filled', CTA.fullText])
+  const rm: EditSpec = { replace: [{ remove: 'Last' }] }
+  const c = checkEdit(withCta(), applyEdit(withCta(), rm), rm, known)
+  assert.deepEqual(c.blockers, [], c.blockers.join(' | '))
+  assert.equal(c.bookingLinkRemoved, false)
+})
+
+test('R1 backstop: an edit that leaves no booking-page link is refused unless edit.json allows it', () => {
+  const del = parseEdit({ replace: [{ text: CTA.fullText, html: '' }] })
+  const c = checkEdit(withCta(), applyEdit(withCta(), del), del, known)
+  assert.ok(c.blockers.some((b) => b.includes('would remove the link to the booking page (/washington-iad/airport-parking)')), c.blockers.join(' | '))
+  const meant = parseEdit({ replace: [{ text: CTA.fullText, html: '' }], allowBookingLinkRemoval: true })
+  const cm = checkEdit(withCta(), applyEdit(withCta(), meant), meant, known)
+  assert.deepEqual(cm.blockers, [], cm.blockers.join(' | '))
+  assert.equal(cm.bookingLinkRemoved, true, 'reported, so the preview says so')
+  // the opt-in is strict like every other key, and is no edit on its own
+  assert.throws(() => parseEdit({ allowBookingLinkRemoval: true }), /needs "fields", "insert" and\/or "replace"/)
+  assert.throws(() => parseEdit({ replace: [{ remove: 'A' }], allowBookingLink: true }), /Unrecognized key/)
+  // a post that never linked the booking page has nothing to protect
+  const none: EditSpec = { replace: [{ remove: 'Summary' }] }
+  assert.deepEqual(checkEdit(post(), applyEdit(post(), none), none, known).blockers, [])
+})
+
+test('R2: a rival code in new html blocks even when the new html names no promo word', () => {
+  // The live post already prints SPOT10; the edit meant to strip it rewrites the sentence instead.
+  const base = () => doc(h('h2', 'Deals'), p('Looking for a promo code? Triply shows the lowest rate first.'), h('h2', 'Rivals'), p('Use promo code SPOT10 at SpotHero.'))
+  const e: EditSpec = { replace: [{ text: 'Use promo code SPOT10 at SpotHero.', html: "<p>SpotHero's SPOT10 offer is for first-time users.</p>" }] }
+  const c = checkEdit(base(), applyEdit(base(), e), e, known)
+  assert.ok(c.blockers.some((b) => b.startsWith('lint unapproved-code') && b.includes('SPOT10')), c.blockers.join(' | '))
+  const strip: EditSpec = { replace: [{ text: 'Use promo code SPOT10 at SpotHero.', html: '<p>SpotHero runs its own offers.</p>' }] }
+  assert.deepEqual(checkEdit(base(), applyEdit(base(), strip), strip, known).blockers, [])
+})
+
+test('R3: a link or image the HTML → Lexical conversion would drop refuses the edit', () => {
+  assert.throws(() => applyEdit(post(), { replace: [{ section: 'Off-site lots', html: '<p>Updated.<img data-media-id="42"></p>' }] }), /replace\[0\]: the html would lose image 42 in conversion/)
+  assert.throws(() => applyEdit(post(), { replace: [{ text: 'Book early.', html: 'See <img data-media-id="7">' }] }), /would lose image 7/, 'inside a list item')
+  assert.throws(() => applyEdit(post(), { replace: [{ text: 'Economy is $20/day.', html: '<p><a href="/blog/x"></a>Economy.</p>' }] }), /would lose link \/blog\/x/, 'a link with no text')
+  assert.throws(() => applyEdit(post(), { insert: { underHeading: 'Summary', html: '<p>Map: <img data-media-id="9"></p>', position: 'end' } }), /insert: the html would lose image 9/)
+  // the same image as its own block survives, so the edit goes through
+  const ok = applyEdit(post(), { replace: [{ section: 'Off-site lots', html: '<p>Updated.</p><img data-media-id="42">' }] })
+  assert.equal(mediaRefs(ok.after.content.root.children).get('image:42'), 1)
+})
+
+test('R4: prices are checked block by block — no figure borrows another block\'s source link', () => {
+  // (a) conversion merges the <p>s of a quote: the raw html is checked too, split at every block tag
+  const merged: EditSpec = { replace: [{ section: 'Summary', html: '<blockquote><p><a href="https://www.flydulles.com">Airport source</a></p><p>Parking costs $999/day.</p></blockquote>' }] }
+  assert.ok(checkEdit(post(), applyEdit(post(), merged), merged, known).blockers.some((b) => b.startsWith('price check: $999')))
+  const sourced: EditSpec = { replace: [{ section: 'Summary', html: '<p>Parking costs $999/day per <a href="https://www.flydulles.com">the airport</a>.</p>' }] }
+  assert.deepEqual(checkEdit(post(), applyEdit(post(), sourced), sourced, known).blockers, [], 'a figure in its own sourced paragraph still passes')
+  // (b) a quote followed by a sourced paragraph, in one op and across two ops
+  const borrow: EditSpec = { replace: [{ section: 'Summary', html: '<blockquote>Lot Y is $9/day.</blockquote><p>Source: <a href="https://example.com">x</a></p>' }] }
+  assert.ok(checkEdit(post(), applyEdit(post(), borrow), borrow, known).blockers.some((b) => b.startsWith('price check: $9')))
+  const twoOps: EditSpec = { replace: [{ text: 'Economy is $20/day.', html: '<blockquote>Lot Y is $9/day.</blockquote>' }, { text: 'Shuttles run every 30 minutes.', html: '<p>Source: <a href="https://example.com">x</a></p>' }] }
+  assert.ok(checkEdit(post(), applyEdit(post(), twoOps), twoOps, known).blockers.some((b) => b.startsWith('price check: $9')))
+  assert.deepEqual(priceCheck('<blockquote>Lot Y is $9/day.</blockquote><p>Source: <a href="https://example.com">x</a></p>', '', known), ['$9'], 'lint.ts splits at </blockquote>')
+  // (c) the whole-body warning list chunks the same way
+  const quote = (t: string) => ({ type: 'quote', children: [text(t)], direction: 'ltr', format: '', indent: 0, version: 1 })
+  const qp = () => doc(h('h2', 'A'), quote('Lot Z is $77/day.'), pl('Source ', 'https://example.com/rates', 'x'), h('h2', 'B'), p('b'))
+  const ins: EditSpec = { insert: { underHeading: 'B', html: '<p>Shuttles run 24/7.</p>', position: 'end' } }
+  assert.deepEqual(checkEdit(qp(), applyEdit(qp(), ins), ins, known).remainingPrices, ['$77'])
+  // a stored legacy table renders its raw html (lexical-to-html), which no closing-tag split can bound: only
+  // chunking by root node keeps its figure away from the next paragraph's link
+  const legacy = () => doc(h('h2', 'A'), { type: 'table', html: '<table><caption>Lot Z is $77/day.</caption></table>', children: [] }, pl('Source ', 'https://example.com/rates', 'x'), h('h2', 'B'), p('b'))
+  assert.deepEqual(checkEdit(legacy(), applyEdit(legacy(), ins), ins, known).remainingPrices, ['$77'])
+})
+
+test('R5: settle and the post-save check compare structure, links and images, not just text', async () => {
+  const base = () => doc(h('h2', 'A'), p('Same text.'), img(42), h('h2', 'B'), p('b'))
+  const r = applyEdit(base(), { replace: [{ section: 'A', html: '<p>Same text.</p>' }] })
+  const boom = async () => { throw new Error('Payload API error 502') }
+  assert.equal(await applyWithSettle('1', r.patch, { updatePost: boom, readPost: async () => base(), log: () => {} }), 'not-live', 'the unchanged post is not the edit')
+  assert.equal(editLive(base(), r.patch), false)
+  // what the CMS hands back for the edit we sent (JSONB key order, a hydrated upload) still counts as live
+  const reorder = (x: unknown): unknown => Array.isArray(x) ? x.map(reorder) : x && typeof x === 'object' ? Object.fromEntries(Object.entries(x).reverse().map(([k, v]) => [k, reorder(v)])) : x
+  const stored = reorder(r.after) as PostLike
+  assert.equal(editLive(stored, r.patch), true)
+  const kept = applyEdit(base(), { replace: [{ text: 'b', html: '<p>c</p>' }] })
+  const hydrated = JSON.parse(JSON.stringify(kept.after)) as PostLike
+  hydrated.content.root.children[2].value = { id: 42, url: '/media/x.png', alt: 'x' }
+  assert.equal(editLive(hydrated, kept.patch), true)
+  // the post-save check's other direction: a link the edit removed that is still live
+  const before = post()
+  const rr = applyEdit(before, { replace: [{ section: 'Off-site lots', html: '<p>New.</p>' }] })
+  assert.match(refsNotRemoved(rr.after.content, before.content) || '', /link \/blog\/old-lot-x/)
+  assert.match(refsNotRemoved(rr.after.content, before.content) || '', /image 42/)
+  assert.equal(refsNotRemoved(rr.after.content, rr.after.content), null)
+})
+
+test('R6: list items an earlier op wrote are protected, not just the list', () => {
+  assert.throws(() => applyEdit(post(), { replace: [
+    { section: 'Summary', html: '<ul><li>Economy is $20/day.</li><li>Book early online.</li></ul>' },
+    { text: 'Book early online.', html: '' },
+  ] }), /earlier operation/)
+})
+
+test('R7: an item edit may not turn a table-pattern list (a table on the site) back into bullets', () => {
+  const bt = (t: string) => ({ ...text(t), format: 1 })
+  const row = (lot: string, rate: string, v: number) => ({ type: 'listitem', value: v, checked: false, children: [bt('Lot: '), text(`${lot} | `), bt('Rate: '), text(rate)], direction: 'ltr', format: '', indent: 0, version: 1 })
+  const tlist = (...rows: [string, string][]) => ({ type: 'list', listType: 'bullet', tag: 'ul', start: 1, children: rows.map(([l, r], i) => row(l, r, i + 1)), direction: 'ltr', format: '', indent: 0, version: 1 })
+  const three = () => doc(h('h2', 'Lots'), tlist(['A', '$20/day'], ['B', '$15/day'], ['C', '$25/day']))
+  assert.ok(isTablePatternList(three().content.root.children[1]))
+  assert.throws(() => applyEdit(three(), { replace: [{ text: 'Lot: B | Rate: $15/day', html: 'Lot: B2 | Rate: $15/day' }] }),
+    (e: Error) => /shows on the site as a table/.test(e.message) && e.message.includes('<li><strong>Lot:</strong> … | <strong>Rate:</strong> …</li>'))
+  const ok = applyEdit(three(), { replace: [{ text: 'Lot: B | Rate: $15/day', html: '<strong>Lot:</strong> B2 | <strong>Rate:</strong> $15/day' }] })
+  assert.ok(isTablePatternList(ok.after.content.root.children[1]), 'same bold labels: still a table')
+  assert.ok(isTablePatternList(applyEdit(three(), { replace: [{ text: 'Lot: C | Rate: $25/day', html: '' }] }).after.content.root.children[1]), 'two rows left: still a table')
+  const two = () => doc(h('h2', 'Lots'), tlist(['A', '$20/day'], ['B', '$15/day']))
+  assert.throws(() => applyEdit(two(), { replace: [{ text: 'Lot: B | Rate: $15/day', html: '' }] }), /shows on the site as a table/, 'one row is no table')
+  // an ordinary list is not a table, and item edits stay free
+  assert.ok(!isTablePatternList(post().content.root.children[8]))
+})
+
+test('R8: a whole-body price check that cannot run says so', () => {
+  const e: EditSpec = { replace: [{ text: 'Economy is $20/day.', html: '<p>Economy is the cheapest on-airport lot.</p>' }] }
+  assert.ok(checkEdit(post(), applyEdit(post(), e), e, null).notRun.includes('whole-body price check NOT RUN: no data/airports/IAD.json'))
+  const noCode: PostLike = { ...post(), airportCode: undefined }
+  assert.ok(checkEdit(noCode, applyEdit(noCode, e), e, null).notRun.includes('whole-body price check NOT RUN: the post has no airportCode'))
+  assert.deepEqual(checkEdit(post(), applyEdit(post(), e), e, known).notRun, [])
+  const fieldsOnly: EditSpec = { fields: { excerpt: 'A plain new excerpt.' } }
+  assert.ok(!checkEdit(post(), applyEdit(post(), fieldsOnly), fieldsOnly, null).notRun.some((n) => n.startsWith('whole-body')), 'no body edit, no whole-body check owed')
+})
+
+test('R9: a whitespace-only match text is refused (it matched empty blocks and images)', () => {
+  assert.throws(() => applyEdit(post(), { replace: [{ text: '   ', html: '' }] }), /empty once whitespace is ignored/)
+  assert.throws(() => applyEdit(post(), { replace: [{ remove: ' \n ' }] }), /empty once whitespace is ignored/)
+  assert.throws(() => applyEdit(post(), { insert: { underHeading: '  ', html: '<p>x</p>', position: 'end' } }), /empty once whitespace is ignored/)
+})
+
+test('R10: new html and new field text may not name a lot we do not sell', () => {
+  const lots = { unsellable: ['Gone Lot Airport Parking'], sellable: ['Economy Lot'] }
+  const e: EditSpec = { replace: [{ text: 'Economy is $20/day.', html: '<p>Gone Lot runs a shuttle too.</p>' }] }
+  const c = checkEdit(post(), applyEdit(post(), e), e, known, lots)
+  assert.ok(c.blockers.some((b) => b.includes(`names a lot we don't sell at IAD: "Gone Lot Airport Parking"`)), c.blockers.join(' | '))
+  const title: EditSpec = { fields: { title: 'Gone Lot vs the Dulles garage' } }
+  assert.ok(checkEdit(post(), applyEdit(post(), title), title, known, lots).blockers.some((b) => b.includes('Gone Lot Airport Parking')))
+  // a brand we also sell is not the unsold lot (the writer prompt's rule, shared)
+  assert.deepEqual(checkEdit(post(), applyEdit(post(), e), e, known, { unsellable: ['Gone Lot Airport Parking'], sellable: ['Gone Lot Premium'] }).blockers, [])
+  assert.deepEqual(checkEdit(post(), applyEdit(post(), e), e, known).blockers, [], 'no list, no check (main() always passes it)')
 })

@@ -14,7 +14,8 @@
  *       { "section": "Parking rates", "html": "<p>...</p>", "heading": "optional new heading text" },
  *       { "remove": "Old lot table" },
  *       { "text": "exact plain text of one block", "html": "<p>...</p>" }
- *     ]
+ *     ],
+ *     "allowBookingLinkRemoval": true   // only when the edit is MEANT to leave no link to the booking page
  *   }
  *
  * replace (Nov 2026) — REMOVE or REWRITE stale body text instead of inserting a correction above it:
@@ -34,6 +35,21 @@
  *   The new HTML gets the full price check (blocking); for EVERY body edit (insert included) the price
  *   check also runs on the whole resulting body and lists figures still in the post that are not in the
  *   allow-list (warning).
+ *
+ * Review round 2 (Nov 2026):
+ *   - A section never runs into the booking CTA (booking-links appends "Compare … parking rates" as the LAST root
+ *     paragraph): it ends before it. And an edit whose result has no link to the airport's booking page, when the live
+ *     post had one, is refused unless edit.json sets "allowBookingLinkRemoval": true.
+ *   - A link or image in the new html that HTML → Lexical would drop (an inline <img>, a link with no text) refuses the
+ *     edit before any removal allowance is granted.
+ *   - Prices are checked block by block (each converted node, and the raw html split at every block tag), never on one
+ *     joined string where a figure could borrow another block's source link.
+ *   - Promo codes in new html are checked whenever the post talks about codes, even if the new html doesn't.
+ *   - New html (and new field text) may not name a lot we don't sell at the airport.
+ *   - An item edit may not turn a table-pattern list (the site draws it as a table) back into bullets.
+ *   - Settle and the post-save check compare the body's structure (types, text, link URLs, media ids), not its text;
+ *     the post-save check also fails when a link or image the edit removed is still live.
+ *   - A body check that could not run (no airportCode / no data file) is printed and recorded as NOT RUN.
  *
  * --preview reads the post by slug (any status), applies the edit in memory, runs the lint, the
  * price check and the link/image guard, and writes reports/apply-preview/<slug>.html (+ .diff.txt +
@@ -59,12 +75,15 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath, pathToFileURL } from 'url'
 import { z } from 'zod'
+import { parse as parseHtml } from 'node-html-parser'
 import { htmlToLexical } from './html-to-lexical.js'
 import { lexicalToHtml, countNodesOfType, readUploadValue } from './lexical-to-html.js'
-import { lintArticle, formatLint, stripTags, loadApprovedCodes, loadApprovedOffers, priceCheck, collectMoneyFigures, type LintFinding } from './lint.js'
+import { lintArticle, formatLint, stripTags, loadApprovedCodes, loadApprovedOffers, priceCheck, collectMoneyFigures, PROMO_WORD, type LintFinding } from './lint.js'
 // P3 price check + allow-list live in lint.ts (generate uses them too, W1.8 P3c); re-exported for callers and tests.
 export { priceCheck, collectMoneyFigures } from './lint.js'
 import { stampField, factsDiff, lexicalText, type FactsDiff } from './stamp.js'
+import { bookingPathFor, hasBookingLink } from './booking-links.js'
+import { unsellableNameMatchers } from './prompts/write.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PREVIEW_DIR = path.resolve(__dirname, '..', 'reports', 'apply-preview')
@@ -100,6 +119,9 @@ export const EditSchema = z
       .strict()
       .optional(),
     replace: z.array(ReplaceOpSchema).min(1).optional(),
+    // The booking CTA sits on ~3,700 posts: an edit that leaves no link to the airport's booking page is refused
+    // unless edit.json says it is meant (review, Nov 2026). Part of edit.json, so the preview hash binds it.
+    allowBookingLinkRemoval: z.boolean().optional(),
   })
   .strict()
   .refine((e) => e.fields !== undefined || e.insert !== undefined || e.replace !== undefined, { message: 'edit.json needs "fields", "insert" and/or "replace"' })
@@ -134,6 +156,8 @@ export interface EditResult {
   factsDiff: FactsDiff
   /** What `replace` took out and put in, op by op (empty without `replace`). */
   replaced: ReplaceStep[]
+  /** The nodes `insert` added (its html converted), for the per-block price check (empty without `insert`). */
+  inserted: Node[]
 }
 
 // ── Pure core ───────────────────────────────────────────────────────────────
@@ -144,28 +168,55 @@ const collapse = (s: string) => s.replace(/\s+/g, ' ').trim()
 const norm = (s: string) => collapse(s).toLowerCase()
 const LEVEL = (n: Node) => (n.type === 'heading' && n.tag ? Number(n.tag.slice(1)) : 99)
 
+/** A target (heading or block text) as matched; refused when whitespace-only, since '' matches empty blocks and every image. */
+function target(s: string, what: string, kind: string): string {
+  const want = norm(s)
+  if (!want) throw new Error(`${what}: the ${kind} to match is empty once whitespace is ignored — it would match empty blocks and images`)
+  return want
+}
+
+/** The booking CTA booking-links appends: a root paragraph that links the airport's booking page. */
+const isBookingCta = (n: Node, bookingPath: string) => n.type === 'paragraph' && hasBookingLink({ root: n }, bookingPath)
+
+/**
+ * End of the section whose heading is at `at`: the next heading of the same or higher level, or the end of the
+ * document, but never past the booking CTA that ends the post. booking-links appends it as the LAST root paragraph
+ * (625 of 626 CTA'd posts in the Nov 2 backups), so without this a remove / section op on the last heading deleted
+ * it, and the removed-content allowance let the link go (review, Nov 2026).
+ */
+function sectionEnd(kids: Node[], at: number, bookingPath: string | null): number {
+  const lvl = LEVEL(kids[at])
+  let end = at + 1
+  while (end < kids.length && LEVEL(kids[end]) > lvl) end++
+  if (end === kids.length && bookingPath) while (end > at + 1 && isBookingCta(kids[end - 1], bookingPath)) end--
+  return end
+}
+
 /**
  * Insert `html` inside the section that starts at the heading whose text matches `underHeading`.
  * Refuses a heading that is missing or appears more than once, and an insert whose text is already in
  * that section (a retry after a lost PATCH response would otherwise add the section twice).
+ * `bookingPath`: the post's booking page, so "end" of the last section lands before the booking CTA.
  */
-export function insertUnderHeading(content: Doc, underHeading: string, html: string, position: 'start' | 'end' = 'end'): Doc {
+export function insertUnderHeading(content: Doc, underHeading: string, html: string, position: 'start' | 'end' = 'end', bookingPath: string | null = null): Doc {
+  return insertSection(content, underHeading, html, position, bookingPath).content
+}
+
+function insertSection(content: Doc, underHeading: string, html: string, position: 'start' | 'end', bookingPath: string | null): { content: Doc; nodes: Node[] } {
   const kids = content.root.children
-  const want = norm(underHeading)
+  const want = target(underHeading, 'insert', 'heading')
   const matches = kids.map((n, i) => (n.type === 'heading' && norm(nodeText(n)) === want ? i : -1)).filter((i) => i >= 0)
   if (matches.length === 0) throw new Error(`heading not found: "${underHeading}"`)
   if (matches.length > 1) throw new Error(`heading "${underHeading}" appears ${matches.length} times — make it unique first`)
   const at = matches[0]
-  const lvl = LEVEL(kids[at])
-  let end = at + 1
-  while (end < kids.length && LEVEL(kids[end]) > lvl) end++
-  // Round-trip only the new section through JSON so it carries the same plain-object shape as the stored post.
-  const nodes: Node[] = JSON.parse(JSON.stringify(htmlToLexical(html).root.children))
+  const end = sectionEnd(kids, at, bookingPath)
+  const nodes = convertNew(html, 'insert')
+  if (!nodes.length) throw new Error('insert: the html converts to nothing')
   const sectionText = norm(kids.slice(at + 1, end).map(nodeText).join(' '))
   const newText = norm(nodes.map(nodeText).join(' '))
   if (newText && sectionText.includes(newText)) throw new Error(`the inserted text is already under "${underHeading}" (possibly inside a longer paragraph) — nothing to add`)
   const insertAt = position === 'start' ? at + 1 : end
-  return { ...content, root: { ...content.root, children: [...kids.slice(0, insertAt), ...nodes, ...kids.slice(insertAt)] } }
+  return { content: { ...content, root: { ...content.root, children: [...kids.slice(0, insertAt), ...nodes, ...kids.slice(insertAt)] } }, nodes }
 }
 
 // ── Replace mode ────────────────────────────────────────────────────────────
@@ -184,6 +235,60 @@ const clip = (s: string, n = 110) => (s.length > n ? `${s.slice(0, n - 1)}…` :
 const toHtml = (nodes: Node[]) => lexicalToHtml({ root: { type: 'root', children: nodes } } as Parameters<typeof lexicalToHtml>[0])
 // Round-trip only the new nodes through JSON so they carry the same plain-object shape as the stored post.
 const parseNodes = (html: string): Node[] => (html.trim() ? JSON.parse(JSON.stringify(htmlToLexical(html).root.children)) : [])
+
+/** Links (by href) and images (by data-media-id) as written in `html`, keyed like mediaRefs. */
+function htmlRefs(html: string): Map<string, number> {
+  const out = new Map<string, number>()
+  const add = (k: string) => out.set(k, (out.get(k) ?? 0) + 1)
+  const root = parseHtml(html, { lowerCaseTagName: true, comment: false })
+  for (const a of root.querySelectorAll('a')) add(`link:${a.getAttribute('href') || ''}`)
+  for (const img of root.querySelectorAll('img')) {
+    const raw = (img.getAttribute('data-media-id') || '').trim()
+    const id = parseInt(raw, 10) // html-to-lexical stores parseInt(id), so "042" is image 42
+    add(`image:${Number.isNaN(id) ? raw || '(no data-media-id)' : String(id)}`)
+  }
+  return out
+}
+
+/**
+ * Refuse new html whose links or images do not all survive HTML → Lexical. The converter silently drops an <img>
+ * inside a <p>, <li>, table cell or <a>, an <img> with no numeric data-media-id, and a link with no text. A section
+ * replaced by "<p>Updated.<img data-media-id="42"></p>" lost image 42, and the removed-content allowance then covered
+ * the loss, so nothing blocked (review, Nov 2026). Runs at conversion, before any allowance exists.
+ */
+function refuseLostRefs(html: string, nodes: Node[], what: string): void {
+  const have = mediaRefs(nodes)
+  const lost = [...htmlRefs(html)].filter(([k, n]) => (have.get(k) ?? 0) < n)
+    .map(([k]) => (k.startsWith('link:') ? `link ${k.slice(5) || '(no href)'}` : `image ${k.slice(6)}`))
+  if (lost.length) throw new Error(`${what}: the html would lose ${lost.join(', ')} in conversion — put each image in its own block (<img data-media-id="…"> or <figure>, not inside <p>/<li>/<td>/<a>) and give every link text`)
+}
+
+/** New html → Lexical nodes, refused if any link or image would be lost on the way. */
+function convertNew(html: string, what: string): Node[] {
+  const nodes = parseNodes(html)
+  refuseLostRefs(html, nodes, what)
+  return nodes
+}
+
+// ── Table-pattern lists ─────────────────────────────────────────────────────
+// migrate-tables.ts turned tables into bullet lists whose items read "**Lot: **X | **Rate: **$26/day". The site's
+// RichText.tsx (isTablePattern) draws such a list as a comparison table only while it has 2+ items and every item
+// carries the same bold "Header:" labels. Re-implemented here: the engine never imports app code.
+const textLeaves = (n: Node): Node[] => (n.type === 'text' ? [n] : (n.children || []).flatMap(textLeaves))
+function tableLabels(item: Node): string[] {
+  return textLeaves(item)
+    .filter((t) => typeof t.format === 'number' && (t.format & 1) !== 0 && (t.text ?? '').trim().endsWith(':'))
+    .map((t) => (t.text ?? '').trim().slice(0, -1).trim())
+}
+/** Does the site render this list as a table (RichText.tsx isTablePattern)? */
+export function isTablePatternList(list: Node): boolean {
+  if (list.listType !== 'bullet') return false
+  const items = (list.children || []).filter((c) => c.type === 'listitem')
+  if (items.length < 2) return false
+  const first = tableLabels(items[0])
+  if (first.length < 2) return false
+  return items.every((it) => tableLabels(it).join('\u0000') === first.join('\u0000'))
+}
 
 /** Closest candidates for a refusal message: shared-word overlap with what was asked for, best first. */
 function nearest(want: string, candidates: string[], max = 5): string[] {
@@ -207,15 +312,13 @@ const nearMsg = (want: string, cands: string[]) => {
 }
 
 /** The section [at, end) of the unique heading `text`, or a refusal naming the nearest headings. */
-function findSection(kids: Node[], text: string, fresh: WeakSet<object>, what: string): { at: number; end: number } {
-  const want = norm(text)
+function findSection(kids: Node[], text: string, fresh: WeakSet<object>, what: string, bookingPath: string | null): { at: number; end: number } {
+  const want = target(text, what, 'heading')
   const matches = kids.map((n, i) => (n.type === 'heading' && norm(nodeText(n)) === want ? i : -1)).filter((i) => i >= 0)
   if (matches.length === 0) throw new Error(`${what}: heading not found: "${text}"${nearMsg(text, kids.filter((n) => n.type === 'heading').map(nodeText))}`)
   if (matches.length > 1) throw new Error(`${what}: heading "${text}" appears ${matches.length} times — make it unique first`)
   const at = matches[0]
-  const lvl = LEVEL(kids[at])
-  let end = at + 1
-  while (end < kids.length && LEVEL(kids[end]) > lvl) end++
+  const end = sectionEnd(kids, at, bookingPath)
   if (kids.slice(at, end).some((n) => fresh.has(n))) throw new Error(`${what}: "${text}" holds content written by an earlier operation — combine the two operations`)
   return { at, end }
 }
@@ -224,10 +327,14 @@ function findSection(kids: Node[], text: string, fresh: WeakSet<object>, what: s
  * Apply `replace` operations in order. Only the replacement HTML goes through HTML → Lexical; every other
  * node keeps its stored object. Returns the new document and, per operation, the ORIGINAL nodes removed
  * (the link/image guard allows exactly their links and images to disappear).
+ * `bookingPath`: the post's booking page (bookingPathFor), so no section runs into the trailing booking CTA.
  */
-export function applyReplace(content: Doc, ops: ReplaceOp[]): { content: Doc; steps: ReplaceStep[] } {
+export function applyReplace(content: Doc, ops: ReplaceOp[], bookingPath: string | null = null): { content: Doc; steps: ReplaceStep[] } {
   let kids = [...content.root.children]
   const fresh = new WeakSet<object>() // nodes written by an earlier op — a later op may not target them
+  // Every descendant too: a later text op can target a list item inside a list an earlier op wrote, and the diff would
+  // then show "REMOVED" text that was never live (review, Nov 2026).
+  const markFresh = (n: Node) => { fresh.add(n); (n.children || []).forEach(markFresh) }
   const steps: ReplaceStep[] = []
   ops.forEach((op, idx) => {
     const what = `replace[${idx}]`
@@ -235,14 +342,14 @@ export function applyReplace(content: Doc, ops: ReplaceOp[]): { content: Doc; st
     let added: Node[] = []
     let label: string
     if ('remove' in op) {
-      const { at, end } = findSection(kids, op.remove, fresh, what)
+      const { at, end } = findSection(kids, op.remove, fresh, what, bookingPath)
       removed = kids.slice(at, end)
       kids = [...kids.slice(0, at), ...kids.slice(end)]
       label = `remove section "${op.remove}" (${removed.length} block${removed.length === 1 ? '' : 's'})`
     } else if ('section' in op) {
-      const { at, end } = findSection(kids, op.section, fresh, what)
+      const { at, end } = findSection(kids, op.section, fresh, what, bookingPath)
       const head = kids[at]
-      added = parseNodes(op.html)
+      added = convertNew(op.html, what)
       if (!added.length) throw new Error(`${what}: the html for "${op.section}" converts to nothing — use { "remove": … } to drop a section`)
       const sub = added.find((n) => n.type === 'heading' && LEVEL(n) <= LEVEL(head))
       if (sub) throw new Error(`${what}: the html for "${op.section}" has an <${sub.tag}>, the same or a higher level than the section's <${head.tag}> — it would split the section`)
@@ -261,7 +368,7 @@ export function applyReplace(content: Doc, ops: ReplaceOp[]): { content: Doc; st
       if (collapse(toHtml(removed)) === collapse(toHtml(added))) throw new Error(`${what}: section "${op.section}" already has exactly this content — nothing to replace`)
       label = `replace section "${op.section}"${rename ? ` (renamed "${op.heading}")` : ''}`
     } else {
-      const want = norm(op.text)
+      const want = target(op.text, what, 'text')
       const hits: { top: number; item?: number }[] = []
       const cands: string[] = []
       kids.forEach((n, i) => {
@@ -281,7 +388,7 @@ export function applyReplace(content: Doc, ops: ReplaceOp[]): { content: Doc; st
       if (fresh.has(block) && item === undefined) throw new Error(`${what}: "${clip(op.text)}" was written by an earlier operation — combine the two operations`)
       if (item === undefined) {
         removed = [block]
-        added = parseNodes(op.html)
+        added = convertNew(op.html, what)
         kids = [...kids.slice(0, top), ...added, ...kids.slice(top + 1)]
         label = `${added.length ? 'replace' : 'delete'} ${block.type} "${clip(blockText(block), 60)}"`
       } else {
@@ -292,10 +399,18 @@ export function applyReplace(content: Doc, ops: ReplaceOp[]): { content: Doc; st
         const tag = block.tag || 'ul'
         const parsed = html ? ((parseNodes(`<${tag}>${/^<li[\s>]/i.test(html) ? html : `<li>${html}</li>`}</${tag}>`)[0]?.children as Node[] | undefined) || []) : []
         if (html && !parsed.length) throw new Error(`${what}: the replacement list item converts to nothing`)
+        // Only the items kept count: html that escapes the list would otherwise carry its links in nodes we drop.
+        refuseLostRefs(html, parsed, what)
         // Renumber FIRST, then protect the nodes actually in the tree: renumbering copies an item, so
         // protecting the pre-copy objects would let a later op target what this one wrote (review, Nov 2026).
         const nextItems = [...items.slice(0, item), ...parsed, ...items.slice(item + 1)]
           .map((li, k) => (li.type === 'listitem' && li.value !== k + 1 ? { ...li, value: k + 1 } : li))
+        // A table-pattern list must stay one: an item without the same bold labels (or a table left with one row)
+        // turns the comparison table on the site back into bullets (review, Nov 2026).
+        if (isTablePatternList(block) && !isTablePatternList({ ...block, children: nextItems })) {
+          const labels = tableLabels(items[0])
+          throw new Error(`${what}: this list shows on the site as a table (columns ${labels.map((l) => `"${l}"`).join(', ')}); the edit would turn it back into bullets. Every item needs the same bold labels, e.g. <li>${labels.map((l) => `<strong>${l}:</strong> …`).join(' | ')}</li>, and the list at least two items — or replace the whole list or section`)
+        }
         added = nextItems.slice(item, item + parsed.length)
         if (nextItems.length === 0) {
           kids = [...kids.slice(0, top), ...kids.slice(top + 1)]
@@ -308,7 +423,7 @@ export function applyReplace(content: Doc, ops: ReplaceOp[]): { content: Doc; st
       }
     }
     if (removed.length === 0 && added.length === 0) throw new Error(`${what}: changes nothing`)
-    added.forEach((n) => fresh.add(n))
+    added.forEach(markFresh)
     steps.push({ label: `${what} ${label}`, removed, added, removedHtml: toHtml(removed), addedHtml: toHtml(added) })
   })
   return { content: { ...content, root: { ...content.root, children: kids } }, steps }
@@ -358,18 +473,23 @@ export function applyEdit(post: PostLike, edit: EditSpec): EditResult {
       fieldText.push(...next.filter((x) => !had.has(`${x.question}\u0000${x.answer}`)).map((x) => `${x.question} ${x.answer}`))
     }
   }
+  // The airport's booking page, so no section (and no insert at "end") runs into the trailing booking CTA.
+  const bookingPath = post.airportCode ? bookingPathFor(post.airportCode) : null
   let replaced: ReplaceStep[] = []
+  let inserted: Node[] = []
   if (edit.replace) {
-    const r = applyReplace(post.content, edit.replace)
+    const r = applyReplace(post.content, edit.replace, bookingPath)
     after.content = r.content
     replaced = r.steps
     patch.content = after.content
   }
   if (edit.insert) {
-    after.content = insertUnderHeading(after.content, edit.insert.underHeading, edit.insert.html, edit.insert.position)
+    const ins = insertSection(after.content, edit.insert.underHeading, edit.insert.html, edit.insert.position, bookingPath)
+    after.content = ins.content
+    inserted = ins.nodes
     patch.content = after.content
   }
-  return { patch, after, fieldText: fieldText.filter(Boolean).join('\n'), factsDiff: factsDiff(bodyFactsText(post), bodyFactsText(after)), replaced }
+  return { patch, after, fieldText: fieldText.filter(Boolean).join('\n'), factsDiff: factsDiff(bodyFactsText(post), bodyFactsText(after)), replaced, inserted }
 }
 
 /**
@@ -393,6 +513,23 @@ export function guardLoss(before: Doc, after: Doc, removed: Node[] = []): string
     images.length ? `images ${ub} → ${ua}${beyond} (lost media: ${images.map((k) => k.slice(6)).join(', ')})` : '',
   ].filter(Boolean).join('; ')
 }
+
+/**
+ * The other direction of guardLoss, for the post-save check: links and images live on the post beyond what the edit
+ * meant to leave (a link or image it removed that is still there). null = none.
+ */
+export function refsNotRemoved(intended: Doc, live: Doc): string | null {
+  const want = mediaRefs(intended.root.children)
+  const extra = [...mediaRefs(live.root.children)].filter(([k, n]) => n > (want.get(k) ?? 0))
+    .map(([k]) => (k.startsWith('link:') ? `link ${k.slice(5)}` : `image ${k.slice(6)}`))
+  return extra.length ? extra.join(', ') : null
+}
+
+/**
+ * Does a link NODE in `content` point at `path`? Link nodes only: hasBookingLink also counts the path written as plain
+ * text, which is right for not appending a second CTA but would hide a lost one here.
+ */
+const linksTo = (content: Doc, path: string) => [...mediaRefs(content.root.children).keys()].some((k) => k.startsWith('link:') && k.slice(5).includes(path))
 
 /** Every original node a replace took out (the guard's allowance). */
 export const removedNodes = (steps: ReplaceStep[]): Node[] => steps.flatMap((st) => st.removed)
@@ -438,9 +575,47 @@ function postText(p: PostLike): string {
 }
 
 /**
+ * A body reduced to what a reader sees, for comparing a stored post with the content we sent: block structure, node
+ * types, heading/list tags, table header cells, text with its bold/italic format, link URLs and media ids. Engine
+ * defaults (version, direction, indent, textStyle, list numbering…), JSONB key order and the depth of an upload's
+ * `value` are ignored, and adjacent text runs with one format are joined and empty runs dropped, in case the CMS
+ * normalises them. Plain text alone (lexicalText) let "paragraph + image" and "paragraph" compare equal, so a
+ * settle after a thrown PATCH reported the unchanged post as applied (review, Nov 2026).
+ */
+export function canonicalContent(content: unknown): string {
+  const nodes = (content as { root?: { children?: unknown } } | null)?.root?.children
+  return JSON.stringify(Array.isArray(nodes) ? canonNodes(nodes as Node[]) : null)
+}
+type Canon = { t: string; f?: number; x?: string; tag?: string; list?: string; url?: string; media?: string; header?: unknown; c?: Canon[] }
+function canonNodes(nodes: Node[]): Canon[] {
+  const out: Canon[] = []
+  for (const n of nodes) {
+    if (!n || typeof n !== 'object') continue
+    if (n.type === 'text') {
+      const x = n.text ?? ''
+      const f = typeof n.format === 'number' ? n.format : 0
+      const prev = out[out.length - 1]
+      if (!x) continue
+      if (prev && prev.t === 'text' && prev.f === f) prev.x = (prev.x ?? '') + x
+      else out.push({ t: 'text', f, x })
+      continue
+    }
+    const c: Canon = { t: n.type }
+    if (n.tag) c.tag = n.tag
+    if (typeof n.listType === 'string') c.list = n.listType
+    if (n.type === 'link' || n.type === 'autolink') c.url = (n.fields as { url?: string } | undefined)?.url ?? (n as { url?: string }).url ?? ''
+    if (n.type === 'upload') c.media = readUploadValue(n.value).id ?? JSON.stringify(n.value)
+    if (n.type === 'tablecell') c.header = n.headerState ?? 0
+    if (Array.isArray(n.children)) c.c = canonNodes(n.children)
+    out.push(c)
+  }
+  return out
+}
+
+/**
  * Is every field of `patch` live on `live`? Unlike perf-apply's editIsLive, this compares EVERYTHING this
- * command can send: title, excerpt, seo, full FAQ pairs, body text, and the stamp. A refused excerpt-only
- * PATCH had been reported "applied + verified" (pass-2 review of #142).
+ * command can send: title, excerpt, seo, full FAQ pairs, the body (canonicalContent: structure, links and images,
+ * not just text), and the stamp. A refused excerpt-only PATCH had been reported "applied + verified" (pass-2 review of #142).
  */
 export function editLive(live: PostLike & { contentUpdatedAt?: string }, patch: Record<string, unknown>): boolean {
   if (patch.title !== undefined && live.title !== patch.title) return false
@@ -454,7 +629,7 @@ export function editLive(live: PostLike & { contentUpdatedAt?: string }, patch: 
     const b = (patch.faqItems as { question: string; answer: string }[]).map((f) => `${f.question}\u0000${f.answer}`)
     if (JSON.stringify(a) !== JSON.stringify(b)) return false
   }
-  if (patch.content !== undefined && lexicalText(live.content) !== lexicalText(patch.content)) return false
+  if (patch.content !== undefined && canonicalContent(live.content) !== canonicalContent(patch.content)) return false
   if (patch.contentUpdatedAt !== undefined && live.contentUpdatedAt !== patch.contentUpdatedAt) return false
   return true
 }
@@ -467,15 +642,26 @@ export interface CheckResult {
   remainingPrices: string[]
   /** Links and images a replace removes on purpose (the guard allows exactly these). */
   removedRefs: string[]
+  /** The result has no link to the airport's booking page though the live post had one, and edit.json allowed it. */
+  bookingLinkRemoved: boolean
+  /** Checks that could not run, each "<check> NOT RUN: <reason>" — printed, and written to .diff.txt and .meta.json. */
+  notRun: string[]
 }
+
+/** The airport's lot names (loadAirportData): new material may not name an unsellable one. */
+export interface LotNames { unsellable: readonly string[]; sellable: readonly string[] }
+
+/** Split raw html at every block-level tag, open or close, so each piece is one block's own text (and links). */
+const BLOCK_TAG = /<\/?(?:p|li|td|th|tr|h[1-6]|blockquote|div|section|article|header|footer|main|aside|nav|figure|figcaption|table|thead|tbody|tfoot|caption|ul|ol|dl|dt|dd|pre)\b[^>]*>/i
+const rawBlocks = (html: string): string[] => html.split(new RegExp(BLOCK_TAG.source, 'gi'))
 
 /**
  * Every gate in one place: the lint on the result (errors already present in the live post are
  * reported, not blocking), the price check on the new material (blocking) and on the whole resulting body
  * (reported: figures still in the post that the allow-list lacks), the link/image guard (links and images
- * inside content a replace removed may go; nothing else may).
+ * inside content a replace removed may go; nothing else may), the booking-link backstop, and the unsold-lot names.
  */
-export function checkEdit(post: PostLike, res: EditResult, edit: EditSpec, known: ReadonlySet<number> | null): CheckResult {
+export function checkEdit(post: PostLike, res: EditResult, edit: EditSpec, known: ReadonlySet<number> | null, lots: LotNames = { unsellable: [], sellable: [] }): CheckResult {
   const lintOf = (p: PostLike) => lintArticle({
     title: p.title, metaTitle: p.seo?.metaTitle, metaDescription: p.seo?.metaDescription,
     html: lexicalToHtml(p.content as Parameters<typeof lexicalToHtml>[0]), excerpt: p.excerpt,
@@ -489,10 +675,20 @@ export function checkEdit(post: PostLike, res: EditResult, edit: EditSpec, known
   // in block B as "new" and block the edit. Linting each block on its own collects all of them.
   const old = new Set([...before.errors, ...baselineErrors(post, known)].map(key))
   const preexisting = after.errors.filter((e) => old.has(key(e)))
-  // New material = the inserted section + everything a replace writes (renamed headings included).
-  const insertedHtml = [edit.insert?.html || '', ...res.replaced.map((st) => st.addedHtml)].filter(Boolean).join('\n')
+  // New material = the inserted section + everything a replace writes (renamed headings included): each converted
+  // node on its own, and the html as written, split at every block tag. Conversion merges the <p>s of a <blockquote>,
+  // so a converted node can hold a source link the author put in a different paragraph; and one joined string let a
+  // block borrow another block's link (review, Nov 2026).
+  const newNodes = [...res.inserted, ...res.replaced.flatMap((st) => st.added)]
+  const rawHtml = [edit.insert?.html ?? '', ...(edit.replace ?? []).map((op) => ('html' in op ? op.html : ''))].filter((h) => h.trim())
+  const blocks = [...newNodes.map((n) => toHtml([n])), ...rawHtml.flatMap(rawBlocks)]
+  const insertedHtml = [...rawHtml, ...newNodes.map((n) => toHtml([n]))].join('\n')
+  const newText = stripTags(blocks.join('\n'))
   // The NEW material is linted on its own too: the lint reports only the first match per rule, so a new
   // "save up to 70%" after an old "save up to 60%" reads as the same, pre-existing error (pass-2 review).
+  // Its promo-code gate comes from the whole post: "SpotHero's SPOT10 offer…" names no promo word itself, and the
+  // whole-post lint called it pre-existing when the live post already printed SPOT10 (review, Nov 2026).
+  const promoContext = PROMO_WORD.test(postText(post)) || PROMO_WORD.test(postText(res.after))
   const f = edit.fields || {}
   const seo = res.patch.seo as { metaTitle?: string; metaDescription?: string } | undefined
   const faqNew = res.patch.faqItems
@@ -506,25 +702,41 @@ export function checkEdit(post: PostLike, res: EditResult, edit: EditSpec, known
       metaTitle: seo && f.seo?.metaTitle !== undefined && f.seo.metaTitle !== post.seo?.metaTitle ? seo.metaTitle : undefined,
       metaDescription: seo && f.seo?.metaDescription !== undefined && f.seo.metaDescription !== post.seo?.metaDescription ? seo.metaDescription : undefined,
       html: insertedHtml, excerpt: res.patch.excerpt as string | undefined, faqItems: faqNew,
-      keyword: post.slug.replace(/-/g, ' '), slug: post.slug, isNew: false,
+      keyword: post.slug.replace(/-/g, ' '), slug: post.slug, isNew: false, promoContext,
       knownFigures: known ? [...known].map((c) => c / 100) : undefined,
     }).errors,
   ].filter((e, i, arr) => arr.findIndex((x) => key(x) === key(e)) === i)
-  const hasPrice = /(?:C\$|CA\$|US\$|\$)\s?\d/.test(stripTags(insertedHtml) + res.fieldText)
-  const badPrices = known ? priceCheck(insertedHtml, res.fieldText, known) : []
+  const hasPrice = /(?:C\$|CA\$|US\$|\$)\s?\d/.test(`${newText}\n${res.fieldText}`)
+  const unique = (xs: string[]) => [...new Set(xs)]
+  const badPrices = known ? unique([...blocks.flatMap((b) => priceCheck(b, '', known)), ...priceCheck('', res.fieldText, known)]) : []
   const loss = guardLoss(post.content, res.after.content, removedNodes(res.replaced))
   // The whole resulting body, so a stale figure the edit did NOT remove is still caught (reported, not blocking:
   // old posts carry computed totals the allow-list never holds, and this edit may be fixing one block of many).
+  // Block by block (each root node), like the new material: one joined body let a quote borrow the next paragraph's link.
   const remainingPrices = known && res.patch.content !== undefined
-    ? priceCheck(lexicalToHtml(res.after.content as Parameters<typeof lexicalToHtml>[0]), '', known).filter((x) => !badPrices.includes(x))
+    ? unique(res.after.content.root.children.flatMap((n) => priceCheck(toHtml([n]), '', known))).filter((x) => !badPrices.includes(x))
     : []
+  // Backstop for the booking CTA (sectionEnd keeps sections off it; a text op can still target it): the result must
+  // still link the airport's booking page if the live post did, unless edit.json says the removal is meant.
+  const bookingPath = post.airportCode ? bookingPathFor(post.airportCode) : null
+  const bookingLinkGone = !!bookingPath && linksTo(post.content, bookingPath) && !linksTo(res.after.content, bookingPath)
+  // Never name a lot we don't sell (review lesson 2): new html, new headings and new field text.
+  const unsold = unsellableNameMatchers(lots.unsellable, lots.sellable).filter((m) => m.re.test(`${newText}\n${res.fieldText}`)).map((m) => `"${m.name}"`)
+  // A check that could not run is said out loud, never left as an empty list that reads as "nothing found".
+  const why = post.airportCode ? `no data/airports/${post.airportCode}.json` : 'the post has no airportCode'
+  const notRun = known ? [] : [
+    ...(res.patch.content !== undefined ? [`whole-body price check NOT RUN: ${why}`] : []),
+    ...(newText.trim() || res.fieldText ? [`unsold lot-name check NOT RUN: ${why}`] : []),
+  ]
   const blockers = [
     ...fresh.map((e) => `lint ${e.rule}: ${e.message}`),
     ...(badPrices.length ? [`price check: ${badPrices.join(', ')} not in the figures the writer may use for ${post.airportCode} and not in a paragraph with an external source link`] : []),
     ...(!known && hasPrice ? [`price check: no data file for ${post.airportCode ?? '(no airportCode)'}; prices can't be checked`] : []),
     ...(loss ? [`would lose ${loss}`] : []),
+    ...(unsold.length ? [`names a lot we don't sell at ${post.airportCode}: ${unsold.join(', ')} — never name or price an unsold lot`] : []),
+    ...(bookingLinkGone && !edit.allowBookingLinkRemoval ? [`would remove the link to the booking page (${bookingPath}) — keep the "Compare … parking rates" paragraph, or set "allowBookingLinkRemoval": true in edit.json if that is meant`] : []),
   ]
-  return { blockers, warnings: after.warnings, preexisting, remainingPrices, removedRefs: removedRefsReport(res.replaced) }
+  return { blockers, warnings: after.warnings, preexisting, remainingPrices, removedRefs: removedRefsReport(res.replaced), bookingLinkRemoved: bookingLinkGone && !!edit.allowBookingLinkRemoval, notRun }
 }
 
 /** Lint every block of the live post on its own (list items and table cells too), so each block's errors are known. */
@@ -616,11 +828,19 @@ async function main() {
   // The price allow-list is what the writer prompt sees for this airport, not every number in the file.
   const airportData = post.airportCode ? loadAirportData(post.airportCode) : null
   const known = airportData ? new Set(collectMoneyFigures(figureSource(airportData, slug.replace(/-/g, ' '))).map((n) => Math.round(n * 100))) : null
-  const check = checkEdit(post, res, edit, known)
+  // loadAirportData already split the file's lots: parkingLots = the ones we sell, unsellableLotNames = the rest.
+  const lots: LotNames = {
+    unsellable: airportData?.unsellableLotNames ?? [],
+    sellable: (airportData?.parkingLots ?? []).map((l) => String(l.name ?? '')),
+  }
+  const check = checkEdit(post, res, edit, known, lots)
+  const bookingNote = check.bookingLinkRemoved ? 'the edit removes the link to the booking page (allowed by "allowBookingLinkRemoval": true)' : ''
 
   console.log(`\n${post.slug} (#${post.id}, ${post.status})  fields: ${Object.keys(res.patch).join(', ')}`)
   console.log(`facts diff (body + FAQ): +${res.factsDiff.added.length} / -${res.factsDiff.removed.length}`)
   for (const st of res.replaced) console.log(`  ${st.label}`)
+  for (const n of check.notRun) console.log(`  ⚠ ${n}`)
+  if (bookingNote) console.log(`  ⚠ ${bookingNote}`)
   if (check.removedRefs.length) console.log(`  ✂ removed with the replaced content (allowed by the guard — check you meant it):\n    ${check.removedRefs.join('\n    ')}`)
   if (check.remainingPrices.length) console.log(`  ⚠ figures still in the post that are not in the ${post.airportCode} allow-list (stale or computed — check them): ${check.remainingPrices.join(', ')}`)
   if (check.warnings.length) console.log(formatLint({ ok: true, errors: [], warnings: check.warnings }))
@@ -633,6 +853,8 @@ async function main() {
   if (preview) {
     fs.writeFileSync(`${base}.html`, `<h1>${res.after.title}</h1>\n${lexicalToHtml(res.after.content as Parameters<typeof lexicalToHtml>[0])}`)
     const head = [
+      check.notRun.length ? `${check.notRun.join('\n')}\n` : '',
+      bookingNote ? `BOOKING LINK: ${bookingNote}\n` : '',
       res.replaced.length ? `REPLACE OPERATIONS\n\n${replaceDiff(res.replaced)}\n` : '',
       check.remainingPrices.length ? `PRICE CHECK ON THE RESULTING BODY — figures still in the post, not in the ${post.airportCode} allow-list (not blocking): ${check.remainingPrices.join(', ')}\n` : '',
     ].filter(Boolean)
@@ -641,6 +863,8 @@ async function main() {
       ...now, edit: path.resolve(editPath), factsDiff: res.factsDiff,
       ...(res.replaced.length ? { replaced: res.replaced.map((st) => st.label), removedRefs: check.removedRefs } : {}),
       ...(check.remainingPrices.length ? { remainingPrices: check.remainingPrices } : {}),
+      ...(check.notRun.length ? { notRun: check.notRun } : {}),
+      ...(check.bookingLinkRemoved ? { bookingLinkRemoved: true } : {}),
     }, null, 1))
     console.log(`✓ preview written: ${base}.html, .diff.txt — nothing sent to the CMS. Re-run with --apply.`)
     return
@@ -666,7 +890,10 @@ async function main() {
   const back = await read()
   const lost = guardLoss(res.after.content, back.content)
   if (lost) { console.error(`POST-SAVE CHECK FAILED: ${lost}. Restore from ${backup}`); process.exit(1) }
-  if (!editLive(back, patch)) { console.error(`POST-SAVE CHECK FAILED: the re-read post does not carry every field of the patch. Compare with ${backup}`); process.exit(1) }
+  // Both directions: a link or image the edit removed that is still live means the body is not what was previewed.
+  const kept = refsNotRemoved(res.after.content, back.content)
+  if (kept) { console.error(`POST-SAVE CHECK FAILED: still live though the edit removed it: ${kept}. Compare with ${backup}`); process.exit(1) }
+  if (!editLive(back, patch)) { console.error(`POST-SAVE CHECK FAILED: the re-read post does not carry every field of the patch (body compared by structure, links and images). Compare with ${backup}`); process.exit(1) }
   console.log(`✓ applied + verified (#${post.id})`)
   if (back.status === 'published') await pingIndexNow([postUrlFor(slug)])
 }

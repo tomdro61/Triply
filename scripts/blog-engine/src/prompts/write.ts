@@ -281,6 +281,19 @@ function nameRegex(key: string): RegExp {
 }
 
 /**
+ * One matcher per unsellable lot (its name key, lotNameKey), minus any key that is part of a lot we DO sell: a brand we
+ * also sell ("Motel 6") must not count as naming the unsold one. Shared by the writer prompt (dropOffSiteSentences) and
+ * apply-edit's new-html check, so both mean the same thing by "names an unsold lot".
+ */
+export function unsellableNameMatchers(unsellableNames: readonly string[] = [], sellableNames: readonly string[] = []): { name: string; re: RegExp }[] {
+  const protect = sellableNames.map((n) => n.toLowerCase())
+  return unsellableNames
+    .map((name) => ({ name, key: lotNameKey(name) }))
+    .filter(({ key }) => key && !protect.some((p) => p.includes(key)))
+    .map(({ name, key }) => ({ name, re: nameRegex(key) }))
+}
+
+/**
  * Notes without the provenance line and without sentences that quote a lot price (per-day, pre-booked, walk-up, "from $",
  * "~$" — they go stale on every refresh). Sentences about fees, surcharges and what is paid at the lot stay: those are the
  * caveats rule 38a makes binding. `strict` drops any sentence with a dollar figure (rate notes: their week quotes include
@@ -359,11 +372,7 @@ export function cutAt(text: string, n: number): string {
  */
 export function dropOffSiteSentences(text: string, unsellableNames: readonly string[] = [], sellableNames: readonly string[] = []): string {
   if (!text) return text
-  const protect = sellableNames.map((n) => n.toLowerCase())
-  const keys = unsellableNames
-    .map(lotNameKey)
-    .filter((k) => k && !protect.some((p) => p.includes(k))) // a brand we also sell ("Motel 6") must not drop true sentences
-    .map(nameRegex)
+  const keys = unsellableNameMatchers(unsellableNames, sellableNames).map((m) => m.re)
   const bad = (s: string) => OFF_SITE_SENTENCE.test(s) || UNSOURCED_SAVINGS.test(s) || keys.some((re) => re.test(s))
   const parts = text.split(SENTENCE_BREAK)
   let changed = false

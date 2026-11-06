@@ -73,8 +73,10 @@ item you want to keep; the preview diff shows what goes), `insert`
   `data/airports/<code>.json`, with lots already limited to sellable ones, or sit in a paragraph that links its source.
 - `--apply` re-reads the post and refuses if it changed since the preview. It re-runs every check,
   backs up the live JSON, then PATCHes by id. Only the new section goes through HTML → Lexical; the rest
-  of the body is spliced untouched. It re-reads to confirm no link or image was lost and pings IndexNow
-  when the post is published.
+  of the body is spliced untouched. It re-reads to confirm no link or image was lost, that no link or image the
+  edit removed is still there, and that the stored body matches what was sent by structure (node types, text,
+  link URLs, media ids — not just the text), then pings IndexNow when the post is published. A PATCH that throws
+  is settled by the same structural comparison.
 - `contentUpdatedAt` moves only with `--stamp` **and** a non-empty facts diff, meaning a number-bearing
   sentence was added or removed in the body or the FAQ (stamp.ts rule: titles and metadata are not facts).
 - Review fixes (Nov 2026): `edit.json` is validated strictly (unknown keys, a bad `position`, an empty
@@ -120,6 +122,38 @@ leaves the post contradicting itself). An array of operations, run in order, bef
   diff and `.meta.json`) — so a stale `$26/day` two paragraphs down is still seen. It warns, it does not block:
   old posts carry computed totals the allow-list never holds.
 
+Review round 2 (Nov 2026) — each with a regression test in `src/apply-edit-replace.test.ts` (R1–R10):
+- **The booking CTA is protected.** `booking-links` appends the "Compare … parking rates" paragraph as the last
+  root node of ~3,700 posts. A section never runs into it: when a section reaches the end of the post, it stops
+  before trailing booking-CTA paragraphs (so `remove` / `section` on the last heading, and `insert` at `"end"`, leave
+  the CTA last). As a backstop, an edit whose result has no link to the airport's booking page, when the live post
+  had one, is **refused** unless edit.json sets `"allowBookingLinkRemoval": true` (strict like every key, bound by
+  the preview hash; the preview log, `.diff.txt` and `.meta.json` then say the link goes). To remove a CTA on purpose,
+  target it with a `text` op and set the flag.
+- **Links and images must survive conversion.** HTML → Lexical silently drops an `<img>` inside a `<p>`/`<li>`/`<td>`/
+  `<a>`, an `<img>` with no numeric `data-media-id`, and a link with no text. Every op's html (and `insert` html) is
+  compared with what it converts to, by URL / media id, and any loss is refused before the removed-content allowance
+  exists. Put each image in its own block (`<img data-media-id="…">` or `<figure>`).
+- **Prices are checked block by block**: each converted node on its own, and the html as written, split at every
+  block tag (conversion merges the `<p>`s of a `<blockquote>`, so a converted quote could carry a source link the
+  author put in another paragraph). `lint.ts priceCheck` now also splits at `</blockquote>`, and the whole-body
+  warning list is computed root node by root node, so no figure borrows another block's external link.
+- **Promo codes:** new html is checked for unapproved codes whenever the post (before or after the edit) talks about
+  promo / coupon codes, even if the new html itself doesn't ("SpotHero's SPOT10 offer…" used to pass, reported as
+  pre-existing, when the live post already printed SPOT10).
+- **Unsold lots:** new html, renamed headings and new field text may not name a lot in the airport file's
+  `unsellableLotNames` (same name matching as the writer prompt, `unsellableNameMatchers` in `prompts/write.ts`).
+- **Table-pattern lists** (bullet lists the site draws as a table: every item `<strong>Header:</strong> … | …`, 2+
+  items, `RichText.tsx isTablePattern`): an item edit that breaks the pattern is refused, and the error shows the
+  `<li><strong>Lot:</strong> … | <strong>Rate:</strong> …</li>` shape to use. Replace the whole list or section to
+  change it into something else.
+- An op may not target anything an earlier op wrote, **including list items inside a list it wrote**.
+- A `text`, `section`, `remove` or `insert` target that is empty once whitespace is ignored is refused (it matched
+  empty blocks and every image). Whitespace-only `insert` html is refused too.
+- **A check that could not run is said out loud**: with no `airportCode` or no `data/airports/<code>.json`, the log,
+  `.diff.txt` and `.meta.json` (`notRun`) carry `whole-body price check NOT RUN: <reason>` (and the same for the
+  unsold-lot check) instead of an empty list.
+
 ## Flags
 
 ```
@@ -158,3 +192,5 @@ npx tsx src/apply-edit.ts --slug <slug> --edit edit.json --preview
 ```
 
 No secrets: `.env` is gitignored; `.env.example` lists every variable.
+
+*Updated November 6, 2026 — apply-edit `replace` review round 2: booking-CTA protection + `allowBookingLinkRemoval`, conversion-loss refusal, per-block price check, promo/unsold-lot/table-pattern checks, structural settle + post-save check, NOT RUN notices.*
