@@ -71,7 +71,7 @@ beforeEach(() => {
     .seed("disputes", []);
   constructEvent.mockReset();
   disputesUpdate.mockReset().mockResolvedValue({});
-  disputesRetrieve.mockReset().mockResolvedValue({ status: "needs_response", evidence: {}, charge: { amount_captured: 5057, amount_refunded: 0, currency: "usd" } });
+  disputesRetrieve.mockReset().mockResolvedValue({ status: "needs_response", evidence: {}, charge: { amount_captured: 5057, amount_refunded: 0, currency: "usd", created: 1_759_320_000 }, payment_intent: { id: "pi_1", metadata: {} } });
   for (const m of Object.values(sentry)) m.mockReset();
   alerts.sendDisputeOpenedAlert.mockReset().mockResolvedValue(undefined);
   alerts.sendDisputeClosedAlert.mockReset().mockResolvedValue(undefined);

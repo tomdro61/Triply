@@ -67,3 +67,34 @@ describe("sendDisputeOpenedAlert", () => {
     await done;
   });
 });
+
+describe("timeLeftLabel", () => {
+  it("counts hours under two days, days after, and 'passed' once gone", async () => {
+    const { timeLeftLabel } = await import("@/lib/disputes/deadline");
+    const now = Date.parse("2026-11-16T12:00:00Z");
+    expect(timeLeftLabel("2026-11-16T23:59:59Z", now).label).toBe("11h left");
+    expect(timeLeftLabel("2026-11-20T12:00:00Z", now).label).toBe("4d left");
+    expect(timeLeftLabel("2026-11-16T11:00:00Z", now).label).toBe("passed");
+  });
+});
+
+// Review High: a Stripe-only refund leaves the ResLab reservation live (the
+// lot still honours it and ResLab still bills it).
+describe("sendFraudWarningAlert", () => {
+  const base = { warningId: "issfr_1", chargeId: "ch_1", fraudType: "made_with_stolen_card", actionable: true, livemode: true, bookingStatus: "confirmed", checkIn: "2026-12-01T08:00:00" };
+
+  it("with a booking: cancel with a full refund from admin, never Stripe alone", async () => {
+    const { sendFraudWarningAlert } = await import("../send-dispute-alert");
+    await sendFraudWarningAlert({ ...base, confirmationNumber: "RTL1" });
+    const html: string = send.mock.calls[0][0].html;
+    expect(html).toContain("Admin → Bookings");
+    expect(html).toContain("Don't refund in Stripe alone");
+    expect(send.mock.calls[0][0].subject).not.toContain("$");
+  });
+
+  it("no booking: refund in Stripe", async () => {
+    const { sendFraudWarningAlert } = await import("../send-dispute-alert");
+    await sendFraudWarningAlert({ ...base, confirmationNumber: null });
+    expect(send.mock.calls[0][0].html).toContain("No booking matches this charge");
+  });
+});

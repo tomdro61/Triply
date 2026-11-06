@@ -5,6 +5,7 @@
  * stamped into metadata as the one authority for the at-lot estimate.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { TERMS_VERSION } from "@/lib/checkout/terms-acceptance";
 import { NextRequest } from "next/server";
 
 const { lookup, createPI, getLotById, getCost, getLocation, promoSingle, promoEq, channel } = vi.hoisted(() => ({
@@ -81,6 +82,8 @@ function directBody(over: Record<string, unknown> = {}) {
     checkoutTime: "10:00 AM",
     customerEmail: "ada@example.com",
     protectionPlanCode: null,
+    // checkout-form always sends the version it rendered (#150).
+    termsVersion: TERMS_VERSION,
     ...over,
   };
 }
@@ -172,6 +175,21 @@ describe("POST /api/checkout/lot — direct", () => {
     expect(createPI).not.toHaveBeenCalled();
   });
 
+  // #150: the rendered terms version reaches createPaymentIntent (which stamps
+  // only a known one). The .strict() schema must keep accepting it — dropping
+  // it would 400 every direct checkout from the current bundle.
+  it("passes the rendered terms version to createPaymentIntent; old and unknown tabs still pay", async () => {
+    expect((await post(directBody())).status).toBe(200);
+    expect(createPI.mock.calls[0][2]).toBe(TERMS_VERSION);
+    const { termsVersion: _omit, ...oldTab } = directBody();
+    void _omit;
+    expect((await post(oldTab)).status).toBe(200); // a tab from before versioning
+    expect(createPI.mock.calls[1][2]).toBeUndefined();
+    expect((await post(directBody({ termsVersion: "2099-01-01" }))).status).toBe(200); // unknown: paid, not stamped
+    expect(createPI.mock.calls[2][2]).toBe("2099-01-01");
+    expect((await post(directBody({ termsVersion: "x".repeat(33) }))).status).toBe(400);
+  });
+
   it("refuses client money or extra keys (.strict) and never creates a PaymentIntent", async () => {
     expect((await post(directBody({ subtotal: 1 }))).status).toBe(400);
     expect((await post(directBody({ vehicleSize: "large_suv_truck" }))).status).toBe(400);
@@ -203,9 +221,11 @@ describe("POST /api/checkout/lot — ResLab body is unchanged except the explici
       parkingTypeId: 7,
       customerEmail: "ada@example.com",
       protectionPlanCode: null,
+      termsVersion: TERMS_VERSION,
     });
     expect(res.status).toBe(200);
     expect(createPI.mock.calls[0][1]).toMatchObject({ inventorySource: "reslab", locationId: "42" });
+    expect(createPI.mock.calls[0][2]).toBe(TERMS_VERSION);
     expect(createPI.mock.calls[0][1]).not.toHaveProperty("directSurcharges");
   });
 

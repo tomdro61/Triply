@@ -4,6 +4,7 @@ import { capturePaymentError } from "@/lib/sentry";
 import { sendDisputeClosedAlert, sendDisputeOpenedAlert } from "@/lib/resend/send-dispute-alert";
 import {
   buildEvidence,
+  chargeFactsFrom,
   DISPUTE_BOOKING_SELECT,
   playbookFor,
   type ChargeFacts,
@@ -159,32 +160,42 @@ async function claim(supabase: Db, disputeId: string, col: string, extra: Record
  *   taken — this delivery sends it
  *   sent  — already sent
  *   held  — another delivery is sending right now, or died < 2 min ago
+ * Shared by the dispute alert and the early-fraud-warning alert (#150).
  */
-async function takeAlertLease(supabase: Db, disputeId: string): Promise<"taken" | "sent" | "held"> {
+export type AlertLedger = { table: "disputes"; key: "stripe_dispute_id" } | { table: "fraud_warnings"; key: "stripe_warning_id" };
+export const DISPUTE_LEDGER: AlertLedger = { table: "disputes", key: "stripe_dispute_id" };
+
+export async function takeAlertLease(supabase: Db, ledger: AlertLedger, id: string): Promise<"taken" | "sent" | "held"> {
   // Two conditional UPDATEs, never one `.or()`: PostgREST rejects `.or()` on
   // an UPDATE (reference_postgrest_or_on_update).
   const take = async (stale: boolean) => {
     const base = supabase
-      .from("disputes")
+      .from(ledger.table)
       .update({ alert_claimed_at: now() })
-      .eq("stripe_dispute_id", disputeId)
+      .eq(ledger.key, id)
       .is("alert_sent_at", null);
     const q = stale
       ? base.lt("alert_claimed_at", new Date(Date.now() - ALERT_LEASE_MS).toISOString())
       : base.is("alert_claimed_at", null);
-    const { data, error } = await q.select("stripe_dispute_id");
+    const { data, error } = await q.select(ledger.key);
     if (error) throw new Error(`alert lease failed: ${error.message}`);
     return Array.isArray(data) && data.length > 0;
   };
   if ((await take(false)) || (await take(true))) return "taken";
 
-  const { data, error } = await supabase
-    .from("disputes")
-    .select("alert_sent_at")
-    .eq("stripe_dispute_id", disputeId)
-    .maybeSingle();
+  const { data, error } = await supabase.from(ledger.table).select("alert_sent_at").eq(ledger.key, id).maybeSingle();
   if (error) throw new Error(`alert lease read failed: ${error.message}`);
   return (data as { alert_sent_at: string | null } | null)?.alert_sent_at ? "sent" : "held";
+}
+
+/** Free the lease after a failed send. If this write fails, the lease expires on its own. */
+export async function releaseAlertLease(supabase: Db, ledger: AlertLedger, id: string) {
+  return supabase.from(ledger.table).update({ alert_claimed_at: null }).eq(ledger.key, id).is("alert_sent_at", null);
+}
+
+/** Mark sent, only after Resend accepted the email. */
+export async function markAlertSent(supabase: Db, ledger: AlertLedger, id: string) {
+  return supabase.from(ledger.table).update({ alert_sent_at: now() }).eq(ledger.key, id);
 }
 
 // Free-text evidence a person would type in the Stripe dashboard. Stripe may
@@ -204,22 +215,33 @@ const TYPED_EVIDENCE: (keyof Stripe.Dispute.Evidence)[] = [
 type LiveDispute = { charge: ChargeFacts | null; acceptsEvidence: boolean; evidenceStarted: boolean };
 
 /**
- * The dispute as Stripe holds it NOW, with its charge, in one call. The event
- * can be hours old on a redelivery: by then the dispute may no longer take
- * evidence, or someone may have typed evidence the draft would overwrite.
- * The charge is the only source for "charged" and "refunded" in the evidence.
- * null (reported) when it can't be read: the draft then states no amount and
- * makes no "no refund" claim.
+ * The dispute as Stripe holds it NOW, with its charge and PaymentIntent, in
+ * one call (one Stripe step inside the time budget — #150's separate
+ * PaymentIntent read folded in here). The event can be hours old on a
+ * redelivery: by then the dispute may no longer take evidence, or someone may
+ * have typed evidence the draft would overwrite. The charge is the only source
+ * for "charged", "refunded" and the card checks; the PaymentIntent carries the
+ * terms version. null (reported) when it can't be read: the draft then states
+ * no amount, no terms, no checks and makes no "no refund" claim.
  */
 async function readLiveDispute(
   d: Stripe.Dispute,
   ctx: { stripePaymentIntentId: string; amount: number }
 ): Promise<LiveDispute | null> {
   try {
-    const live = await withOneRetry(() => stripe.disputes.retrieve(d.id, { expand: ["charge"] }, STRIPE_OPTS));
+    const live = await withOneRetry(() =>
+      stripe.disputes.retrieve(d.id, { expand: ["charge", "payment_intent"] }, STRIPE_OPTS)
+    );
     const c = typeof live.charge === "string" ? null : live.charge;
+    const facts = c ? chargeFactsFrom(c, live.payment_intent) : null;
+    const stamped = typeof live.payment_intent === "object" ? live.payment_intent?.metadata?.termsVersion : undefined;
+    if (facts && stamped && !facts.termsText) {
+      // A version this build doesn't know (e.g. after a rollback): the draft
+      // loses its checkbox quote — say so rather than drop it quietly.
+      capturePaymentError(new Error(`Dispute ${d.id}: unknown terms version "${stamped}" — evidence quotes no checkbox`), ctx);
+    }
     return {
-      charge: c ? { capturedCents: c.amount_captured, refundedCents: c.amount_refunded, currency: c.currency } : null,
+      charge: facts,
       acceptsEvidence: NEEDS_RESPONSE.has(live.status),
       evidenceStarted: TYPED_EVIDENCE.some((k) => {
         const v = live.evidence?.[k];
@@ -413,7 +435,7 @@ export async function handleDisputeCreated(supabase: Db, d: Stripe.Dispute): Pro
 
   let lease: "taken" | "sent" | "held";
   try {
-    lease = await takeAlertLease(supabase, d.id);
+    lease = await takeAlertLease(supabase, DISPUTE_LEDGER, d.id);
   } catch (err) {
     return frozen(fail("alert lease failed", messageOf(err)));
   }
@@ -446,11 +468,7 @@ export async function handleDisputeCreated(supabase: Db, d: Stripe.Dispute): Pro
   } catch (err) {
     // Free the lease so Stripe's redelivery sends it. If this write fails
     // too, the lease simply expires after ALERT_LEASE_MS.
-    const { error } = await supabase
-      .from("disputes")
-      .update({ alert_claimed_at: null })
-      .eq("stripe_dispute_id", d.id)
-      .is("alert_sent_at", null);
+    const { error } = await releaseAlertLease(supabase, DISPUTE_LEDGER, d.id);
     if (error) {
       capturePaymentError(
         new Error(`Dispute ${d.id}: alert lease release failed (a redelivery sends it after the lease expires): ${error.message}`),
@@ -460,10 +478,7 @@ export async function handleDisputeCreated(supabase: Db, d: Stripe.Dispute): Pro
     return frozen(fail("alert email failed", messageOf(err)));
   }
 
-  const { error: sentErr } = await supabase
-    .from("disputes")
-    .update({ alert_sent_at: now() })
-    .eq("stripe_dispute_id", d.id);
+  const { error: sentErr } = await markAlertSent(supabase, DISPUTE_LEDGER, d.id);
   if (sentErr) {
     // The email went out. Not retried: a redelivery would only send it twice.
     capturePaymentError(new Error(`Dispute ${d.id}: alert sent but not recorded: ${sentErr.message}`), ctx);

@@ -1,6 +1,7 @@
 import { resend, FROM_EMAIL } from "./client";
 import { PAYMENT_ALERT_EMAILS } from "@/config/admin";
 import type { Playbook } from "@/lib/disputes/evidence";
+import { formatDeadline } from "@/lib/disputes/deadline";
 
 // Every data-derived value is escaped: dispute and booking fields come from
 // Stripe and customer input.
@@ -50,22 +51,9 @@ async function sendBounded(payload: Parameters<typeof resend.emails.send>[0], wh
   }
 }
 
-/**
- * Stripe's `due_by` is a real instant (often 23:59:59 UTC, i.e. early evening
- * Eastern). The team works in Eastern time, so show the deadline there with
- * the clock time — a bare UTC date reads as "all day" and can be a day late.
- */
-export function formatDeadline(iso: string): string {
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZoneName: "short",
-  }).format(new Date(iso));
-}
+// formatDeadline lives in lib/disputes/deadline.ts (pure, so /admin/disputes
+// can use it); re-exported for the email's tests.
+export { formatDeadline };
 
 /**
  * Emails the payment-alert list the moment a dispute opens. Sentry alone was
@@ -122,6 +110,63 @@ export async function sendDisputeOpenedAlert(a: DisputeAlert) {
       </div>
     `,
   }, "Dispute alert email");
+}
+
+/**
+ * Emails the payment-alert list on a Radar early fraud warning. Suggests a
+ * refund only; nothing is refunded automatically.
+ */
+export async function sendFraudWarningAlert(a: {
+  warningId: string;
+  chargeId: string | null;
+  fraudType: string;
+  actionable: boolean;
+  livemode: boolean;
+  confirmationNumber: string | null;
+  bookingStatus: string | null;
+  checkIn: string | null;
+}) {
+  // A refund in Stripe alone does NOT cancel the reservation at ResLab (the
+  // charge.refunded webhook only marks our row): the lot still honours it and
+  // ResLab still bills us. With a booking, cancel it from admin, which cancels
+  // at ResLab and Park Guard and refunds in one step.
+  const advice = !a.actionable
+    ? "Stripe marks this warning as not actionable (already refunded or disputed). Nothing to do unless a dispute opens."
+    : a.confirmationNumber
+      ? "If the car was <strong>not</strong> parked, cancel the booking with a <strong>full refund</strong> from Admin → Bookings now: that cancels it at the lot (ResLab) and Park Guard too, and a refund before a dispute avoids the dispute fee. Don't refund in Stripe alone — the reservation would stay live at the lot. If it was parked, keep the lot's proof for the dispute that may follow."
+      : "No booking matches this charge. If it wasn't a real purchase, refund it in Stripe now: a refund before a dispute avoids the dispute fee.";
+  // No amount row: a warning carries none, and the booking total is not the
+  // card charge — the Stripe link shows the real one.
+  const rows: [string, string][] = [
+    ["Fraud type", esc(a.fraudType)],
+    ["Booking", a.confirmationNumber ? esc(a.confirmationNumber) : "<strong>No booking found for this charge</strong>"],
+    ["Status", a.bookingStatus ? esc(a.bookingStatus) : "—"],
+    ["Check-in", a.checkIn ? esc(a.checkIn.slice(0, 16).replace("T", " ")) : "—"],
+  ];
+  const link = a.chargeId
+    ? `https://dashboard.stripe.com/${a.livemode ? "" : "test/"}payments/${encodeURIComponent(a.chargeId)}`
+    : `https://dashboard.stripe.com/${a.livemode ? "" : "test/"}radar/early-fraud-warnings`;
+
+  await sendBounded({
+    from: FROM_EMAIL,
+    to: PAYMENT_ALERT_EMAILS,
+    subject: `⚠️ Likely fraud flagged${a.confirmationNumber ? ` (${a.confirmationNumber})` : ""}${a.livemode ? "" : " [TEST]"}`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#111827;">
+        <h2 style="color:#d97706;margin-bottom:12px;">Card network flagged a charge as likely fraud</h2>
+        <table style="width:100%;border-collapse:collapse;">
+          ${rows
+            .map(
+              ([k, v]) =>
+                `<tr><td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#6b7280;width:110px;">${k}</td><td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:14px;">${v}</td></tr>`
+            )
+            .join("")}
+        </table>
+        <p style="font-size:14px;margin-top:18px;">${advice}</p>
+        <a href="${link}" style="display:inline-block;background:#f87356;color:#fff;text-decoration:none;font-weight:700;font-size:13px;padding:10px 24px;border-radius:8px;">Open in Stripe</a>
+      </div>
+    `,
+  }, "Fraud warning email");
 }
 
 /** Emails the outcome when Stripe closes a dispute (won, lost, warning closed). */

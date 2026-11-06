@@ -26,6 +26,7 @@ vi.mock("@/lib/resend/send-dispute-alert", () => alerts);
 
 import { handleDisputeCreated, handleDisputeChanged } from "../handle-dispute";
 import { buildEvidence, playbookFor, type ChargeFacts, type DisputeContact } from "../evidence";
+import { TERMS_CHECKBOX_TEXT, TERMS_VERSION } from "@/lib/checkout/terms-acceptance";
 
 type Db = Parameters<typeof handleDisputeCreated>[0];
 const sb = db as unknown as Db; // test double only
@@ -71,15 +72,39 @@ const BOOKING = {
 // handler retries once itself.
 const STRIPE_OPTS = { timeout: 6_000, maxNetworkRetries: 0 };
 const CHECKOUT: DisputeContact = { name: "Ann Lee", email: "ann@typed.com", source: "checkout" };
-const PAID: ChargeFacts = { capturedCents: 6356, refundedCents: 0, currency: "usd" };
+const PAID: ChargeFacts = {
+  capturedCents: 6356,
+  refundedCents: 0,
+  currency: "usd",
+  termsText: null,
+  chargedAtISO: null,
+  cvcCheck: null,
+  postalCheck: null,
+  threeDSecure: null,
+  threeDSecureFlow: null,
+};
 const FACTS = { contact: CHECKOUT, charge: PAID };
 
-/** The dispute as `disputes.retrieve(id, { expand: ["charge"] })` returns it now. */
-function liveDispute(over: { status?: string; evidence?: Record<string, string | null> } = {}) {
+/** The dispute as `disputes.retrieve(id, { expand: ["charge", "payment_intent"] })` returns it now. */
+function liveDispute(
+  over: { status?: string; evidence?: Record<string, string | null>; termsVersion?: string | null } = {}
+) {
   return {
     status: over.status ?? "needs_response",
     evidence: over.evidence ?? { customer_email_address: "prefilled-by-stripe@x.com" },
-    charge: { amount_captured: 6356, amount_refunded: 0, currency: "usd" },
+    charge: {
+      amount_captured: 6356,
+      amount_refunded: 0,
+      currency: "usd",
+      created: 1_759_320_000, // 2025-10-01T12:00:00Z
+      payment_method_details: {
+        card: { checks: { cvc_check: "pass", address_postal_code_check: "unavailable" }, three_d_secure: null },
+      },
+    },
+    payment_intent: {
+      id: "pi_1",
+      metadata: over.termsVersion === null ? {} : { termsVersion: over.termsVersion ?? TERMS_VERSION },
+    },
   };
 }
 
@@ -126,7 +151,8 @@ describe("handleDisputeCreated", () => {
     // Bounded: a hung Stripe call fails inside the route's 60 s.
     expect(opts).toMatchObject(STRIPE_OPTS);
     expect(opts.idempotencyKey).toMatch(/^dispute-draft-dp_1-/);
-    expect(disputesRetrieve).toHaveBeenCalledWith("dp_1", { expand: ["charge"] }, STRIPE_OPTS);
+    // ONE Stripe step for the charge, the terms version and the live status (#150 folded in).
+    expect(disputesRetrieve).toHaveBeenCalledWith("dp_1", { expand: ["charge", "payment_intent"] }, STRIPE_OPTS);
 
     expect(alerts.sendDisputeOpenedAlert).toHaveBeenCalledTimes(1);
     expect(alerts.sendDisputeOpenedAlert.mock.calls[0][0]).toMatchObject({
@@ -159,6 +185,39 @@ describe("handleDisputeCreated", () => {
     const { evidence } = disputesUpdate.mock.calls[0][1];
     expect(evidence.customer_email_address).toBeUndefined();
     expect(evidence.uncategorized_text).toContain("Triply account linked to the reservation: Acct Holder, account@b.com.");
+  });
+
+  // #150: versioned terms + card checks, from the same live read.
+  it("the draft quotes the checkbox the customer ticked and only the card checks that passed", async () => {
+    await handleDisputeCreated(sb, dispute());
+    const ev = disputesUpdate.mock.calls[0][1].evidence;
+    expect(ev.cancellation_policy_disclosure).toContain(TERMS_CHECKBOX_TEXT[TERMS_VERSION]);
+    expect(ev.cancellation_policy_disclosure).toContain("payment made 2025-10-01 12:00 UTC");
+    expect(ev.uncategorized_text).toContain("Card security code (CVC) check: passed.");
+    expect(ev.uncategorized_text).not.toContain("postal"); // "unavailable" is not proof
+  });
+
+  it("an unversioned (older) charge quotes no checkbox wording", async () => {
+    disputesRetrieve.mockResolvedValueOnce(liveDispute({ termsVersion: null }));
+    await handleDisputeCreated(sb, dispute());
+    expect(disputesUpdate.mock.calls[0][1].evidence.cancellation_policy_disclosure).not.toContain("ticked");
+  });
+
+  it("an unknown terms version quotes nothing (never guesses the wording) and is reported", async () => {
+    disputesRetrieve.mockResolvedValueOnce(liveDispute({ termsVersion: "1999-01-01" }));
+    await handleDisputeCreated(sb, dispute());
+    expect(disputesUpdate.mock.calls[0][1].evidence.cancellation_policy_disclosure).not.toContain("checkbox");
+    expect(sentry.capturePaymentError.mock.calls.some(([e]) => e.message.includes('unknown terms version "1999-01-01"'))).toBe(true);
+  });
+
+  // Round-1 Codex: the gate is in the browser, so the draft states what
+  // checkout enforces, never that this person ticked it.
+  it("the checkbox line describes the checkout gate, not a claim that the person ticked it", async () => {
+    await handleDisputeCreated(sb, dispute());
+    const text = disputesUpdate.mock.calls[0][1].evidence.cancellation_policy_disclosure;
+    expect(text).toContain("keeps the Pay button disabled until the customer ticks a checkbox");
+    expect(text).toContain("The checkbox shown for this payment read:");
+    expect(text).not.toMatch(/customer ticked/);
   });
 
   it("a failed checkout-contact read is reported and still drafts and alerts", async () => {
@@ -539,6 +598,18 @@ describe("evidence", () => {
       expect(e.refund_refusal_explanation).toBeUndefined();
       expect(e.uncategorized_text).toContain("status before the dispute: not recorded");
     }
+  });
+
+  // 3D Secure: "authenticated" includes frictionless (no cardholder action);
+  // "attempt_acknowledged" means no authentication happened.
+  it("3D Secure lines say only what each result proves", () => {
+    const with3ds = (threeDSecure: string, threeDSecureFlow: string | null) =>
+      buildEvidence(BOOKING, "fraudulent", { contact: CHECKOUT, charge: { ...PAID, threeDSecure, threeDSecureFlow } }).uncategorized_text;
+    expect(with3ds("authenticated", "challenge")).toContain("the cardholder completed the card issuer's authentication challenge");
+    expect(with3ds("authenticated", "frictionless")).toContain("3D Secure: authentication succeeded.");
+    expect(with3ds("authenticated", "frictionless")).not.toContain("cardholder completed");
+    expect(with3ds("attempt_acknowledged", null)).not.toContain("3D Secure");
+    expect(with3ds("failed", "challenge")).not.toContain("3D Secure");
   });
 
   it("every reason has hand steps", () => {

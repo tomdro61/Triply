@@ -1,4 +1,5 @@
 import type Stripe from "stripe";
+import { termsTextFor } from "@/lib/checkout/terms-acceptance";
 
 /**
  * Dispute evidence + playbook, built from the booking row, the checkout
@@ -47,9 +48,61 @@ export type DisputeContact = { name: string | null; email: string | null; source
  * The disputed charge as Stripe records it. `bookings.grand_total` is not the
  * card amount: it leaves out the service fee, Park Guard and promos, and for
  * ResLab includes the part paid at the lot. null = Stripe couldn't be read, so
- * the draft states no amount and no refund status.
+ * the draft states no amount, no refund status, no terms and no card checks.
  */
-export type ChargeFacts = { capturedCents: number; refundedCents: number; currency: string };
+export type ChargeFacts = {
+  capturedCents: number;
+  refundedCents: number;
+  currency: string;
+  /** The checkbox wording agreed to (PaymentIntent `termsVersion`); null for
+   *  charges made before versioning, which quote nothing. */
+  termsText: string | null;
+  chargedAtISO: string | null;
+  cvcCheck: string | null;
+  postalCheck: string | null;
+  threeDSecure: string | null;
+  /** "challenge" | "frictionless" — only a challenge means the cardholder acted. */
+  threeDSecureFlow: string | null;
+};
+
+/** ChargeFacts from a dispute retrieved with `expand: ["charge", "payment_intent"]`. */
+export function chargeFactsFrom(charge: Stripe.Charge, pi: Stripe.PaymentIntent | string | null): ChargeFacts {
+  const card = charge.payment_method_details?.card;
+  return {
+    capturedCents: charge.amount_captured,
+    refundedCents: charge.amount_refunded,
+    currency: charge.currency,
+    // The terms version lives on the PaymentIntent; Stripe doesn't copy PI
+    // metadata onto the charge.
+    termsText: typeof pi === "object" && pi ? termsTextFor(pi.metadata?.termsVersion) : null,
+    chargedAtISO: new Date(charge.created * 1000).toISOString(),
+    cvcCheck: card?.checks?.cvc_check ?? null,
+    postalCheck: card?.checks?.address_postal_code_check ?? null,
+    threeDSecure: card?.three_d_secure?.result ?? null,
+    threeDSecureFlow: card?.three_d_secure?.authentication_flow ?? null,
+  };
+}
+
+// Only checks Stripe actually ran and passed: "unavailable" / "unchecked" /
+// "fail" are left out rather than dressed up as proof.
+function cardCheckLines(c: ChargeFacts | null): string[] {
+  if (!c) return [];
+  const lines: string[] = [];
+  if (c.cvcCheck === "pass") lines.push("Card security code (CVC) check: passed.");
+  if (c.postalCheck === "pass") lines.push("Billing postal code check: passed.");
+  // "authenticated" includes the frictionless flow, where the issuer approved
+  // without the cardholder doing anything; only "challenge" means they acted.
+  // "attempt_acknowledged" (issuer doesn't support 3DS, no authentication
+  // happened) is left out: it proves nothing about the cardholder.
+  if (c.threeDSecure === "authenticated") {
+    lines.push(
+      c.threeDSecureFlow === "challenge"
+        ? "3D Secure: the cardholder completed the card issuer's authentication challenge."
+        : "3D Secure: authentication succeeded."
+    );
+  }
+  return lines;
+}
 
 // Booking times are airport-local literals: format the stored string, never
 // run it through Date (CLAUDE.md anti-pattern).
@@ -206,9 +259,21 @@ export function buildEvidence(
     // mislabel it), and only the online charge is in dispute.
     atLotCents > 0 ? "Part of the reservation price was payable directly at the facility; Triply did not charge it." : null,
     `Reservation status before the dispute: ${status ?? "not recorded"}${booking.cancelled_by ? ` (cancelled by ${booking.cancelled_by}${booking.cancellation_reason ? `, reason: ${booking.cancellation_reason}` : ""})` : ""}.`,
+    ...cardCheckLines(charge),
   ]
     .filter(Boolean)
     .join("\n");
+
+  // States what our checkout enforces, not that this person ticked it: the
+  // gate is in the browser (Pay stays disabled until the box is ticked;
+  // wallets use the same button), so a hand-built request could skip it
+  // (round-1 Codex). The version is the one the customer's checkout rendered,
+  // stamped on the PaymentIntent. Unversioned charges quote nothing.
+  const agreed = charge?.termsText
+    ? `Triply's checkout keeps the Pay button disabled until the customer ticks a checkbox. The checkbox shown for this payment read: "${charge.termsText}"` +
+      (charge.chargedAtISO ? ` (payment made ${charge.chargedAtISO.slice(0, 16).replace("T", " ")} UTC).` : "")
+    : null;
+  const cancellationDisclosure = [withPolicy ? CANCELLATION_POLICY : null, agreed].filter(Boolean).join(" ");
 
   // Only the checkout contact goes in the structured fields the issuer
   // matches against the cardholder; an account contact stays a labelled line.
@@ -221,7 +286,7 @@ export function buildEvidence(
       `${atLotCents > 0 ? ", with part of the price payable at the facility" : ""}. ` +
       "Triply is the booking agent for the facility.",
     service_date: day(booking.check_in),
-    cancellation_policy_disclosure: withPolicy ? CANCELLATION_POLICY : undefined,
+    cancellation_policy_disclosure: cancellationDisclosure || undefined,
     refund_policy_disclosure: withPolicy ? REFUND_POLICY : undefined,
     uncategorized_text: summary,
   };
