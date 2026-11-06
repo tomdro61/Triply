@@ -5,7 +5,9 @@
  * bookings. Bookings are credited from bookings.attribution (first / last
  * touch landing page); Google clicks come from Search Console; article
  * airport + title from the CMS. Net take loads only on "Load net take" (it
- * calls ResLab once per blog booking via the accounting reconciler, <= 92 days).
+ * calls ResLab once per blog booking via the accounting reconciler, <= 92 days);
+ * the first load may come from the route's 6 h cache, "Reload net take"
+ * (net=fresh) always recomputes, and the figure shows when it was computed.
  *
  * Shows "unavailable" rather than zeros for any source that fails.
  */
@@ -19,7 +21,7 @@ import type {
   DateRange,
   NetFigures,
 } from "@/lib/admin/blog-bookings";
-import { fmtNet } from "@/lib/admin/blog-bookings-format";
+import { fmtNet, netGapParts } from "@/lib/admin/blog-bookings-format";
 
 const DEFAULT_DAYS = 90;
 /** Mirrors MAX_NET_RANGE_DAYS in src/lib/admin/blog-bookings.ts (the route enforces it). */
@@ -59,13 +61,41 @@ function defaultRange(): DateRange {
   const to = todayEt();
   return { from: shiftDay(to, -(DEFAULT_DAYS - 1)), to };
 }
+/** "Nov 6, 2:05 PM ET" for an ISO instant. */
+function fmtEtTime(iso: string): string {
+  const t = new Date(iso);
+  if (Number.isNaN(t.getTime())) return "an unknown time";
+  const s = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(t);
+  return `${s} ET`;
+}
+
+/** The response with every net figure taken out: after a failed net load the
+ *  old figures must not stay on screen as if they were current. */
+function withoutNet(d: BlogBookingsResponse): BlogBookingsResponse {
+  return {
+    gsc: d.gsc,
+    cms: d.cms,
+    report: {
+      ...d.report,
+      totals: { ...d.report.totals, net: null },
+      airports: d.report.airports.map((a) => ({ ...a, net: null })),
+      articles: d.report.articles.map((a) => ({ ...a, net: null })),
+    },
+  };
+}
 
 function NetCell({ net, loading }: { net: NetFigures | null; loading: boolean }) {
-  if (!net || net.blogNetKnown === 0) {
+  if (loading || !net || net.blogNetKnown === 0) {
     return (
       <span
         className="text-gray-400"
-        title={net && net.blogNetUnknown > 0 ? `${net.blogNetUnknown} booking(s), none with a net figure` : undefined}
+        title={!loading && net && net.blogNetUnknown > 0 ? `${net.blogNetUnknown} booking(s), none with a net figure` : undefined}
       >
         {fmtNet(net, loading)}
       </span>
@@ -333,8 +363,9 @@ function ArticleTable({
   );
 }
 
-async function load(range: DateRange, net: boolean): Promise<BlogBookingsResponse> {
-  const qs = new URLSearchParams({ from: range.from, to: range.to, ...(net ? { net: "1" } : {}) });
+/** `net`: "1" = net take, possibly from the route's cache; "fresh" = recompute. */
+async function load(range: DateRange, net?: "1" | "fresh"): Promise<BlogBookingsResponse> {
+  const qs = new URLSearchParams({ from: range.from, to: range.to, ...(net ? { net } : {}) });
   const res = await fetch(`/api/admin/blog-bookings?${qs.toString()}`);
   if (!res.ok) {
     const body: unknown = await res.json().catch(() => null);
@@ -357,7 +388,7 @@ export default function AdminBlogBookingsPage() {
   useEffect(() => {
     let alive = true;
     // Counts + Google clicks only. Net take waits for "Load net take".
-    load(range, false)
+    load(range)
       .then((body) => {
         if (alive) setData(body);
       })
@@ -372,15 +403,21 @@ export default function AdminBlogBookingsPage() {
   const netTooWide = rangeDays(range) > MAX_NET_DAYS;
   function loadNet() {
     const seq = rangeSeq.current;
+    // A reload bypasses the route's cache; the first load may use it.
+    const mode = netState === "done" ? "fresh" : "1";
     setNetState("loading");
-    load(range, true)
+    load(range, mode)
       .then((withNet) => {
         if (seq !== rangeSeq.current) return;
+        // A net section error comes back with no net figures in the report,
+        // so this also clears any from an earlier load.
         setData(withNet);
         setNetState(withNet.net && !withNet.net.ok ? { error: withNet.net.error } : "done");
       })
       .catch((e: unknown) => {
-        if (seq === rangeSeq.current) setNetState({ error: e instanceof Error ? e.message : String(e) });
+        if (seq !== rangeSeq.current) return;
+        setData((d) => (d ? withoutNet(d) : d));
+        setNetState({ error: e instanceof Error ? e.message : String(e) });
       });
   }
 
@@ -388,6 +425,11 @@ export default function AdminBlogBookingsPage() {
   const netLoading = netState === "loading";
 
   const flagged = useMemo(() => (data ? data.report.articles.filter((a) => a.flagClicksNoBookings) : []), [data]);
+  const netOk = data?.net?.ok ? data.net.data : null;
+  const netGaps = netOk ? netGapParts(netOk) : [];
+  const netPartial = netOk !== null && netOk.fetchErrors > 0;
+  // Airport clicks group articles by their CMS airport, so they need both sources.
+  const airportClicksOk = data !== null && data.gsc.ok && data.cms.ok;
 
   return (
     <div>
@@ -409,7 +451,9 @@ export default function AdminBlogBookingsPage() {
             setError(null);
             setNetState("idle");
             rangeSeq.current += 1;
-            setRange(draft);
+            // A new object, so Apply with unchanged dates still re-runs the
+            // load effect (the same object would leave "Loading…" up forever).
+            setRange({ ...draft });
           }}
         >
           <label className="text-xs text-gray-500">
@@ -450,13 +494,17 @@ export default function AdminBlogBookingsPage() {
         </div>
       ) : (
         <>
-          {!data.gsc.ok && <Notice>Google clicks unavailable — {data.gsc.error}</Notice>}
+          {!data.gsc.ok &&
+            (data.gsc.note ? (
+              <p className="mb-2 text-sm text-gray-500">Google clicks not shown — {data.gsc.error}.</p>
+            ) : (
+              <Notice>Google clicks unavailable — {data.gsc.error}</Notice>
+            ))}
           {!data.cms.ok && <Notice>Article titles and airports unavailable — {data.cms.error}</Notice>}
           {typeof netState === "object" && <Notice>Net take unavailable — {netState.error}</Notice>}
-          {data.net?.ok && data.net.data.fetchErrors > 0 && (
+          {netPartial && netOk && (
             <Notice>
-              {data.net.data.fetchErrors} ResLab read(s) failed — net take covers {data.net.data.known} of{" "}
-              {data.net.data.bookings} blog bookings.
+              Net take is partial: it covers {netOk.known} of {netOk.bookings} blog bookings ({netGaps.join("; ")}).
             </Notice>
           )}
           <div className="mb-2 flex flex-wrap items-center gap-3 text-xs text-gray-500">
@@ -474,6 +522,7 @@ export default function AdminBlogBookingsPage() {
                 {netState === "done" ? "Reload net take" : "Load net take"}
               </button>
             )}
+            {netOk && !netLoading && <span>Net take as of {fmtEtTime(netOk.computedAt)}.</span>}
             <span>
               {netTooWide
                 ? `Net take covers at most ${MAX_NET_DAYS} days — narrow the range.`
@@ -487,7 +536,7 @@ export default function AdminBlogBookingsPage() {
               <Stat
                 label="Blog bookings (either touch)"
                 value={fmtInt(data.report.totals.anyBlog)}
-                sub={`${fmtPct(data.report.totals.blogShare)} of all`}
+                sub={`${fmtPct(data.report.totals.blogShare)} of bookings with attribution`}
               />
               <Stat
                 label="Blog first / last touch"
@@ -499,10 +548,10 @@ export default function AdminBlogBookingsPage() {
                 sub={`${data.report.totals.unknownAbsent} no cookie · ${data.report.totals.unknownInvalid} unreadable`}
               />
               <Stat
-                label="Blog net take"
+                label={netPartial && !netLoading ? "Blog net take (partial)" : "Blog net take"}
                 value={fmtNet(data.report.totals.net, netLoading)}
                 sub={
-                  data.report.totals.net && data.report.totals.net.blogNetUnknown > 0
+                  !netLoading && data.report.totals.net && data.report.totals.net.blogNetUnknown > 0
                     ? `${data.report.totals.net.blogNetUnknown} booking(s) without a figure`
                     : undefined
                 }
@@ -510,7 +559,8 @@ export default function AdminBlogBookingsPage() {
             </div>
             <p className="mt-4 text-xs text-gray-500">
               Live bookings only (cancelled and refunded left out, test bookings excluded). Unknown = no attribution
-              cookie or an unreadable one — counted in the totals, never as blog or non-blog. Net take is the
+              cookie or an unreadable one — counted in the totals, never as blog or non-blog, and left out of blog
+              share (blog bookings ÷ bookings with attribution). Net take is the
               accounting page&apos;s per-booking figure (commission − ResLab fee + service fee + Park Guard margin,
               before Stripe fees). Disputed and direct-lot bookings never have one: they show as &ldquo;+N?&rdquo;
               (no figure) and are left out of the sum, not counted as $0. &ldquo;—&rdquo; = no booking in that cell has a
@@ -520,13 +570,21 @@ export default function AdminBlogBookingsPage() {
 
           <Card
             title="By airport"
-            range={data.gsc.ok ? `Google clicks ${fmtRange(data.gsc.data.window)}` : undefined}
+            range={airportClicksOk && data.gsc.ok ? `Google clicks ${fmtRange(data.gsc.data.window)}` : undefined}
           >
             <AirportTable rows={data.report.airports} netLoading={netLoading} />
+            {data.report.gscClicksNoAirport !== null && data.report.gscClicksNoAirport > 0 && (
+              <p className="mt-3 text-xs text-amber-700">
+                {fmtInt(data.report.gscClicksNoAirport)} Google clicks on articles without an airport tag — not in any
+                airport&apos;s total.
+              </p>
+            )}
             <p className="mt-3 text-xs text-gray-500">
-              Airport = the airport booked (else the last airport searched). Google clicks per airport = clicks on
-              articles the CMS tags with that airport. Per 100 clicks = blog bookings created inside the Google clicks
-              window{data.gsc.ok ? ` (${fmtRange(data.gsc.data.window)})` : ""} ÷ Google clicks × 100.
+              Airport = the airport booked (else the last airport searched). Blog share = blog bookings ÷ bookings with
+              attribution (unknown left out). Google clicks per airport = clicks on articles the CMS tags with that
+              airport; they need both Search Console and the CMS. Per 100 clicks = blog bookings created inside the
+              Google clicks window
+              {airportClicksOk && data.gsc.ok ? ` (${fmtRange(data.gsc.data.window)})` : ""} ÷ Google clicks × 100.
             </p>
           </Card>
 

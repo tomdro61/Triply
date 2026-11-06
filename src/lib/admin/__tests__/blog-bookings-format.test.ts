@@ -1,10 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { fmtNet } from "../blog-bookings-format";
+import { fmtNet, netGapParts, netShortfallText } from "../blog-bookings-format";
 
 describe("fmtNet", () => {
   it("is an ellipsis while loading and a dash before net is loaded", () => {
     expect(fmtNet(null, true)).toBe("…");
     expect(fmtNet(null)).toBe("—");
+  });
+  it("is an ellipsis while loading even over figures from an earlier load", () => {
+    expect(fmtNet({ blogNet: 1234, blogNetKnown: 5, blogNetUnknown: 0 }, true)).toBe("…");
   });
   it("is a dash, not $0, when no booking has a known figure", () => {
     expect(fmtNet({ blogNet: 0, blogNetKnown: 0, blogNetUnknown: 3 })).toBe("—");
@@ -14,5 +17,25 @@ describe("fmtNet", () => {
   });
   it("formats known sums as whole dollars", () => {
     expect(fmtNet({ blogNet: 1234.4, blogNetKnown: 5, blogNetUnknown: 1 })).toBe("$1,234");
+  });
+});
+
+describe("net take wording", () => {
+  it("does not blame ResLab when no read failed", () => {
+    const text = netShortfallText({ bookings: 10, known: 4, fetchErrors: 0, skipped: 0 });
+    expect(text).toBe(
+      "net take has a figure for only 4 of 10 blog bookings: 6 bookings without a figure for another reason (disputed and direct-lot bookings have none)"
+    );
+    expect(text).not.toMatch(/ResLab/);
+  });
+  it("separates failed reads, reads skipped for time, and the rest", () => {
+    expect(netGapParts({ bookings: 10, known: 4, fetchErrors: 3, skipped: 2 })).toEqual([
+      "1 ResLab read failed",
+      "2 bookings not read before the time limit",
+      "3 bookings without a figure for another reason (disputed and direct-lot bookings have none)",
+    ]);
+  });
+  it("is empty when every booking has a figure", () => {
+    expect(netGapParts({ bookings: 3, known: 3, fetchErrors: 0, skipped: 0 })).toEqual([]);
   });
 });

@@ -131,7 +131,15 @@ interface ReslabResponse {
   history?: ReslabHistoryEntry[];
 }
 
-async function reslabAuth(): Promise<string> {
+/** The error a row gets when `opts.deadline` passed before its ResLab read began. */
+export const RESLAB_SKIPPED_TIME_BUDGET = "skipped: time budget";
+
+/** `{ signal }` for a fetch when the caller set `fetchTimeoutMs`; otherwise
+ *  nothing, so the accounting page's requests carry no signal at all. */
+const timeoutInit = (timeoutMs: number | undefined): { signal?: AbortSignal } =>
+  timeoutMs === undefined ? {} : { signal: AbortSignal.timeout(timeoutMs) };
+
+async function reslabAuth(timeoutMs?: number): Promise<string> {
   const url = process.env.RESLAB_API_URL || "https://api.reservationslab.com/v1";
   const res = await fetch(`${url}/authenticate`, {
     method: "POST",
@@ -141,6 +149,7 @@ async function reslabAuth(): Promise<string> {
       domain: process.env.RESLAB_API_DOMAIN || "triplypro.com",
     }),
     cache: "no-store",
+    ...timeoutInit(timeoutMs),
   });
   if (!res.ok) throw new Error(`ResLab auth ${res.status}`);
   const json = (await res.json()) as { token?: string };
@@ -148,11 +157,12 @@ async function reslabAuth(): Promise<string> {
   return json.token;
 }
 
-async function reslabReservation(resNum: string, token: string): Promise<ReslabResponse> {
+async function reslabReservation(resNum: string, token: string, timeoutMs?: number): Promise<ReslabResponse> {
   const url = process.env.RESLAB_API_URL || "https://api.reservationslab.com/v1";
   const res = await fetch(`${url}/reservations/${resNum}`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
+    ...timeoutInit(timeoutMs),
   });
   if (!res.ok) {
     // Attach the HTTP status so callers can distinguish a definitive 404
@@ -298,7 +308,11 @@ async function readRowsInRange(
   return rows ?? [];
 }
 
-/** Ids per `.in()` list: 200 uuids keep the request URL near 7.5 KB. */
+/**
+ * Ids per `.in()` list. postgrest-js URL-encodes the list, so 200 uuids make a
+ * request URL of ~8.4 KB with this select; a 200-id bookings query with it
+ * returned HTTP 200 live on Nov 6, 2026.
+ */
 export const BOOKING_ID_CHUNK = 200;
 /** PostgREST's default max-rows. */
 const BOOKINGS_PAGE = 1000;
@@ -308,6 +322,7 @@ const BOOKINGS_PAGE = 1000;
  * BOOKING_ID_CHUNK and every chunk is paged with `.range()` until a short
  * page, so neither the URL length nor PostgREST's row cap can drop a row.
  * Returned in the same order as the range read (date column, then id).
+ * With `opts.fetchTimeoutMs`, each page is aborted after that long.
  */
 async function readRowsByIds(
   supabase: AdminClient,
@@ -320,7 +335,7 @@ async function readRowsByIds(
   for (let c = 0; c < unique.length; c += BOOKING_ID_CHUNK) {
     const chunk = unique.slice(c, c + BOOKING_ID_CHUNK);
     for (let from = 0; ; from += BOOKINGS_PAGE) {
-      const { data, error } = await supabase
+      let query = supabase
         .from("bookings")
         .select(BOOKINGS_SELECT)
         .in("id", chunk)
@@ -328,8 +343,9 @@ async function readRowsByIds(
         .lte(dateCol, `${opts.to}T23:59:59.999Z`)
         .order(dateCol, { ascending: true })
         .order("id", { ascending: true })
-        .range(from, from + BOOKINGS_PAGE - 1)
-        .returns<SupabaseRow[]>();
+        .range(from, from + BOOKINGS_PAGE - 1);
+      if (opts.fetchTimeoutMs !== undefined) query = query.abortSignal(AbortSignal.timeout(opts.fetchTimeoutMs));
+      const { data, error } = await query.returns<SupabaseRow[]>();
       if (error) throw new Error(`Supabase query failed: ${error.message}`);
       const rows = data ?? [];
       out.push(...rows);
@@ -446,11 +462,18 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
 
   const reslabPromise = (async (): Promise<ReslabSlice[]> => {
     if (!opts.includeReslab || real.length === 0) return real.map(() => ({ ...emptyReslab }));
-    const token = await reslabAuth();
+    const token = await reslabAuth(opts.fetchTimeoutMs);
     return withConcurrency(real, opts.reslabConcurrency ?? RESLAB_CONCURRENCY, async (b) => {
       if (!b.reslab_reservation_number) return { ...emptyReslab };
+      // Opt-in (opts.deadline): past it, a read not yet started is not made.
+      // It counts as a fetch error, so the caller can't take the result for
+      // complete. The accounting page sets no deadline.
+      if (opts.deadline !== undefined && Date.now() >= opts.deadline) {
+        reslabFetchErrors.push({ resNum: b.reslab_reservation_number, err: RESLAB_SKIPPED_TIME_BUDGET });
+        return { ...emptyReslab, error: RESLAB_SKIPPED_TIME_BUDGET };
+      }
       try {
-        const data = await reslabReservation(b.reslab_reservation_number, token);
+        const data = await reslabReservation(b.reslab_reservation_number, token, opts.fetchTimeoutMs);
         const h = data.history?.[0];
         if (!h) {
           // Also push to fetchErrors so the strict-mode guard's "—" headline

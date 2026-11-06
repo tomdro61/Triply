@@ -6,6 +6,7 @@ import {
   classifyBooking,
   defaultRange,
   inRange,
+  mergeRedirectedSlugs,
   MIN_CLICKS_FLAG,
   netTakeOfDetail,
   rangeDays,
@@ -56,6 +57,11 @@ describe("classifyBooking", () => {
     const b = classifyBooking(row({ first: "/blog/a", last: "/search" }));
     expect(b).toMatchObject({ state: "valid", firstSlug: "a", lastSlug: null, airport: "JFK" });
   });
+  it("with no `last` in the cookie, the first touch is the last touch too", () => {
+    // The cookie writes `last` only for a later visit with a signal.
+    expect(classifyBooking(row({ first: "/blog/a" }))).toMatchObject({ firstSlug: "a", lastSlug: "a" });
+    expect(classifyBooking(row({ first: "/" }))).toMatchObject({ firstSlug: null, lastSlug: null });
+  });
   it("NULL attribution is 'absent', unparseable is 'invalid'", () => {
     expect(classifyBooking(row()).state).toBe("absent");
     expect(classifyBooking(row({ attribution: { v: null, invalid: true } })).state).toBe("invalid");
@@ -101,17 +107,36 @@ describe("aggregateBlogBookings", () => {
         row({ first: "/blog/a", last: "/blog/a" }), // both touches, same article
         row({ first: "/blog/a", last: "/blog/b" }), // both touches, different articles
         row({ first: "/", last: "/blog/b" }), // last only
-        row({ first: "/blog/c" }), // first only, no last touch
+        row({ first: "/blog/c" }), // no `last` in the cookie: c is its first AND last touch
         row({ first: "/" }), // not blog
       ],
     });
-    expect(rep.totals).toMatchObject({ bookings: 5, firstTouchBlog: 3, lastTouchBlog: 3, anyBlog: 4 });
+    expect(rep.totals).toMatchObject({ bookings: 5, firstTouchBlog: 3, lastTouchBlog: 4, anyBlog: 4 });
     expect(rep.totals.blogShare).toBeCloseTo(0.8);
     const a = rep.articles.find((x) => x.slug === "a")!;
     expect(a).toMatchObject({ firstTouch: 2, lastTouch: 1, bookings: 2 });
     const b = rep.articles.find((x) => x.slug === "b")!;
     expect(b).toMatchObject({ firstTouch: 0, lastTouch: 2, bookings: 2 });
-    expect(rep.articles.find((x) => x.slug === "c")).toMatchObject({ firstTouch: 1, lastTouch: 0, bookings: 1 });
+    // Counted on both touches, but once in "either".
+    expect(rep.articles.find((x) => x.slug === "c")).toMatchObject({ firstTouch: 1, lastTouch: 1, bookings: 1 });
+  });
+
+  it("blog share is out of bookings WITH attribution: unknowns are not in the denominator", () => {
+    const rep = aggregateBlogBookings({
+      range: RANGE,
+      rows: [
+        row(), // no cookie
+        row({ attribution: { v: null, invalid: true } }), // unreadable
+        row({ first: "/blog/a" }),
+        row({ first: "/" }),
+      ],
+    });
+    expect(rep.totals.blogShare).toBe(0.5);
+    expect(rep.airports.find((r) => r.airport === "JFK")?.blogShare).toBe(0.5);
+    // Nothing attributed: no share, not 0%.
+    const none = aggregateBlogBookings({ range: RANGE, rows: [row(), row()] });
+    expect(none.totals.blogShare).toBeNull();
+    expect(none.airports[0].blogShare).toBeNull();
   });
 
   it("puts missing/invalid attribution in an unknown bucket, not blog or non-blog", () => {
@@ -222,13 +247,82 @@ describe("aggregateBlogBookings", () => {
     });
     // The article row still shows its booked airport...
     expect(rep.articles.find((x) => x.slug === "untagged")?.airport).toBe("EWR");
-    // ...but its clicks are not credited to EWR.
+    // ...but its clicks are not credited to EWR...
     expect(rep.airports.find((r) => r.airport === "EWR")).toMatchObject({ anyBlog: 1, gscClicks: 0, bookingsPer100Clicks: null });
+    // ...they are counted apart, so the airport totals are visibly short.
+    expect(rep.gscClicksNoAirport).toBe(80);
+  });
+
+  it("clicks on articles with no CMS airport (or not in the CMS) are counted apart", () => {
+    const rep = aggregateBlogBookings({
+      range: RANGE,
+      rows: [],
+      gscWindow: RANGE,
+      gscBySlug: new Map([
+        ["tagged", { clicks: 30, impressions: 300 }],
+        ["untagged", { clicks: 12, impressions: 100 }],
+        ["not-in-cms", { clicks: 5, impressions: 50 }],
+      ]),
+      articleMeta: new Map([
+        ["tagged", { title: "T", airport: "JFK" }],
+        ["untagged", { title: "U", airport: null }],
+      ]),
+    });
+    expect(rep.gscClicksNoAirport).toBe(17);
+    expect(rep.airports.find((r) => r.airport === "JFK")?.gscClicks).toBe(30);
+  });
+
+  it("Search Console OK but CMS failed: airport clicks are unavailable (null), not 0", () => {
+    const rep = aggregateBlogBookings({
+      range: RANGE,
+      rows: [row({ first: "/blog/a" })],
+      gscWindow: RANGE,
+      gscBySlug: new Map([["a", { clicks: 40, impressions: 900 }]]),
+      // articleMeta omitted: the CMS section failed.
+    });
+    expect(rep.airports.find((r) => r.airport === "JFK")).toMatchObject({
+      gscClicks: null,
+      gscImpressions: null,
+      bookingsPer100Clicks: null,
+    });
+    expect(rep.gscClicksNoAirport).toBeNull();
+    // Article rows still have their own clicks (keyed by slug, no CMS needed).
+    expect(rep.articles.find((x) => x.slug === "a")?.gscClicks).toBe(40);
   });
 
   it("without Search Console, no article is flagged and click columns are null", () => {
     const rep = aggregateBlogBookings({ range: RANGE, rows: [row({ first: "/blog/a" })] });
     expect(rep.articles[0]).toMatchObject({ gscClicks: null, bookingsPer100Clicks: null, flagClicksNoBookings: false });
+    expect(rep.gscClicksNoAirport).toBeNull();
+  });
+});
+
+describe("mergeRedirectedSlugs", () => {
+  it("adds a merged post's old-slug clicks to its survivor", () => {
+    const merged = mergeRedirectedSlugs(
+      [
+        ["jfk-cheap-parking", { clicks: 10, impressions: 100 }],
+        ["jfk-parking-deals", { clicks: 4, impressions: 60 }], // merged into jfk-cheap-parking
+        ["lga-guide", { clicks: 7, impressions: 70 }],
+      ],
+      { "jfk-parking-deals": "jfk-cheap-parking" }
+    );
+    expect([...merged.entries()]).toEqual([
+      ["jfk-cheap-parking", { clicks: 14, impressions: 160 }],
+      ["lga-guide", { clicks: 7, impressions: 70 }],
+    ]);
+  });
+  it("an old slug alone moves to its survivor; prototype names are not redirects", () => {
+    const merged = mergeRedirectedSlugs(
+      [
+        ["old", { clicks: 3, impressions: 9 }],
+        ["constructor", { clicks: 1, impressions: 1 }],
+      ],
+      { old: "new" }
+    );
+    expect(merged.get("new")).toEqual({ clicks: 3, impressions: 9 });
+    expect(merged.has("old")).toBe(false);
+    expect(merged.get("constructor")).toEqual({ clicks: 1, impressions: 1 });
   });
 });
 

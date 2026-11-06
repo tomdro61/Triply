@@ -6,8 +6,14 @@
  * Crediting rules:
  *   - A booking is a BLOG booking when its first- or last-touch landing page
  *     (bookings.attribution.first.land / .last.land) is a blog article.
+ *     The cookie writes `last` only when a later visit carries a signal, so
+ *     a booking with no `last` has its first touch as its last touch too
+ *     (`attr.last ?? attr.first`, as src/lib/attribution/classify.ts reads it).
  *     First- and last-touch are counted separately; a booking whose first AND
  *     last touch are both blog articles counts once in "either touch".
+ *   - Blog share = blog bookings ÷ bookings WITH attribution: a booking with
+ *     no cookie (every booking before Sept 17, 2026) or an unreadable one
+ *     can't be blog or non-blog, so it is not in the denominator either.
  *   - Per article, "either touch" credits the booking in FULL to each article
  *     it touched (unlike /admin/analytics' ½ split), so the per-article column
  *     can add up to more than the blog total. The totals row never sums it.
@@ -105,7 +111,7 @@ export function classifyBooking(row: BlogBookingRow): ClassifiedBooking {
     airport: airportOf(row.airport_code, attr.apt),
     state: "valid",
     firstSlug: blogSlug(attr.first.land),
-    lastSlug: blogSlug(attr.last?.land),
+    lastSlug: blogSlug((attr.last ?? attr.first).land),
   };
 }
 
@@ -151,6 +157,27 @@ export interface GscPage {
   impressions: number;
 }
 
+/**
+ * Search Console pages keyed by the slug that serves them today: a merged
+ * post's old URL (src/config/blog-redirects.json, { old: survivor }) adds its
+ * clicks and impressions to the survivor's, which is the post the CMS still
+ * publishes and tags with an airport.
+ */
+export function mergeRedirectedSlugs(
+  pages: Iterable<readonly [string, GscPage]>,
+  redirects: Readonly<Record<string, string>>
+): Map<string, GscPage> {
+  const out = new Map<string, GscPage>();
+  for (const [slug, page] of pages) {
+    const to = Object.hasOwn(redirects, slug) ? redirects[slug] : slug;
+    const p = out.get(to) ?? { clicks: 0, impressions: 0 };
+    p.clicks += page.clicks;
+    p.impressions += page.impressions;
+    out.set(to, p);
+  }
+  return out;
+}
+
 /** CMS facts for one article. */
 export interface ArticleMeta {
   title: string | null;
@@ -184,11 +211,12 @@ export interface NetFigures {
 
 export interface AirportRow extends Counts {
   airport: string;
-  /** anyBlog ÷ bookings; null with no bookings. */
+  /** anyBlog ÷ bookings with attribution (unknowns left out); null when none have it. */
   blogShare: number | null;
   /** null until net take is loaded. */
   net: NetFigures | null;
-  /** Clicks on this airport's articles (CMS airportCode); null without Search Console. */
+  /** Clicks on this airport's articles (CMS airportCode); null without Search
+   *  Console or without the CMS (no airport tags to group by). */
   gscClicks: number | null;
   gscImpressions: number | null;
   /** Blog bookings (either touch) created inside the Search Console window,
@@ -218,6 +246,9 @@ export interface BlogBookingsReport {
   totals: Counts & { blogShare: number | null; net: NetFigures | null };
   airports: AirportRow[];
   articles: ArticleBookingRow[];
+  /** Google clicks on articles the CMS gives no airport (or doesn't publish),
+   *  so in no airport's total; null without Search Console or the CMS. */
+  gscClicksNoAirport: number | null;
   /** Rows the date filter dropped (outside the range or bad timestamp). */
   droppedOutOfRange: number;
   /** The click threshold behind flagClicksNoBookings (for the page's copy). */
@@ -261,10 +292,19 @@ function addNet(n: NetFigures, id: string, netById: ReadonlyMap<string, number |
 const per100 = (bookings: number, clicks: number | null): number | null =>
   clicks !== null && clicks > 0 ? (bookings / clicks) * 100 : null;
 
+/** Blog bookings ÷ bookings with attribution; null when none have it. */
+const blogShareOf = (c: Counts): number | null => {
+  const attributed = c.bookings - c.unknownAbsent - c.unknownInvalid;
+  return attributed > 0 ? c.anyBlog / attributed : null;
+};
+
 export function aggregateBlogBookings(input: AggregateInput): BlogBookingsReport {
   const { range, netById, gscBySlug, articleMeta, gscWindow } = input;
   const hasNet = netById !== undefined;
   const hasGsc = gscBySlug !== undefined;
+  // Airport clicks group articles by their CMS airport tag: without the CMS
+  // there is nothing to group by, and every airport would read 0 clicks.
+  const hasAirportGsc = hasGsc && articleMeta !== undefined;
 
   const totals = emptyCounts();
   const totalNet: NetFigures = emptyNet();
@@ -356,11 +396,17 @@ export function aggregateBlogBookings(input: AggregateInput): BlogBookingsReport
   // Search Console per airport: clicks on articles the CMS tags with that
   // airport only — not the booked-airport fallback the article rows show,
   // which would move an article's clicks with whoever happened to book.
+  // Clicks on articles with no CMS airport are counted apart, so the airport
+  // totals are visibly short rather than silently.
   const gscByAirport = new Map<string, GscPage>();
-  if (hasGsc) {
+  let gscClicksNoAirport = 0;
+  if (hasAirportGsc) {
     for (const [slug, page] of gscBySlug) {
-      const airport = articleMeta?.get(slug)?.airport;
-      if (!airport) continue;
+      const airport = articleMeta.get(slug)?.airport;
+      if (!airport) {
+        gscClicksNoAirport += page.clicks;
+        continue;
+      }
       const g = gscByAirport.get(airport) ?? { clicks: 0, impressions: 0 };
       g.clicks += page.clicks;
       g.impressions += page.impressions;
@@ -372,11 +418,11 @@ export function aggregateBlogBookings(input: AggregateInput): BlogBookingsReport
   const airports: AirportRow[] = [...airportCodes].map((airport) => {
     const a = byAirport.get(airport);
     const c = a?.c ?? emptyCounts();
-    const g = hasGsc ? (gscByAirport.get(airport) ?? { clicks: 0, impressions: 0 }) : null;
+    const g = hasAirportGsc ? (gscByAirport.get(airport) ?? { clicks: 0, impressions: 0 }) : null;
     return {
       airport,
       ...c,
-      blogShare: c.bookings > 0 ? c.anyBlog / c.bookings : null,
+      blogShare: blogShareOf(c),
       net: hasNet ? (a?.net ?? emptyNet()) : null,
       gscClicks: g ? g.clicks : null,
       gscImpressions: g ? g.impressions : null,
@@ -395,17 +441,23 @@ export function aggregateBlogBookings(input: AggregateInput): BlogBookingsReport
     range,
     totals: {
       ...totals,
-      blogShare: totals.bookings > 0 ? totals.anyBlog / totals.bookings : null,
+      blogShare: blogShareOf(totals),
       net: hasNet ? totalNet : null,
     },
     airports,
     articles,
+    gscClicksNoAirport: hasAirportGsc ? gscClicksNoAirport : null,
     droppedOutOfRange: dropped,
     minClicksFlag: MIN_CLICKS_FLAG,
   };
 }
 
-export type Section<T> = { ok: true; data: T } | { ok: false; error: string };
+/**
+ * One independent source on the page. `note` marks an expected state rather
+ * than a failure (Search Console has no data for the range yet): the page
+ * shows it as a note and the route does not report it.
+ */
+export type Section<T> = { ok: true; data: T } | { ok: false; error: string; note?: true };
 
 /** GET /api/admin/blog-bookings response. */
 export interface BlogBookingsResponse {
@@ -422,6 +474,11 @@ export interface NetSummary {
   bookings: number;
   /** Of those, how many came back with a figure. */
   known: number;
-  /** ResLab reads that failed (result.reslab.fetchErrors). */
+  /** ResLab reads with no answer (result.reslab.fetchErrors), including the
+   *  `skipped` ones. */
   fetchErrors: number;
+  /** Of fetchErrors, reads not made because the time budget ran out. */
+  skipped: number;
+  /** When the reconciler ran (ISO). A cached result keeps its original time. */
+  computedAt: string;
 }
