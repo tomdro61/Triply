@@ -6,6 +6,7 @@
  * Sentry report live in `./read-card-payment`.
  */
 import { toCents, type MoneyInput } from "./cost-breakdown";
+import type { StampedDiscount } from "@/lib/promo/stamped-discount";
 
 /**
  * Why the card side is not known. `released` and `not_settled` are states of
@@ -21,10 +22,12 @@ export type CardUnknownClass =
 /**
  * What Stripe says about the booking's PaymentIntent — THE ANCHOR for the page.
  * `discountPercent` is the promo percent checkout stamped on the PaymentIntent
- * (`metadata.discountPercent`), null when absent or unusable.
+ * (`metadata.discountPercent`), null when absent or unusable. `stampedDiscount`
+ * is its `discountCents` — when present, the authority the promo line is
+ * checked against instead of the percent (`buildCostBreakdown`'s `stampedPromo`).
  */
 export type CardPayment =
-  | { ok: true; chargedCents: number; refundedCents: number; discountPercent: number | null }
+  | { ok: true; chargedCents: number; refundedCents: number; discountPercent: number | null; stampedDiscount: StampedDiscount }
   | {
       ok: false;
       reasonClass: CardUnknownClass;
@@ -33,6 +36,8 @@ export type CardPayment =
       status: string | null;
       amountReceived: number | null;
       discountPercent: number | null;
+      /** Absent when Stripe did not answer. */
+      stampedDiscount: StampedDiscount;
     };
 
 /** `metadata.discountPercent` → a usable percent (0 < p ≤ 100) or null. */
@@ -52,6 +57,8 @@ export function parseDiscountPercent(raw: string | null | undefined): number | n
  * Computed whenever the PaymentIntent carries a usable percent — even if the
  * booking recorded no discount (that disagreement is exactly what the core
  * must catch). null when there is no percent, or the base is unknown.
+ * Unused when the PaymentIntent also carries `discountCents`: the breakdown
+ * then checks the promo line against that stamp (`stampedPromo`) instead.
  */
 export function expectedPromoCents(args: {
   discountPercent: number | null;

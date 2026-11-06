@@ -5,6 +5,7 @@ import {
   type DirectReservationCommon,
 } from "../reservation-view";
 import { directRow, directSnapshot } from "./reservation-view-fixtures";
+import type { StampedDiscount } from "@/lib/promo/stamped-discount";
 
 /**
  * The confirmation view of a DIRECT booking (plan 4b §2.2): built from the
@@ -19,7 +20,7 @@ const common = (overrides: Partial<DirectReservationCommon> = {}): DirectReserva
   fromDate: "2026-11-02 08:00:00",
   toDate: "2026-11-05 07:00:00", // 71 h → 3 billed days
   // What Stripe took: 29.85 + 4.78 + 5.95 (the at-lot surcharge is not charged online).
-  payment: { ok: true, chargedCents: 4058, refundedCents: 0, discountPercent: null },
+  payment: { ok: true, chargedCents: 4058, refundedCents: 0, discountPercent: null, stampedDiscount: { kind: "absent" } },
   guest: null,
   ...overrides,
 });
@@ -266,12 +267,16 @@ describe("atLotEstimateFromRow", () => {
 describe("buildDirectReservation — Payment summary (plan 2026-10-12)", () => {
   // 10 % of the 29.85 subtotal = 2.985 → 2.99 (the direct quote's rounding).
   const promoRow = () => directRow({ discount_amount: "2.99", promo_code: "SAVE10" });
-  const charged = (chargedCents: number, extra: { refundedCents?: number; discountPercent?: number | null } = {}) => ({
+  const charged = (
+    chargedCents: number,
+    extra: { refundedCents?: number; discountPercent?: number | null; stampedDiscount?: StampedDiscount } = {}
+  ) => ({
     payment: {
       ok: true as const,
       chargedCents,
       refundedCents: extra.refundedCents ?? 0,
       discountPercent: extra.discountPercent ?? null,
+      stampedDiscount: extra.stampedDiscount ?? { kind: "absent" as const },
     },
   });
 
@@ -320,6 +325,7 @@ describe("buildDirectReservation — Payment summary (plan 2026-10-12)", () => {
           status: null,
           amountReceived: null,
           discountPercent: null,
+          stampedDiscount: { kind: "absent" },
         },
       })
     );
@@ -340,6 +346,7 @@ describe("buildDirectReservation — Payment summary (plan 2026-10-12)", () => {
           status: "canceled",
           amountReceived: 0,
           discountPercent: null,
+          stampedDiscount: { kind: "absent" },
         },
       })
     );
@@ -405,6 +412,7 @@ describe("buildDirectReservation — Payment summary (plan 2026-10-12)", () => {
           status: "requires_capture",
           amountReceived: 0,
           discountPercent: null,
+          stampedDiscount: { kind: "absent" },
         },
       })
     );
@@ -414,5 +422,39 @@ describe("buildDirectReservation — Payment summary (plan 2026-10-12)", () => {
       ok: false,
       reason: "PaymentIntent is requires_capture, not succeeded on a cancelled booking — a live hold remains",
     });
+  });
+});
+
+describe("buildDirectReservation — a stamped discountCents (promo plan Part 1)", () => {
+  // JFK5, $5 off: 29.85 + 4.78 + 5.95 − 5.00 = 35.58 charged.
+  const fixedRow = () => directRow({ discount_amount: "5.00", promo_code: "JFK5" });
+  const paid = (chargedCents: number, stampedDiscount: StampedDiscount, discountPercent: number | null = null) =>
+    common({ payment: { ok: true, chargedCents, refundedCents: 0, discountPercent, stampedDiscount } });
+
+  it("a fixed code (no percent): the promo line is checked against the stamp — 'Promo discount (JFK5)' −$5.00", () => {
+    const r = buildDirectReservation("TRP-7K3M9QXA", fixedRow(), paid(3558, { kind: "cents", cents: 500 }));
+    if (!r.ok) throw new Error(r.detail);
+    const b = r.reservation.costBreakdown;
+    if (!b.ok) throw new Error(b.reason);
+    expect(b.lines.find((l) => l.key === "promo")).toEqual({ key: "promo", label: "Promo discount (JFK5)", cents: 500, credit: true });
+    expect(b.totalCents).toBe(3558);
+  });
+
+  it("both keys: the stamp is the authority, the percent (10 % → 2.99) is not consulted", () => {
+    const r = buildDirectReservation("TRP-7K3M9QXA", fixedRow(), paid(3558, { kind: "cents", cents: 500 }, 10));
+    if (!r.ok) throw new Error(r.detail);
+    expect(r.reservation.costBreakdown.ok).toBe(true);
+  });
+
+  it("an unusable stamp → refused (fallback), never shown", () => {
+    const r = buildDirectReservation("TRP-7K3M9QXA", fixedRow(), paid(3558, { kind: "invalid", raw: "5.00" }));
+    if (!r.ok) throw new Error(r.detail);
+    expect(r.reservation.costBreakdown).toEqual({ ok: false, reason: "stamped promo discount unreadable" });
+  });
+
+  it("a stamp the recorded discount disagrees with → refused", () => {
+    const r = buildDirectReservation("TRP-7K3M9QXA", fixedRow(), paid(3558, { kind: "cents", cents: 499 }));
+    if (!r.ok) throw new Error(r.detail);
+    expect(r.reservation.costBreakdown).toEqual({ ok: false, reason: "promo discount does not match the stamped discount" });
   });
 });

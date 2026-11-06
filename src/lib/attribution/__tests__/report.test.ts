@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { aggregate, buildPromoReport, byAirport, bySource, presentRate, type ReportRow } from "../report";
+import { aggregate, buildPromoReport, byAirport, bySource, presentRate, promoValueLabel, type ReportRow } from "../report";
 import { attributionSourceLabel } from "../display";
 
 const row = (over: Partial<ReportRow> = {}): ReportRow => ({
@@ -94,6 +94,35 @@ describe("buildPromoReport", () => {
     expect(out.find((p) => p.code === "GHOST")).toMatchObject({ bookings: 1, currentUses: null });
     expect(out.find((p) => p.code === "save20")?.currentUses).toBe(0);
     expect(out.filter((p) => p.code.toUpperCase() === "SAVE20")).toHaveLength(1);
+  });
+});
+
+describe("the promo table's value label — fixed codes (promo plan Part 1)", () => {
+  const now = Date.parse("2026-11-06");
+  it("a fixed code's discount_amount (DECIMAL as a string) → discountAmount and '$5 off'", () => {
+    const meta = [{ code: "JFK5", discount_percent: null, discount_amount: "5.00", active: true, current_uses: 0, max_uses: 100, expires_at: null }];
+    const out = buildPromoReport([row({ promo_code: "JFK5", discount_amount: "5" })], meta, now);
+    expect(out[0]).toMatchObject({ code: "JFK5", discountPercent: null, discountAmount: 5 });
+    expect(promoValueLabel(out[0])).toBe("$5 off");
+  });
+  it("an active unused fixed code is listed with its amount too", () => {
+    const meta = [{ code: "LGA5", discount_percent: null, discount_amount: 5, active: true, current_uses: 0, max_uses: 100, expires_at: null }];
+    expect(buildPromoReport([], meta, now)[0]).toMatchObject({ code: "LGA5", discountAmount: 5 });
+  });
+  it("before migration 049 (column not selected) a percent code reads exactly as before", () => {
+    const meta = [{ code: "SAVE10", discount_percent: 10, active: true, current_uses: 0, max_uses: null, expires_at: null }];
+    const out = buildPromoReport([], meta, now);
+    expect(out[0]).toMatchObject({ discountPercent: 10, discountAmount: null });
+    expect(promoValueLabel(out[0])).toBe("10%");
+  });
+  it.each([
+    [{ discountPercent: null, discountAmount: 2.5 }, "$2.50 off"],
+    [{ discountPercent: 15, discountAmount: null }, "15%"],
+    [{ discountPercent: 15 }, "15%"],
+    [{ discountPercent: null, discountAmount: null }, null],
+    [{ discountPercent: null, discountAmount: 0 }, null],
+  ])("%o → %s", (p, want) => {
+    expect(promoValueLabel(p)).toBe(want);
   });
 });
 

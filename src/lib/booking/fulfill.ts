@@ -43,6 +43,7 @@ import {
 } from "@/lib/sentry";
 import { convertTo12Hour } from "@/lib/utils/time";
 import { reslabExtraFieldValues } from "@/lib/booking/required-extra-fields";
+import { stampedDiscountRefusal, type StampedDiscount } from "@/lib/promo/stamped-discount";
 // Attribution helpers are pure and import nothing from @/lib/reslab/search or
 // @/lib/reslab/get-lot — the shared location-list cache is per-lambda and cold
 // here, and a sweep after capture is the Aug-16 outage class. A static test
@@ -152,13 +153,30 @@ export async function createReslabReservation(
  */
 /** The promo the customer redeemed, derived from PI metadata by the caller.
  *  `code` is the redeemed code (uppercased); `discountPercent` is the applied
- *  percent (0 when none); `chargedCents` is `pi.amount` — the REAL amount Stripe
- *  charged, used to derive the discount exactly. Absent on the DEV_SKIP_PAYMENT
- *  path (no PaymentIntent). */
+ *  percent (0 when none); `stampedDiscount` is `metadata.discountCents` as read
+ *  (the authority when present); `chargedCents` is `pi.amount` — the REAL
+ *  amount Stripe charged, used to derive the discount exactly. Absent on the
+ *  DEV_SKIP_PAYMENT path (no PaymentIntent). */
 export interface AppliedPromo {
   code: string | null;
   discountPercent: number;
+  stampedDiscount: StampedDiscount;
   chargedCents: number;
+}
+
+export interface AppliedPromoDiscount {
+  discountAmount: number;
+  promoCode: string | null;
+  /**
+   * Something to report about the stamped `discountCents` (null = nothing):
+   *   refused   unusable, or more than the parking paid online — ignored; the
+   *             discount is derived from the charge exactly as for a
+   *             PaymentIntent without one
+   *   mismatch  used, but the charge implies a discount more than 1¢ away
+   * Returned, not reported: this function is pure and runs twice per booking
+   * (the row and the emails). The engine reports it once.
+   */
+  stampWarning: { kind: "refused" | "mismatch"; detail: string } | null;
 }
 
 /**
@@ -169,7 +187,12 @@ export interface AppliedPromo {
  * than from persistence: a persistence failure must never zero the discount
  * in a permanent email (cost-breakdown plan v2 §3).
  *
- * Derived from the ACTUAL Stripe charge (`chargedCents`) rather than
+ * With a usable `discountCents` stamp: exactly that — it is what checkout
+ * applied, in cents, so nothing re-rounds it; a charge that implies something
+ * else by more than 1¢ is a `mismatch` to report, never a silent re-derive.
+ *
+ * Without one (every PaymentIntent before the stamp, or a refused stamp):
+ * derived from the ACTUAL Stripe charge (`chargedCents`) rather than
  * re-computing percent × subtotal. Re-rounding the discount by itself drifted
  * 1¢ vs Stripe on ~19% of promos (half-cent-boundary subtotals like ".95" at
  * 10%): Stripe subtracts an UNROUNDED discount and rounds the whole total
@@ -181,25 +204,49 @@ export function appliedPromoDiscount(
   fr: ReslabFulfilledReservation,
   charged: ChargedProtection | null,
   promo?: AppliedPromo
-): { discountAmount: number; promoCode: string | null } {
+): AppliedPromoDiscount {
   const protectionPremium = charged?.premium ?? 0;
   const discountPercent = promo?.discountPercent ?? 0;
-  let discountAmount = 0;
-  if (discountPercent > 0 && promo) {
-    const preDiscountOnlineCents = Math.round(
-      ((fr.money.grandTotal ?? payload.grandTotal ?? 0) +
+  const parkingTotal = fr.money.grandTotal ?? payload.grandTotal ?? 0;
+  const preDiscountOnlineCents = () =>
+    Math.round(
+      (parkingTotal +
         (payload.triplyServiceFee || 0) +
         protectionPremium -
         (fr.money.dueAtLocation || 0)) *
         100
     );
+
+  // The stamp, if present, is checked against the parking paid online — it
+  // never comes out of the service fee. A refused one is ignored, not zeroed.
+  let stampedCents: number | null = null;
+  let stampWarning: AppliedPromoDiscount["stampWarning"] = null;
+  const stamped: StampedDiscount = promo?.stampedDiscount ?? { kind: "absent" };
+  if (stamped.kind !== "absent") {
+    const onlineParkingCents = Math.round((parkingTotal - (fr.money.dueAtLocation || 0)) * 100);
+    const refusal = stampedDiscountRefusal(stamped, onlineParkingCents);
+    if (refusal === null && stamped.kind === "cents") stampedCents = stamped.cents;
+    else stampWarning = { kind: "refused", detail: refusal ?? "discountCents unusable" };
+  }
+
+  let discountAmount = 0;
+  if (stampedCents !== null && promo) {
+    discountAmount = stampedCents / 100;
+    const derivedCents = preDiscountOnlineCents() - promo.chargedCents;
+    if (Math.abs(derivedCents - stampedCents) > 1) {
+      stampWarning = {
+        kind: "mismatch",
+        detail: `discountCents ${stampedCents} but the charge (${promo.chargedCents}) implies ${derivedCents}`,
+      };
+    }
+  } else if (discountPercent > 0 && promo) {
     discountAmount =
-      Math.max(0, preDiscountOnlineCents - promo.chargedCents) / 100;
+      Math.max(0, preDiscountOnlineCents() - promo.chargedCents) / 100;
   }
   // Only record the code when a discount was actually applied (an invalid code
   // that was typed but not honored leaves no discount and isn't "used").
   const promoCode = discountAmount > 0 ? promo?.code ?? null : null;
-  return { discountAmount, promoCode };
+  return { discountAmount, promoCode, stampWarning };
 }
 
 export async function persistBooking(
@@ -820,14 +867,20 @@ export interface ReslabEmailMoney {
   /** The redeemed code; set only when promoDiscount > 0. */
   promoCode: string | null;
   /** The applied percent stamped on the PaymentIntent (`discountPercent`, 0 = none) —
-   *  the independent check on promoDiscount (expectedPromoCents). */
+   *  the independent check on promoDiscount (expectedPromoCents) when there is no
+   *  `discountCents` stamp. */
   discountPercent: number;
+  /** `metadata.discountCents` as read — when present, the promo line is checked
+   *  against it instead of the percent (buildCostBreakdown `stampedPromo`). */
+  stampedDiscount: StampedDiscount;
 }
 
-/** The promo on a DIRECT booking's PaymentIntent: the redeemed code and the applied percent (0 = none). */
+/** The promo on a DIRECT booking's PaymentIntent: the redeemed code, the applied
+ *  percent (0 = none) and `metadata.discountCents` as read (the authority when present). */
 export interface DirectEmailPromo {
   code: string | null;
   percent: number;
+  stampedDiscount: StampedDiscount;
 }
 
 /**
@@ -840,6 +893,8 @@ export interface DirectEmailPromo {
  *   ResLab  /api/checkout/lot: discount = reservation.sub_total × pct / 100
  *           (unrounded; Stripe rounds the whole charge) — ResLab's subtotal.
  *   Direct  readDirectMetadataMoney: min(grand, round(subtotal × pct / 100)).
+ * Unused when the PaymentIntent carries `discountCents`: the breakdown then
+ * checks the promo line against that stamp (`stampedPromo`) instead.
  */
 export function expectedPromoCents(
   percent: number,
@@ -884,6 +939,7 @@ export function reslabEmailBreakdown(
     promoDiscount: money.promoDiscount,
     promoCode: money.promoDiscount > 0 ? money.promoCode : null,
     expectedPromoCents: expectedPromoCents(money.discountPercent, fr.money.subtotal),
+    stampedPromo: money.stampedDiscount,
     protection: protectionInput(charged),
     anchorChargedCents: money.anchorChargedCents,
     refundedCents: 0,
@@ -942,6 +998,7 @@ export function directEmailBreakdown(
     promoDiscount: fr.money.discount,
     promoCode: fr.money.discount > 0 ? promo.code : null,
     expectedPromoCents: expectedPromoCents(promo.percent, fr.money.subtotal, toCents(fr.money.grandTotal)),
+    stampedPromo: promo.stampedDiscount,
     protection: protectionInput(charged),
     anchorChargedCents: directAnchorCents(fr),
     refundedCents: 0,

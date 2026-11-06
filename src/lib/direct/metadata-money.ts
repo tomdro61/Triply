@@ -2,6 +2,7 @@ import { directDays } from "./pricing";
 import { DIRECT_TAX_RATE_KEY, decodeTaxRatePercent } from "./vehicle-surcharge-metadata";
 import { readProtectionMetadata } from "@/lib/parkguard/plans";
 import { convertTo24Hour } from "@/lib/utils/time";
+import { readStampedDiscount, stampedDiscountRefusal } from "@/lib/promo/stamped-discount";
 
 /**
  * The money of a DIRECT-lot booking, read from its PaymentIntent's metadata —
@@ -20,7 +21,10 @@ import { convertTo24Hour } from "@/lib/utils/time";
  *   subtotal = rate × days
  *   tax      = round(subtotal × taxRate / 100)       (taxRate from directTaxRatePercent)
  *   grand    = subtotal + tax
- *   discount = min(grand, round(subtotal × discountPercent / 100))   (absent ⇒ 0)
+ *   discount = discountCents, when stamped (0 < discountCents ≤ grand; the
+ *              percent beside it is display-only and not recomputed)
+ *            = min(grand, round(subtotal × discountPercent / 100)) otherwise
+ *              (absent ⇒ 0) — PaymentIntents from before `discountCents`
  *   parking-only charge (update-pi's baseline) = grand − discount + fee
  *   pi.amount = grand − discount + fee + Park Guard premium
  *   days     = directDays(checkin + time, checkout + time)
@@ -114,12 +118,15 @@ export function readDirectMetadataMoney(meta: Meta, piAmountCents: number): Dire
   const taxRatePercent = decodeTaxRatePercent(meta[DIRECT_TAX_RATE_KEY]);
   if (taxRatePercent === null) return fail(`${DIRECT_TAX_RATE_KEY} missing or malformed`);
 
+  // Still validated when `discountCents` is present: it is display-only then,
+  // but a malformed one means the metadata was not written by checkout.
   let discountPercent = 0;
   if (meta.discountPercent !== undefined) {
     if (!PERCENT_RE.test(meta.discountPercent)) return fail("discountPercent malformed");
     discountPercent = Number(meta.discountPercent);
     if (!(discountPercent > 0 && discountPercent <= 100)) return fail("discountPercent out of range");
   }
+  const stamped = readStampedDiscount(meta);
 
   const protection = readProtectionMetadata(meta);
   if (protection.kind === "invalid" || protection.kind === "legacy_plan_a") {
@@ -141,8 +148,19 @@ export function readDirectMetadataMoney(meta: Meta, piAmountCents: number): Dire
   const expectedTax = Math.round((subtotalCents * taxRatePercent) / 100);
   if (taxCents !== expectedTax) return fail(`tax ${taxCents} != ${expectedTax} at ${taxRatePercent}%`);
   if (grandTotalCents !== subtotalCents + taxCents) return fail(`grand ${grandTotalCents} != subtotal + tax`);
-  const expectedDiscount = Math.min(grandTotalCents, Math.round((subtotalCents * discountPercent) / 100));
-  if (discountCents !== expectedDiscount) return fail(`discount ${discountCents} != ${expectedDiscount} at ${discountPercent}%`);
+  if (stamped.kind === "absent") {
+    // A PaymentIntent from before `discountCents`: the discount is the percent's.
+    const expectedDiscount = Math.min(grandTotalCents, Math.round((subtotalCents * discountPercent) / 100));
+    if (discountCents !== expectedDiscount) return fail(`discount ${discountCents} != ${expectedDiscount} at ${discountPercent}%`);
+  } else {
+    // `discountCents` is the authority — the percent beside it (if any) is
+    // display-only and NOT recomputed: a fixed code has none, and a capped
+    // percent code's percent does not reproduce it. 0 < discountCents ≤ grand
+    // (the parking paid online), and the direct stamp must say the same.
+    const refusal = stampedDiscountRefusal(stamped, grandTotalCents);
+    if (refusal !== null || stamped.kind !== "cents") return fail(refusal ?? "discountCents unusable");
+    if (discountCents !== stamped.cents) return fail(`directDiscountCents ${discountCents} != discountCents ${stamped.cents}`);
+  }
 
   const parkingCharge = grandTotalCents - discountCents + serviceFeeCents;
   if (parkingOnlyCents !== parkingCharge) return fail(`parkingOnlyChargeAmountCents ${parkingOnlyCents} != ${parkingCharge}`);

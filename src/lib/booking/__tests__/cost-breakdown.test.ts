@@ -253,3 +253,87 @@ describe("fallbackDue — the due figure judged on its own merits (round-3 revie
     expect(fallbackDue({ source: "direct", recordedDue: null, refusal: ANCHOR, cancelled: false })).toEqual({ kind: "none" });
   });
 });
+
+describe("buildCostBreakdown — a stamped discountCents (promo plan Part 1)", () => {
+  // JFK5: $5 off. ResLab card = 134.40 + 7.20 − 5.00 = 136.60.
+  const reslabFixed = (over: Partial<ReslabCostInput> = {}) =>
+    reslab({ promoDiscount: "5.00", promoCode: "JFK5", expectedPromoCents: null, stampedPromo: { kind: "cents", cents: 500 }, anchorChargedCents: 13660, ...over });
+  // Direct card = 19.90 + 3.18 + 5.95 + 12.99 − 5.00 = 37.02.
+  const directFixed = (over: Partial<DirectCostInput> = {}) =>
+    direct({ promoDiscount: "5.00", promoCode: "JFK5", expectedPromoCents: null, stampedPromo: { kind: "cents", cents: 500 }, anchorChargedCents: 3702, ...over });
+
+  it("ResLab: a fixed code with no percent is checked against the stamp — 'Promo discount (JFK5)' −$5.00", () => {
+    const b = ok(buildCostBreakdown(reslabFixed()));
+    expect(b.lines.find((l) => l.key === "promo")).toEqual({ key: "promo", label: "Promo discount (JFK5)", cents: 500, credit: true });
+    expect(formatUsd(500, true)).toBe("−$5.00");
+    expect(b.totalCents).toBe(13660);
+  });
+
+  it("direct: the same", () => {
+    const b = ok(buildCostBreakdown(directFixed()));
+    expect(b.lines.find((l) => l.key === "promo")).toEqual({ key: "promo", label: "Promo discount (JFK5)", cents: 500, credit: true });
+    expect(b.totalCents).toBe(3702);
+  });
+
+  it("the stamp wins over the percent: a percent that would disagree is not consulted", () => {
+    // 10 % of 105.00 = 10.50 — a capped or fixed stamp of 5.00 must still pass.
+    expect(buildCostBreakdown(reslabFixed({ expectedPromoCents: 1050 })).ok).toBe(true);
+  });
+
+  it("the recorded discount must equal the stamp EXACTLY (no ±1¢ — nothing was rounded after stamping)", () => {
+    expect(buildCostBreakdown(reslabFixed({ promoDiscount: "5.01", anchorChargedCents: 13659 }))).toEqual({
+      ok: false,
+      reason: "promo discount does not match the stamped discount",
+    });
+  });
+
+  it("a stamp with no recorded discount falls back (never a receipt that drops the code)", () => {
+    expect(buildCostBreakdown(reslabFixed({ promoDiscount: "0.00", promoCode: null, anchorChargedCents: 14160 }))).toEqual({
+      ok: false,
+      reason: "promo discount does not match the stamped discount",
+    });
+  });
+
+  it("an unusable stamp falls back", () => {
+    expect(buildCostBreakdown(reslabFixed({ stampedPromo: { kind: "invalid", raw: "5.00" } }))).toEqual({
+      ok: false,
+      reason: "stamped promo discount unreadable",
+    });
+    expect(buildCostBreakdown(directFixed({ stampedPromo: { kind: "invalid", raw: "0" } }))).toEqual({
+      ok: false,
+      reason: "stamped promo discount unreadable",
+    });
+  });
+
+  it("ResLab: a stamp larger than the parking paid online (it came out of the fee) falls back", () => {
+    // 134.40 grand, 130.00 due at the lot → 4.40 online; a $5 stamp does not fit.
+    // Card = 134.40 + 7.20 − 5.00 − 130.00 = 6.60.
+    expect(buildCostBreakdown(reslabFixed({ dueAtLocation: "130.00", anchorChargedCents: 660 }))).toEqual({
+      ok: false,
+      reason: "stamped promo discount exceeds the parking paid online",
+    });
+    // Exactly the online parking fits.
+    expect(
+      buildCostBreakdown(
+        reslabFixed({ dueAtLocation: "129.40", promoDiscount: "5.00", anchorChargedCents: 13440 + 720 - 500 - 12940 })
+      ).ok
+    ).toBe(true);
+  });
+
+  it("direct: a stamp larger than subtotal + tax falls back", () => {
+    // 19.90 + 3.18 = 23.08; a 23.09 stamp does not fit.
+    expect(
+      buildCostBreakdown(directFixed({ promoDiscount: "23.09", stampedPromo: { kind: "cents", cents: 2309 }, anchorChargedCents: 2308 + 595 + 1299 - 2309 }))
+    ).toEqual({ ok: false, reason: "stamped promo discount exceeds the parking paid online" });
+  });
+
+  it("absent / omitted: the percent rule, unchanged", () => {
+    const pct = { promoDiscount: "10.00", promoCode: "WELCOME10", expectedPromoCents: 1000, anchorChargedCents: 13160 };
+    expect(buildCostBreakdown(reslab(pct)).ok).toBe(true);
+    expect(buildCostBreakdown(reslab({ ...pct, stampedPromo: { kind: "absent" } })).ok).toBe(true);
+    expect(buildCostBreakdown(reslab({ ...pct, expectedPromoCents: null, stampedPromo: { kind: "absent" } }))).toEqual({
+      ok: false,
+      reason: "promo discount cannot be checked against the code's percent",
+    });
+  });
+});

@@ -67,12 +67,14 @@ import {
   sendDirectCustomerConfirmation,
   sendDirectAdminNotification,
   buildDirectReservationResponse,
+  type AppliedPromo,
   type BookingPayload,
   type ChargedProtection,
   type DirectEmailPromo,
   type PgSyncStatus,
   type ReservationResponse,
 } from "./fulfill";
+import { readStampedDiscount, stampedDiscountRefusal } from "@/lib/promo/stamped-discount";
 import { fromReslab, fromSnapshot, type DirectFulfilledReservation } from "./fulfilled-reservation";
 import { DIRECT_ENGINE_READY } from "@/lib/direct/flag";
 import { issueConfirmationNumber } from "@/lib/direct/confirmation-number";
@@ -2014,9 +2016,10 @@ async function fulfilClaimed(
   // Carry the promo through from PI metadata so the booking records the discount
   // that was actually charged (migration 016). `promoCode` is stamped as typed;
   // uppercase it to match promo_codes.code. `discountPercent` is present only for
-  // a valid, applied promo — clamp defensively.
+  // a valid, applied promo — clamp defensively. `discountCents`, when stamped,
+  // is the authority (appliedPromoDiscount checks it against this reservation).
   const rawDiscountPercent = parseFloat(pi.metadata?.discountPercent ?? "0");
-  const promo = {
+  const promo: AppliedPromo = {
     code: redeemedPromoCode(pi),
     discountPercent:
       Number.isFinite(rawDiscountPercent) &&
@@ -2024,6 +2027,7 @@ async function fulfilClaimed(
       rawDiscountPercent <= 100
         ? rawDiscountPercent
         : 0,
+    stampedDiscount: readStampedDiscount(pi.metadata),
     // The real charge, in cents — the source of truth for what the customer
     // paid, so the stored discount reconciles to Stripe exactly.
     chargedCents: pi.amount,
@@ -2033,6 +2037,23 @@ async function fulfilClaimed(
   // derivation persistBooking uses — NOT from its result: a persistence failure
   // must never zero the discount in a permanent email (cost-breakdown plan v2 §3).
   const appliedDiscount = appliedPromoDiscount(payload, fr, charged, promo);
+  // Reported once here (the derivation is pure and runs for the row too). The
+  // money has moved, so a doubtful stamp cannot refuse the booking any more —
+  // the row and receipt follow appliedPromoDiscount's rule, and we look.
+  // Normally unreachable: refreshCost refuses a bad stamp before capture, but
+  // it is skipped on resume and proceeds when ResLab is unreachable.
+  if (appliedDiscount.stampWarning) {
+    capturePaymentError(
+      new Error(
+        `Promo discountCents ${appliedDiscount.stampWarning.kind} on ${piId} (reservation ${fr.number}): ${appliedDiscount.stampWarning.detail}`
+      ),
+      {
+        stripePaymentIntentId: piId,
+        amount: pi.amount / 100,
+        fingerprint: ["promo-discount-stamp", appliedDiscount.stampWarning.kind],
+      }
+    );
+  }
 
   if (persisted.duplicatePaymentIntent) {
     // 23505 on the insert. Look the booking up by PaymentIntent: a row for THIS
@@ -2111,6 +2132,7 @@ async function fulfilClaimed(
         promoDiscount: appliedDiscount.discountAmount,
         promoCode: appliedDiscount.promoCode,
         discountPercent: promo.discountPercent,
+        stampedDiscount: promo.stampedDiscount,
       }
     );
     if (customerEmailSent) await markEmailSent(piId);
@@ -2219,39 +2241,75 @@ async function refreshCost(
     // than the authorized amount — which tripped the drift guard below and
     // blocked EVERY promo-code booking with a bogus "the price changed" message.
     // Read from PI metadata, not the payload: that is what the charge was based on.
-    const rawDiscount = pi.metadata?.discountPercent;
-    let discountPercent = 0;
-    if (rawDiscount != null && rawDiscount !== "") {
-      const parsed = parseFloat(rawDiscount);
-      if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
-        // Silently coercing this to 0 would inflate the recomputed total, trip
-        // the drift guard below, and tell the customer "the price changed" while
-        // releasing their payment — with no signal to us. Same silent-coercion
-        // class that num() alerts on above.
-        captureBookingError(
-          new Error(
-            `PI ${pi.id} metadata.discountPercent is unusable (${JSON.stringify(
-              rawDiscount
-            )}) — the price-drift guard will block this booking`
-          ),
-          { step: "checkout", airportCode: payload.airportCode }
-        );
-      } else {
-        discountPercent = parsed;
+    //
+    // A `discountCents` stamp is the authority: expected = the pre-discount
+    // online total − that, in cents; the percent beside it (if any) is
+    // display-only and NOT reapplied (a fixed code has none; a capped percent
+    // code's percent does not reproduce it). Refused BEFORE capture — the
+    // only point where refusing costs the customer nothing — when it is
+    // unusable or larger than the parking paid online (it would have come out
+    // of the service fee).
+    const stamped = readStampedDiscount(pi.metadata);
+    let freshCents: number;
+    if (stamped.kind !== "absent") {
+      const onlineParkingCents = Math.round(
+        (cost.reservation.grand_total - cost.reservation.due_at_location) * 100
+      );
+      const refusal = stampedDiscountRefusal(stamped, onlineParkingCents);
+      if (refusal !== null || stamped.kind !== "cents") {
+        // The caller reports the block (capturePaymentError) with this reason.
+        return {
+          blocked: true,
+          soldOut: false,
+          reason: `PI ${pi.id} promo discount stamp refused: ${refusal ?? "discountCents unusable"}`,
+          userMessage:
+            "We couldn't verify your promo discount. You have not been charged — please start your booking again.",
+        };
       }
-    }
-    const promoDiscount =
-      discountPercent > 0
-        ? cost.reservation.sub_total * (discountPercent / 100)
-        : 0;
+      freshCents =
+        Math.round(
+          (cost.reservation.grand_total +
+            (payload.triplyServiceFee || 0) -
+            cost.reservation.due_at_location +
+            protectionPremium) *
+            100
+        ) - stamped.cents;
+    } else {
+      // No stamp: a PaymentIntent from before `discountCents` — the percent rule.
+      const rawDiscount = pi.metadata?.discountPercent;
+      let discountPercent = 0;
+      if (rawDiscount != null && rawDiscount !== "") {
+        const parsed = parseFloat(rawDiscount);
+        if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+          // Silently coercing this to 0 would inflate the recomputed total, trip
+          // the drift guard below, and tell the customer "the price changed" while
+          // releasing their payment — with no signal to us. Same silent-coercion
+          // class that num() alerts on above.
+          captureBookingError(
+            new Error(
+              `PI ${pi.id} metadata.discountPercent is unusable (${JSON.stringify(
+                rawDiscount
+              )}) — the price-drift guard will block this booking`
+            ),
+            { step: "checkout", airportCode: payload.airportCode }
+          );
+        } else {
+          discountPercent = parsed;
+        }
+      }
+      const promoDiscount =
+        discountPercent > 0
+          ? cost.reservation.sub_total * (discountPercent / 100)
+          : 0;
 
-    const freshDueNow =
-      cost.reservation.grand_total +
-      (payload.triplyServiceFee || 0) -
-      promoDiscount -
-      cost.reservation.due_at_location +
-      protectionPremium;
-    const freshCents = Math.round(freshDueNow * 100);
+      const freshDueNow =
+        cost.reservation.grand_total +
+        (payload.triplyServiceFee || 0) -
+        promoDiscount -
+        cost.reservation.due_at_location +
+        protectionPremium;
+      freshCents = Math.round(freshDueNow * 100);
+    }
 
     // One cent of tolerance for rounding. Anything above the authorized amount
     // means the customer would be booked at a price they never agreed to.
@@ -2302,6 +2360,7 @@ async function fulfilOnly(
     promoDiscount: 0,
     promoCode: null,
     discountPercent: 0,
+    stampedDiscount: { kind: "absent" },
   });
   return {
     kind: "created",
@@ -2535,16 +2594,20 @@ function redeemedPromoCode(pi: Stripe.PaymentIntent): string | null {
 }
 
 /**
- * A direct booking's promo for its emails: the code, and the percent stamped
- * on the PaymentIntent (0 when absent or unusable — the email breakdown then
- * falls back if a discount was taken). readDirectMetadataMoney has already
- * refused a malformed or out-of-range percent before anything was booked.
+ * A direct booking's promo for its emails: the code, the percent stamped on
+ * the PaymentIntent (0 when absent or unusable — the email breakdown then
+ * falls back if a discount was taken), and the `discountCents` stamp, which
+ * the breakdown checks the promo line against instead of the percent when
+ * present. readDirectMetadataMoney has already refused a malformed or
+ * out-of-range percent, and an unusable or out-of-range stamp, before
+ * anything was booked or re-sent.
  */
 function directEmailPromo(pi: Stripe.PaymentIntent): DirectEmailPromo {
   const percent = Number(pi.metadata?.discountPercent ?? "");
   return {
     code: redeemedPromoCode(pi),
     percent: Number.isFinite(percent) && percent > 0 && percent <= 100 ? percent : 0,
+    stampedDiscount: readStampedDiscount(pi.metadata),
   };
 }
 

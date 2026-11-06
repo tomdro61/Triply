@@ -1183,3 +1183,101 @@ describe("ResLab booking — unchanged", () => {
     });
   });
 });
+
+describe("ResLab booking — a stamped discountCents (promo plan Part 1)", () => {
+  const RTL = "RTL856901";
+  // The same lot and money as "ResLab booking — unchanged": grand 70.82 of
+  // which 20.00 is due at the location, fee 5.95, Plan A 12.99 → 69.76 online.
+  const row = {
+    vehicle_info: { make: "Toyota", model: "Camry", color: "Blue", licensePlate: "XYZ987", state: "NJ" },
+    triply_service_fee: "5.95",
+    check_in: "2026-10-02T11:30:00",
+    check_out: "2026-10-05T07:00:00",
+    protection_plan: "Plan A",
+    protection_plan_code: "A",
+    protection_plan_price: "12.99",
+    pg_identifier: "PG-9",
+    pg_sync_status: "synced",
+    airport_code: "EWR",
+    inventory_source: "reslab",
+    direct_lot_id: null,
+    lot_snapshot: null,
+    vehicle_size: null,
+    vehicle_size_label: null,
+    vehicle_surcharge_cents: null,
+    vehicle_surcharge_tax_cents: null,
+    status: "confirmed",
+    subtotal: "60",
+    tax_total: "8.82",
+    fees_total: "2",
+    grand_total: "70.82",
+    discount_amount: "5.00",
+    promo_code: "JFK5",
+    due_at_location: "20",
+    stripe_payment_intent_id: "pi_reslab",
+    customers: { first_name: "Sam", last_name: "Lee", email: EMAIL, phone: "5550001111" },
+  };
+  const reservation = {
+    reservation_number: RTL,
+    reserved_by: "Sam Lee",
+    cancelled: 0,
+    history: [
+      {
+        id: 4242,
+        reserved_for: "Sam Lee",
+        email: EMAIL,
+        phone: "5550001111",
+        grand_total: 70.82,
+        subtotal: 60,
+        total_tax: 8.82,
+        total_fees: 2,
+        due_at_location_total: 20,
+        location: { id: 52, name: "Some ResLab Lot", address: "1 Airport Rd", city: "Newark", state: { code: "NJ" }, zip_code: "07114" },
+        dates: [],
+      },
+    ],
+  };
+  const CHARGED = 6976 - 500;
+  const stampedPi = (metadata: Record<string, string>, amountReceived = CHARGED) => ({ ...settledPi(amountReceived), metadata });
+
+  it("a fixed code (no percent): checked against the stamp — 'Promo discount (JFK5)', the card line net of it, nothing reported", async () => {
+    h.state.detailRow = { data: row, error: null };
+    h.getReservation.mockResolvedValue(reservation);
+    h.retrievePi.mockResolvedValue(stampedPi({ discountCents: "500" }));
+    const { reservation: r } = await (await call(RTL)).json();
+    expect(r.costBreakdown.ok).toBe(true);
+    expect(r.costBreakdown.lines).toContainEqual({ key: "promo", label: "Promo discount (JFK5)", cents: 500, credit: true });
+    expect(r.costBreakdown.paidOnlineCents).toBe(CHARGED);
+    expect(h.sentryEvents).toEqual([]);
+  });
+
+  it("both keys: the stamp is the authority — the percent (10 % of 60 = 6.00) is not consulted", async () => {
+    h.state.detailRow = { data: row, error: null };
+    h.getReservation.mockResolvedValue(reservation);
+    h.retrievePi.mockResolvedValue(stampedPi({ discountCents: "500", discountPercent: "10" }));
+    const { reservation: r } = await (await call(RTL)).json();
+    expect(r.costBreakdown.ok).toBe(true);
+  });
+
+  it("an unusable stamp → fallback, reported as its own class", async () => {
+    h.state.detailRow = { data: row, error: null };
+    h.getReservation.mockResolvedValue(reservation);
+    h.retrievePi.mockResolvedValue(stampedPi({ discountCents: "5.00" }));
+    const { reservation: r } = await (await call(RTL)).json();
+    expect(r.costBreakdown).toEqual({ ok: false, reason: "stamped promo discount unreadable" });
+    expect(r.cardPayment).toEqual({ status: "charged", chargedCents: CHARGED, refundedCents: 0, netPaidCents: null });
+    expect(h.sentryEvents[0].fingerprint).toEqual(["cost-breakdown-fallback", "breakdown_stamped_promo_discount_unreadable"]);
+  });
+
+  it("a stamp larger than the parking paid online (70.82 − 20.00) → fallback, reported", async () => {
+    h.state.detailRow = { data: { ...row, discount_amount: "50.83" }, error: null };
+    h.getReservation.mockResolvedValue(reservation);
+    h.retrievePi.mockResolvedValue(stampedPi({ discountCents: "5083" }, 6976 - 5083));
+    const { reservation: r } = await (await call(RTL)).json();
+    expect(r.costBreakdown).toEqual({ ok: false, reason: "stamped promo discount exceeds the parking paid online" });
+    expect(h.sentryEvents[0].fingerprint).toEqual([
+      "cost-breakdown-fallback",
+      "breakdown_stamped_promo_discount_exceeds_the_parking_paid_online",
+    ]);
+  });
+});

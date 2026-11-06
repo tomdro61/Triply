@@ -144,6 +144,15 @@ describe("BookingDetails — Payment summary from the checked breakdown", () => 
     expect(html).toContain("$126.60");
   });
 
+  it("a fixed code checked against its stamped discountCents: 'Promo discount (JFK5)' with a leading minus, no fallback", () => {
+    const b = reslab({ promoDiscount: "5.00", promoCode: "JFK5", expectedPromoCents: null, stampedPromo: { kind: "cents", cents: 500 }, anchorChargedCents: 13660 });
+    expect(b.ok).toBe(true);
+    const html = render(b);
+    expect(html).toContain("Promo discount (JFK5)");
+    expect(html).toContain(`${MINUS}$5.00`);
+    expect(html).toContain("$136.60");
+  });
+
   it("direct with an oversized vehicle (TRP-D0K1KGXC): card charge, then the at-lot line, then the trip total", () => {
     const html = render(direct());
     expect(html).toContain("Parking Protection — Plan A");

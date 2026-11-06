@@ -2181,3 +2181,171 @@ describe("reconciliation alert hook (P1b, Oct 28 2026)", () => {
     expect(scheduleReconciliationAlert).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("a stamped discountCents — ResLab (promo plan Part 1, readers)", () => {
+  // Fixture money: grand 88, of which 20 is due at the location; fee 6.
+  // Parking paid online before the promo = 88 − 20 = 68.00; the card before it
+  // = 88 + 6 − 20 = 74.00. JFK5 ($5 off) → 69.00.
+  const fixedPi = (over: { amount?: number; metadata?: Record<string, string> } = {}) =>
+    paymentIntent({
+      amount: over.amount ?? 6900,
+      metadata: { customerEmail: "a@b.com", discountCents: "500", promoCode: "jfk5", ...over.metadata },
+    });
+  const stampAlerts = () =>
+    vi.mocked(capturePaymentError).mock.calls.filter(([e]) => e.message.startsWith("Promo discountCents"));
+  const renderEmail = () => {
+    const args = vi.mocked(sendBookingConfirmation).mock.calls[0][0];
+    return renderToStaticMarkup(createElement(BookingConfirmationEmail, { ...args, customerEmail: args.to }));
+  };
+
+  it("refreshCost: a fixed code with no percent passes at the authorized amount (74.00 − 5.00), and books", async () => {
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(fixedPi());
+
+    const out = await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(cancelPaymentIntent).not.toHaveBeenCalled();
+    expect(capturePaymentIntent).toHaveBeenCalled();
+  });
+
+  it("refreshCost: with both keys the stamp is the authority — the percent beside it is NOT reapplied", async () => {
+    // 5 % of the 80.00 sub_total = 4.00 would expect 70.00 and block the
+    // authorized 69.00 as price drift; the 5.00 stamp expects exactly 69.00.
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(fixedPi({ metadata: { discountPercent: "5" } }));
+
+    const out = await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(db.tables.bookings[0].discount_amount).toBe(5);
+  });
+
+  it("refreshCost: still blocks a real price rise on a stamped PaymentIntent", async () => {
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(fixedPi());
+    reslabMock.getCost.mockResolvedValue({
+      costs_token: "tok_2",
+      reservation: { sold_out: false, sub_total: 90, fees_total: 3, tax_total: 5, grand_total: 98, due_at_location: 20 },
+    });
+
+    const out = await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    expect(out).toMatchObject({ kind: "failed" });
+    expect(reslabMock.createReservation).not.toHaveBeenCalled();
+    expect(cancelPaymentIntent).toHaveBeenCalled();
+    expect(String(vi.mocked(capturePaymentError).mock.calls[0][0])).toMatch(/price drift: fresh 7900 cents exceeds authorized 6900/);
+  });
+
+  it.each([
+    ["more than the parking paid online (it would come out of the fee)", "6801", 599, /exceeds the online parking 6800/],
+    ["not a whole number of cents", "5.00", 6900, /not a positive whole number/],
+    ["zero", "0", 7400, /not a positive whole number/],
+  ])("refreshCost: refuses a stamp that is %s — before capture, payment released, reported", async (_label, raw, amount, why) => {
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(fixedPi({ amount, metadata: { discountCents: raw } }));
+
+    const out = await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    expect(out).toMatchObject({
+      kind: "failed",
+      userMessage: "We couldn't verify your promo discount. You have not been charged — please start your booking again.",
+    });
+    expect(reslabMock.createReservation).not.toHaveBeenCalled();
+    expect(capturePaymentIntent).not.toHaveBeenCalled();
+    expect(cancelPaymentIntent).toHaveBeenCalled();
+    const alert = String(vi.mocked(capturePaymentError).mock.calls[0][0]);
+    expect(alert).toMatch(/Fulfilment blocked before booking: .*promo discount stamp refused/);
+    expect(alert).toMatch(why);
+  });
+
+  it("appliedPromoDiscount: records EXACTLY the stamped cents and the code (so the 023 trigger counts the use)", async () => {
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(fixedPi());
+
+    await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    expect(db.tables.bookings[0]).toMatchObject({ discount_amount: 5, promo_code: "JFK5" });
+    expect(stampAlerts()).toEqual([]);
+  });
+
+  it("appliedPromoDiscount: a charge that implies a different discount (> 1¢) records the stamp and reports a mismatch once", async () => {
+    // Charged 69.50: the charge implies 4.50 off, the stamp says 5.00.
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(fixedPi({ amount: 6950 }));
+
+    expect((await createBooking({ source: "client", stripePaymentIntentId: PI })).kind).toBe("created");
+
+    expect(db.tables.bookings[0]).toMatchObject({ discount_amount: 5, promo_code: "JFK5" });
+    const alerts = stampAlerts();
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0][0].message).toMatch(/mismatch .*discountCents 500 but the charge \(6950\) implies 450/);
+    expect(alerts[0][1]).toMatchObject({ stripePaymentIntentId: PI, fingerprint: ["promo-discount-stamp", "mismatch"] });
+  });
+
+  it("appliedPromoDiscount: a 1¢ difference is tolerated (no report)", async () => {
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(fixedPi({ amount: 6901 }));
+
+    await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    expect(db.tables.bookings[0].discount_amount).toBe(5);
+    expect(stampAlerts()).toEqual([]);
+  });
+
+  it("appliedPromoDiscount on RESUME (refreshCost skipped): an out-of-range stamp is ignored for the pre-stamp rule and reported", async () => {
+    db.seed("pending_bookings", [
+      pendingRow({
+        status: "processing",
+        claimed_at: new Date(Date.now() - 5 * 60_000).toISOString(),
+        reslab_reservation_number: "RTL777",
+      }),
+    ]);
+    // No percent: the pre-stamp rule records no discount — never the bad stamp.
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(fixedPi({ amount: 599, metadata: { discountCents: "6801" } }));
+
+    expect((await createBooking({ source: "webhook", stripePaymentIntentId: PI })).kind).toBe("created");
+
+    expect(db.tables.bookings[0].discount_amount).toBe(0);
+    const alerts = stampAlerts();
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0][0].message).toMatch(/refused .*exceeds the online parking 6800/);
+    expect(alerts[0][1]).toMatchObject({ fingerprint: ["promo-discount-stamp", "refused"] });
+  });
+
+  it("receipts: 'Promo discount (JFK5) −$5.00', checked against the stamp — no fallback, nothing reported", async () => {
+    const { sendAdminBookingNotification } = await import("@/lib/resend/send-admin-booking-notification");
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(fixedPi());
+
+    expect((await createBooking({ source: "client", stripePaymentIntentId: PI })).kind).toBe("created");
+
+    const customer = vi.mocked(sendBookingConfirmation).mock.calls[0][0];
+    expect(customer.breakdown).toMatchObject({ ok: true, paidOnlineCents: 6900, dueAtLocationCents: 2000 });
+    if (!customer.breakdown?.ok) return;
+    expect(customer.breakdown.lines.find((l) => l.key === "promo")).toEqual({ key: "promo", label: "Promo discount (JFK5)", cents: 500, credit: true });
+    expect(customer.anchoredFallback).toBeUndefined();
+    const html = renderEmail();
+    expect(html).toContain("Promo discount (JFK5)");
+    expect(html).toContain("−$5.00");
+    expect(vi.mocked(sendAdminBookingNotification).mock.calls[0][0].breakdown).toEqual(customer.breakdown);
+    expect(captureBookingError).not.toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining("cost breakdown fell back") }),
+      expect.anything()
+    );
+  });
+
+  it("percent-only PaymentIntents (in flight before the writer) are unchanged: 10 % → 8.00, recorded and on the receipt", async () => {
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(
+      paymentIntent({ amount: 6600, metadata: { customerEmail: "a@b.com", discountPercent: "10", promoCode: "save10" } })
+    );
+
+    expect((await createBooking({ source: "client", stripePaymentIntentId: PI })).kind).toBe("created");
+
+    expect(db.tables.bookings[0]).toMatchObject({ discount_amount: 8, promo_code: "SAVE10" });
+    const b = vi.mocked(sendBookingConfirmation).mock.calls[0][0].breakdown;
+    expect(b?.ok && b.lines.find((l) => l.key === "promo")?.cents).toBe(800);
+    expect(stampAlerts()).toEqual([]);
+  });
+});
