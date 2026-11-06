@@ -164,6 +164,11 @@ One entry per reviewed PR: what the review found, by lesson number. Newest first
   - Lesson 13: a test passed on an empty map.
   - Lesson 14: the data came from an earlier code version.
   - Fixed on the branch, and the data was rebuilt.
+  - **Round 2 (on our fixes, lesson 15):**
+    - Lesson 7: a one-date price was still stamped `rateVerified`, so the hub table would publish it.
+    - Lesson 6: a name listed twice kept the cheaper listing over the one the file pins.
+    - The chart ignored the new cruise note's wording.
+    - All fixed.
 - **Hub posts (Nov 5, live CMS, no PR):**
   - Lesson 11: 25 posts edited without review.
   - Lesson 2: ATL said 82% vs the Hourly Deck; the index says 57% vs the Daily decks.
