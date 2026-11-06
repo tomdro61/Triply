@@ -21,7 +21,7 @@ test('parseEdit is strict: unknown keys, a bad position, an empty FAQ and an emp
   assert.throws(() => parseEdit({ fields: { metaDescription: 'x' } }), /fields: Unrecognized key/)
   assert.throws(() => parseEdit({ insert: { underHeading: 'Rates', html: '<p>x</p>', position: 'after' } }), /position/)
   assert.throws(() => parseEdit({ fields: { faqItems: [] } }), /faqItems/)
-  assert.throws(() => parseEdit({}), /needs "fields" and\/or "insert"/)
+  assert.throws(() => parseEdit({}), /needs "fields", "insert" and\/or "replace"/)
   assert.throws(() => parseEdit({ insert: { underHeading: 'Rates', html: 42 } }), /html/)
   assert.throws(() => parseEdit({ fields: { excerpt: 'x'.repeat(301) } }), /excerpt/, 'the CMS limit (300) is checked at preview')
   assert.throws(() => parseEdit({ fields: { seo: { metaDescription: 'x'.repeat(161) } } }), /metaDescription/)
