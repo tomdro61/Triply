@@ -287,9 +287,10 @@
       "phone": "952-243-5598",
       "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 225
     }
   ],
   "shuttleInfo": "On-airport: Quick Ride Ramp provides free 24/7 curbside shuttle to both terminals. Free METRO Blue Line light rail connects Terminal 1 and Terminal 2 every ~10 minutes, 24/7. Off-site: Most lots include free shuttle — EZ Air Park and Park 'N Go shuttle every 5-15 minutes, 24/7. Shepard Road runs every 5-10 minutes during peak. Hotel lots vary — verify shuttle hours before booking for early/late flights. CRITICAL: In winter, allow extra shuttle time due to snow and ice conditions.",

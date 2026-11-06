@@ -344,9 +344,10 @@
       "phone": "410-859-8400",
       "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 255
     },
     {
       "name": "The Westin",
@@ -365,9 +366,10 @@
       "phone": "443-577-2300",
       "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 187
     },
     {
       "name": "Sheraton Hotel",
@@ -385,9 +387,10 @@
       "phone": "(443) 577-2100",
       "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 108
     },
     {
       "name": "Clarion Hotel BWI North",
@@ -409,9 +412,26 @@
       "phone": "410-789-9100",
       "notes": "Added 2026-11-01 from live Triply search; details from the lot listing. The operator describes it for Port of Baltimore cruise travelers; shuttle 10 AM-2 PM only. Confirm the airport shuttle before recommending it for flights.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 370
+    },
+    {
+      "name": "Country Inn & Suites",
+      "slug": "country-inn-suites",
+      "reslabLocationId": 453,
+      "address": "1717 W Nursery Rd, Linthicum Heights, MD",
+      "distanceFromAirport": "1.7 mi",
+      "phone": "443-577-1036",
+      "shuttleInfo": "4:30 AM - 12:00 PM: Shuttle runs every 30 minutes. 12:00 PM - 4:00 PM: No shuttle. 4:00 PM - 12:00 AM: Shuttle runs every 30 minutes. 12:00 AM - 4:30 AM: No shuttle.",
+      "amenities": ["24/7 Front Desk", "Restaurant", "Wheelchair Access"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 8.34,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
     }
   ],
   "shuttleInfo": "On-airport: FREE shuttle connects terminal to Long-Term Lots, Express Parking, Daily Garage, and BWI Rail Station (MARC/Amtrak). Runs every 10-15 minutes (every 25 minutes between 1-5 AM). Off-site: All major off-site lots (The Parking Spot, FastPark) include free 24/7 shuttle running every 5-10 minutes. Hotel shuttles pick up at designated zones on lower level.",

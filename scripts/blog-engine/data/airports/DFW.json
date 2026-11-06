@@ -329,8 +329,8 @@
     {
       "name": "Red Roof Inn Dallas DFW Airport North (Parking)",
       "slug": "red-roof-inn-dfw-airport-north",
-      "dailyRate": 7.99,
-      "reservationRate": 5.49,
+      "dailyRate": 4.99,
+      "reservationRate": 4.99,
       "parkingType": "Uncovered, self-park (hotel lot)",
       "amenities": ["Shuttle Service", "24/7 Front Desk", "Security Cameras", "Well-Lit Lot"],
       "shuttleInfo": "Shuttle service to terminals during operating hours. Confirm schedule at booking.",
@@ -339,8 +339,11 @@
       "driveTime": "8-12 minutes",
       "freeCancellation": true,
       "notes": "Budget option near north DFW entrance. 24/7 front desk is helpful for late arrivals. Confirm shuttle hours before booking.",
-      "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "reslabLocationId": 160,
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-11-06"
     },
     {
       "name": "Clarion Inn & Suites North",
@@ -356,9 +359,10 @@
       "freeCancellation": true,
       "notes": "Mid-range off-site option with hotel-quality security. Good for park-sleep-fly packages. Confirm shuttle schedule before booking.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 155
     },
     {
       "name": "The Westin Dallas-Fort Worth (DFW)",
@@ -379,9 +383,9 @@
       "bookableOnTriply": true,
       "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 70). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01"
+      "rateVerified": "2026-11-06"
     }
   ],
   "shuttleInfo": "On-airport: FREE Skylink connects all terminals airside every 2 minutes, 24/7. Rental Car Shuttle runs every 10-15 minutes 24/7 from lower level of all terminals. Remote parking shuttle every 15-20 minutes 24/7. Express parking has on-demand 24/7 shuttle. Off-site: The Parking Spot offers 24/7 on-demand shuttle. Ausby shuttle runs 10 AM-9:30 PM (after-hours $25 fee). Hotel lots have scheduled shuttle service — verify hours before booking. CRITICAL: Some off-site lots charge extra for after-hours shuttle — confirm before booking for early/late flights.",

@@ -807,14 +807,17 @@
     {
       "name": "DoubleTree SFO North Bayfront",
       "slug": "doubletree-sfo-north-bayfront",
-      "dailyRate": 8.00,
+      "dailyRate": 11.54,
       "parkingType": "Outdoor Self-Park",
       "amenities": ["Free Shuttle", "Hotel Amenities"],
       "shuttleInfo": "Free shuttle to SFO terminals",
       "freeCancellation": true,
       "notes": "Budget option. Hotel parking lot available to non-guests.",
-      "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "reslabLocationId": 432,
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-11-06"
     },
     {
       "name": "Travelodge SFO Airport Parking",
@@ -941,9 +944,9 @@
       "bookableOnTriply": true,
       "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 111). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06"
     },
     {
       "name": "Hampton Inn (SFO)",
@@ -962,9 +965,9 @@
       "bookableOnTriply": true,
       "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 55). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06"
     },
     {
       "name": "Courtyard San Francisco Airport (SFO)",
@@ -983,9 +986,9 @@
       "bookableOnTriply": true,
       "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 400). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06"
     },
     {
       "name": "Home2Suites by Hilton (SFO)",
@@ -1005,9 +1008,9 @@
       "bookableOnTriply": true,
       "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 44). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06"
     }
   ],
   "shuttleInfo": "All off-site lots include free shuttle service to SFO terminals. On-airport Long-Term Garage connects via free AirTrain Blue Line (24/7 service, every 4 minutes). Rental Car Center also connected via AirTrain Blue Line.",

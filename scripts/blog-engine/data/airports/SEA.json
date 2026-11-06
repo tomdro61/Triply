@@ -347,15 +347,16 @@
       "phone": "(206) 248-9000",
       "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 176
     },
     {
       "name": "Fox Parking SeaTac",
       "slug": "fox-parking-seatac",
-      "dailyRate": 15.64,
-      "reservationRate": 15.64,
+      "dailyRate": 13.51,
+      "reservationRate": 13.51,
       "amenities": [
         "24/7 Front Desk",
         "Valet"
@@ -367,10 +368,11 @@
       "phone": "206 589-7526",
       "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01",
-      "rateSpreadPct": 24.63
+      "rateVerified": "2026-11-06",
+      "rateSpreadPct": 24.63,
+      "reslabLocationId": 563
     },
     {
       "name": "Evods Parking at Spark by Hilton SEA-TAC Airport",
@@ -391,10 +393,11 @@
       "phone": "(800) 273-1163",
       "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01",
-      "rateSpreadPct": 99.56
+      "rateVerified": "2026-11-06",
+      "rateSpreadPct": 99.56,
+      "reslabLocationId": 470
     },
     {
       "name": "Seattle Airport Marriott",
@@ -412,9 +415,10 @@
       "phone": "206-241-2000",
       "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 462
     }
   ],
   "shuttleInfo": "On-airport: FREE rental car shuttle runs 24/7 from 1st floor of parking garage. Off-site: All major lots (Doug Fox, WallyPark, MasterPark, Jiffy, ShuttlePark2) include free 24/7 shuttle service with rides every 5-20 minutes. Most shuttles drop off/pick up at the 3rd floor of the parking garage (Courtesy Vehicle area). Doug Fox has the fastest shuttle (~3 minutes) as the closest lot.",

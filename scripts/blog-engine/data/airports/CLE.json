@@ -230,9 +230,10 @@
       "phone": "216-905-3680",
       "notes": "Minimum booking 4 days. Free shuttle covers max 3 people per reservation; extra riders $25 payable at the lot (drop the party at the terminal first to avoid it). Arrive before the 2-hour pre-flight window.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 134
     },
     {
       "name": "Crowne Plaza Airport Hotel",
@@ -254,9 +255,10 @@
       "phone": "440-243-4040",
       "notes": "Check in at the front desk before parking. Return pickup is Ground Transportation Bay #7 only. No overnight shuttle (12-4 AM).",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 457
     },
     {
       "name": "Airport Express Parking",
@@ -277,9 +279,10 @@
       "phone": "216-212-2727",
       "notes": "Minimum booking 5 days. Daily rate is close to the Brown Lot's $13 reserved / $15 drive-up rate — sell on the 24/7 return shuttle and oversize-vehicle policy, not on price vs Brown Lot.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 174
     },
     {
       "name": "CLE Park",
@@ -298,9 +301,10 @@
       "phone": "216-870-4100",
       "notes": "Minimum booking 5 days. Not the airport's own lot despite the name. Daily rate is close to the Brown Lot's $13-15 — sell on the 24/7 return shuttle, not on price vs Brown Lot.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 258
     }
   ],
   "shuttleInfo": "On-airport: Brown Lot shuttle every ~15 minutes to the Ground Transportation Center; all other airport lots are walk-in. Off-site Triply lots: Airport Express Parking and CLE Park run return shuttles 24/7 (outbound from 4 AM); 2 Birds runs 4 AM-1 AM; Crowne Plaza runs 4 AM-midnight and returns from Ground Transportation Bay #7. CLE Park picks up on the ticketing level. No Triply lot runs outbound shuttles before 4 AM.",

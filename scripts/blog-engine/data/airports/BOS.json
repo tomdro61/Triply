@@ -307,9 +307,10 @@
       "knownCoupons": ["Rewards members: 1 FREE day + 10% off", "Book via parksleepfly.com from $17.99/day"],
       "notes": "Strong rewards program makes this cheapest for repeat travelers. Shuttle runs every 30 minutes, not on-demand.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 352
     },
     {
       "name": "Preflight Airport Parking Boston",
@@ -327,9 +328,10 @@
       "knownCoupons": ["Preflight Rewards: Earn free days", "Book direct for promo rates"],
       "notes": "Reliable nationwide brand. Real-time shuttle tracking is a nice feature. Slightly more expensive than Park Shuttle & Fly but more amenities.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 481
     },
     {
       "name": "Hilton Boston Logan Airport",
@@ -444,6 +446,55 @@
       "notes": "24-hour shuttle is a major advantage. Kitchenettes + free breakfast + longer stays make this great for extended trips. Slightly farther drive but good value.",
       "sellable": false,
       "sellableCheckedOn": "2026-11-01"
+    },
+    {
+      "name": "Broadway Motor Service",
+      "slug": "broadway-motor-service",
+      "reslabLocationId": 422,
+      "address": "88 Broadway, Revere, MA",
+      "distanceFromAirport": "2.7 mi",
+      "phone": "9786849254",
+      "shuttleInfo": "No shuttle, guests must arrange their own airport transportation",
+      "amenities": ["24/7 Front Desk"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 12.55,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+    },
+    {
+      "name": "Se-lect Airport Valet Parking - Boston Logan",
+      "slug": "se-lect-airport-valet-parking-boston-logan",
+      "reslabLocationId": 338,
+      "address": "230 Lee Burbank Hwy, Revere, MA",
+      "distanceFromAirport": "2.5 mi",
+      "phone": "(781) 264 0156",
+      "shuttleInfo": "24/7, every 20 minutes",
+      "amenities": ["Valet", "Security", "24/7 Front Desk", "Restaurant"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 19.14,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+    },
+    {
+      "name": "Ramada by Wyndham Boston",
+      "slug": "ramada-by-wyndham-boston",
+      "reslabLocationId": 466,
+      "address": "800 Morrissey Blvd, Boston, MA",
+      "distanceFromAirport": "5.2 mi",
+      "phone": "617-379-3902",
+      "shuttleInfo": "6:00 AM - 10:00 PM: Shuttle runs on demand. 10:00 PM - 6:00 AM: No shuttle.",
+      "amenities": ["24/7 Front Desk", "Restaurant"],
+      "minimumBookingDays": 5,
+      "paymentMethod": "Pay Online",
+      "dailyRate": 20.95,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
     }
   ],
   "shuttleInfo": "On-airport: FREE 24/7 Massport shuttles connect all terminals to parking, Rental Car Center, Airport Blue Line Station, and Water Taxi Dock (Routes 11/22/33/55/66/88, every 5-15 min). Off-site: Most hotel and off-site lots provide free shuttle service — frequency varies from on-demand (Park Shuttle & Fly) to every 30 min. NOTE: Some hotel shuttles are NOT 24/7 — verify hours for early/late flights.",

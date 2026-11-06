@@ -271,9 +271,10 @@
       "freeCancellation": true,
       "notes": "Gated hotel lot with decent security. Shuttle operates during standard hours — verify late night/early morning availability before booking.",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02",
+      "rateVerified": "2026-11-06",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06",
+      "reslabLocationId": 288
     }
   ],
   "shuttleInfo": "On-airport: Economy Lot has FREE 24/7 shuttle every 10-15 minutes (~5-7 minute ride). Off-site: FastPark & Relax runs 24/7 shuttles every 5-10 minutes (3-minute ride). The Parking Spot East/West runs 24/7 shuttles every 5-7 minutes. Park & Zoom has shuttles on airport property (no public road traffic). Hotel lots (Hilton, Comfort Suites) offer complimentary shuttles. During SXSW and ACL Festival weekends, shuttle and curbside traffic is significantly heavier — allow extra time.",

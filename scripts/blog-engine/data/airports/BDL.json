@@ -213,9 +213,10 @@
       "phone": "860-623-2533",
       "notes": "Lowest sellable rate at BDL on 2026-10-16 ($52.90 grand total for a 7-night Nov 2-9 stay, 8 billed days; same on Nov 9-16 and 16-23). No box trucks, RVs or commercial vehicles. Early flights: 3:15-5:15 AM rides need a call 24 hours ahead. Overstays are settled at the front desk before you get your keys.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 140
     },
     {
       "name": "Motel 6 Windsor Locks",
@@ -231,9 +232,10 @@
       "phone": "860-370-5350",
       "notes": "$53.00 grand total for Nov 2-9 (8 billed days), same on all three test weeks. Only Triply BDL lot with a 24/7 shuttle and no advance-call window. If your return is delayed, call the hotel — unannounced late pickups can mean extra fees or towing.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 486
     },
     {
       "name": "Days Inn Windsor Locks Bradley",
@@ -250,9 +252,10 @@
       "phone": "(860) 623-9417",
       "notes": "$78.82 grand total for Nov 2-9 (8 billed days), same on all three test weeks. Closest Triply BDL lot. Scheduled shuttles from 3:25 AM suit 5-6 AM departures.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 263
     },
     {
       "name": "The Parking Spot (BDL)",

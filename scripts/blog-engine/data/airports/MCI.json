@@ -209,9 +209,10 @@
       "phone": "816-464-2200",
       "notes": "Check in at the front desk; you get a validation code and register the vehicle via QR code, then park in the northwest-corner park & fly area. Every-15-minute shuttle is the best frequency of any Triply KCI lot.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 559
     },
     {
       "name": "Hilton Kansas City Airport",
@@ -228,9 +229,10 @@
       "phone": "(816) 891-8900",
       "notes": "Show your parking pass at the front desk. NO in/out privileges — you cannot enter and exit more than once. Hourly shuttle means timing matters: arrive well before the 2-hour pre-flight window.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 404
     },
     {
       "name": "Super 8 Kansas City Airport",
@@ -248,8 +250,9 @@
       "paymentMethod": "Pay at Location",
       "notes": "Lowest-priced Triply KCI lot with a free 24/7 shuttle. Payment is collected at the hotel.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
-      "rateVerified": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06",
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 186
     },
     {
       "name": "Days Inn Kansas City Airport",
@@ -266,9 +269,10 @@
       "phone": "(816) 746-1666",
       "notes": "No shuttle between 11 PM and 4 AM — not for red-eye returns. At $10.57/day it costs more than the on-airport Economy Lot ($9/day), so position it on convenience, not price.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 419
     },
     {
       "name": "Quality Inn Kansas City Airport",
@@ -285,9 +289,10 @@
       "phone": "+1 816-226-4383",
       "notes": "Shuttle costs $10 each way (per the listing) — for 2 travelers a round trip adds up to ~$40 if charged per person (verify per-person vs per-trip), which can erase the savings. Listing description text says 'Sleep Inn' — copy inconsistency in the source feed; use the Quality Inn name.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 57
     },
     {
       "name": "Travelodge (Platte City)",
@@ -305,9 +310,10 @@
       "phone": "816-858-4588",
       "notes": "SHUTTLE SUSPENDED: the shuttle is shut down temporarily, so you need a paid rideshare each way. Do NOT use in CTAs or recommend as a park-and-fly option. Only relevant as a note for oversized vehicles (no extra charge for full-size vans/pickups/large SUVs).",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 158
     }
   ],
   "shuttleInfo": "On-airport: FREE Economy (Blue) Bus every 15-20 minutes, 24/7, between the terminal and the Economy Lots; FREE Gray Rental Car Bus every 5-10 minutes, 24/7. Garage and Surface Lot are walking distance. Off-site hotel lots run their own shuttles: Kansas City Airport Marriott every 15 min 24/7; Super 8 on demand 24/7 (free); Hilton hourly on the hour 24/7; Days Inn every 30 min 4-7:30 AM then on demand to 11 PM, none 11 PM-4 AM; Quality Inn every 30 min 24/7 but $10 each way. Travelodge Platte City shuttle is suspended.",

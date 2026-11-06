@@ -342,9 +342,10 @@
       "phone": "407-601-4508",
       "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 431
     },
     {
       "name": "Omni Airport Parking",
@@ -358,9 +359,10 @@
       "phone": "(407) 326-6676",
       "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 68
     },
     {
       "name": "Holiday Inn Orlando Airport",
@@ -377,15 +379,16 @@
       "phone": "407-851-6400",
       "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 328
     },
     {
       "name": "Best Rate Airport Parking",
       "slug": "best-rate-airport-parking",
-      "dailyRate": 28,
-      "reservationRate": 28,
+      "dailyRate": 10.13,
+      "reservationRate": 10.13,
       "amenities": [
         "Valet",
         "Security",
@@ -398,10 +401,11 @@
       "phone": "1-888-422-3782",
       "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay at Location",
-      "rateVerified": "2026-11-01",
-      "rateSpreadPct": 246.82
+      "rateVerified": "2026-11-06",
+      "rateSpreadPct": 246.82,
+      "reslabLocationId": 203
     }
   ],
   "shuttleInfo": "On-airport: Free 24/7 shuttles connect the economy lots to the terminals (North Park Place → Terminal A, South Park Place → Terminals B and C, West Park → Terminals A and C). Off-site: All major off-site lots include free shuttle service — most run 24/7 with 5-15 minute frequency. Theme park shuttles: Mears Connect to Disney ($32 RT), SuperStar Shuttle to Universal ($39 RT). CRITICAL: Disney's free Magical Express no longer exists — all MCO-to-Disney transportation is now paid.",

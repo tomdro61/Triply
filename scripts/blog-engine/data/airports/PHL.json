@@ -376,9 +376,9 @@
       "bookableOnTriply": true,
       "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 294). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06"
     },
     {
       "name": "Motel 6 (PHL)",
@@ -397,9 +397,9 @@
       "bookableOnTriply": true,
       "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 113). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06"
     },
     {
       "name": "Red Carpet Inn Philadelphia Airport (PHL)",
@@ -417,9 +417,9 @@
       "bookableOnTriply": true,
       "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 114). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06"
     },
     {
       "name": "MS Parking Philly (PHL)",
@@ -441,9 +441,9 @@
       "bookableOnTriply": true,
       "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 240). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06"
     },
     {
       "name": "ARB Parking Philadelphia (PHL)",
@@ -463,9 +463,9 @@
       "bookableOnTriply": true,
       "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 274). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06"
     },
     {
       "name": "Quality Inn Philadelphia Airport (PHL)",
@@ -489,6 +489,22 @@
       "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
       "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "PHL Park & Ride - Holiday Inn Philadelphia Airport",
+      "slug": "phl-park-ride-holiday-inn-philadelphia-airport",
+      "reslabLocationId": 219,
+      "address": "2033 Penrose Avenue Philadelphia",
+      "distanceFromAirport": "4.1 mi",
+      "phone": "215 336 4600",
+      "shuttleInfo": "24/7 Shuttle every 30 minutespick ups on demand",
+      "amenities": ["24/7 Front Desk", "Free Internet/Wifi", "Restaurant", "Fitness Center"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 9.96,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
     }
   ],
   "shuttleInfo": "On-airport: FREE Economy Lot shuttle runs 24/7 to all terminals (continuous loop). Off-site: All major off-site lots (SmartPark, The Parking Spot, Expresspark, Park N Jet, Jet Stream) include free 24/7 on-demand shuttle service — most are ~2 minutes from terminals. SEPTA Airport Line regional rail provides direct rail service with 4 stations on airport property — no shuttle needed for rail.",

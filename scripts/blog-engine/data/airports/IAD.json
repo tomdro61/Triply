@@ -252,9 +252,10 @@
       "knownCoupons": ["Book via book2park.com from $5.95/day", "Book via onestopparking.com from $5.75/day"],
       "notes": "Highly rated. 24/7 shuttle is a major advantage over some competitors. No room booking required. Uncovered parking.",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02",
+      "rateVerified": "2026-11-06",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06",
+      "reslabLocationId": 254
     },
     {
       "name": "DoubleTree Washington Dulles Airport - Formerly Hilton",
@@ -273,10 +274,11 @@
       "knownCoupons": ["Book via book2park.com from $8.25/day"],
       "notes": "Excellent shuttle hours (4 AM - midnight) cover most flight times. Good for early morning departures.",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02",
+      "rateVerified": "2026-11-06",
       
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06",
+      "reslabLocationId": 129
     },
     {
       "name": "Dulles Airport Parking by Crowne Plaza",

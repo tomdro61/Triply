@@ -205,8 +205,8 @@
     {
       "name": "Best Western McCarran Inn",
       "slug": "best-western-mccarran-inn-las",
-      "dailyRate": 7.99,
-      "reservationRate": 5.99,
+      "dailyRate": 12.55,
+      "reservationRate": 12.55,
       "parkingType": "Uncovered, self-park (hotel lot)",
       "amenities": ["Free Airport Shuttle", "24/7 Security", "Surveillance Cameras", "Gated Lot", "Hotel Amenities"],
       "shuttleInfo": "Complimentary airport shuttle, runs on schedule throughout the day",
@@ -215,14 +215,17 @@
       "driveTime": "5-7 minutes",
       "freeCancellation": true,
       "notes": "One of the closest off-site lots. Park-sleep-fly packages include 1 night + up to 7 days parking. Good budget option with hotel amenities available.",
-      "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "reslabLocationId": 91,
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-11-06"
     },
     {
       "name": "DoubleTree by Hilton Las Vegas Airport",
       "slug": "doubletree-hilton-las-vegas-airport-las",
-      "dailyRate": 9.82,
-      "reservationRate": 9.82,
+      "dailyRate": 7.88,
+      "reservationRate": 7.88,
       "parkingType": "Uncovered, self-park (hotel lot)",
       "amenities": ["Free Airport Shuttle", "24/7 Security", "Gated Lot", "Pool Access", "Restaurant"],
       "shuttleInfo": "Complimentary 24/7 airport shuttle",
@@ -233,10 +236,11 @@
       "rating": "4.3/5",
       "notes": "Best option for travelers wanting hotel-quality amenities (pool, restaurant, fitness center). 24/7 shuttle is reliable. Slightly pricier than budget lots but better service.",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01",
+      "rateVerified": "2026-11-06",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
-      "rateSpreadPct": 74.15
+      "sellableCheckedOn": "2026-11-06",
+      "rateSpreadPct": 74.15,
+      "reslabLocationId": 421
     },
     {
       "name": "Red Roof Inn Las Vegas",
@@ -284,9 +288,10 @@
       "freeCancellation": true,
       "notes": "Ideal for convention attendees — close to LVCC. Marriott quality at budget parking rates. Breakfast included with park-sleep-fly.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-13",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 286
     },
     {
       "name": "Tahiti All-Suite Resort",

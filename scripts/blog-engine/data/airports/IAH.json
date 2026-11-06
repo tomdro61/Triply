@@ -275,8 +275,8 @@
     {
       "name": "Comfort Suites Houston IAH Airport (Parking)",
       "slug": "comfort-suites-houston-iah-parking",
-      "dailyRate": 8.95,
-      "reservationRate": 6.95,
+      "dailyRate": 7.3,
+      "reservationRate": 7.3,
       "parkingType": "Uncovered, self-park (hotel lot)",
       "amenities": ["Free Shuttle", "Hotel Amenities", "Security Cameras", "Gated Lot"],
       "shuttleInfo": "Shuttle service to and from IAH terminals during operating hours",
@@ -285,8 +285,11 @@
       "driveTime": "6-10 minutes",
       "freeCancellation": true,
       "notes": "Good for park-sleep-fly combo. Check shuttle hours before booking for early/late flights.",
-      "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "reslabLocationId": 296,
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-11-06"
     },
     {
       "name": "Hilton Garden Inn Houston/Bush IAH (Parking)",
@@ -302,9 +305,10 @@
       "freeCancellation": true,
       "notes": "Hilton brand quality. Park-sleep-fly packages good value for early morning flights. Verify shuttle hours.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-13",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 118
     }
   ],
   "shuttleInfo": "On-airport: FREE Skyway people mover and Subway train connect all five terminals 24/7. ecopark and ecopark 2 have free 24/7 shuttle service about every 10 minutes. Free rental car shuttle runs 24/7 to Rental Car Center. Off-site: Most lots include free shuttle — Fine Airport Parking runs every 5-7 min (best frequency), The Parking Spot every 15 min, PreFlight and Fast Park every 10-15 min. All major off-site lots run 24/7 shuttles.",

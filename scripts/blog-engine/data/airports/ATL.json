@@ -370,9 +370,9 @@
       "bookableOnTriply": true,
       "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 121). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06"
     },
     {
       "name": "Sky Lot Atlanta Airport Parking (ATL)",
@@ -390,9 +390,9 @@
       "bookableOnTriply": true,
       "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 366). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06"
     },
     {
       "name": "Routes Atlanta Airport Parking (ATL)",
@@ -408,9 +408,25 @@
       "bookableOnTriply": true,
       "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 262). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06"
+    },
+    {
+      "name": "PreFlight Airport Parking Atlanta",
+      "slug": "preflight-airport-parking-atlanta",
+      "reslabLocationId": 484,
+      "address": "4000 Global Gateway Connector, College Park, GA",
+      "distanceFromAirport": "2.2 mi",
+      "phone": "(404) 767-8000",
+      "shuttleInfo": "Domestic Terminal: 24/7, every 5-10 minutesInternational Terminal: 24/7, every 30 minutes (on the hour and half-hour).",
+      "amenities": ["24/7 Front Desk", "Wheelchair Access"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 18.52,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
     }
   ],
   "shuttleInfo": "On-airport: FREE Plane Train connects all 7 concourses every 2 minutes, 24/7. FREE ATL SkyTrain connects to Rental Car Center every 3-5 minutes, 24/7. Domestic Park-Ride and ATL Select lots have free 24/7 shuttle. Off-site: Most off-site lots include free shuttle — frequency varies from every 5-7 minutes (The Parking Spot) to every 30 minutes (hotel lots). Allow 30-45 extra minutes for off-site parking + shuttle during peak travel periods.",
