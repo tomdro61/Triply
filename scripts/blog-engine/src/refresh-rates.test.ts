@@ -74,6 +74,7 @@ test('a price in another currency than the file\'s is refused (CAD lots must nev
   assert.equal(unusableReason(cad, 'CAD'), null)
   assert.match(unusableReason({ results: [{ name: 'X', pricing: { minPrice: 10, currencyCode: 'USD' } }] }, 'CAD') ?? '', /USD, the file in CAD/)
   assert.equal(unusableReason({ results: [{ name: 'No code', pricing: { minPrice: 10 } }] }), null, 'no currencyCode = nothing to compare')
+  assert.equal(unusableReason({ results: [{ name: 'Lower', pricing: { minPrice: 10, currencyCode: 'usd' } }] }), null, 'case does not matter')
 })
 
 test('--apply refuses any site but production (staging uses a separate ResLab account)', () => {

@@ -41,6 +41,9 @@ export function filterSellableLots<T extends { sellable?: unknown }>(lots: T[]):
 export const NOT_AIRPORT_NOTE =
   'Added by lot-sync: looks like a cruise-port/downtown lot, not an airport-shuttle lot — do not use in CTAs until a human confirms it serves the airport.'
 
+/** A valet that meets you at the terminal: it serves the airport without a shuttle (chart-lots, lot-sync). */
+export const VALET = /valet|meets? you (?:at|on) (?:the |your )?(?:terminal|curb)|drives? you (?:to|and)|drop(?:s)? you off at your terminal|curbside/i
+
 /** A lot lot-sync flagged as cruise-port/downtown that no human has cleared yet (clearing = removing the note). */
 export function isNotAirportLot(lot: { notes?: unknown }): boolean {
   return typeof lot.notes === 'string' && lot.notes.includes(NOT_AIRPORT_NOTE)

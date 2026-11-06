@@ -499,7 +499,7 @@ export function unusableReason(body: SearchResponse, expectedCurrency = 'USD'): 
   }
   // A price in another currency than the file's (CAD lots while the file is USD, or the reverse) must not become a
   // dailyRate the writer prints with the file's sign.
-  const other = (body.results ?? []).find((r) => r.pricing?.currencyCode && r.pricing.currencyCode !== expectedCurrency)
+  const other = (body.results ?? []).find((r) => r.pricing?.currencyCode && r.pricing.currencyCode.toUpperCase() !== expectedCurrency.toUpperCase())
   if (other) return `${other.name} is priced in ${other.pricing!.currencyCode}, the file in ${expectedCurrency}`
   return null
 }

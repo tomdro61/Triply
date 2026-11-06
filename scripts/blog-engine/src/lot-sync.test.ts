@@ -5,6 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  anyCandidate,
   appendLots,
   codeTokens,
   formatLot,
@@ -55,7 +56,8 @@ test('EWR-shaped: Apex is a token match (not its shared address) — reported fo
   ])
   const lots = file()
   const { report, newLots, edits } = planSync('EWR', lots, m, opts)
-  assert.deepEqual(report.needsConfirmation, [{ lot: 'Apex EWR Airport Parking', live: 'Apex Airport Parking', via: 'tokens', score: 1 }])
+  assert.deepEqual(report.needsConfirmation, [{ lot: 'Apex EWR Airport Parking', live: 'Apex Airport Parking', via: 'tokens', score: 1, liveId: 10 }])
+  assert.ok(reportLines(report).some((l) => l.includes('or set "reslabLocationId": 10 on that lot by hand')), 'the human gets the id that confirms this one match')
   assert.deepEqual(report.matched, [])
   assert.equal(edits.length, 0, 'a weak match writes nothing')
   assert.equal(lots[0].sellable, false)
@@ -167,7 +169,7 @@ test('a matched lot with NO dailyRate is priced from the sample (nothing to prot
   const { report } = planSync('EWR', lots, merged([live('Maas Parking Newark', { price: 10.4475, reslabLocationId: 5 })]), opts)
   assert.deepEqual(report.priceChanges, [{ lot: 'Maas Parking Newark', from: undefined, to: 10.45, days: 7 }])
   assert.equal(lots[0].dailyRate, 10.45)
-  assert.equal(lots[0].rateVerified, TODAY)
+  assert.ok(!('rateVerified' in lots[0]), 'a one-date price is not "verified": monthly-prices waits for refresh-rates')
 })
 
 // ── review of #160 (2026-11-06) ──────────────────────────────────────────────
@@ -224,6 +226,40 @@ test('the loser of an ambiguous match is reported, not marked gone', () => {
   assert.equal(report.ambiguous.length + report.needsConfirmation.length, 2)
   assert.ok(!edits.some((e) => e.field === 'sellable'))
   assert.ok(lots.every((l) => l.sellable === true))
+})
+
+// ── round-2 review of #160 ───────────────────────────────────────────────────
+
+test('BWI-shaped: a name listed twice keeps the listing the file pins, even when the other is cheaper', () => {
+  const twins = [live('Clarion Hotel BWI North', { id: 'reslab-370', reslabLocationId: 370, price: 9 }), live('Clarion Hotel BWI North', { id: 'reslab-371', reslabLocationId: 371, price: 8.35 })]
+  const pinned = mergeSamples([{ days: 7, lots: twins }], 'EWR', new Set([370])).live
+  assert.deepEqual(pinned.map((m) => m.lot.reslabLocationId), [370])
+  const lots: CatalogueLot[] = [{ name: 'Clarion Hotel BWI North', reslabLocationId: 370, dailyRate: 9, sellable: true }]
+  assert.deepEqual(planSync('EWR', lots, pinned, opts).report.idConflicts, [], 'no conflict on a cheap day')
+  assert.deepEqual(mergeSamples([{ days: 7, lots: twins }], 'EWR').live.map((m) => m.lot.reslabLocationId), [371], 'nothing pinned: the cheaper one, as before')
+})
+
+test('an id conflict reached by slug is never applied either', () => {
+  const lots: CatalogueLot[] = [{ name: 'Old Name', slug: 'park-x', reslabLocationId: 5, dailyRate: 10, sellable: true }]
+  const { report, edits } = planSync('EWR', lots, merged([live('New Name', { slug: 'park-x', reslabLocationId: 6, price: 10 })]), opts)
+  assert.deepEqual(report.idConflicts.map((c) => [c.via, c.fileId, c.liveId]), [['slug', 5, 6]])
+  assert.equal(edits.length, 0)
+})
+
+test('anyCandidate finds a candidate by id, slug, street, tokens or fuzzy name — and none for an unrelated lot', () => {
+  const pool = [live('Totally Different', { reslabLocationId: 9, slug: 's-9', address: '12 Main Street, Town' })]
+  assert.ok(anyCandidate({ name: 'X', reslabLocationId: 9 }, pool, 'EWR'))
+  assert.ok(anyCandidate({ name: 'X', slug: 's-9' }, pool, 'EWR'))
+  assert.ok(anyCandidate({ name: 'X', address: '12 Main St' }, pool, 'EWR'))
+  assert.ok(anyCandidate({ name: 'Totally Different EWR Parking' }, pool, 'EWR'))
+  assert.equal(anyCandidate({ name: 'Gone Lot', address: '99 Other Rd' }, pool, 'EWR'), null)
+})
+
+test('notAirportReason: an AIRPORT listing whose name says ports, and a far meet-at-terminal valet, are airport lots', () => {
+  assert.equal(notAirportReason({ name: 'Park By The Ports AIRPORT Parking', shuttleInfo: '24/7 on Demand', distanceFromAirport: 1.6 }), '')
+  assert.equal(notAirportReason({ name: 'Simply Valet', shuttleInfo: 'No shuttle. A driver meets you at the terminal.', distanceFromAirport: 8 }), '')
+  assert.notEqual(notAirportReason({ name: 'Park By The Ports Cruise Parking', shuttleInfo: '7 AM to 2 PM', distanceFromAirport: 1.6 }), '')
+  assert.notEqual(notAirportReason({ name: 'Downtown Garage', shuttleInfo: 'No shuttle', distanceFromAirport: 8 }), '')
 })
 
 test('a duplicate file entry of a lot another entry owns by name still goes unsellable (not "ambiguous")', () => {
@@ -284,7 +320,7 @@ test('newLotFromLive carries only searched fields plus the review flag', () => {
   assert.deepEqual(lot, {
     name: 'Red Carpet Inn', slug: 'red-carpet-inn', reslabLocationId: 184, address: '100 Union Avenue, Irvington, NJ',
     distanceFromAirport: '3.8 mi', phone: '973-375-4102', shuttleInfo: 'No Shuttle. Uber and Lyft are available.',
-    amenities: ['Wheelchair Access'], paymentMethod: 'Pay Online', dailyRate: 5.2, rateVerified: TODAY,
+    amenities: ['Wheelchair Access'], paymentMethod: 'Pay Online', dailyRate: 5.2,
     sellable: true, sellableCheckedOn: TODAY,
     needsReview: `added by lot-sync ${TODAY} from live search: parkingType, driveTime and overview not filled`,
   })

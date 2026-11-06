@@ -49,7 +49,9 @@
  *    driveTime, overview). Unknown stays absent.
  *  - Move the file-level `lastVerified`. That date also covers on-airport rates and the
  *    3-date median refresh-rates takes; one or two search calls do not verify those.
- *    Per-lot `rateVerified` / `sellableCheckedOn` record what this run checked.
+ *    Per-lot `sellableCheckedOn` records what this run checked. `rateVerified` is refresh-rates' alone: a price
+ *    lot-sync writes (an added lot, or a lot with no dailyRate) is one date, so it carries no rateVerified until
+ *    refresh-rates prices it on its 3-date median.
  *  - Write from a degraded/stale/incomplete, ownAirportFallback, one-source-failed (reslabUnavailable /
  *    directUnavailable), wrong-currency or empty response (refresh-rates unusableReason), or create a missing file
  *    (`npm run bootstrap` makes new airports; this reports what live search shows instead).
@@ -97,7 +99,7 @@ import {
   type LiveLot,
   type LivePricing,
 } from './refresh-rates.js'
-import { NOT_AIRPORT_NOTE } from './airport-data.js'
+import { NOT_AIRPORT_NOTE, VALET } from './airport-data.js'
 
 export { NOT_AIRPORT_NOTE }
 
@@ -163,12 +165,13 @@ export interface SyncReport {
   priceChanges: PriceChange[]
   /** A live price that differs from the file's, NOT written — refresh-rates owns prices. */
   priceDrift: { lot: string; file: number; live: number; days: number }[]
-  /** Weak (address/tokens/subset/fuzzy) matches NOT applied: a human confirms, then --accept-fuzzy. */
-  needsConfirmation: { lot: string; live: string; via: Via; score: number }[]
+  /** Weak (address/tokens/subset/fuzzy) matches NOT applied: a human confirms, then --accept-fuzzy (all of the run's
+   *  weak matches) or sets `reslabLocationId: liveId` on that one lot by hand. */
+  needsConfirmation: { lot: string; live: string; via: Via; score: number; liveId?: number }[]
   /** A lot whose file id differs from the id of the live lot its name/slug/address matched. Never applied. */
   idConflicts: { lot: string; fileId: number; live: string; liveId: number; via: Via }[]
   /** Unmatched, but a live lot is still a candidate at some tier (it lost an ambiguous match): reported, not gone. */
-  ambiguous: { lot: string; live: string }[]
+  ambiguous: { lot: string; live: string; liveId?: number }[]
   /** Price moved >3x: nothing about the lot was written (not the id, not sellable). */
   implausible: { lot: string; from: number; to: number; via: Via }[]
   /** `reslabLocationId` written (or changed) by this run. */
@@ -234,12 +237,15 @@ function setsEqual(a: Set<string>, b: Set<string>): boolean {
 
 /**
  * Union the samples into one list keyed by listing id. Drops lots another airport owns and
- * collapses a hotel listed twice under one name (BWI's Clarion has two ResLab ids) to the
- * cheaper listing, so it is neither added twice nor left "unmatched".
+ * collapses a hotel listed twice under one name (BWI's Clarion has two ResLab ids) to one
+ * listing, so it is neither added twice nor left "unmatched": the listing(s) a file lot already
+ * pins by id (`pinned`), else the cheaper one. Keeping the cheaper one when the file pins the other
+ * would turn every cheap day into an id conflict for a lot that is fine (round-2 review of #160).
  */
 export function mergeSamples(
   samples: { days: number; lots: SyncLive[] }[],
-  code: string
+  code: string,
+  pinned: ReadonlySet<number> = new Set()
 ): { live: MergedLive[]; collapsed: string[]; otherAirport: string[] } {
   const byKey = new Map<string, MergedLive>()
   const otherAirport = new Set<string>()
@@ -270,10 +276,18 @@ export function mergeSamples(
   const collapsed: string[] = []
   const cheapest = (m: MergedLive) => Math.min(...[...m.pricing.values()].map((p) => p.minPrice ?? Infinity), Infinity)
   for (const group of byName.values()) {
-    if (group.length > 1) {
-      group.sort((a, b) => cheapest(a) - cheapest(b))
-      collapsed.push(`${group[0].lot.name} (listed ${group.length}x; kept the cheapest listing)`)
+    if (group.length === 1) {
+      live.push(group[0])
+      continue
     }
+    const kept = group.filter((m) => typeof m.lot.reslabLocationId === 'number' && pinned.has(m.lot.reslabLocationId))
+    if (kept.length) {
+      live.push(...kept)
+      collapsed.push(`${group[0].lot.name} (listed ${group.length}x; kept the listing the file pins: id ${kept.map((m) => m.lot.reslabLocationId).join(', ')})`)
+      continue
+    }
+    group.sort((a, b) => cheapest(a) - cheapest(b))
+    collapsed.push(`${group[0].lot.name} (listed ${group.length}x; kept the cheapest listing)`)
     live.push(group[0])
   }
   return { live, collapsed, otherAirport: [...otherAirport] }
@@ -421,10 +435,10 @@ export function newLotFromLive(m: MergedLive, days: number, today: string): Cata
   if (amen.length) lot.amenities = amen
   if (typeof l.minimumBookingDays === 'number' && l.minimumBookingDays > 1) lot.minimumBookingDays = l.minimumBookingDays
   if (typeof l.dueAtLocation === 'boolean') lot.paymentMethod = l.dueAtLocation ? 'Pay at Location' : 'Pay Online'
-  if (p && typeof p.minPrice === 'number') {
-    lot.dailyRate = round2(p.minPrice)
-    lot.rateVerified = today
-  }
+  // A one-date price, so no `rateVerified`: monthly-prices (and the title guard) wait for refresh-rates' 3-date
+  // median and spread check before publishing it (round-2 review of #160: JFK "A1 JFK Park" was $20.95 on one
+  // date and a $26.22 median with a 25% spread over three). The writer still has the dailyRate.
+  if (p && typeof p.minPrice === 'number') lot.dailyRate = round2(p.minPrice)
   lot.sellable = true
   lot.sellableCheckedOn = today
   lot.needsReview = `added by lot-sync ${today} from live search: parkingType, driveTime and overview not filled`
@@ -436,17 +450,25 @@ export function newLotFromLive(m: MergedLive, days: number, today: string): Cata
  * "cruise" or "port(s)" as a word in the name ("Airport" does not count), or no shuttle and more than 5 mi out.
  */
 export function notAirportReason(lot: { name: string; shuttleInfo?: unknown; distanceFromAirport?: unknown }): string {
-  if (/\bcruise\b|\bports?\b/i.test(lot.name)) return 'cruise/port name'
+  // Since the note keeps a lot off airport content entirely, a false positive costs a lot we sell (round-2 review
+  // of #160). So, like chart-lots: a name that also says "airport" is the operator's airport listing ("Park By The
+  // Ports AIRPORT Parking", FLL), and a valet that meets you at the terminal serves the airport without a shuttle.
+  if (/\bcruise\b|\bports?\b/i.test(lot.name) && !/\bairport\b/i.test(lot.name)) return 'cruise/port name'
   const d = typeof lot.distanceFromAirport === 'number' ? lot.distanceFromAirport : parseFloat(String(lot.distanceFromAirport ?? ''))
   const shuttle = typeof lot.shuttleInfo === 'string' ? lot.shuttleInfo : ''
   const noShuttle = !shuttle.trim() || /^\s*no shuttle/i.test(shuttle)
-  if (noShuttle && Number.isFinite(d) && d > 5) return `no shuttle, ${d} mi out`
+  if (noShuttle && !VALET.test(`${lot.name} ${shuttle}`) && Number.isFinite(d) && d > 5) return `no shuttle, ${d} mi out`
   return ''
 }
 
 /** A lot lot-sync added that nobody has reviewed yet (its `needsReview` flag is still lot-sync's). */
 function addedByLotSync(lot: CatalogueLot): boolean {
   return typeof lot.needsReview === 'string' && lot.needsReview.startsWith('added by lot-sync')
+}
+
+/** `{ liveId }` when the live lot has a ResLab id — what a human writes on the file lot to confirm one weak match. */
+function idOf(l: SyncLive): { liveId?: number } {
+  return typeof l.reslabLocationId === 'number' ? { liveId: l.reslabLocationId } : {}
 }
 
 export function emptyReport(code: string, liveCount: number): SyncReport {
@@ -498,7 +520,7 @@ export function planSync(
       if (lot.sellable !== false) {
         const near = anyCandidate(lot, unclaimedLive, code)
         if (near) {
-          report.ambiguous.push({ lot: lot.name, live: near.name })
+          report.ambiguous.push({ lot: lot.name, live: near.name, ...idOf(near) })
         } else if (opts.checkinDates >= 2) {
           report.gone.push(lot.name)
           set(i, 'sellable', false)
@@ -518,7 +540,7 @@ export function planSync(
       continue
     }
     if (!STRONG_VIA.has(m.via) && !opts.acceptFuzzy) {
-      report.needsConfirmation.push({ lot: lot.name, live: live.lot.name, via: m.via, score: round2(m.score) })
+      report.needsConfirmation.push({ lot: lot.name, live: live.lot.name, via: m.via, score: round2(m.score), ...idOf(live.lot) })
       continue
     }
 
@@ -567,7 +589,7 @@ export function planSync(
       if (typeof p.grandTotal === 'number') set(i, `totalFor${n}Days`, round2(p.grandTotal))
       if (typeof p.taxTotal === 'number') set(i, `taxesFor${n}Days`, round2(p.taxTotal))
     }
-    set(i, 'rateVerified', opts.today)
+    // No rateVerified: a one-date price (see newLotFromLive).
   }
 
   for (const [j, m] of merged.entries()) {
@@ -677,7 +699,8 @@ async function syncAirport(
     if (live === null) return null // never act on part of an airport
     samples.push({ days: c.days, lots: live as SyncLive[] })
   }
-  const { live, collapsed, otherAirport } = mergeSamples(samples, code)
+  const pinned = new Set(lots.map((l) => l.reslabLocationId).filter((n): n is number => typeof n === 'number'))
+  const { live, collapsed, otherAirport } = mergeSamples(samples, code, pinned)
 
   if (!hasFile || !data) {
     const report: SyncReport = {
@@ -722,9 +745,10 @@ export function reportLines(r: SyncReport): string[] {
   for (const p of r.priceChanges) out.push(`- $ ${p.lot}: ${money(p.from)} -> ${money(p.to)}${p.days !== DEFAULT_DAYS ? ` (${p.days}-day basis)` : ''}`)
   for (const p of r.priceDrift) out.push(`- $~ ${p.lot}: file ${money(p.file)}, live ${money(p.live)}${p.days !== DEFAULT_DAYS ? ` (${p.days}-day basis)` : ''} — NOT written, run refresh-rates`)
   for (const g of r.missingOneDate) out.push(`- ~ missing from search on one check-in date only — NOT marked unsellable: ${g}`)
-  for (const a of r.ambiguous) out.push(`- ? unmatched but live "${a.live}" could be it — NOT marked unsellable: "${a.lot}" (check by hand)`)
-  for (const c of r.idConflicts) out.push(`- ! id conflict, NOT applied (even with --accept-fuzzy): "${c.lot}" has id ${c.fileId}; live "${c.live}" (matched by ${c.via}) has ${c.liveId} — fix the id by hand if it is the same lot`)
-  for (const f of r.needsConfirmation) out.push(`- ? needs confirmation (${f.via}${f.via === 'fuzzy' ? ` ${f.score}` : ''}), NOT applied: "${f.lot}" ~ live "${f.live}" — check, then --accept-fuzzy`)
+  const byHand = (id?: number) => (id !== undefined ? ` or set "reslabLocationId": ${id} on that lot by hand (confirms this one only)` : '')
+  for (const a of r.ambiguous) out.push(`- ? unmatched but live "${a.live}" could be it — NOT marked unsellable: "${a.lot}" — check by hand${byHand(a.liveId)}`)
+  for (const c of r.idConflicts) out.push(`- ! id conflict, NOT applied (even with --accept-fuzzy): "${c.lot}" has id ${c.fileId}; live "${c.live}" (matched by ${c.via}) has ${c.liveId} — if it is the same lot relisted, change the id by hand; until then refresh-rates marks the lot unsellable. If it is another product at the same name/address, leave it.`)
+  for (const f of r.needsConfirmation) out.push(`- ? needs confirmation (${f.via}${f.via === 'fuzzy' ? ` ${f.score}` : ''}), NOT applied: "${f.lot}" ~ live "${f.live}" — check, then --accept-fuzzy${byHand(f.liveId)}`)
   for (const x of r.implausible) out.push(`- ! price refused, nothing written: ${x.lot} ${money(x.from)} -> ${money(x.to)} (>${MAX_PLAUSIBLE_RATIO}x move, matched by ${x.via})`)
   for (const x of r.idSet) out.push(`- # reslabLocationId ${x.id} set: "${x.lot}" = live "${x.live}" (matched by ${x.via})`)
   for (const x of r.notAirport) out.push(`- cruise/downtown, noted "do not use in CTAs": ${x}`)
@@ -793,7 +817,13 @@ async function main(): Promise<void> {
       `${tot((r) => r.flippedToSellable.length)} -> sellable:true, ${tot((r) => r.priceChanges.length)} prices written, ` +
       `${tot((r) => r.priceDrift.length)} price differences left to refresh-rates, ${tot(needsHuman)} need a human`
   )
-  if (apply && tot((r) => r.priceDrift.length + r.flippedToSellable.length)) console.log('  next: npm run refresh-rates -- --apply (prices are its job)')
+  // Every price lot-sync saw or wrote is one date: added lots, lots it priced, drift and flips all need refresh-rates.
+  const toRefresh = results
+    .filter(({ report: r }) => r.added.length + r.priceChanges.length + r.priceDrift.length + r.flippedToSellable.length > 0)
+    .map(({ report: r }) => r.code)
+  if (apply && toRefresh.length) {
+    console.log(`  next: refresh-rates on ${toRefresh.join(', ')} (prices are its job), e.g. npm run refresh-rates -- -a ${toRefresh[0]} --apply`)
+  }
   if (failed.length) console.log(`  not checked (bad/degraded response): ${failed.join(', ')}`)
   if (!apply) console.log('  nothing was written — re-run with --apply')
 

@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { cruisePortLot, paidTransfer, transferOf } from './chart-lots.js'
+import { NOT_AIRPORT_NOTE } from './airport-data.js'
 
 // Real summaries / details from the Nov 2, 2026 searches.
 const lot = (name: string, summary: string, details = '') => ({ name, summary, details })
@@ -33,6 +34,11 @@ test('cruise-port lots are found by name, by their own shuttle text, or by an ex
   assert.equal(cruisePortLot(lot('Clarion', '4:00 AM - 10:00 AM: Shuttle runs every 30 minutes.'), note, false), '', 'a shared data-file entry does not exclude the other listing')
   assert.equal(cruisePortLot(lot('Courtyard FLL', '5 AM - midnight', 'This reservation includes complimentary AIRPORT shuttle. Cruise port shuttle available for a fee.'), undefined, false), '')
   assert.notEqual(cruisePortLot(lot('Fox Parking', '4:00 AM - 12:30 AM: Shuttle runs on demand.', 'Shuttle runs 4 AM to 12:30 AM, on-demand to and from the Cruise terminal'), undefined, false), '')
+})
+test('a lot lot-sync flagged as cruise-port/downtown (exact file match) stays off airport charts (round-2 review of #160)', () => {
+  const flagged = { notes: NOT_AIRPORT_NOTE }
+  assert.notEqual(cruisePortLot(lot('Bayfront Garage Miami', 'No shuttle'), flagged, true), '')
+  assert.equal(cruisePortLot(lot('Bayfront Garage Miami', 'No shuttle'), flagged, false), '', 'only on an exact match, like the other note rule')
 })
 test("an operator's AIRPORT listing is kept even when its name says ports", () => {
   assert.equal(cruisePortLot(lot('Park By The Ports AIRPORT Parking', '24/7 on Demand', 'Shuttle pickups at FLL Terminals 1-4.'), undefined, false), '')

@@ -6,6 +6,7 @@
  * reports/chart-redraw/prices.mts; kept here so the rules have tests.
  */
 import { transferBlocker } from './prompts/write.js'
+import { isNotAirportLot, VALET } from './airport-data.js'
 import type { Transfer } from './rate-chart.js'
 
 export interface LiveShuttle { name: string; summary?: string; details?: string }
@@ -17,7 +18,6 @@ const PER_RIDER_FEE = /(?:C\$|CAD\s?\$?|US\$|\$)\s?\d+(?:\.\d{2})?\s*(?:per|\/|a
 const SHUTTLE_PAYMENT = /shuttle (?:payment|fee)s? (?:will be|is|are) (?:collected|charged)|pay(?:ment)? for the shuttle/i
 const EXTRA_RIDER = /(?:additional|extra|beyond|more than \d)[^.]{0,30}$/i
 const NO_SHUTTLE = /\bno (?:airport )?shuttle\b|shuttle (?:service )?(?:is )?not (?:available|provided|offered|included)|does not (?:offer|provide) (?:a |an )?(?:airport )?shuttle/i
-const VALET = /valet|meets? you (?:at|on) (?:the |your )?(?:terminal|curb)|drives? you (?:to|and)|drop(?:s)? you off at your terminal|curbside/i
 const SHUTTLE = /shuttle|on[- ]demand|every\s+(?:\d|hour|half)|once an hour|hourly|continuous|to and from the airport|pick ?ups?\b|on the hour|top of the hour/i
 
 /**
@@ -72,5 +72,7 @@ export function cruisePortLot(live: LiveShuttle, file: FileLot, fileMatchIsExact
   if (/(?:to|from) (?:and from )?the (?:cruise )?port\b|port of [a-z]+|cruise (?:terminal|port|ship)/i.test(own) && !servesAirport) return 'shuttle runs to the cruise port'
   const notes = typeof file?.notes === 'string' ? file.notes : ''
   if (fileMatchIsExact && /cruise[- ]port lot|do not present it as general [a-z ]*airport parking|operator describes it for [^.]*cruise/i.test(notes)) return 'cruise-port lot (data file notes)'
+  // lot-sync's note says "cruise-port/downtown lot", which the pattern above does not match (round-2 review of #160).
+  if (fileMatchIsExact && file && isNotAirportLot(file)) return 'flagged by lot-sync as cruise-port/downtown (data file notes)'
   return ''
 }
