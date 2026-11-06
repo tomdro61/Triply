@@ -29,3 +29,14 @@ export const TERMS_CHECKBOX_TAIL = TERMS_CHECKBOX_TEXT[TERMS_VERSION].replace(
 export function termsTextFor(version: string | null | undefined): string | null {
   return version && Object.hasOwn(TERMS_CHECKBOX_TEXT, version) ? TERMS_CHECKBOX_TEXT[version as TermsVersion] : null;
 }
+
+/**
+ * The PaymentIntent metadata for the version the BROWSER rendered (the
+ * checkout sends it with the create call). Never the server's TERMS_VERSION:
+ * a tab opened before a wording change still shows the old words, and the
+ * evidence must quote what the customer saw. An unknown or missing version
+ * (an old tab, a tampered call) stamps nothing, so the evidence quotes nothing.
+ */
+export function termsStamp(version: unknown): { termsVersion: TermsVersion } | Record<string, never> {
+  return typeof version === "string" && termsTextFor(version) !== null ? { termsVersion: version as TermsVersion } : {};
+}

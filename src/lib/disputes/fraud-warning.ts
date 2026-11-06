@@ -29,13 +29,17 @@ type WarningBooking = {
 export async function handleEarlyFraudWarning(supabase: Db, w: Stripe.Radar.EarlyFraudWarning): Promise<DisputeOutcome> {
   const paymentIntentId = idOf(w.payment_intent);
   const ctx = { stripePaymentIntentId: paymentIntentId ?? "unknown", amount: 0 };
+  // Every failure asks Stripe to redeliver, a missing table included: unlike
+  // a dispute there is no booking flip waiting on this delivery, and a 200
+  // before the warning is stored or emailed loses it for good (round-1
+  // Codex). Once 046 is applied, the next redelivery records and sends it.
   const fail = (what: string, err: { message: string; code?: string }): DisputeOutcome => {
     const missing = err.code != null && MISSING_TABLE.has(err.code);
     capturePaymentError(
       new Error(`Fraud warning ${w.id}: ${what}: ${err.message}${missing ? " — is migration 046 applied?" : ""}`),
       ctx
     );
-    return { retryable: !missing };
+    return { retryable: true };
   };
 
   let booking: WarningBooking | null = null;

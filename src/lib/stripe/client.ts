@@ -5,7 +5,7 @@
  */
 
 import Stripe from "stripe";
-import { TERMS_VERSION } from "@/lib/checkout/terms-acceptance";
+import { termsStamp } from "@/lib/checkout/terms-acceptance";
 
 if (!process.env.STRIPE_SECRET_KEY) {
   console.warn("Missing STRIPE_SECRET_KEY environment variable");
@@ -71,8 +71,12 @@ export const CHECKOUT_PAYMENT_METHOD_TYPES = ["card", "link"] as const;
  */
 export async function createPaymentIntent(
   amount: number,
-  metadata: Record<string, string>
+  metadata: Record<string, string>,
+  /** The checkbox version the checkout rendered (client-sent, validated here). */
+  renderedTermsVersion: unknown
 ) {
+  // The validated stamp below is the ONLY way termsVersion gets onto a PI.
+  const callerMetadata = Object.fromEntries(Object.entries(metadata).filter(([k]) => k !== "termsVersion"));
   return stripe.paymentIntents.create({
     amount: Math.round(amount * 100), // Convert to cents
     currency: "usd",
@@ -80,9 +84,10 @@ export async function createPaymentIntent(
     ...(MANUAL_CAPTURE_DISABLED
       ? {}
       : { payment_method_options: { card: { capture_method: "manual" as const } } }),
-    // termsVersion: the checkbox wording the customer must tick before Pay
-    // enables — dispute evidence quotes it (lib/checkout/terms-acceptance).
-    metadata: { ...metadata, termsVersion: TERMS_VERSION },
+    // termsVersion: the checkbox wording the checkout rendered (Pay stays
+    // disabled until it is ticked) — dispute evidence quotes it. Stamped only
+    // for a known version (lib/checkout/terms-acceptance).
+    metadata: { ...callerMetadata, ...termsStamp(renderedTermsVersion) },
   });
 }
 

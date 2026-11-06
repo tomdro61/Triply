@@ -1,6 +1,7 @@
 import { resend, FROM_EMAIL } from "./client";
 import { PAYMENT_ALERT_EMAILS } from "@/config/admin";
 import type { Playbook } from "@/lib/disputes/evidence";
+import { formatDeadline } from "@/lib/disputes/deadline";
 
 // Every data-derived value is escaped: dispute and booking fields come from
 // Stripe and customer input.
@@ -50,22 +51,9 @@ async function sendBounded(payload: Parameters<typeof resend.emails.send>[0], wh
   }
 }
 
-/**
- * Stripe's `due_by` is a real instant (often 23:59:59 UTC, i.e. early evening
- * Eastern). The team works in Eastern time, so show the deadline there with
- * the clock time — a bare UTC date reads as "all day" and can be a day late.
- */
-export function formatDeadline(iso: string): string {
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZoneName: "short",
-  }).format(new Date(iso));
-}
+// formatDeadline lives in lib/disputes/deadline.ts (pure, so /admin/disputes
+// can use it); re-exported for the email's tests.
+export { formatDeadline };
 
 /**
  * Emails the payment-alert list the moment a dispute opens. Sentry alone was
@@ -138,9 +126,15 @@ export async function sendFraudWarningAlert(a: {
   bookingStatus: string | null;
   checkIn: string | null;
 }) {
-  const advice = a.actionable
-    ? "If the car was <strong>not</strong> parked, refund it in Stripe now: a refund before a dispute avoids the dispute fee. If it was parked, keep the lot's proof for the dispute that may follow."
-    : "Stripe marks this warning as not actionable (already refunded or disputed). Nothing to do unless a dispute opens.";
+  // A refund in Stripe alone does NOT cancel the reservation at ResLab (the
+  // charge.refunded webhook only marks our row): the lot still honours it and
+  // ResLab still bills us. With a booking, cancel it from admin, which cancels
+  // at ResLab and Park Guard and refunds in one step.
+  const advice = !a.actionable
+    ? "Stripe marks this warning as not actionable (already refunded or disputed). Nothing to do unless a dispute opens."
+    : a.confirmationNumber
+      ? "If the car was <strong>not</strong> parked, cancel the booking with a <strong>full refund</strong> from Admin → Bookings now: that cancels it at the lot (ResLab) and Park Guard too, and a refund before a dispute avoids the dispute fee. Don't refund in Stripe alone — the reservation would stay live at the lot. If it was parked, keep the lot's proof for the dispute that may follow."
+      : "No booking matches this charge. If it wasn't a real purchase, refund it in Stripe now: a refund before a dispute avoids the dispute fee.";
   // No amount row: a warning carries none, and the booking total is not the
   // card charge — the Stripe link shows the real one.
   const rows: [string, string][] = [

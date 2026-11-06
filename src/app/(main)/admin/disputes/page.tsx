@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, ExternalLink, Loader2 } from "lucide-react";
+import { formatDeadline, timeLeftLabel } from "@/lib/disputes/deadline";
 
 type Dispute = {
   stripe_dispute_id: string;
@@ -33,56 +34,73 @@ type Warning = {
 
 type Mode = "live" | "test" | "all";
 
+type Loaded = {
+  mode: Mode;
+  open: Dispute[];
+  closed: Dispute[];
+  closedShown: number;
+  counts: { won: number; lost: number };
+  warnings: Warning[];
+  warningError: string | null;
+  /** Set on arrival, for the deadline countdown. */
+  loadedAtMs: number;
+};
+
 const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 const stripeBase = (live: boolean) => `https://dashboard.stripe.com/${live ? "" : "test/"}`;
 
-/** Whole days until Stripe's deadline (negative = past). Deadlines are real instants, not booking times. */
-function daysLeft(iso: string | null): number | null {
-  if (!iso) return null;
-  return Math.floor((Date.parse(iso) - Date.now()) / 864e5);
+function TestPill({ live }: { live: boolean }) {
+  return live ? null : <span className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">TEST</span>;
 }
 
-function Deadline({ d }: { d: Dispute }) {
+/** Stripe's deadline is a real instant: shown in Eastern time with the hour, and hours left under 2 days.
+ *  `nowMs` is when the data loaded (no clock read during render). */
+function Deadline({ d, nowMs }: { d: Dispute; nowMs: number }) {
   if (d.closed_at) return <span className="text-gray-400">—</span>;
-  const left = daysLeft(d.evidence_due_by);
-  if (left == null) return <span className="text-gray-500">check Stripe</span>;
-  const tone = left < 0 ? "text-gray-500" : left <= 2 ? "text-red-600 font-semibold" : left <= 5 ? "text-amber-600" : "text-gray-700";
+  if (!d.evidence_due_by) return <span className="text-gray-500">check Stripe</span>;
+  const { label, hoursLeft } = timeLeftLabel(d.evidence_due_by, nowMs);
+  const tone = hoursLeft <= 0 ? "text-gray-500" : hoursLeft < 48 ? "text-red-600 font-semibold" : hoursLeft < 120 ? "text-amber-600" : "text-gray-700";
   return (
     <span className={tone}>
-      {d.evidence_due_by?.slice(0, 10)}{" "}
-      <span className="text-xs">({left < 0 ? "passed" : left === 0 ? "today" : `${left}d left`})</span>
+      {formatDeadline(d.evidence_due_by)} <span className="text-xs">({label})</span>
     </span>
   );
 }
 
 export default function AdminDisputesPage() {
-  const [mode, setMode] = useState<Mode>("live");
-  const [disputes, setDisputes] = useState<Dispute[]>([]);
-  const [warnings, setWarnings] = useState<Warning[]>([]);
-  const [warningError, setWarningError] = useState<string | null>(null);
+  // null until the first load: the route picks the deployment's own Stripe
+  // mode (staging = test), and returns the mode it applied.
+  const [mode, setMode] = useState<Mode | null>(null);
+  const [data, setData] = useState<Loaded | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [marking, setMarking] = useState<string | null>(null);
+  // Only the newest request may write state: a slow response for the mode
+  // you just left must not land under the mode you switched to.
+  const requestSeq = useRef(0);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (wanted: Mode | null) => {
+    const seq = ++requestSeq.current;
     setLoading(true);
     setError("");
+    setData(null);
     try {
-      const res = await fetch(`/api/admin/disputes?mode=${mode}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      setDisputes(data.disputes);
-      setWarnings(data.warnings);
-      setWarningError(data.warningError);
+      const res = await fetch(`/api/admin/disputes${wanted ? `?mode=${wanted}` : ""}`);
+      const body = await res.json();
+      if (seq !== requestSeq.current) return;
+      if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+      setData({ ...(body as Omit<Loaded, "loadedAtMs">), loadedAtMs: Date.now() });
+      setMode((body as Loaded).mode);
     } catch (err) {
+      if (seq !== requestSeq.current) return;
       setError(err instanceof Error ? err.message : "Failed to load disputes");
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) setLoading(false);
     }
-  }, [mode]);
+  }, []);
 
   useEffect(() => {
-    load();
+    load(null);
   }, [load]);
 
   async function markSubmitted(id: string) {
@@ -90,9 +108,9 @@ export default function AdminDisputesPage() {
     setMarking(id);
     try {
       const res = await fetch(`/api/admin/disputes/${encodeURIComponent(id)}/submitted`, { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      await load();
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+      await load(mode);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Could not mark submitted");
     } finally {
@@ -100,13 +118,7 @@ export default function AdminDisputesPage() {
     }
   }
 
-  // Open first (nearest deadline first), then closed newest first.
-  const open = disputes
-    .filter((d) => !d.closed_at)
-    .sort((a, b) => (a.evidence_due_by ?? "9").localeCompare(b.evidence_due_by ?? "9"));
-  const closed = disputes.filter((d) => d.closed_at);
-  const won = closed.filter((d) => d.outcome === "won").length;
-  const lost = closed.filter((d) => d.outcome === "lost").length;
+  const rows = data ? [...data.open, ...data.closed] : [];
 
   return (
     <div className="space-y-6">
@@ -118,39 +130,48 @@ export default function AdminDisputesPage() {
           </p>
         </div>
         <select
-          value={mode}
-          onChange={(e) => setMode(e.target.value as Mode)}
+          value={mode ?? ""}
+          onChange={(e) => {
+            const next = e.target.value as Mode;
+            setMode(next);
+            load(next);
+          }}
+          disabled={mode === null}
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
           aria-label="Live or test disputes"
         >
+          {mode === null && <option value="">Loading…</option>}
           <option value="live">Live</option>
           <option value="test">Test</option>
           <option value="all">All</option>
         </select>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          ["Open", open.length],
-          ["Won", won],
-          ["Lost", lost],
-          ["Fraud warnings", warnings.length],
-        ].map(([label, n]) => (
-          <div key={label} className="bg-white rounded-xl shadow-sm p-4">
-            <div className="text-xs text-gray-500">{label}</div>
-            <div className="text-2xl font-bold text-gray-900">{n}</div>
-          </div>
-        ))}
-      </div>
-
       {loading ? (
         <div className="flex justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-brand-orange" />
         </div>
-      ) : error ? (
-        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 text-sm">{error}</div>
+      ) : error || !data ? (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 text-sm">{error || "Failed to load disputes"}</div>
       ) : (
         <>
+          {/* Tiles only from a successful load — never stale or zero on a failed one. */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {(
+              [
+                ["Open", data.open.length],
+                ["Won", data.counts.won],
+                ["Lost", data.counts.lost],
+                ["Fraud warnings", data.warningError ? "—" : data.warnings.length],
+              ] as const
+            ).map(([label, n]) => (
+              <div key={label} className="bg-white rounded-xl shadow-sm p-4">
+                <div className="text-xs text-gray-500">{label}</div>
+                <div className="text-2xl font-bold text-gray-900">{n}</div>
+              </div>
+            ))}
+          </div>
+
           <div className="bg-white rounded-xl shadow-sm overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-left text-xs text-gray-500 uppercase">
@@ -165,28 +186,31 @@ export default function AdminDisputesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {[...open, ...closed].map((d) => (
+                {rows.map((d) => (
                   <tr key={d.stripe_dispute_id} className={d.closed_at ? "text-gray-500" : ""}>
                     <td className="px-4 py-3">
-                      <div className="font-medium">{d.bookings?.reslab_reservation_number ?? "No booking"}</div>
+                      <div className="font-medium">
+                        {d.bookings?.reslab_reservation_number ?? "No booking"}
+                        <TestPill live={d.livemode} />
+                      </div>
                       <div className="text-xs text-gray-500">{d.bookings?.location_name ?? ""}</div>
                     </td>
                     <td className="px-4 py-3">{money(d.amount_cents)}</td>
                     <td className="px-4 py-3">{d.reason.replace(/_/g, " ")}</td>
                     <td className="px-4 py-3">
-                      <Deadline d={d} />
+                      <Deadline d={d} nowMs={data.loadedAtMs} />
                     </td>
                     <td className="px-4 py-3 text-xs">
                       {d.submitted_at ? (
                         <span className="inline-flex items-center gap-1 text-green-700">
-                          <CheckCircle2 size={14} /> Submitted {d.submitted_at.slice(0, 10)}
+                          <CheckCircle2 size={14} /> Submitted {formatDeadline(d.submitted_at)}
                           {d.submitted_by ? ` by ${d.submitted_by}` : ""}
                         </span>
                       ) : d.evidence_drafted_at ? (
                         "Draft saved"
                       ) : d.evidence_draft_error ? (
                         <span className="inline-flex items-center gap-1 text-red-600" title={d.evidence_draft_error}>
-                          <AlertTriangle size={14} /> Draft failed
+                          <AlertTriangle size={14} /> No draft — see reason
                         </span>
                       ) : (
                         "No draft"
@@ -214,7 +238,7 @@ export default function AdminDisputesPage() {
                     </td>
                   </tr>
                 ))}
-                {disputes.length === 0 && (
+                {rows.length === 0 && (
                   <tr>
                     <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                       No disputes recorded.
@@ -223,17 +247,22 @@ export default function AdminDisputesPage() {
                 )}
               </tbody>
             </table>
+            {data.closed.length >= data.closedShown && (
+              <p className="px-4 py-3 text-xs text-gray-500">
+                Showing every open dispute and the {data.closedShown} most recently closed. Won/Lost count all of them.
+              </p>
+            )}
           </div>
 
           <div>
             <h2 className="text-lg font-semibold text-gray-900 mb-2">Early fraud warnings</h2>
             <p className="text-sm text-gray-500 mb-3">
-              The card network&apos;s heads-up that a dispute is likely. If the car was not parked, refunding now avoids the
-              dispute fee.
+              The card network&apos;s heads-up that a dispute is likely. If the car was not parked, cancel the booking with a
+              full refund from Bookings (that also cancels it at the lot) — a refund before a dispute avoids the dispute fee.
             </p>
-            {warningError ? (
+            {data.warningError ? (
               <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-3 text-sm">
-                Fraud warnings unavailable: {warningError}
+                Fraud warnings unavailable: {data.warningError}
               </div>
             ) : (
               <div className="bg-white rounded-xl shadow-sm overflow-x-auto">
@@ -248,14 +277,15 @@ export default function AdminDisputesPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {warnings.map((w) => (
+                    {data.warnings.map((w) => (
                       <tr key={w.stripe_warning_id}>
                         <td className="px-4 py-3">
                           {w.bookings?.reslab_reservation_number ?? "No booking"}
+                          <TestPill live={w.livemode} />
                           {w.bookings?.status ? <span className="text-xs text-gray-500"> · {w.bookings.status}</span> : null}
                         </td>
                         <td className="px-4 py-3">{w.fraud_type.replace(/_/g, " ")}</td>
-                        <td className="px-4 py-3">{w.created_at.slice(0, 10)}</td>
+                        <td className="px-4 py-3">{formatDeadline(w.created_at)}</td>
                         <td className="px-4 py-3">{w.actionable ? "Yes" : "No"}</td>
                         <td className="px-4 py-3 text-right">
                           {w.charge_id && (
@@ -271,7 +301,7 @@ export default function AdminDisputesPage() {
                         </td>
                       </tr>
                     ))}
-                    {warnings.length === 0 && (
+                    {data.warnings.length === 0 && (
                       <tr>
                         <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
                           No fraud warnings.

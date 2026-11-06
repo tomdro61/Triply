@@ -61,6 +61,8 @@ export type ChargeFacts = {
   cvcCheck: string | null;
   postalCheck: string | null;
   threeDSecure: string | null;
+  /** "challenge" | "frictionless" — only a challenge means the cardholder acted. */
+  threeDSecureFlow: string | null;
 };
 
 /** ChargeFacts from a dispute retrieved with `expand: ["charge", "payment_intent"]`. */
@@ -77,6 +79,7 @@ export function chargeFactsFrom(charge: Stripe.Charge, pi: Stripe.PaymentIntent 
     cvcCheck: card?.checks?.cvc_check ?? null,
     postalCheck: card?.checks?.address_postal_code_check ?? null,
     threeDSecure: card?.three_d_secure?.result ?? null,
+    threeDSecureFlow: card?.three_d_secure?.authentication_flow ?? null,
   };
 }
 
@@ -87,8 +90,17 @@ function cardCheckLines(c: ChargeFacts | null): string[] {
   const lines: string[] = [];
   if (c.cvcCheck === "pass") lines.push("Card security code (CVC) check: passed.");
   if (c.postalCheck === "pass") lines.push("Billing postal code check: passed.");
-  if (c.threeDSecure === "authenticated") lines.push("3D Secure: the cardholder authenticated the payment.");
-  else if (c.threeDSecure === "attempt_acknowledged") lines.push("3D Secure: authentication was attempted and acknowledged by the card issuer.");
+  // "authenticated" includes the frictionless flow, where the issuer approved
+  // without the cardholder doing anything; only "challenge" means they acted.
+  // "attempt_acknowledged" (issuer doesn't support 3DS, no authentication
+  // happened) is left out: it proves nothing about the cardholder.
+  if (c.threeDSecure === "authenticated") {
+    lines.push(
+      c.threeDSecureFlow === "challenge"
+        ? "3D Secure: the cardholder completed the card issuer's authentication challenge."
+        : "3D Secure: authentication succeeded."
+    );
+  }
   return lines;
 }
 
@@ -252,12 +264,13 @@ export function buildEvidence(
     .filter(Boolean)
     .join("\n");
 
-  // Pay stays disabled until the checkbox is ticked (wallets included — they
-  // go through the same Pay button), and every PaymentIntent carries the
-  // version of its wording, so a versioned charge proves the exact words
-  // agreed to. Unversioned (older) charges quote nothing.
+  // States what our checkout enforces, not that this person ticked it: the
+  // gate is in the browser (Pay stays disabled until the box is ticked;
+  // wallets use the same button), so a hand-built request could skip it
+  // (round-1 Codex). The version is the one the customer's checkout rendered,
+  // stamped on the PaymentIntent. Unversioned charges quote nothing.
   const agreed = charge?.termsText
-    ? `Before paying, the customer ticked a required checkbox reading: "${charge.termsText}"` +
+    ? `Triply's checkout keeps the Pay button disabled until the customer ticks a checkbox. The checkbox shown for this payment read: "${charge.termsText}"` +
       (charge.chargedAtISO ? ` (payment made ${charge.chargedAtISO.slice(0, 16).replace("T", " ")} UTC).` : "")
     : null;
   const cancellationDisclosure = [withPolicy ? CANCELLATION_POLICY : null, agreed].filter(Boolean).join(" ");

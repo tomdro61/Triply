@@ -81,6 +81,7 @@ const PAID: ChargeFacts = {
   cvcCheck: null,
   postalCheck: null,
   threeDSecure: null,
+  threeDSecureFlow: null,
 };
 const FACTS = { contact: CHECKOUT, charge: PAID };
 
@@ -202,10 +203,21 @@ describe("handleDisputeCreated", () => {
     expect(disputesUpdate.mock.calls[0][1].evidence.cancellation_policy_disclosure).not.toContain("ticked");
   });
 
-  it("an unknown terms version quotes nothing (never guesses the wording)", async () => {
+  it("an unknown terms version quotes nothing (never guesses the wording) and is reported", async () => {
     disputesRetrieve.mockResolvedValueOnce(liveDispute({ termsVersion: "1999-01-01" }));
     await handleDisputeCreated(sb, dispute());
-    expect(disputesUpdate.mock.calls[0][1].evidence.cancellation_policy_disclosure).not.toContain("ticked");
+    expect(disputesUpdate.mock.calls[0][1].evidence.cancellation_policy_disclosure).not.toContain("checkbox");
+    expect(sentry.capturePaymentError.mock.calls.some(([e]) => e.message.includes('unknown terms version "1999-01-01"'))).toBe(true);
+  });
+
+  // Round-1 Codex: the gate is in the browser, so the draft states what
+  // checkout enforces, never that this person ticked it.
+  it("the checkbox line describes the checkout gate, not a claim that the person ticked it", async () => {
+    await handleDisputeCreated(sb, dispute());
+    const text = disputesUpdate.mock.calls[0][1].evidence.cancellation_policy_disclosure;
+    expect(text).toContain("keeps the Pay button disabled until the customer ticks a checkbox");
+    expect(text).toContain("The checkbox shown for this payment read:");
+    expect(text).not.toMatch(/customer ticked/);
   });
 
   it("a failed checkout-contact read is reported and still drafts and alerts", async () => {
@@ -586,6 +598,18 @@ describe("evidence", () => {
       expect(e.refund_refusal_explanation).toBeUndefined();
       expect(e.uncategorized_text).toContain("status before the dispute: not recorded");
     }
+  });
+
+  // 3D Secure: "authenticated" includes frictionless (no cardholder action);
+  // "attempt_acknowledged" means no authentication happened.
+  it("3D Secure lines say only what each result proves", () => {
+    const with3ds = (threeDSecure: string, threeDSecureFlow: string | null) =>
+      buildEvidence(BOOKING, "fraudulent", { contact: CHECKOUT, charge: { ...PAID, threeDSecure, threeDSecureFlow } }).uncategorized_text;
+    expect(with3ds("authenticated", "challenge")).toContain("the cardholder completed the card issuer's authentication challenge");
+    expect(with3ds("authenticated", "frictionless")).toContain("3D Secure: authentication succeeded.");
+    expect(with3ds("authenticated", "frictionless")).not.toContain("cardholder completed");
+    expect(with3ds("attempt_acknowledged", null)).not.toContain("3D Secure");
+    expect(with3ds("failed", "challenge")).not.toContain("3D Secure");
   });
 
   it("every reason has hand steps", () => {

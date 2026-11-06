@@ -233,8 +233,15 @@ async function readLiveDispute(
       stripe.disputes.retrieve(d.id, { expand: ["charge", "payment_intent"] }, STRIPE_OPTS)
     );
     const c = typeof live.charge === "string" ? null : live.charge;
+    const facts = c ? chargeFactsFrom(c, live.payment_intent) : null;
+    const stamped = typeof live.payment_intent === "object" ? live.payment_intent?.metadata?.termsVersion : undefined;
+    if (facts && stamped && !facts.termsText) {
+      // A version this build doesn't know (e.g. after a rollback): the draft
+      // loses its checkbox quote — say so rather than drop it quietly.
+      capturePaymentError(new Error(`Dispute ${d.id}: unknown terms version "${stamped}" — evidence quotes no checkbox`), ctx);
+    }
     return {
-      charge: c ? chargeFactsFrom(c, live.payment_intent) : null,
+      charge: facts,
       acceptsEvidence: NEEDS_RESPONSE.has(live.status),
       evidenceStarted: TYPED_EVIDENCE.some((k) => {
         const v = live.evidence?.[k];

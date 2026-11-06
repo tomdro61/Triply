@@ -87,10 +87,14 @@ describe("handleEarlyFraudWarning", () => {
     expect(alerts.sendFraudWarningAlert).toHaveBeenCalledTimes(2);
   });
 
-  it("a missing table (migration 046 not applied) is reported, not retried", async () => {
+  it("a missing table (migration 046 not applied) is reported AND retried, so the alert isn't lost", async () => {
     db.failOnce("fraud_warnings", "insert", "relation does not exist", "42P01");
-    expect((await handleEarlyFraudWarning(sb, warning())).retryable).toBe(false);
+    expect((await handleEarlyFraudWarning(sb, warning())).retryable).toBe(true);
     expect(sentry.capturePaymentError.mock.calls[0][0].message).toContain("migration 046");
+    expect(alerts.sendFraudWarningAlert).not.toHaveBeenCalled();
+    // Migration applied: the redelivery records and sends it.
+    expect((await handleEarlyFraudWarning(sb, warning())).retryable).toBe(false);
+    expect(alerts.sendFraudWarningAlert).toHaveBeenCalledTimes(1);
   });
 
   it("a failed booking lookup asks for a retry", async () => {
