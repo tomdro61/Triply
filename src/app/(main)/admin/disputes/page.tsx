@@ -39,7 +39,7 @@ type Loaded = {
   open: Dispute[];
   closed: Dispute[];
   closedShown: number;
-  counts: { won: number; lost: number };
+  counts: { open: number; won: number; lost: number; warnings: number | null };
   warnings: Warning[];
   warningError: string | null;
   /** Set on arrival, for the deadline countdown. */
@@ -136,11 +136,11 @@ export default function AdminDisputesPage() {
             setMode(next);
             load(next);
           }}
-          disabled={mode === null}
+          disabled={loading}
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
           aria-label="Live or test disputes"
         >
-          {mode === null && <option value="">Loading…</option>}
+          {mode === null && <option value="">{loading ? "Loading…" : "Choose…"}</option>}
           <option value="live">Live</option>
           <option value="test">Test</option>
           <option value="all">All</option>
@@ -152,17 +152,22 @@ export default function AdminDisputesPage() {
           <Loader2 className="h-8 w-8 animate-spin text-brand-orange" />
         </div>
       ) : error || !data ? (
-        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 text-sm">{error || "Failed to load disputes"}</div>
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 text-sm">
+          {error || "Failed to load disputes"}{" "}
+          <button onClick={() => load(mode)} className="ml-2 underline font-medium">
+            Retry
+          </button>
+        </div>
       ) : (
         <>
           {/* Tiles only from a successful load — never stale or zero on a failed one. */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {(
               [
-                ["Open", data.open.length],
+                ["Open", data.counts.open],
                 ["Won", data.counts.won],
                 ["Lost", data.counts.lost],
-                ["Fraud warnings", data.warningError ? "—" : data.warnings.length],
+                ["Fraud warnings", data.counts.warnings ?? "—"],
               ] as const
             ).map(([label, n]) => (
               <div key={label} className="bg-white rounded-xl shadow-sm p-4">
@@ -247,9 +252,14 @@ export default function AdminDisputesPage() {
                 )}
               </tbody>
             </table>
+            {data.open.length < data.counts.open && (
+              <p className="px-4 py-3 text-sm font-semibold text-red-600">
+                Only {data.open.length} of {data.counts.open} open disputes are listed — check Stripe for the rest.
+              </p>
+            )}
             {data.closed.length >= data.closedShown && (
               <p className="px-4 py-3 text-xs text-gray-500">
-                Showing every open dispute and the {data.closedShown} most recently closed. Won/Lost count all of them.
+                Showing the {data.closedShown} most recently closed disputes. Won/Lost count all of them.
               </p>
             )}
           </div>
@@ -301,6 +311,13 @@ export default function AdminDisputesPage() {
                         </td>
                       </tr>
                     ))}
+                    {data.counts.warnings != null && data.warnings.length < data.counts.warnings && (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-3 text-xs text-gray-500">
+                          Showing the latest {data.warnings.length} of {data.counts.warnings}.
+                        </td>
+                      </tr>
+                    )}
                     {data.warnings.length === 0 && (
                       <tr>
                         <td colSpan={5} className="px-4 py-8 text-center text-gray-500">

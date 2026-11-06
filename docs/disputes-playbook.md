@@ -47,3 +47,7 @@ Code: `src/lib/disputes/` (evidence + per-reason playbook, handler, fraud warnin
 - Apply `supabase/migrations/045_disputes.sql` (applied 2026-11-06), then `046_dispute_tracking.sql`, **before** deploying #150 and before enabling the fraud-warning event (the admin page reads 046's columns).
 - In Stripe → Developers → Webhooks, on both the live triplypro.com endpoint and the test-mode staging endpoint, make sure `charge.dispute.created`, `charge.dispute.updated`, `charge.dispute.closed` and `radar.early_fraud_warning.created` are all enabled.
 - Changing the checkout checkbox wording? Add a new version in `terms-acceptance.ts`; never edit an old one.
+
+## Rollback note (#150)
+
+Rolling back production past #150: checkout tabs already open from a #150 build send `termsVersion`, and the older direct-lot checkout schema is `.strict()`, so those tabs get a 400 on a direct lot until the customer reloads. ResLab checkouts are unaffected. A rollback is still safe; expect those customers to need a reload.
