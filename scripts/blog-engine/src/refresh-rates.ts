@@ -97,7 +97,7 @@ const SITE = (process.env.TRIPLY_SITE_URL || 'https://www.triplypro.com').replac
 const MAX_ADVANCE_BOOKING_DAYS = 60
 
 /** Days ahead to sample first. Far enough to be a normal advance booking, inside the 60d window. */
-const DEFAULT_LEAD_DAYS = 21
+export const DEFAULT_LEAD_DAYS = 21
 
 /**
  * How many check-in dates to price before believing a rate, and how far apart.
@@ -114,17 +114,17 @@ const DEFAULT_SAMPLES = 3
 const SAMPLE_SPACING_DAYS = 12
 
 /** Stay length used for lots that carry no totalFor<N>Days of their own. */
-const DEFAULT_DAYS = 7
+export const DEFAULT_DAYS = 7
 
 /** A move beyond this ratio is treated as a bad join, not a price change. */
-const MAX_PLAUSIBLE_RATIO = 3
+export const MAX_PLAUSIBLE_RATIO = 3
 
 /** Dice coefficient over name tokens at or above this is offered as a fuzzy match. */
-const FUZZY_THRESHOLD = 0.8
+export const FUZZY_THRESHOLD = 0.8
 
-const SLEEP_MS = 1200
+export const SLEEP_MS = 1200
 
-interface LivePricing {
+export interface LivePricing {
   minPrice?: number
   grandTotal?: number
   subtotal?: number
@@ -133,9 +133,11 @@ interface LivePricing {
   numberOfDays?: number
 }
 
-interface LiveLot {
+export interface LiveLot {
   name: string
   slug?: string
+  /** Stable ResLab id. Matched first: names and addresses drift between the file and the listing. */
+  reslabLocationId?: number | null
   address?: string | null
   pricing?: LivePricing
   availability?: string
@@ -150,7 +152,7 @@ interface SearchResponse {
   listIncomplete?: boolean
 }
 
-type CatalogueLot = Record<string, unknown> & { name: string; slug?: string; dailyRate?: number }
+export type CatalogueLot = Record<string, unknown> & { name: string; slug?: string; dailyRate?: number }
 
 interface Change {
   field: string
@@ -211,9 +213,9 @@ export function coverageDecision(
 // Catalogue and live names share a convention ("Safe Park (JFK)"), because the
 // newer airport files were captured from this same API. Stripping the airport
 // parenthetical and punctuation matches 9/9 JFK lots and 8/9 LGA lots exactly.
-const STOP = new Set(['airport', 'parking', 'lot', 'the', 'by', 'at', 'and', 'a', 'of', 'inc', 'llc'])
+export const STOP = new Set(['airport', 'parking', 'lot', 'the', 'by', 'at', 'and', 'a', 'of', 'inc', 'llc'])
 
-function normName(n: string): string {
+export function normName(n: string): string {
   return n
     .toLowerCase()
     .replace(/\([a-z]{3}\)/g, ' ')
@@ -222,33 +224,33 @@ function normName(n: string): string {
     .replace(/\s+/g, ' ')
 }
 
-function nameTokens(n: string): Set<string> {
+export function nameTokens(n: string): Set<string> {
   return new Set(normName(n).split(' ').filter((t) => t && !STOP.has(t)))
 }
 
 /** House number + first street tokens — enough to identify, loose enough to survive formatting. */
-function normAddress(a: unknown): string | null {
+export function normAddress(a: unknown): string | null {
   if (typeof a !== 'string' || !a.trim()) return null
   const t = a.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(Boolean)
   return t.length ? t.slice(0, 3).join(' ') : null
 }
 
-function dice(a: Set<string>, b: Set<string>): number {
+export function dice(a: Set<string>, b: Set<string>): number {
   if (!a.size || !b.size) return 0
   let inter = 0
   for (const t of a) if (b.has(t)) inter++
   return (2 * inter) / (a.size + b.size)
 }
 
-function round2(n: number): number {
+export function round2(n: number): number {
   return Math.round(n * 100) / 100
 }
 
-function iso(d: Date): string {
+export function iso(d: Date): string {
   return d.toISOString().slice(0, 10)
 }
 
-function sleep(ms: number): Promise<void> {
+export function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms))
 }
 
@@ -264,7 +266,7 @@ function sleep(ms: number): Promise<void> {
 // silently corrupt a file.
 
 /** Walk `text` from `from`, returning the index just past the value starting there. */
-function endOfValue(text: string, from: number): number {
+export function endOfValue(text: string, from: number): number {
   let i = from
   while (i < text.length && /\s/.test(text[i])) i++
   const c = text[i]
@@ -301,7 +303,7 @@ function endOfValue(text: string, from: number): number {
 }
 
 /** Spans of the top-level elements of the root-level array named `key`. */
-function arrayElementSpans(text: string, key: string): { start: number; end: number }[] {
+export function arrayElementSpans(text: string, key: string): { start: number; end: number }[] {
   const m = new RegExp(`"${key}"\\s*:\\s*\\[`).exec(text)
   if (!m) return []
   let i = m.index + m[0].length
@@ -368,11 +370,21 @@ function insertInSpan(text: string, start: number, end: number, key: string, jso
  * then verify the result parses to `expected` before returning it. Returns null if
  * the surgery did not reproduce the intended object — the caller must not write.
  */
-function writeSurgically(
+export function writeSurgically(
   text: string,
   edits: { lotIndex: number; field: string; value: unknown }[],
   newLastVerified: string | null,
   expected: unknown
+): string | null {
+  const out = applyLotEdits(text, edits, newLastVerified)
+  return out !== null && reproduces(out, expected) ? out : null
+}
+
+/** The in-place edits alone, without the reproduction check (lot-sync appends lots before checking). */
+export function applyLotEdits(
+  text: string,
+  edits: { lotIndex: number; field: string; value: unknown }[],
+  newLastVerified: string | null
 ): string | null {
   const spans = arrayElementSpans(text, 'parkingLots')
   let out = text
@@ -412,6 +424,11 @@ function writeSurgically(
     const vStart = m.index + m[1].length
     out = out.slice(0, vStart) + JSON.stringify(newLastVerified) + out.slice(endOfValue(out, vStart))
   }
+  return out
+}
+
+/** True when `out` parses to exactly `expected`; logs where it diverges otherwise. */
+export function reproduces(out: string, expected: unknown): boolean {
   try {
     const got = JSON.stringify(JSON.parse(out))
     const want = JSON.stringify(expected)
@@ -421,13 +438,13 @@ function writeSurgically(
       console.log(`     surgery mismatch at char ${i}:`)
       console.log(`       wanted …${want.slice(Math.max(0, i - 70), i + 70)}`)
       console.log(`       got    …${got.slice(Math.max(0, i - 70), i + 70)}`)
-      return null
+      return false
     }
   } catch (e) {
     console.log(`     surgery produced invalid JSON: ${(e as Error).message}`)
-    return null
+    return false
   }
-  return out
+  return true
 }
 
 // ── the live call ────────────────────────────────────────────────────────────
@@ -437,7 +454,7 @@ function writeSurgically(
  * Returns null when the response is unusable — the caller must then leave the file
  * alone rather than write a partial refresh.
  */
-async function fetchLive(code: string, days: number, leadDays: number): Promise<LiveLot[] | null> {
+export async function fetchLive(code: string, days: number, leadDays: number): Promise<LiveLot[] | null> {
   const lead = Math.min(leadDays, MAX_ADVANCE_BOOKING_DAYS - (days - 1))
   if (lead < 1) {
     console.log(`  ! ${code}: a ${days}-day stay does not fit inside the ${MAX_ADVANCE_BOOKING_DAYS}-day booking window`)
@@ -482,6 +499,11 @@ function findMatch(
   lot: CatalogueLot,
   live: LiveLot[]
 ): { live: LiveLot; via: 'name' | 'address' | 'fuzzy'; score: number } | null {
+  // The ResLab id survives renames ("Apex EWR Airport Parking" is listed as "Apex Airport Parking"); lot-sync writes it.
+  if (typeof lot.reslabLocationId === 'number') {
+    const byId = live.find((r) => r.reslabLocationId === lot.reslabLocationId)
+    if (byId) return { live: byId, via: 'name', score: 1 }
+  }
   const key = normName(lot.name)
   const exact = live.find((r) => normName(r.name) === key)
   if (exact) return { live: exact, via: 'name', score: 1 }
@@ -507,7 +529,7 @@ function findMatch(
 }
 
 /** The N in this lot's totalFor<N>Days, if it has one. */
-function lotDays(lot: CatalogueLot): number | null {
+export function lotDays(lot: CatalogueLot): number | null {
   for (const k of Object.keys(lot)) {
     const m = /^totalFor(\d+)Days$/.exec(k)
     if (m) return Number(m[1])

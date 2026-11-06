@@ -21,6 +21,7 @@
     "analyze-logs": "tsx src/analyze-logs.ts",
     "refresh-candidates": "tsx src/refresh-candidates.ts",
     "refresh-rates": "tsx src/refresh-rates.ts",
+    "lot-sync": "tsx src/lot-sync.ts",
     "ctr-rescue": "tsx src/ctr-rescue.ts",
     "geo-tracker": "tsx src/geo-tracker.ts",
     "bing": "tsx src/bing.ts",
