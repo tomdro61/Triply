@@ -169,6 +169,7 @@ One entry per reviewed PR: what the review found, by lesson number. Newest first
     - Lesson 6: a name listed twice kept the cheaper listing over the one the file pins.
     - The chart ignored the new cruise note's wording.
     - All fixed.
+  - **Round 3 (Codex, on round 2):** the valet exemption matched the bare word "valet" (onsite valet ≠ airport transport). Narrowed.
 - **Hub posts (Nov 5, live CMS, no PR):**
   - Lesson 11: 25 posts edited without review.
   - Lesson 2: ATL said 82% vs the Hourly Deck; the index says 57% vs the Daily decks.
