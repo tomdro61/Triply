@@ -10,6 +10,9 @@ type BookingErrorContext = {
   inventorySource?: "reslab" | "direct";
   /** Group events by this instead of the stack trace (one Sentry issue per key). */
   fingerprint?: string[];
+  /** Below `error` for something worth seeing that is not a fault (e.g. a
+   *  price drop the customer benefits from). Omitted = Sentry's default. */
+  level?: "warning" | "info";
 };
 
 export function captureBookingError(
@@ -32,6 +35,7 @@ export function captureBookingError(
       });
     }
     if (context.userId) scope.setUser({ id: context.userId });
+    if (context.level) scope.setLevel(context.level);
     Sentry.captureException(error);
   });
 }

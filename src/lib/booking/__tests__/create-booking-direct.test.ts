@@ -1357,3 +1357,26 @@ describe("direct fulfilment — a stamped discountCents (promo plan Part 1, read
     expect(b?.ok && b.lines.find((l) => l.key === "promo")?.label).toBe("Promo discount (JFK5)");
   });
 });
+
+describe("direct fulfilment — a stamped discount with no promoCode (PR 1 review)", () => {
+  it("books the discount and reports that the use will not be counted — before the insert", async () => {
+    const meta = { ...META, discountCents: "500", directDiscountCents: "500", parkingOnlyChargeAmountCents: "5866" };
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(pi({ amount: 5866, metadata: meta }));
+
+    expect((await createBooking({ source: "webhook", stripePaymentIntentId: PI })).kind).toBe("created");
+
+    expect(db.tables.bookings[0].discount_amount).toBe(5);
+    expect(db.tables.bookings[0].promo_code ?? null).toBeNull();
+    const noCode = vi.mocked(capturePaymentError).mock.calls.filter(([e]) => /with no promoCode/.test(String(e)));
+    expect(noCode).toHaveLength(1);
+    expect(noCode[0][1]).toMatchObject({ stripePaymentIntentId: PI, inventorySource: "direct", fingerprint: ["promo-discount-stamp", "no_code"] });
+  });
+
+  it("a percent-only direct promo with no code is not reported (no stamp: today's behaviour)", async () => {
+    const meta = { ...META, discountPercent: "10", directDiscountCents: "498", parkingOnlyChargeAmountCents: "5868" };
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(pi({ amount: 5868, metadata: meta }));
+
+    expect((await createBooking({ source: "webhook", stripePaymentIntentId: PI })).kind).toBe("created");
+    expect(vi.mocked(capturePaymentError).mock.calls.filter(([e]) => /with no promoCode/.test(String(e)))).toEqual([]);
+  });
+});

@@ -74,8 +74,15 @@ import {
   type PgSyncStatus,
   type ReservationResponse,
 } from "./fulfill";
-import { readStampedDiscount, stampedDiscountRefusal } from "@/lib/promo/stamped-discount";
-import { fromReslab, fromSnapshot, type DirectFulfilledReservation } from "./fulfilled-reservation";
+import {
+  checkStampAgainstCharge,
+  readCheckoutFigures,
+  readStampedDiscount,
+  stampedDiscountRefusal,
+  type CheckoutFigures,
+  type StampRefusalCause,
+} from "@/lib/promo/stamped-discount";
+import { fromReslab, fromSnapshot, type DirectFulfilledReservation, type ReslabFulfilledReservation } from "./fulfilled-reservation";
 import { DIRECT_ENGINE_READY } from "@/lib/direct/flag";
 import { issueConfirmationNumber } from "@/lib/direct/confirmation-number";
 import { readDirectMetadataMoney, type DirectMetadataMoney } from "@/lib/direct/metadata-money";
@@ -1798,6 +1805,9 @@ async function fulfilClaimed(
   const charged = chargedResolution.charged;
 
   // --- Step 8: price + inventory refresh --------------------------------------
+  // Whether a promo stamp was checked against a fresh price here; when not,
+  // Step 9.5 checks it against the reservation before capture.
+  let stampChecked = false;
   if (!resuming) {
     const check = await refreshCost(pi, payload, charged);
     if (check.blocked) {
@@ -1814,7 +1824,7 @@ async function fulfilClaimed(
       // Alert first, then write: markTerminal can throw DurableStateError.
       capturePaymentError(
         new Error(`Fulfilment blocked before booking: ${check.reason}`),
-        { stripePaymentIntentId: piId, amount: pi.amount / 100 }
+        { stripePaymentIntentId: piId, amount: pi.amount / 100, ...(check.fingerprint && { fingerprint: check.fingerprint }) }
       );
       await markTerminal(piId, terminal, check.reason);
       await releaseCart(piId);
@@ -1823,10 +1833,12 @@ async function fulfilClaimed(
         : {
             kind: "failed",
             reason: check.reason,
-            userMessage: check.userMessage,
+            // A refunded customer is never told "you have not been charged".
+            userMessage: release.released === "refunded" ? check.userMessage.refunded : check.userMessage.released,
           };
     }
     if (check.freshToken) payload.costsToken = check.freshToken;
+    stampChecked = check.stampChecked;
   }
 
   // --- Step 9: ResLab reservation ---------------------------------------------
@@ -1954,6 +1966,30 @@ async function fulfilClaimed(
   // second one). fromReslab itself never throws.
   const fr = fromReslab(reservation);
 
+  // --- Step 9.5: a promo stamp Step 8 did not check — BEFORE the capture -----
+  // A resume skips Step 8, and Step 8 proceeds when ResLab is unreachable or
+  // its price unreadable. A stamp refused here must not be captured and then
+  // recorded by a fallback rule: the reservation is live, so it goes to the
+  // reconciliation queue (Discord + customer email, PR #133) with the
+  // authorization intact — the same route as an ambiguous ResLab failure.
+  if (!stampChecked) {
+    const refused = stampRefusedBeforeCapture(pi, payload, fr, charged);
+    if (refused) {
+      const detail = `promo discount stamp refused before capture (${refused.cause}): ${refused.detail}`;
+      // Alert first, then write: markTerminal can throw DurableStateError.
+      capturePaymentError(
+        new Error(
+          `${detail}. ResLab reservation ${fr.number} is LIVE; payment ${
+            pi.status === "requires_capture" ? "NOT captured — authorization left intact" : `already ${pi.status}`
+          }. Reconcile by hand.`
+        ),
+        { stripePaymentIntentId: piId, amount: pi.amount / 100, fingerprint: ["promo-discount-stamp", refused.cause] }
+      );
+      await markTerminal(piId, "needs_reconciliation", detail);
+      return { kind: "needs_reconciliation", reason: detail, retryable: false };
+    }
+  }
+
   // --- Step 10: CAPTURE — the customer's money moves here, and only here ------
   if (pi.status === "requires_capture") {
     try {
@@ -2028,32 +2064,39 @@ async function fulfilClaimed(
         ? rawDiscountPercent
         : 0,
     stampedDiscount: readStampedDiscount(pi.metadata),
+    checkoutFigures: readCheckoutFigures(pi.metadata),
     // The real charge, in cents — the source of truth for what the customer
     // paid, so the stored discount reconciles to Stripe exactly.
     chargedCents: pi.amount,
   };
-  const persisted = await persistBooking(payload, fr, charged, pi.livemode, promo, attribution);
   // The emails' (and the response's) discount comes from the same pure
   // derivation persistBooking uses — NOT from its result: a persistence failure
   // must never zero the discount in a permanent email (cost-breakdown plan v2 §3).
+  // Derived BEFORE the insert so its warnings are reported even if this
+  // invocation dies inside persistBooking (a Park Guard timeout after the row
+  // is written would otherwise lose them: the re-drive finds the row and never
+  // gets here again).
   const appliedDiscount = appliedPromoDiscount(payload, fr, charged, promo);
   // Reported once here (the derivation is pure and runs for the row too). The
   // money has moved, so a doubtful stamp cannot refuse the booking any more —
-  // the row and receipt follow appliedPromoDiscount's rule, and we look.
-  // Normally unreachable: refreshCost refuses a bad stamp before capture, but
-  // it is skipped on resume and proceeds when ResLab is unreachable.
-  if (appliedDiscount.stampWarning) {
+  // the row and receipt follow appliedPromoDiscount's rule, and we look. A
+  // refused stamp is normally unreachable here (Steps 8 and 9.5 refuse it
+  // before capture); each one that arrives needs its row repaired, so it gets
+  // its own Sentry issue per PaymentIntent.
+  for (const warning of appliedDiscount.stampWarnings) {
     capturePaymentError(
-      new Error(
-        `Promo discountCents ${appliedDiscount.stampWarning.kind} on ${piId} (reservation ${fr.number}): ${appliedDiscount.stampWarning.detail}`
-      ),
+      new Error(`Promo discountCents ${warning.kind} on ${piId} (reservation ${fr.number}): ${warning.detail}`),
       {
         stripePaymentIntentId: piId,
         amount: pi.amount / 100,
-        fingerprint: ["promo-discount-stamp", appliedDiscount.stampWarning.kind],
+        fingerprint:
+          warning.kind === "refused"
+            ? ["promo-discount-stamp", warning.kind, piId]
+            : ["promo-discount-stamp", warning.kind],
       }
     );
   }
+  const persisted = await persistBooking(payload, fr, charged, pi.livemode, promo, attribution);
 
   if (persisted.duplicatePaymentIntent) {
     // 23505 on the insert. Look the booking up by PaymentIntent: a row for THIS
@@ -2190,6 +2233,76 @@ async function handBackWhileSettling(piId: string, row: PendingRow): Promise<Cre
   return { kind: "deferred" };
 }
 
+/** What a blocked refresh tells the customer — chosen by what happened to the
+ *  payment: an auto-captured (wallet / pre-cutover) PaymentIntent is REFUNDED,
+ *  not released, and must never be told "You have not been charged". */
+interface BlockedMessages {
+  released: string;
+  refunded: string;
+}
+
+type RefreshResult =
+  | {
+      blocked: false;
+      freshToken?: string;
+      /** True when a `discountCents` stamp was checked against a fresh ResLab
+       *  price here. False on every path that did not (no stamp, ResLab
+       *  unreachable or unreadable): Step 9.5 then checks the stamp against the
+       *  reservation itself before capture. */
+      stampChecked: boolean;
+    }
+  | {
+      blocked: true;
+      soldOut: boolean;
+      reason: string;
+      userMessage: BlockedMessages;
+      /** Sentry grouping for a promo-stamp refusal (one issue per cause). */
+      fingerprint?: string[];
+    };
+
+const RESTART_NOT_CHARGED = "You have not been charged — please start your booking again.";
+const RESTART_REFUNDED =
+  "We've refunded your payment in full — refunds take 5–10 business days to appear on your statement. Please start your booking again.";
+
+/** The customer's wording per refusal cause (promo plan Part 1 review, fix 5). */
+const STAMP_REFUSAL_WORDING: Record<StampRefusalCause, string> = {
+  stamp_invalid: "We couldn't read the promo discount on your payment.",
+  stamp_inconsistent: "The promo discount on your payment doesn't match the amount authorized.",
+  stamp_exceeds_checkout_online_parking:
+    "Your promo discount is more than the parking you'd pay online for this booking, so it can't be applied here.",
+  stamp_exceeds_online_parking:
+    "The price for this parking option changed while you were checking out, and your promo discount is now more than the parking you'd pay online.",
+};
+
+function stampBlocked(cause: StampRefusalCause, detail: string): Extract<RefreshResult, { blocked: true }> {
+  const wording = STAMP_REFUSAL_WORDING[cause];
+  return {
+    blocked: true,
+    soldOut: false,
+    reason: `promo discount stamp refused (${cause}): ${detail}`,
+    userMessage: { released: `${wording} ${RESTART_NOT_CHARGED}`, refunded: `${wording} ${RESTART_REFUNDED}` },
+    fingerprint: ["promo-discount-stamp", cause],
+  };
+}
+
+/**
+ * The parking paid online dropped below a stamped discount that checkout's own
+ * figures vouch for. Not a block: the drift guard is one-directional — the
+ * customer pays what they authorized, which is at most the new price. Seen,
+ * once per class, below error level.
+ */
+function reportStampPriceDrop(pi: Stripe.PaymentIntent, payload: BookingPayload, detail: string): void {
+  captureBookingError(
+    new Error(`Promo discountCents exceeds the current online parking on ${pi.id} (${detail}) — a price drop; booking at the authorized amount`),
+    {
+      step: "checkout",
+      airportCode: payload.airportCode,
+      fingerprint: ["promo-discount-stamp", "price_drop_below_stamp"],
+      level: "warning",
+    }
+  );
+}
+
 /**
  * Price and inventory revalidation before we commit.
  *
@@ -2203,10 +2316,30 @@ async function refreshCost(
   pi: Stripe.PaymentIntent,
   payload: BookingPayload,
   charged: ChargedProtection | null
-): Promise<
-  | { blocked: false; freshToken?: string }
-  | { blocked: true; soldOut: boolean; reason: string; userMessage: string }
-> {
+): Promise<RefreshResult> {
+  // What we would charge now, in the same shape /api/checkout/lot computed it.
+  // The premium is the one the PaymentIntent was CHARGED (from its metadata),
+  // not the live retail: a retail change after authorization is not price
+  // drift, and using the constant here blocked every in-flight booking
+  // across a Plan A price change with a bogus "the price changed".
+  const protectionPremium = charged?.premium ?? 0;
+
+  // A `discountCents` stamp (promo plan Part 1) is checked against the
+  // PaymentIntent ALONE first — no ResLab needed, so an unusable stamp is
+  // refused here even when ResLab is down, while refusing still costs the
+  // customer nothing. With checkout's own figures stamped beside it the check
+  // is exact (see checkStampAgainstCharge).
+  const stamped = readStampedDiscount(pi.metadata);
+  let checkout: CheckoutFigures = { kind: "absent" };
+  if (stamped.kind !== "absent") {
+    const check = checkStampAgainstCharge(pi.metadata, stamped, {
+      premiumCents: Math.round(protectionPremium * 100),
+      piAmountCents: pi.amount,
+    });
+    if (!check.ok) return stampBlocked(check.cause, check.detail);
+    checkout = check.checkout;
+  }
+
   try {
     const cost = await reslab.getCost(payload.locationId, [
       {
@@ -2220,21 +2353,15 @@ async function refreshCost(
     ]);
 
     if (cost.reservation.sold_out) {
+      const soldOut = "This parking option sold out while you were checking out. You have not been charged.";
       return {
         blocked: true,
         soldOut: true,
         reason: "ResLab reports the option sold out at fulfilment time",
-        userMessage:
-          "This parking option sold out while you were checking out. You have not been charged.",
+        userMessage: { released: soldOut, refunded: soldOut },
       };
     }
 
-    // What we would charge now, in the same shape /api/checkout/lot computed it.
-    // The premium is the one the PaymentIntent was CHARGED (from its metadata),
-    // not the live retail: a retail change after authorization is not price
-    // drift, and using the constant here blocked every in-flight booking
-    // across a Plan A price change with a bogus "the price changed".
-    const protectionPremium = charged?.premium ?? 0;
     // The promo discount MUST be reapplied here. /api/checkout/lot validates a
     // promo code server-side and subtracts `sub_total * pct/100` BEFORE creating
     // the PaymentIntent, so a recomputation without it always comes out higher
@@ -2245,36 +2372,43 @@ async function refreshCost(
     // A `discountCents` stamp is the authority: expected = the pre-discount
     // online total − that, in cents; the percent beside it (if any) is
     // display-only and NOT reapplied (a fixed code has none; a capped percent
-    // code's percent does not reproduce it). Refused BEFORE capture — the
-    // only point where refusing costs the customer nothing — when it is
-    // unusable or larger than the parking paid online (it would have come out
-    // of the service fee).
-    const stamped = readStampedDiscount(pi.metadata);
+    // code's percent does not reproduce it).
     let freshCents: number;
-    if (stamped.kind !== "absent") {
-      const onlineParkingCents = Math.round(
-        (cost.reservation.grand_total - cost.reservation.due_at_location) * 100
-      );
-      const refusal = stampedDiscountRefusal(stamped, onlineParkingCents);
-      if (refusal !== null || stamped.kind !== "cents") {
-        // The caller reports the block (capturePaymentError) with this reason.
-        return {
-          blocked: true,
-          soldOut: false,
-          reason: `PI ${pi.id} promo discount stamp refused: ${refusal ?? "discountCents unusable"}`,
-          userMessage:
-            "We couldn't verify your promo discount. You have not been charged — please start your booking again.",
-        };
+    let stampChecked = false;
+    if (stamped.kind === "cents") {
+      const grand = cost.reservation.grand_total;
+      const due = cost.reservation.due_at_location;
+      if (!Number.isFinite(grand) || !Number.isFinite(due)) {
+        // ResLab's price is unreadable — not a stamp problem. Proceed on the
+        // existing token exactly as when ResLab is unreachable (below); Step
+        // 9.5 checks the stamp against the reservation before any capture.
+        captureBookingError(
+          new Error(
+            `getCost at fulfilment returned an unreadable price for ${pi.id} (grand_total ${JSON.stringify(grand)}, due_at_location ${JSON.stringify(
+              due
+            )}) — proceeding on the existing token; the promo stamp is checked against the reservation before capture`
+          ),
+          { step: "checkout", airportCode: payload.airportCode, fingerprint: ["promo-discount-stamp", "reslab_cost_unreadable"] }
+        );
+        return { blocked: false, stampChecked: false };
+      }
+      const freshOnlineParkingCents = Math.round((grand - due) * 100);
+      if (checkout.kind === "figures") {
+        // Checkout's figures already bound the stamp (checkStampAgainstCharge).
+        // A fresh online parking BELOW it is a price drop, not a refusal.
+        if (freshOnlineParkingCents < stamped.cents) {
+          reportStampPriceDrop(pi, payload, `fresh online parking ${freshOnlineParkingCents}, discountCents ${stamped.cents}, at checkout ${checkout.onlineParkingCents}`);
+        }
+      } else {
+        // No checkout figures: the fresh online parking is the only bound — a
+        // discount must never come out of the service fee.
+        const refusal = stampedDiscountRefusal(stamped, freshOnlineParkingCents);
+        if (refusal !== null) return stampBlocked("stamp_exceeds_online_parking", refusal);
       }
       freshCents =
-        Math.round(
-          (cost.reservation.grand_total +
-            (payload.triplyServiceFee || 0) -
-            cost.reservation.due_at_location +
-            protectionPremium) *
-            100
-        ) - stamped.cents;
-    } else {
+        Math.round((grand + (payload.triplyServiceFee || 0) - due + protectionPremium) * 100) - stamped.cents;
+      stampChecked = true;
+    } else if (stamped.kind === "absent") {
       // No stamp: a PaymentIntent from before `discountCents` — the percent rule.
       const rawDiscount = pi.metadata?.discountPercent;
       let discountPercent = 0;
@@ -2309,6 +2443,9 @@ async function refreshCost(
         cost.reservation.due_at_location +
         protectionPremium;
       freshCents = Math.round(freshDueNow * 100);
+    } else {
+      // Unreachable: checkStampAgainstCharge refused an invalid stamp above.
+      return stampBlocked("stamp_invalid", `discountCents ${JSON.stringify(stamped.raw)} is not a positive whole number of cents`);
     }
 
     // One cent of tolerance for rounding. Anything above the authorized amount
@@ -2318,18 +2455,23 @@ async function refreshCost(
         blocked: true,
         soldOut: false,
         reason: `price drift: fresh ${freshCents} cents exceeds authorized ${pi.amount} cents`,
-        userMessage:
-          "The price for this parking option changed while you were checking out. You have not been charged — please search again.",
+        userMessage: {
+          released:
+            "The price for this parking option changed while you were checking out. You have not been charged — please search again.",
+          refunded:
+            "The price for this parking option changed while you were checking out. We've refunded your payment in full — refunds take 5–10 business days to appear on your statement. Please search again.",
+        },
       };
     }
 
-    return { blocked: false, freshToken: cost.costs_token };
+    return { blocked: false, freshToken: cost.costs_token, stampChecked };
   } catch (costError) {
     // ResLab unreachable. The customer already has an authorization and a valid
     // token from checkout; proceed and let createReservation be the real test.
     // This is a deliberate non-blocking catch on a money path — documented per
     // the CLAUDE.md error-handling rule. It cannot mask a sold-out lot, because
     // createReservation rejects definitively in that case and releases payment.
+    // A promo stamp is checked against the reservation at Step 9.5 instead.
     captureBookingError(
       new Error(
         `getCost refresh failed at fulfilment (proceeding on existing token): ${
@@ -2338,8 +2480,50 @@ async function refreshCost(
       ),
       { step: "checkout", airportCode: payload.airportCode }
     );
-    return { blocked: false };
+    return { blocked: false, stampChecked: false };
   }
+}
+
+/**
+ * Step 9.5: a `discountCents` stamp that Step 8 did NOT check against a fresh
+ * price — a resume (Step 8 is skipped), or ResLab unreachable / unreadable at
+ * Step 8 — is checked here, against the reservation's own figures, BEFORE any
+ * capture. Returns why it is refused, or null (no stamp, or it holds).
+ *
+ * With checkout figures, the PaymentIntent's own arithmetic is the authority
+ * and a reservation priced below the stamp is a price drop (reported, not
+ * refused). Without them the reservation's online parking (grand_total −
+ * due_at_location) is the bound; an unreadable one cannot vouch for the stamp
+ * and refuses.
+ */
+function stampRefusedBeforeCapture(
+  pi: Stripe.PaymentIntent,
+  payload: BookingPayload,
+  fr: ReslabFulfilledReservation,
+  charged: ChargedProtection | null
+): { cause: StampRefusalCause; detail: string } | null {
+  const stamped = readStampedDiscount(pi.metadata);
+  if (stamped.kind === "absent") return null;
+  const check = checkStampAgainstCharge(pi.metadata, stamped, {
+    premiumCents: Math.round((charged?.premium ?? 0) * 100),
+    piAmountCents: pi.amount,
+  });
+  if (!check.ok) return { cause: check.cause, detail: check.detail };
+  if (stamped.kind !== "cents") {
+    // Unreachable: checkStampAgainstCharge refuses an invalid stamp.
+    return { cause: "stamp_invalid", detail: `discountCents ${JSON.stringify(stamped.raw)} is not a positive whole number of cents` };
+  }
+  const { grandTotal, dueAtLocation } = fr.money;
+  const onlineParkingCents =
+    grandTotal === null || dueAtLocation === null ? Number.NaN : Math.round((grandTotal - dueAtLocation) * 100);
+  if (check.checkout.kind === "figures") {
+    if (Number.isSafeInteger(onlineParkingCents) && onlineParkingCents < stamped.cents) {
+      reportStampPriceDrop(pi, payload, `reservation ${fr.number} online parking ${onlineParkingCents}, discountCents ${stamped.cents}, at checkout ${check.checkout.onlineParkingCents}`);
+    }
+    return null;
+  }
+  const refusal = stampedDiscountRefusal(stamped, onlineParkingCents);
+  return refusal === null ? null : { cause: "stamp_exceeds_online_parking", detail: `${refusal} (reservation ${fr.number})` };
 }
 
 /** DEV_SKIP_PAYMENT path — no PaymentIntent, so no payment state machine. */
@@ -3081,6 +3265,17 @@ async function fulfilClaimedDirect(
 
   // --- Persist (§3.3), with the 23505 rule (B7) ------------------------------
   const promoCode = redeemedPromoCode(pi);
+  // A stamped discount with no code: the row records the discount but no
+  // promo_code, so the use is never counted (promo plan Part 1 review). Seen
+  // before the insert, so a failure inside it cannot lose the report.
+  if (readStampedDiscount(pi.metadata).kind === "cents" && fr.money.discount > 0 && !promoCode) {
+    capturePaymentError(
+      new Error(
+        `Direct booking ${fr.number} (${piId}) records a stamped discount of ${fr.money.discount.toFixed(2)} with no promoCode — the booking counts as a use of no code`
+      ),
+      { ...directAlert(pi), fingerprint: ["promo-discount-stamp", "no_code"] }
+    );
+  }
   const attribution: Attribution | null = row.attribution ?? null;
   let persisted = await persistDirectBooking(dp, fr, charged, pi.livemode, promoCode, attribution);
   for (let attempt = 0; persisted.kind === "unique_violation"; attempt++) {

@@ -43,7 +43,7 @@ import {
 } from "@/lib/sentry";
 import { convertTo12Hour } from "@/lib/utils/time";
 import { reslabExtraFieldValues } from "@/lib/booking/required-extra-fields";
-import { stampedDiscountRefusal, type StampedDiscount } from "@/lib/promo/stamped-discount";
+import { stampedDiscountRefusal, type CheckoutFigures, type StampedDiscount } from "@/lib/promo/stamped-discount";
 // Attribution helpers are pure and import nothing from @/lib/reslab/search or
 // @/lib/reslab/get-lot — the shared location-list cache is per-lambda and cold
 // here, and a sweep after capture is the Aug-16 outage class. A static test
@@ -154,30 +154,42 @@ export async function createReslabReservation(
 /** The promo the customer redeemed, derived from PI metadata by the caller.
  *  `code` is the redeemed code (uppercased); `discountPercent` is the applied
  *  percent (0 when none); `stampedDiscount` is `metadata.discountCents` as read
- *  (the authority when present); `chargedCents` is `pi.amount` — the REAL
- *  amount Stripe charged, used to derive the discount exactly. Absent on the
- *  DEV_SKIP_PAYMENT path (no PaymentIntent). */
+ *  (the authority when present) and `checkoutFigures` the checkout-time figures
+ *  stamped beside it; `chargedCents` is `pi.amount` — the REAL amount Stripe
+ *  charged, used to derive the discount exactly. Absent on the DEV_SKIP_PAYMENT
+ *  path (no PaymentIntent). */
 export interface AppliedPromo {
   code: string | null;
   discountPercent: number;
   stampedDiscount: StampedDiscount;
+  checkoutFigures: CheckoutFigures;
   chargedCents: number;
+}
+
+export interface StampWarning {
+  /**
+   *   refused   unusable, or more than the parking paid online. A present
+   *             stamp still proves checkout applied a discount, so the
+   *             discount is DERIVED FROM THE CHARGE and the code recorded —
+   *             the row needs a repair, the detail says what was written
+   *   mismatch  used, but Stripe's charge implies a discount more than 1¢ away
+   *   no_code   a stamped discount was recorded but no promoCode came with it
+   *             — the booking will not count as a use of any code
+   */
+  kind: "refused" | "mismatch" | "no_code";
+  detail: string;
 }
 
 export interface AppliedPromoDiscount {
   discountAmount: number;
   promoCode: string | null;
-  /**
-   * Something to report about the stamped `discountCents` (null = nothing):
-   *   refused   unusable, or more than the parking paid online — ignored; the
-   *             discount is derived from the charge exactly as for a
-   *             PaymentIntent without one
-   *   mismatch  used, but the charge implies a discount more than 1¢ away
-   * Returned, not reported: this function is pure and runs twice per booking
-   * (the row and the emails). The engine reports it once.
-   */
-  stampWarning: { kind: "refused" | "mismatch"; detail: string } | null;
+  /** What to report about a `discountCents` stamp (empty without one).
+   *  Returned, not reported: this function is pure and runs twice per booking
+   *  (the row and the emails). The engine reports them once. */
+  stampWarnings: StampWarning[];
 }
+
+const dollars = (cents: number) => (cents / 100).toFixed(2);
 
 /**
  * The promo discount actually taken off a ResLab booking's online charge, in
@@ -190,9 +202,15 @@ export interface AppliedPromoDiscount {
  * With a usable `discountCents` stamp: exactly that — it is what checkout
  * applied, in cents, so nothing re-rounds it; a charge that implies something
  * else by more than 1¢ is a `mismatch` to report, never a silent re-derive.
+ * The stamp's bound is checkout's own online parking when stamped (a later
+ * price drop does not make it wrong), else this reservation's.
  *
- * Without one (every PaymentIntent before the stamp, or a refused stamp):
- * derived from the ACTUAL Stripe charge (`chargedCents`) rather than
+ * A REFUSED stamp (the backstop — Steps 8 and 9.5 refuse it before capture):
+ * the stamp still proves a discount was applied, so the discount is derived
+ * from the charge and the code recorded, and the warning says so.
+ *
+ * Without one (every PaymentIntent before the stamp): derived from the ACTUAL
+ * Stripe charge (`chargedCents`) when a percent was applied, rather than
  * re-computing percent × subtotal. Re-rounding the discount by itself drifted
  * 1¢ vs Stripe on ~19% of promos (half-cent-boundary subtotals like ".95" at
  * 10%): Stripe subtracts an UNROUNDED discount and rounds the whole total
@@ -217,36 +235,63 @@ export function appliedPromoDiscount(
         100
     );
 
-  // The stamp, if present, is checked against the parking paid online — it
-  // never comes out of the service fee. A refused one is ignored, not zeroed.
-  let stampedCents: number | null = null;
-  let stampWarning: AppliedPromoDiscount["stampWarning"] = null;
   const stamped: StampedDiscount = promo?.stampedDiscount ?? { kind: "absent" };
-  if (stamped.kind !== "absent") {
-    const onlineParkingCents = Math.round((parkingTotal - (fr.money.dueAtLocation || 0)) * 100);
-    const refusal = stampedDiscountRefusal(stamped, onlineParkingCents);
-    if (refusal === null && stamped.kind === "cents") stampedCents = stamped.cents;
-    else stampWarning = { kind: "refused", detail: refusal ?? "discountCents unusable" };
+  if (stamped.kind === "absent" || !promo) {
+    // No stamp: exactly the rule every booking before it was recorded with.
+    let discountAmount = 0;
+    if (discountPercent > 0 && promo) {
+      discountAmount =
+        Math.max(0, preDiscountOnlineCents() - promo.chargedCents) / 100;
+    }
+    // Only record the code when a discount was actually applied (an invalid code
+    // that was typed but not honored leaves no discount and isn't "used").
+    const promoCode = discountAmount > 0 ? promo?.code ?? null : null;
+    return { discountAmount, promoCode, stampWarnings: [] };
   }
 
-  let discountAmount = 0;
-  if (stampedCents !== null && promo) {
-    discountAmount = stampedCents / 100;
-    const derivedCents = preDiscountOnlineCents() - promo.chargedCents;
-    if (Math.abs(derivedCents - stampedCents) > 1) {
-      stampWarning = {
+  // A stamp is present: checkout applied a discount. Bound it against the
+  // parking paid online — checkout's figure when stamped, else this
+  // reservation's — so it never comes out of the service fee.
+  const stampWarnings: StampWarning[] = [];
+  const checkout = promo.checkoutFigures;
+  const onlineParkingCents =
+    checkout.kind === "figures"
+      ? checkout.onlineParkingCents
+      : Math.round((parkingTotal - (fr.money.dueAtLocation || 0)) * 100);
+  const refusal =
+    checkout.kind === "invalid"
+      ? checkout.detail
+      : stampedDiscountRefusal(stamped, onlineParkingCents);
+  const preDiscountCents = preDiscountOnlineCents();
+  const derivedCents = preDiscountCents - promo.chargedCents;
+  // A blank code (`redeemedPromoCode` trims to "") is no code.
+  const code = promo.code ? promo.code : null;
+
+  let discountCents: number;
+  if (refusal === null && stamped.kind === "cents") {
+    discountCents = stamped.cents;
+    if (Math.abs(derivedCents - stamped.cents) > 1) {
+      stampWarnings.push({
         kind: "mismatch",
-        detail: `discountCents ${stampedCents} but the charge (${promo.chargedCents}) implies ${derivedCents}`,
-      };
+        detail: `recorded discount_amount ${dollars(stamped.cents)} (discountCents ${stamped.cents}), but Stripe charged ${promo.chargedCents} of a pre-discount ${preDiscountCents}, i.e. ${derivedCents} off`,
+      });
     }
-  } else if (discountPercent > 0 && promo) {
-    discountAmount =
-      Math.max(0, preDiscountOnlineCents() - promo.chargedCents) / 100;
+  } else {
+    discountCents = Math.max(0, derivedCents);
+    const recordedCode = discountCents > 0 ? code : null;
+    stampWarnings.push({
+      kind: "refused",
+      detail: `${refusal ?? "discountCents unusable"}; recorded discount_amount ${dollars(discountCents)} derived from Stripe's charge (${preDiscountCents} − ${promo.chargedCents}) and promo_code ${recordedCode ?? "none"}`,
+    });
   }
-  // Only record the code when a discount was actually applied (an invalid code
-  // that was typed but not honored leaves no discount and isn't "used").
-  const promoCode = discountAmount > 0 ? promo?.code ?? null : null;
-  return { discountAmount, promoCode, stampWarning };
+  const discountAmount = discountCents / 100;
+  if (discountAmount > 0 && code === null) {
+    stampWarnings.push({
+      kind: "no_code",
+      detail: `discount_amount ${dollars(discountCents)} recorded with no promoCode stamped — the booking counts as a use of no code`,
+    });
+  }
+  return { discountAmount, promoCode: discountAmount > 0 ? code : null, stampWarnings };
 }
 
 export async function persistBooking(

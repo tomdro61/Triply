@@ -45,6 +45,7 @@ import {
   captureRequiredFieldCheck,
 } from "@/lib/sentry";
 import { readProtectionMetadata, STALE_CHECKOUT_MESSAGE } from "@/lib/parkguard/client";
+import { checkStampAgainstCharge, readStampedDiscount } from "@/lib/promo/stamped-discount";
 import { readAttributionFromRequest } from "@/lib/attribution/read-request";
 import { sessionIdentityFromRequest } from "@/lib/booking/customer-link";
 import { reslab, ReslabError } from "@/lib/reslab/client";
@@ -211,6 +212,35 @@ export async function POST(request: NextRequest) {
         },
         { status: 400 }
       );
+    }
+
+    // A promo discount stamped in cents (`discountCents`, promo plan Part 1)
+    // must be usable BEFORE the card is confirmed — refusing here costs the
+    // customer nothing; at fulfilment the card is already held. Metadata only,
+    // no ResLab: the stamp's own form, and (when checkout stamped its figures)
+    // that they add up to the charge. The direct branch gets this from
+    // readDirectMetadataMoney. Absent → nothing changes.
+    const stamped = readStampedDiscount(meta);
+    if (stamped.kind !== "absent") {
+      const stampCheck = checkStampAgainstCharge(meta, stamped, {
+        premiumCents: metaProtection.kind === "tier" ? Math.round(metaProtection.premium * 100) : 0,
+        piAmountCents: pi.amount,
+      });
+      if (!stampCheck.ok) {
+        capturePaymentError(
+          new Error(
+            `Pending-booking staging rejected — promo discount stamp refused (${stampCheck.cause}): ${stampCheck.detail}`
+          ),
+          { stripePaymentIntentId: piId, amount: pi.amount / 100, fingerprint: ["promo-discount-stamp", stampCheck.cause] }
+        );
+        return NextResponse.json(
+          {
+            error:
+              "We couldn't verify the promo discount on this payment — please go back and start checkout again. You have not been charged.",
+          },
+          { status: 400 }
+        );
+      }
     }
 
     // Marketing attribution from the first-party cookie — read AFTER the body
