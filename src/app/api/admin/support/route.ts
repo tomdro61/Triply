@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { isAdminEmail, ALERT_EMAILS } from "@/config/admin";
 import { captureAPIError } from "@/lib/sentry";
-import { supportLivemode } from "@/lib/support/tickets";
+import { supportLivemode, TICKET_COLUMNS } from "@/lib/support/tickets";
 
 /**
  * GET /api/admin/support — the support inbox list (ADMIN_EMAILS only).
@@ -17,8 +17,6 @@ import { supportLivemode } from "@/lib/support/tickets";
  * (by Stripe mode, `livemode`) are listed and counted, as admin bookings do.
  */
 
-const TICKET_COLUMNS =
-  "id, ticket_number, name, email, subject, message, reservation_number, booking_id, booking_match, priority, reasons, auto_reply_kind, auto_reply_sent, alerted_at, status, assigned_to, first_response_at, resolved_at, notes, created_at, updated_at";
 
 const OPEN = ["new", "open", "waiting"];
 const PAGE_SIZE = 25;

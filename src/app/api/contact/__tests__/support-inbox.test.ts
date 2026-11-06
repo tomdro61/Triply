@@ -17,6 +17,18 @@ const db = vi.hoisted(() => ({
   lookups: [] as Array<{ select: string; col: string; value: string }>,
   updates: [] as Array<Record<string, unknown>>,
   recentAlerts: 0,
+  pingFilters: [] as Array<[string, string, unknown]>,
+}));
+
+// after(): throws outside a request scope (the route then runs inline);
+// a test can capture the callback to prove it runs AFTER the response.
+const afterHook = vi.hoisted(() => ({ capture: false, fn: null as null | (() => Promise<void>) }));
+vi.mock("next/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/server")>()),
+  after: (fn: () => Promise<void>) => {
+    if (!afterHook.capture) throw new Error("no request scope");
+    afterHook.fn = fn;
+  },
 }));
 
 vi.mock("@/lib/resend/client", () => ({
@@ -54,9 +66,16 @@ vi.mock("@/lib/supabase/server", () => ({
           const done = { abortSignal: async () => ({ error: null }) };
           return { eq: () => done };
         },
-        // mayPing's count of recent live alerts.
+        // mayPing's rank: live urgent tickets in the window up to this one.
         select() {
-          const count = { eq: () => count, gte: () => count, abortSignal: async () => ({ count: db.recentAlerts, error: null }) };
+          const f: Array<[string, string, unknown]> = [];
+          db.pingFilters = f;
+          const count = {
+            eq: (c: string, v: unknown) => (f.push(["eq", c, v]), count),
+            gte: (c: string, v: unknown) => (f.push(["gte", c, v]), count),
+            lte: (c: string, v: unknown) => (f.push(["lte", c, v]), count),
+            abortSignal: async () => ({ count: db.recentAlerts, error: null }),
+          };
           return count;
         },
       };
@@ -113,7 +132,8 @@ beforeEach(() => {
   sentry.captureAPIError.mockReset();
   discord.postToDiscord.mockReset();
   discord.postToDiscord.mockResolvedValue({ kind: "posted", status: 200, retried: false });
-  Object.assign(db, { booking: bookingRow(), bookingError: null, insertError: null, inserted: [], lookups: [], updates: [], recentAlerts: 0 });
+  Object.assign(db, { booking: bookingRow(), bookingError: null, insertError: null, inserted: [], lookups: [], updates: [], recentAlerts: 0, pingFilters: [] });
+  Object.assign(afterHook, { capture: false, fn: null });
   vi.spyOn(console, "warn").mockImplementation(() => {});
   __resetContactRateLimitForTests();
 });
@@ -231,7 +251,7 @@ describe("POST /api/contact — support inbox on", () => {
     expect(resendSend).toHaveBeenCalledTimes(2); // team (threw) + reply
     // The urgent @here, then a plain note that the team email didn't send.
     expect(discord.postToDiscord).toHaveBeenCalledTimes(2);
-    expect(discord.postToDiscord.mock.calls[1][1].title).toContain("the team email did not send");
+    expect(discord.postToDiscord.mock.calls[1][1].title).toContain("the team email failed or is unconfirmed");
     expect(discord.postToDiscord.mock.calls[1][2].allowedMentions).toEqual({ parse: [] });
   });
 
@@ -242,15 +262,48 @@ describe("POST /api/contact — support inbox on", () => {
     const res = await POST(req({ ...form, subject: "General Inquiry", reservationNumber: "" }));
     expect(res.status).toBe(200);
     expect(discord.postToDiscord).toHaveBeenCalledTimes(1);
-    expect(discord.postToDiscord.mock.calls[0][1].title).toBe("Support ticket #1042: the team email did not send");
+    expect(discord.postToDiscord.mock.calls[0][1].title).toBe("Support ticket #1042: the team email failed or is unconfirmed");
   });
 
   it("past the ping cap the urgent alert still posts, without @here", async () => {
-    db.recentAlerts = 3;
+    db.recentAlerts = 4; // this ticket is the 4th live urgent one in the window
     await POST(req({ ...form, subject: "Problem at the Lot" }));
     const [, , opts] = discord.postToDiscord.mock.calls[0];
     expect(opts.content).not.toContain("@here");
     expect(opts.allowedMentions).toEqual({ parse: [] });
+  });
+
+  it("the cap ranks live urgent tickets by number in the last 10 minutes (concurrency-safe)", async () => {
+    db.recentAlerts = 3; // the 3rd: still pings
+    await POST(req({ ...form, subject: "Problem at the Lot" }));
+    expect(discord.postToDiscord.mock.calls[0][2].content).toContain("@here");
+    const f = db.pingFilters;
+    expect(f).toContainEqual(["eq", "livemode", true]);
+    expect(f).toContainEqual(["eq", "priority", "urgent"]);
+    expect(f).toContainEqual(["lte", "ticket_number", 1042]);
+    const since = f.find(([op, c]) => op === "gte" && c === "created_at")?.[2] as string;
+    expect(Date.parse(since)).toBe(NOW.getTime() - 10 * 60_000);
+  });
+
+  it("alerts and bookkeeping run AFTER the response (their latency can't reveal a booking)", async () => {
+    afterHook.capture = true;
+    const res = await POST(req({ ...form, subject: "Problem at the Lot" }));
+    expect(res.status).toBe(200);
+    expect(discord.postToDiscord).not.toHaveBeenCalled();
+    expect(db.updates).toEqual([]);
+    await afterHook.fn?.();
+    expect(discord.postToDiscord).toHaveBeenCalledTimes(1);
+    expect(db.updates).toHaveLength(1);
+  });
+
+  it("each email carries a stable idempotency key (a retry after a timeout doesn't email twice)", async () => {
+    await POST(req(form));
+    await POST(req(form));
+    const keys = resendSend.mock.calls.map((c) => c[1]?.idempotencyKey);
+    expect(keys[0]).toMatch(/^contact-team-[0-9a-f]{40}$/);
+    expect(keys[1]).toMatch(/^contact-reply-[0-9a-f]{40}$/);
+    expect(keys[2]).toBe(keys[0]);
+    expect(keys[3]).toBe(keys[1]);
   });
 
   it("a staging (test-mode) ticket is marked test, never pings, and says so in the team email", async () => {

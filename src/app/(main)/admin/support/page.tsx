@@ -115,6 +115,10 @@ export default function AdminSupportPage() {
   const [selected, setSelected] = useState<Ticket | null>(null);
   const [saving, setSaving] = useState(false);
   const [notesDraft, setNotesDraft] = useState("");
+  // The ticket version (updated_at) the notes draft was based on. A notes save
+  // is conditional on THIS, not on the latest list copy: a refresh that pulls
+  // in someone else's change must not hand a stale draft a fresh token.
+  const [notesBase, setNotesBase] = useState("");
 
   const load = useCallback(async () => {
     const id = ++requestId.current;
@@ -148,20 +152,31 @@ export default function AdminSupportPage() {
     load();
   }, [load]);
 
-  async function patch(t: Ticket, body: Record<string, unknown>) {
+  async function patch(t: Ticket, body: Record<string, unknown>, expected: string = t.updated_at) {
     setSaving(true);
     setError(null);
     try {
       const res = await fetch(`/api/admin/support/${t.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...body, expectedUpdatedAt: t.updated_at }),
+        body: JSON.stringify({ ...body, expectedUpdatedAt: expected }),
       });
       const data = await res.json().catch(() => null);
       if (res.status === 409) {
-        // Someone else saved first: show theirs (the reload), keep this draft.
+        // Someone else saved first. Show the ticket as it is NOW (from the
+        // 409 — it may have left this list view), and put their notes in the
+        // editor next to any unsaved typing, so a re-save is a deliberate merge.
+        const current = data?.current as Ticket | null | undefined;
+        if (current) {
+          const typed = notesDraft !== t.notes && notesDraft.trim() !== "" && notesDraft !== current.notes;
+          setSelected(current);
+          setNotesDraft(
+            typed ? `${current.notes}\n\n--- Your unsaved note (merge, then save) ---\n${notesDraft}` : current.notes
+          );
+          setNotesBase(current.updated_at);
+        }
         await load();
-        throw new Error(data?.error || "Someone else changed this ticket. Reload it and try again.");
+        throw new Error(data?.error || "Someone else changed this ticket. Check their changes, then save again.");
       }
       if (!res.ok) throw new Error(data?.error || `Update failed (${res.status})`);
       // Keep the open ticket in view even when it leaves the current list (e.g. closed from "Open").
@@ -174,7 +189,12 @@ export default function AdminSupportPage() {
         local.first_response_at = t.first_response_at ?? now;
         if (t.status === "new" && !local.status) local.status = "waiting";
       }
-      if (typeof data?.updatedAt === "string") local.updated_at = data.updatedAt;
+      if (typeof data?.updatedAt === "string") {
+        local.updated_at = data.updatedAt;
+        // Our own save: the draft stays current only if it was based on the
+        // version we just replaced (or it was the notes we just saved).
+        if (typeof body.notes === "string" || notesBase === expected) setNotesBase(data.updatedAt);
+      }
       setSelected({ ...t, ...local });
       await load();
     } catch (e) {
@@ -187,6 +207,7 @@ export default function AdminSupportPage() {
   function open(t: Ticket) {
     setSelected(t);
     setNotesDraft(t.notes);
+    setNotesBase(t.updated_at);
   }
 
   const replyHref = (t: Ticket) =>
@@ -450,7 +471,7 @@ export default function AdminSupportPage() {
               </label>
               <button
                 disabled={saving || notesDraft === selected.notes}
-                onClick={() => patch(selected, { notes: notesDraft })}
+                onClick={() => patch(selected, { notes: notesDraft }, notesBase)}
                 className="mt-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
                 {saving ? "Saving…" : "Save notes"}

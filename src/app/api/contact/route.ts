@@ -1,4 +1,5 @@
 import { after, NextRequest, NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import { resend, FROM_EMAIL } from "@/lib/resend/client";
 import { ALERT_EMAILS } from "@/config/admin";
 import { contactFormSchema, escapeHtml, CONTACT_HONEYPOT_FIELD } from "@/lib/validation/schemas";
@@ -203,21 +204,40 @@ function reportSupport(error: unknown) {
   });
 }
 
-// The inbox flow's steps are each bounded (DB 3 s in lib/support/tickets.ts,
-// emails 8 s here), so the worst case stays well inside this.
-export const maxDuration = 30;
+// Each inbox step is bounded (DB 3 s in lib/support/tickets.ts, emails 8 s
+// here). Before the response: 3 + 3 + 8 + 8 = 22 s; the after() work shares
+// the function's lifetime (Vercel waitUntil): count 3 + alert 4 + note 4 +
+// update 3 = 14 s. 36 s worst case, so 60.
+export const maxDuration = 60;
 const EMAIL_TIMEOUT_MS = 8_000;
 
 type SendPayload = Parameters<typeof resend.emails.send>[0];
 
-/** A Resend send that fails after EMAIL_TIMEOUT_MS instead of hanging the request. Returns an error message or null. */
-async function sendWithin(payload: SendPayload): Promise<string | null> {
+/**
+ * Resend dedupes a send with the same key for 24 h: a timed-out send that
+ * actually went through, followed by the customer's retry, doesn't email
+ * twice. Same submission (kind + email + subject + message) = same key.
+ */
+function sendKey(kind: "team" | "reply", data: ContactFormData): string {
+  const h = createHash("sha256").update([kind, data.email.trim().toLowerCase(), data.subject, data.message].join("\u0000")).digest("hex");
+  return `contact-${kind}-${h.slice(0, 40)}`;
+}
+
+/**
+ * A Resend send that gives up after EMAIL_TIMEOUT_MS instead of hanging the
+ * request. Returns an error message or null. A timeout is UNCONFIRMED, not
+ * failed: the send may still arrive (the idempotency key stops a duplicate).
+ */
+async function sendWithin(payload: SendPayload, idempotencyKey: string): Promise<string | null> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<{ error: { message: string } }>((resolve) => {
-    timer = setTimeout(() => resolve({ error: { message: `timed out after ${EMAIL_TIMEOUT_MS}ms` } }), EMAIL_TIMEOUT_MS);
+    timer = setTimeout(
+      () => resolve({ error: { message: `unconfirmed: no answer within ${EMAIL_TIMEOUT_MS}ms (it may still arrive)` } }),
+      EMAIL_TIMEOUT_MS
+    );
   });
   try {
-    const { error } = await Promise.race([resend.emails.send(payload), timeout]);
+    const { error } = await Promise.race([resend.emails.send(payload, { idempotencyKey }), timeout]);
     return error ? error.message : null;
   } catch (err) {
     return err instanceof Error ? err.message : String(err);
@@ -314,7 +334,7 @@ async function supportInboxFlow(data: ContactFormData) {
     replyTo: email,
     subject: `${livemode ? "" : "[TEST] "}${team.subject}`,
     html: team.html,
-  });
+  }, sendKey("team", data));
   if (teamFailure !== null) {
     reportSupport(new Error(`support team email failed${ticket ? ` (ticket #${ticket.ticketNumber} stored)` : ""}: ${teamFailure}`));
     if (!ticket) {
@@ -337,7 +357,7 @@ async function supportInboxFlow(data: ContactFormData) {
     replyTo: SUPPORT_EMAIL,
     subject: reply.subject,
     html: reply.html,
-  });
+  }, sendKey("reply", data));
   const confirmationSent = replyFailure === null;
   if (replyFailure !== null) reportSupport(new Error(`support instant reply not sent (${emailDomain}): ${replyFailure}`));
 
@@ -345,7 +365,7 @@ async function supportInboxFlow(data: ContactFormData) {
     let alertedAt: string | null = null;
     // Urgent -> page the team even when the ticket store failed.
     if (t.priority === "urgent") {
-      const ping = await mayPing(db);
+      const ping = await mayPing(db, ticketNumber);
       const alert = await alertUrgentTicket(
         urgentTicketEmbed({
           ticketNumber,

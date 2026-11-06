@@ -34,6 +34,10 @@ export function supportLivemode(): boolean {
 const DB_TIMEOUT_MS = 3_000;
 const dbDeadline = () => AbortSignal.timeout(DB_TIMEOUT_MS);
 
+/** The ticket columns the admin inbox reads (list, and the 409 answer). */
+export const TICKET_COLUMNS =
+  "id, ticket_number, name, email, subject, message, reservation_number, booking_id, booking_match, priority, reasons, auto_reply_kind, auto_reply_sent, alerted_at, status, assigned_to, first_response_at, resolved_at, notes, created_at, updated_at";
+
 const BOOKING_COLS =
   "id, reslab_reservation_number, status, check_in, check_out, location_timezone, location_name, location_address, airport_code, customers!inner(email)";
 
@@ -154,20 +158,26 @@ const PING_WINDOW_MS = 10 * 60_000;
 const PING_CAP = 3;
 
 /**
- * Whether this alert may @here: false past PING_CAP live alerts in the window.
- * A failed count errs towards pinging — a real emergency beats a quiet channel.
+ * Whether this urgent ticket may @here: only the first PING_CAP live urgent
+ * tickets in the window do, ranked by ticket number. The rows are inserted
+ * before any alert runs, so submissions arriving together see each other —
+ * counting alerts already SENT (round-2 review) let a burst all ping.
+ * No stored ticket, or a failed count: ping — a real emergency beats a quiet
+ * channel.
  */
-export async function mayPing(db: Db | null): Promise<boolean> {
-  if (!db) return true;
+export async function mayPing(db: Db | null, ticketNumber: number | null): Promise<boolean> {
+  if (!db || ticketNumber === null) return true;
   const since = new Date(Date.now() - PING_WINDOW_MS).toISOString();
   const { count, error } = await db
     .from("support_tickets")
     .select("id", { count: "exact", head: true })
     .eq("livemode", true)
-    .gte("alerted_at", since)
+    .eq("priority", "urgent")
+    .gte("created_at", since)
+    .lte("ticket_number", ticketNumber)
     .abortSignal(dbDeadline());
   if (error || count == null) return true;
-  return count < PING_CAP;
+  return count <= PING_CAP;
 }
 
 const PHASE_TEXT: Record<TripPhase, string> = {
@@ -261,8 +271,8 @@ export async function noticeTeamEmailFailed(ticketNumber: number, livemode: bool
     const res = await postToDiscord(
       url,
       {
-        title: `${livemode ? "" : "[TEST] "}Support ticket #${ticketNumber}: the team email did not send`,
-        description: "The ticket is stored. [Open the support inbox](https://www.triplypro.com/admin/support)",
+        title: `${livemode ? "" : "[TEST] "}Support ticket #${ticketNumber}: the team email failed or is unconfirmed`,
+        description: "The ticket is stored; the email may not have reached you. [Open the support inbox](https://www.triplypro.com/admin/support)",
         color: 0xd97706,
         fields: [],
         footer: { text: "Triply support" },

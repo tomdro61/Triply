@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { isAdminEmail } from "@/config/admin";
 import { captureAPIError } from "@/lib/sentry";
+import { TICKET_COLUMNS } from "@/lib/support/tickets";
 
 /**
  * PATCH /api/admin/support/[id] — work a ticket (ADMIN_EMAILS only).
@@ -81,8 +82,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       .select("id");
     if (error) throw new Error(`admin support update failed: ${error.message}`);
     if (!Array.isArray(written) || written.length === 0) {
+      // The ticket as it is now, so the page can show the other change (it may
+      // have left the current list view) instead of re-saving over it.
+      const { data: latest } = await db.from("support_tickets").select(TICKET_COLUMNS).eq("id", id).maybeSingle();
       return NextResponse.json(
-        { error: "Someone else changed this ticket since you opened it. Reload it and try again." },
+        { error: "Someone else changed this ticket since you opened it. Their changes are shown; check them, then save again.", current: latest ?? null },
         { status: 409 }
       );
     }

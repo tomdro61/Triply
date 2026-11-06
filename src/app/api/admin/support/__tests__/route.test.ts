@@ -152,7 +152,10 @@ describe("PATCH /api/admin/support/[id]", () => {
     state.updatedAt = "2026-11-05T10:05:00.000Z"; // John saved after Vin opened it
     const res = await PATCH(patchReq({ notes: "called lot" }), params);
     expect(res.status).toBe(409);
-    expect((await res.json()).error).toContain("Someone else changed this ticket");
+    const body = await res.json();
+    expect(body.error).toContain("Someone else changed this ticket");
+    // The ticket as it is now, so the page shows the other change instead of re-saving over it.
+    expect(body.current).toEqual(state.current);
   });
 
   it("a save without the version it was based on is refused", async () => {
