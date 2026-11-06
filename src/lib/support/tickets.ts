@@ -3,6 +3,7 @@ import { postToDiscord, isDiscordWebhookUrl } from "@/lib/digest/discord";
 import type { Embed } from "@/lib/digest/render";
 import type { ContactSubject } from "@/lib/validation/schemas";
 import type { BookingMatch, MatchedBooking, Priority, ReplyKind, TripPhase } from "./triage";
+import { stripeKeyMode } from "@/lib/cancellation/source-guard";
 
 /**
  * The support inbox's server side: find the booking a submission is about,
@@ -17,6 +18,21 @@ type Db = Awaited<ReturnType<typeof createAdminClient>>;
 export function supportInboxEnabled(): boolean {
   return process.env.ENABLE_SUPPORT_INBOX === "true";
 }
+
+/**
+ * Staging and production share one database: a ticket records which one made
+ * it (by the deployment's Stripe mode, as bookings do since PR #88), the inbox
+ * lists only its own, and a test ticket never pings @here. Unknown mode counts
+ * as live, so a misconfigured key can't hide a real customer's ticket.
+ */
+export function supportLivemode(): boolean {
+  return stripeKeyMode() !== "test";
+}
+
+// Every database call here is bounded: the team email is the fallback for all
+// of it, and it must never sit behind a hung read until the function is killed.
+const DB_TIMEOUT_MS = 3_000;
+const dbDeadline = () => AbortSignal.timeout(DB_TIMEOUT_MS);
 
 const BOOKING_COLS =
   "id, reslab_reservation_number, status, check_in, check_out, location_timezone, location_name, location_address, airport_code, customers!inner(email)";
@@ -55,6 +71,7 @@ export async function lookupBooking(db: Db, reservationNumber: string | null, em
     .select(BOOKING_COLS)
     .eq("reslab_reservation_number", reservationNumber)
     .limit(1)
+    .abortSignal(dbDeadline())
     .maybeSingle<BookingRow>();
   if (error) throw new Error(`support booking lookup failed: ${error.message}`);
   if (!data) return { match: "not_found", booking: null };
@@ -88,6 +105,7 @@ export interface NewTicket {
   priority: Priority;
   reasons: string[];
   replyKind: ReplyKind;
+  livemode: boolean;
 }
 
 /** Inserts the ticket; returns its id + customer-facing number. Throws on a DB error. */
@@ -105,8 +123,10 @@ export async function insertTicket(db: Db, t: NewTicket): Promise<{ id: string; 
       priority: t.priority,
       reasons: t.reasons,
       auto_reply_kind: t.replyKind,
+      livemode: t.livemode,
     })
     .select("id, ticket_number")
+    .abortSignal(dbDeadline())
     .single<{ id: string; ticket_number: number }>();
   if (error || !data) throw new Error(`support ticket insert failed: ${error?.message ?? "no row returned"}`);
   return { id: data.id, ticketNumber: Number(data.ticket_number) };
@@ -121,8 +141,33 @@ export async function updateTicket(
   const { error } = await db
     .from("support_tickets")
     .update({ ...patch, updated_at: new Date().toISOString() })
-    .eq("id", id);
+    .eq("id", id)
+    .abortSignal(dbDeadline());
   return error ? error.message : null;
+}
+
+// At most this many @here pings per window: anyone can submit the form
+// without signing in, so "Problem at the Lot" or a strong word must not let a
+// script page the team without limit. Past the cap the alert still posts,
+// just without the ping.
+const PING_WINDOW_MS = 10 * 60_000;
+const PING_CAP = 3;
+
+/**
+ * Whether this alert may @here: false past PING_CAP live alerts in the window.
+ * A failed count errs towards pinging — a real emergency beats a quiet channel.
+ */
+export async function mayPing(db: Db | null): Promise<boolean> {
+  if (!db) return true;
+  const since = new Date(Date.now() - PING_WINDOW_MS).toISOString();
+  const { count, error } = await db
+    .from("support_tickets")
+    .select("id", { count: "exact", head: true })
+    .eq("livemode", true)
+    .gte("alerted_at", since)
+    .abortSignal(dbDeadline());
+  if (error || count == null) return true;
+  return count < PING_CAP;
 }
 
 const PHASE_TEXT: Record<TripPhase, string> = {
@@ -177,20 +222,53 @@ export function urgentTicketEmbed(t: {
  * Posts the urgent alert with an @here ping. Channel: DISCORD_SUPPORT_WEBHOOK_URL,
  * else the booking-alerts channel. Returns true only when Discord saved it.
  */
-export async function alertUrgentTicket(embed: Embed): Promise<{ ok: boolean; error?: string }> {
+export async function alertUrgentTicket(
+  embed: Embed,
+  opts: { livemode: boolean; ping: boolean } = { livemode: true, ping: true }
+): Promise<{ ok: boolean; error?: string }> {
   const url = (process.env.DISCORD_SUPPORT_WEBHOOK_URL || process.env.DISCORD_BOOKING_ALERTS_WEBHOOK_URL || "").trim();
   if (!url) return { ok: false, error: "no Discord webhook configured" };
   if (!isDiscordWebhookUrl(url)) return { ok: false, error: "support webhook is not a Discord webhook URL" };
+  // A staging test never pings, and is marked as a test.
+  const ping = opts.livemode && opts.ping;
+  const titled: Embed = opts.livemode ? embed : { ...embed, title: `[TEST] ${embed.title}` };
   try {
-    const res = await postToDiscord(url, embed, {
-      remainingBudgetMs: 0, // the customer's request waits on this; the team email is the fallback
+    const res = await postToDiscord(url, titled, {
+      remainingBudgetMs: 0, // runs after the response (after()); the team email is the fallback
       username: "Triply Support",
-      content: "@here urgent support ticket",
-      allowedMentions: { parse: ["everyone"] },
+      content: ping ? "@here urgent support ticket" : opts.livemode ? "Urgent support ticket (ping limit reached)" : "Test support ticket",
+      allowedMentions: { parse: ping ? ["everyone"] : [] },
       timeoutMs: 4_000,
       requireMessageId: true,
     });
     // Never echo Discord's body: it can quote the webhook URL.
+    return res.kind === "posted" ? { ok: true } : { ok: false, error: `Discord post failed (status ${res.status ?? "none"})` };
+  } catch {
+    return { ok: false, error: "Discord post threw" };
+  }
+}
+
+/**
+ * A plain (no @here) note when the team email failed but the ticket is
+ * stored: otherwise the only trace is the inbox and one Sentry issue that
+ * repeats silently (e.g. once Resend's daily cap is reached).
+ */
+export async function noticeTeamEmailFailed(ticketNumber: number, livemode: boolean): Promise<{ ok: boolean; error?: string }> {
+  const url = (process.env.DISCORD_SUPPORT_WEBHOOK_URL || process.env.DISCORD_BOOKING_ALERTS_WEBHOOK_URL || "").trim();
+  if (!url) return { ok: false, error: "no Discord webhook configured" };
+  if (!isDiscordWebhookUrl(url)) return { ok: false, error: "support webhook is not a Discord webhook URL" };
+  try {
+    const res = await postToDiscord(
+      url,
+      {
+        title: `${livemode ? "" : "[TEST] "}Support ticket #${ticketNumber}: the team email did not send`,
+        description: "The ticket is stored. [Open the support inbox](https://www.triplypro.com/admin/support)",
+        color: 0xd97706,
+        fields: [],
+        footer: { text: "Triply support" },
+      },
+      { remainingBudgetMs: 0, username: "Triply Support", allowedMentions: { parse: [] }, timeoutMs: 4_000, requireMessageId: true }
+    );
     return res.kind === "posted" ? { ok: true } : { ok: false, error: `Discord post failed (status ${res.status ?? "none"})` };
   } catch {
     return { ok: false, error: "Discord post threw" };

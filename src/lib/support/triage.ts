@@ -147,8 +147,12 @@ export function triage(input: TriageInput): TriageResult {
       replyKind = "at_lot";
       break;
     case "Cancellation Request":
-      if (booking && isCancelledStatus(booking.status)) replyKind = "already_cancelled";
-      else if (canSelfCancel(booking, input.selfCancelEnabled, now)) replyKind = "self_cancel";
+      if (booking && isCancelledStatus(booking.status)) {
+        replyKind = "already_cancelled";
+        // `cancelled` (not `refunded`) means no refund went through — the
+        // reply says we'll check the payment; someone has to.
+        if (booking.status !== "refunded") raise("high", "cancelled with no recorded refund");
+      } else if (canSelfCancel(booking, input.selfCancelEnabled, now)) replyKind = "self_cancel";
       else {
         replyKind = "cancel_support";
         if (live) raise("high", "cancellation the customer can't do themselves");

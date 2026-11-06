@@ -28,17 +28,17 @@ const KINDS: ReplyKind[] = [
 
 describe("renderAutoReply", () => {
   it("puts the ticket number in the subject", () => {
-    expect(renderAutoReply({ kind: "generic", subject: "Other", ticketNumber: 1042, booking: null, canSelfCancel: false }).subject).toBe(
+    expect(renderAutoReply({ kind: "generic", subject: "Other", ticketNumber: 1042, booking: null, canSelfCancel: false, selfCancelEnabled: true }).subject).toBe(
       "We received your message (Triply #1042) - Triply"
     );
-    expect(renderAutoReply({ kind: "generic", subject: "Other", ticketNumber: null, booking: null, canSelfCancel: false }).subject).toBe(
+    expect(renderAutoReply({ kind: "generic", subject: "Other", ticketNumber: null, booking: null, canSelfCancel: false, selfCancelEnabled: true }).subject).toBe(
       "We received your message - Triply"
     );
   });
 
   it("every kind renders, escapes booking facts and shows literal airport-local times", () => {
     for (const kind of KINDS) {
-      const { html } = renderAutoReply({ kind, subject: "Booking Help", ticketNumber: 1, booking: B, canSelfCancel: true });
+      const { html } = renderAutoReply({ kind, subject: "Booking Help", ticketNumber: 1, booking: B, canSelfCancel: true, selfCancelEnabled: true });
       expect(html, kind).toContain("The Triply Team");
       expect(html, kind).not.toContain("<Park>");
       if (!["partner", "generic"].includes(kind)) {
@@ -50,19 +50,51 @@ describe("renderAutoReply", () => {
   });
 
   it("self_cancel gives the steps; change mentions self-cancel only when it applies", () => {
-    expect(renderAutoReply({ kind: "self_cancel", subject: "Cancellation Request", ticketNumber: 1, booking: B, canSelfCancel: true }).html).toContain(
+    expect(renderAutoReply({ kind: "self_cancel", subject: "Cancellation Request", ticketNumber: 1, booking: B, canSelfCancel: true, selfCancelEnabled: true }).html).toContain(
       "triplypro.com/reservations"
     );
-    const can = renderAutoReply({ kind: "change", subject: "Change My Reservation", ticketNumber: 1, booking: B, canSelfCancel: true }).html;
-    const cannot = renderAutoReply({ kind: "change", subject: "Change My Reservation", ticketNumber: 1, booking: B, canSelfCancel: false }).html;
+    const can = renderAutoReply({ kind: "change", subject: "Change My Reservation", ticketNumber: 1, booking: B, canSelfCancel: true, selfCancelEnabled: true }).html;
+    const cannot = renderAutoReply({ kind: "change", subject: "Change My Reservation", ticketNumber: 1, booking: B, canSelfCancel: false, selfCancelEnabled: true }).html;
     expect(can).toContain("cancel this reservation yourself");
     expect(cannot).not.toContain("cancel this reservation yourself");
   });
 
   it("without a booking, asks for the reservation number instead", () => {
-    const { html } = renderAutoReply({ kind: "at_lot", subject: "Problem at the Lot", ticketNumber: 1, booking: null, canSelfCancel: false });
+    const { html } = renderAutoReply({ kind: "at_lot", subject: "Problem at the Lot", ticketNumber: 1, booking: null, canSelfCancel: false, selfCancelEnabled: true });
     expect(html).toContain("reply with your reservation number");
     expect(html).not.toContain("TRP1234");
+  });
+
+  // Review round 1 (#156): every customer-facing promise true for its case.
+  const reply = (over: Partial<Parameters<typeof renderAutoReply>[0]>) =>
+    renderAutoReply({ kind: "generic", subject: "Other", ticketNumber: 1, booking: B, canSelfCancel: false, selfCancelEnabled: true, ...over }).html;
+
+  it("already cancelled: refund timing only when it was refunded", () => {
+    const refunded = reply({ kind: "already_cancelled", booking: { ...B, status: "refunded" } });
+    const cancelled = reply({ kind: "already_cancelled", booking: { ...B, status: "cancelled" } });
+    expect(refunded).toContain("5–10 business days");
+    expect(cancelled).not.toContain("5–10 business days");
+    expect(cancelled).toContain("check the payment side");
+  });
+
+  it("cancel_support: no self-cancel advice when it's switched off, and no guessed reason", () => {
+    const off = reply({ kind: "cancel_support", booking: null, selfCancelEnabled: false });
+    const on = reply({ kind: "cancel_support", booking: null, selfCancelEnabled: true });
+    expect(off).not.toContain("cancel it yourself");
+    expect(on).toContain("cancel it yourself");
+    expect(reply({ kind: "cancel_support" })).not.toContain("closes 24 hours");
+  });
+
+  it("change promises options, never the change itself (Help: no edit option yet)", () => {
+    const html = reply({ kind: "change", subject: "Change My Reservation" });
+    expect(html).toContain("reply with your options");
+    expect(html).not.toMatch(/makes date, time and vehicle changes/);
+  });
+
+  it("at the lot: claims the urgent flag, never a delivered alert (it runs after the response)", () => {
+    const html = reply({ kind: "at_lot", subject: "Problem at the Lot" });
+    expect(html).toContain("flagged as urgent for our team");
+    expect(html).not.toMatch(/alerted right now/);
   });
 });
 

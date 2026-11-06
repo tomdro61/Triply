@@ -16,6 +16,7 @@ const db = vi.hoisted(() => ({
   inserted: [] as Array<Record<string, unknown>>,
   lookups: [] as Array<{ select: string; col: string; value: string }>,
   updates: [] as Array<Record<string, unknown>>,
+  recentAlerts: 0,
 }));
 
 vi.mock("@/lib/resend/client", () => ({
@@ -35,6 +36,8 @@ vi.mock("@/lib/supabase/server", () => ({
           select: (cols: string) => ((call.select = cols), chain),
           eq: (col: string, value: string) => ((call.col = col), (call.value = value), chain),
           limit: () => chain,
+          // Every support DB call is bounded (3 s); the fake never hangs.
+          abortSignal: () => chain,
           maybeSingle: async () => ({ data: db.booking, error: db.bookingError }),
         };
         return chain;
@@ -42,16 +45,19 @@ vi.mock("@/lib/supabase/server", () => ({
       return {
         insert(row: Record<string, unknown>) {
           db.inserted.push(row);
-          return {
-            select: () => ({
-              single: async () =>
-                db.insertError ? { data: null, error: db.insertError } : { data: { id: "t1", ticket_number: 1042 }, error: null },
-            }),
-          };
+          const single = async () =>
+            db.insertError ? { data: null, error: db.insertError } : { data: { id: "t1", ticket_number: 1042 }, error: null };
+          return { select: () => ({ abortSignal: () => ({ single }), single }) };
         },
         update(patch: Record<string, unknown>) {
           db.updates.push(patch);
-          return { eq: async () => ({ error: null }) };
+          const done = { abortSignal: async () => ({ error: null }) };
+          return { eq: () => done };
+        },
+        // mayPing's count of recent live alerts.
+        select() {
+          const count = { eq: () => count, gte: () => count, abortSignal: async () => ({ count: db.recentAlerts, error: null }) };
+          return count;
         },
       };
     },
@@ -100,12 +106,14 @@ beforeEach(() => {
   process.env.ENABLE_SUPPORT_INBOX = "true";
   process.env.ENABLE_SELF_SERVE_CANCEL = "true";
   process.env.DISCORD_SUPPORT_WEBHOOK_URL = "https://discord.com/api/webhooks/1/abc";
+  // A production deployment (live Stripe key); the test-mode case has its own test.
+  vi.stubEnv("STRIPE_SECRET_KEY", "sk_live_dummy_for_unit_tests");
   resendSend.mockReset();
   resendSend.mockResolvedValue({ data: { id: "email_1" }, error: null });
   sentry.captureAPIError.mockReset();
   discord.postToDiscord.mockReset();
   discord.postToDiscord.mockResolvedValue({ kind: "posted", status: 200, retried: false });
-  Object.assign(db, { booking: bookingRow(), bookingError: null, insertError: null, inserted: [], lookups: [], updates: [] });
+  Object.assign(db, { booking: bookingRow(), bookingError: null, insertError: null, inserted: [], lookups: [], updates: [], recentAlerts: 0 });
   vi.spyOn(console, "warn").mockImplementation(() => {});
   __resetContactRateLimitForTests();
 });
@@ -115,6 +123,7 @@ afterEach(() => {
   delete process.env.ENABLE_SUPPORT_INBOX;
   delete process.env.ENABLE_SELF_SERVE_CANCEL;
   delete process.env.DISCORD_SUPPORT_WEBHOOK_URL;
+  vi.unstubAllEnvs();
 });
 
 describe("POST /api/contact — support inbox on", () => {
@@ -220,7 +229,43 @@ describe("POST /api/contact — support inbox on", () => {
     const res = await POST(req({ ...form, subject: "Problem at the Lot" }));
     expect(res.status).toBe(200);
     expect(resendSend).toHaveBeenCalledTimes(2); // team (threw) + reply
+    // The urgent @here, then a plain note that the team email didn't send.
+    expect(discord.postToDiscord).toHaveBeenCalledTimes(2);
+    expect(discord.postToDiscord.mock.calls[1][1].title).toContain("the team email did not send");
+    expect(discord.postToDiscord.mock.calls[1][2].allowedMentions).toEqual({ parse: [] });
+  });
+
+  // Review round 1 (#156) ------------------------------------------------------
+
+  it("a failed team email on a stored, non-urgent ticket is posted to Discord (not just Sentry)", async () => {
+    resendSend.mockResolvedValueOnce({ data: null, error: { message: "daily quota" } });
+    const res = await POST(req({ ...form, subject: "General Inquiry", reservationNumber: "" }));
+    expect(res.status).toBe(200);
     expect(discord.postToDiscord).toHaveBeenCalledTimes(1);
+    expect(discord.postToDiscord.mock.calls[0][1].title).toBe("Support ticket #1042: the team email did not send");
+  });
+
+  it("past the ping cap the urgent alert still posts, without @here", async () => {
+    db.recentAlerts = 3;
+    await POST(req({ ...form, subject: "Problem at the Lot" }));
+    const [, , opts] = discord.postToDiscord.mock.calls[0];
+    expect(opts.content).not.toContain("@here");
+    expect(opts.allowedMentions).toEqual({ parse: [] });
+  });
+
+  it("a staging (test-mode) ticket is marked test, never pings, and says so in the team email", async () => {
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_dummy_for_unit_tests");
+    await POST(req({ ...form, subject: "Problem at the Lot" }));
+    expect(db.inserted[0]).toMatchObject({ livemode: false });
+    expect(resendSend.mock.calls[0][0].subject).toMatch(/^\[TEST\] /);
+    const [, embed, opts] = discord.postToDiscord.mock.calls[0];
+    expect(embed.title).toMatch(/^\[TEST\] /);
+    expect(opts.content).not.toContain("@here");
+  });
+
+  it("a live ticket records livemode true", async () => {
+    await POST(req(form));
+    expect(db.inserted[0]).toMatchObject({ livemode: true });
   });
 
   it("a failed instant reply is reported to Sentry, not just logged", async () => {

@@ -34,6 +34,8 @@ interface Ticket {
   first_response_at: string | null;
   resolved_at: string | null;
   notes: string;
+  /** For the conditional save: PATCH refuses (409) if someone else saved since. */
+  updated_at: string;
   created_at: string;
 }
 
@@ -104,7 +106,9 @@ export default function AdminSupportPage() {
   // Only the latest request may update the list (fast clicks can return out of order).
   const requestId = useRef(0);
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [counts, setCounts] = useState({ open: 0, urgent: 0 });
+  // null until a load succeeds: a failed read shows "—", never 0.
+  const [counts, setCounts] = useState<{ open: number; urgent: number } | null>(null);
+  const [listFailed, setListFailed] = useState(false);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -125,11 +129,16 @@ export default function AdminSupportPage() {
       if (!res.ok || !data) throw new Error(data?.error || `Failed to load tickets (${res.status})`);
       setTickets(data.tickets);
       setCounts(data.counts);
+      setListFailed(false);
       setAssignees(data.assignees);
       setTotalPages(data.pagination.totalPages);
       setSelected((cur) => (cur ? (data.tickets as Ticket[]).find((t) => t.id === cur.id) ?? cur : null));
     } catch (e) {
-      if (id === requestId.current) setError(e instanceof Error ? e.message : "Failed to load tickets");
+      if (id === requestId.current) {
+        setError(e instanceof Error ? e.message : "Failed to load tickets");
+        setCounts(null);
+        setListFailed(true);
+      }
     } finally {
       if (id === requestId.current) setLoading(false);
     }
@@ -146,9 +155,14 @@ export default function AdminSupportPage() {
       const res = await fetch(`/api/admin/support/${t.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ ...body, expectedUpdatedAt: t.updated_at }),
       });
       const data = await res.json().catch(() => null);
+      if (res.status === 409) {
+        // Someone else saved first: show theirs (the reload), keep this draft.
+        await load();
+        throw new Error(data?.error || "Someone else changed this ticket. Reload it and try again.");
+      }
       if (!res.ok) throw new Error(data?.error || `Update failed (${res.status})`);
       // Keep the open ticket in view even when it leaves the current list (e.g. closed from "Open").
       const now = new Date().toISOString();
@@ -160,6 +174,7 @@ export default function AdminSupportPage() {
         local.first_response_at = t.first_response_at ?? now;
         if (t.status === "new" && !local.status) local.status = "waiting";
       }
+      if (typeof data?.updatedAt === "string") local.updated_at = data.updatedAt;
       setSelected({ ...t, ...local });
       await load();
     } catch (e) {
@@ -197,13 +212,13 @@ export default function AdminSupportPage() {
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <Inbox className="h-4 w-4" /> Open
           </div>
-          <div className="mt-1 text-2xl font-bold text-gray-900">{counts.open}</div>
+          <div className="mt-1 text-2xl font-bold text-gray-900">{counts?.open ?? "—"}</div>
         </div>
-        <div className={`rounded-xl border p-4 ${counts.urgent > 0 ? "border-red-200 bg-red-50" : "border-gray-200 bg-white"}`}>
+        <div className={`rounded-xl border p-4 ${(counts?.urgent ?? 0) > 0 ? "border-red-200 bg-red-50" : "border-gray-200 bg-white"}`}>
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <AlertTriangle className="h-4 w-4" /> Urgent
           </div>
-          <div className={`mt-1 text-2xl font-bold ${counts.urgent > 0 ? "text-red-700" : "text-gray-900"}`}>{counts.urgent}</div>
+          <div className={`mt-1 text-2xl font-bold ${(counts?.urgent ?? 0) > 0 ? "text-red-700" : "text-gray-900"}`}>{counts?.urgent ?? "—"}</div>
         </div>
       </div>
 
@@ -253,6 +268,8 @@ export default function AdminSupportPage() {
               <div className="flex justify-center py-12">
                 <Loader2 className="h-6 w-6 animate-spin text-brand-orange" />
               </div>
+            ) : listFailed ? (
+              <div className="py-12 text-center text-sm text-red-600">Couldn&apos;t load tickets — use Refresh.</div>
             ) : tickets.length === 0 ? (
               <div className="py-12 text-center text-sm text-gray-500">Nothing here. 🎉</div>
             ) : (

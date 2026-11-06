@@ -80,6 +80,8 @@ export interface AutoReplyInput {
   booking: MatchedBooking | null;
   /** Self-cancel is on and this booking passes the 24h gate now. */
   canSelfCancel: boolean;
+  /** ENABLE_SELF_SERVE_CANCEL — no self-cancel advice at all when it's off (the rollback lever). */
+  selfCancelEnabled: boolean;
 }
 
 export function renderAutoReply(input: AutoReplyInput): { subject: string; html: string } {
@@ -101,24 +103,35 @@ export function renderAutoReply(input: AutoReplyInput): { subject: string; html:
       break;
     case "already_cancelled":
       heading = "This reservation is already cancelled";
+      // `refunded` = a refund went through. `cancelled` is written exactly when
+      // none did (hold released, refund failed or $0, no payment) — never
+      // promise one then; the ticket is raised to high for the team to check.
       body =
-        p(`Our records show this reservation is already cancelled, so there's nothing more you need to do.`) +
+        p(`Our records show this reservation is already cancelled.`) +
         details +
-        p(`Refunds go back to the card you paid with and can take 5–10 business days to show on your statement. If something doesn't look right, reply to this email.`);
+        (booking?.status === "refunded"
+          ? p(`Refunds go back to the card you paid with and can take 5–10 business days to show on your statement. If something doesn't look right, reply to this email.`)
+          : p(`We'll check the payment side of this cancellation and reply as soon as possible.`) + REPLY_HINT);
       break;
     case "cancel_support":
       heading = "We're on your cancellation";
+      // No guessed reason for why it can't be done online (the flag may be
+      // off, the timezone unknown, the status disputed…).
       body =
         (booking
-          ? p(`Online cancellation closes 24 hours before check-in, so our team will handle this one for you personally. We've flagged it and will reply as soon as possible.`) + details
+          ? p(`Our team will handle this one for you personally. We've flagged it and will reply as soon as possible.`) + details
           : p(`Our team will handle this for you. We'll reply as soon as possible.`) +
-            p(`If your check-in is more than 24 hours away, the fastest way is to cancel it yourself at <a href="${MANAGE_URL}" ${A}>My Reservations</a> (sign in with the email you booked with).`) +
+            (input.selfCancelEnabled
+              ? p(`If your check-in is more than 24 hours away, the fastest way is to cancel it yourself at <a href="${MANAGE_URL}" ${A}>My Reservations</a> (sign in with the email you booked with).`)
+              : "") +
             ASK_FOR_NUMBER) + REPLY_HINT;
       break;
     case "change":
-      heading = "We'll help you change your reservation";
+      heading = "We'll help with your reservation";
+      // Help says "There's no edit option yet": changes are case by case, so
+      // promise options, not the change itself.
       body =
-        p(`Our team makes date, time and vehicle changes for you. We've got your request and will reply with your options as soon as possible.`) +
+        p(`We've got your request and will reply with your options as soon as possible.`) +
         details +
         (input.canSelfCancel
           ? p(`In a hurry? You can also cancel this reservation yourself at <a href="${MANAGE_URL}" ${A}>My Reservations</a> and book your new dates — just note the price for new dates may be different.`)
@@ -127,9 +140,11 @@ export function renderAutoReply(input: AutoReplyInput): { subject: string; html:
         REPLY_HINT;
       break;
     case "at_lot":
-      heading = "We've alerted our team";
+      // Sent before the alert runs (it goes out after the response), so it
+      // claims the flag, never a delivered page.
+      heading = "We've flagged this as urgent";
       body =
-        p(`Your message has been flagged as urgent and our team has been alerted right now.`) +
+        p(`Your message has been flagged as urgent for our team.`) +
         (booking
           ? p(`Here's your reservation — show the reservation number to the lot attendant or shuttle driver:`) + details
           : ASK_FOR_NUMBER) +
@@ -186,10 +201,10 @@ const MATCH_TEXT: Record<BookingMatch, string> = {
 
 const REPLY_TEXT: Record<ReplyKind, string> = {
   self_cancel: "told them how to cancel it themselves",
-  already_cancelled: "told them it's already cancelled",
-  cancel_support: "told them we'll cancel it for them",
+  already_cancelled: "told them it's already cancelled (refund timing only if refunded; otherwise that we'll check the payment)",
+  cancel_support: "told them our team will handle the cancellation",
   change: "told them we'll reply with change options",
-  at_lot: "told them the team is alerted (sent lot facts if matched)",
+  at_lot: "told them it's flagged urgent for the team (sent lot facts if matched)",
   booking_details: "sent their booking details",
   payment: "told them payments is looking into it",
   partner: "standard acknowledgement",

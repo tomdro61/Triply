@@ -13,6 +13,9 @@ const state = vi.hoisted(() => ({
   ors: [] as string[],
   orders: [] as Array<[string, boolean]>,
   countError: null as null | { message: string },
+  // The ticket's updated_at as stored; a conditional PATCH must match it.
+  updatedAt: "2026-11-05T10:00:00.000Z",
+  eqs: [] as Array<[string, unknown]>,
 }));
 
 vi.mock("@/lib/sentry", () => ({ captureAPIError: vi.fn() }));
@@ -27,10 +30,11 @@ vi.mock("@/lib/supabase/server", () => ({
     from() {
       let head = false;
       let updating = false;
+      let expected: unknown = undefined;
       const b = {
         select: (_c: string, opts?: { head?: boolean }) => ((head = !!opts?.head), b),
         in: () => b,
-        eq: () => b,
+        eq: (col: string, v: unknown) => (state.eqs.push([col, v]), col === "updated_at" && (expected = v), b),
         or: (f: string) => (state.ors.push(f), b),
         order: (col: string, o: { ascending: boolean }) => (state.orders.push([col, o.ascending]), b),
         range: () => b,
@@ -41,7 +45,7 @@ vi.mock("@/lib/supabase/server", () => ({
             head
               ? { count: 1, error: state.countError }
               : updating
-                ? { error: null }
+                ? { data: expected === state.updatedAt ? [{ id: "t" }] : [], error: null }
                 : { data: [], error: null, count: 0 }
           ),
       };
@@ -54,11 +58,12 @@ import { GET } from "../route";
 import { PATCH } from "../[id]/route";
 
 const ID = "11111111-1111-4111-8111-111111111111";
-const patchReq = (body: unknown) =>
+// Every save names the version it was based on (expectedUpdatedAt).
+const patchReq = (body: Record<string, unknown>) =>
   new NextRequest(`https://www.triplypro.com/api/admin/support/${ID}`, {
     method: "PATCH",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ expectedUpdatedAt: "2026-11-05T10:00:00.000Z", ...body }),
   });
 const params = { params: Promise.resolve({ id: ID }) };
 
@@ -69,6 +74,8 @@ beforeEach(() => {
   state.ors = [];
   state.orders = [];
   state.countError = null;
+  state.updatedAt = "2026-11-05T10:00:00.000Z";
+  state.eqs = [];
 });
 
 describe("GET /api/admin/support", () => {
@@ -96,6 +103,14 @@ describe("GET /api/admin/support", () => {
   it("a failed count is a 500, never '0 urgent'", async () => {
     state.countError = { message: "boom" };
     expect((await GET(new NextRequest("https://x/api/admin/support"))).status).toBe(500);
+  });
+
+  it("lists and counts only this deployment's tickets (staging and production share the database)", async () => {
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_x");
+    await GET(new NextRequest("https://x/api/admin/support"));
+    expect(state.eqs.filter(([c]) => c === "livemode").every(([, v]) => v === false)).toBe(true);
+    expect(state.eqs.filter(([c]) => c === "livemode")).toHaveLength(3); // list + 2 counts
+    vi.unstubAllEnvs();
   });
 
   it("rejects an unknown view", async () => {
@@ -129,6 +144,27 @@ describe("PATCH /api/admin/support/[id]", () => {
     expect((await PATCH(patchReq({ assignedTo: "outsider@example.com" }), params)).status).toBe(400);
     expect((await PATCH(patchReq({ priority: "normal" }), params)).status).toBe(400);
     expect((await PATCH(patchReq({}), params)).status).toBe(400);
+    expect(state.updates).toEqual([]);
+  });
+
+  // Review round 1 (#156): one admin's notes never silently erase another's.
+  it("a save based on an older version is a 409 and changes nothing", async () => {
+    state.updatedAt = "2026-11-05T10:05:00.000Z"; // John saved after Vin opened it
+    const res = await PATCH(patchReq({ notes: "called lot" }), params);
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toContain("Someone else changed this ticket");
+  });
+
+  it("a save without the version it was based on is refused", async () => {
+    const res = await PATCH(
+      new NextRequest(`https://www.triplypro.com/api/admin/support/${ID}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ notes: "x" }),
+      }),
+      params
+    );
+    expect(res.status).toBe(400);
     expect(state.updates).toEqual([]);
   });
 

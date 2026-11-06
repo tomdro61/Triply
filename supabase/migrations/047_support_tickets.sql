@@ -54,6 +54,10 @@ CREATE TABLE IF NOT EXISTS support_tickets (
   auto_reply_sent    BOOLEAN NOT NULL DEFAULT false,
   -- NULL until a Discord alert was accepted (urgent tickets only).
   alerted_at         TIMESTAMPTZ,
+  -- Which deployment made it, by its Stripe mode (as bookings, PR #88):
+  -- staging and production share this database. The inbox lists only its
+  -- own, and a test ticket never pings @here.
+  livemode           BOOLEAN NOT NULL,
 
   -- Workflow.
   status             TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'open', 'waiting', 'done')),

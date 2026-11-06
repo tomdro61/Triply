@@ -10,6 +10,10 @@ import { captureAPIError } from "@/lib/sentry";
  * null), notes, markReplied (stamps first_response_at once and moves a "new"
  * ticket to "waiting" — the customer has our answer, the ball is in theirs).
  * "done" stamps resolved_at; leaving "done" clears it.
+ *
+ * `expectedUpdatedAt` (the ticket's updated_at as the admin last loaded it)
+ * makes the write conditional: if someone else saved since, nothing changes
+ * and the answer is 409, so one admin's notes never silently erase another's.
  */
 
 const patchSchema = z
@@ -18,9 +22,10 @@ const patchSchema = z
     assignedTo: z.string().email().max(254).nullable().optional(),
     notes: z.string().max(10_000).optional(),
     markReplied: z.literal(true).optional(),
+    expectedUpdatedAt: z.string().min(1).max(64),
   })
   .strict()
-  .refine((b) => Object.keys(b).length > 0, { message: "Nothing to update" });
+  .refine((b) => Object.keys(b).length > 1, { message: "Nothing to update" });
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -68,9 +73,20 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (body.assignedTo !== undefined) update.assigned_to = body.assignedTo?.toLowerCase() ?? null;
     if (body.notes !== undefined) update.notes = body.notes;
 
-    const { error } = await db.from("support_tickets").update(update).eq("id", id);
+    const { data: written, error } = await db
+      .from("support_tickets")
+      .update(update)
+      .eq("id", id)
+      .eq("updated_at", body.expectedUpdatedAt)
+      .select("id");
     if (error) throw new Error(`admin support update failed: ${error.message}`);
-    return NextResponse.json({ success: true });
+    if (!Array.isArray(written) || written.length === 0) {
+      return NextResponse.json(
+        { error: "Someone else changed this ticket since you opened it. Reload it and try again." },
+        { status: 409 }
+      );
+    }
+    return NextResponse.json({ success: true, updatedAt: now });
   } catch (error) {
     captureAPIError(error instanceof Error ? error : new Error(String(error)), {
       endpoint: "/api/admin/support/[id]",

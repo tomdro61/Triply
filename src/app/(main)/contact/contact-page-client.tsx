@@ -25,6 +25,17 @@ const BOOKING_SUBJECTS = new Set<string>([
   "Payment Issue",
 ]);
 
+/** The subjects (and order) the form had before the support inbox — used while it's off. */
+const LEGACY_SUBJECTS = [
+  "General Inquiry",
+  "Booking Help",
+  "Cancellation Request",
+  "Payment Issue",
+  "Feedback",
+  "Partnership Inquiry",
+  "Other",
+] as const satisfies ReadonlyArray<(typeof CONTACT_SUBJECTS)[number]>;
+
 const EMPTY_FORM = { name: "", email: "", subject: "", message: "", reservationNumber: "" };
 
 const linkClass = "text-brand-orange hover:text-orange-600 font-medium";
@@ -33,8 +44,19 @@ const linkClass = "text-brand-orange hover:text-orange-600 font-medium";
  * Self-service first: before someone writes to us, show the fastest way to do
  * it themselves. Shown under the subject; the form stays usable either way.
  */
-function SelfServiceTip({ subject, selfCancelEnabled }: { subject: string; selfCancelEnabled: boolean }) {
+function SelfServiceTip({
+  subject,
+  selfCancelEnabled,
+  supportInboxEnabled,
+}: {
+  subject: string;
+  selfCancelEnabled: boolean;
+  supportInboxEnabled: boolean;
+}) {
   let tip: React.ReactNode = null;
+  // With the inbox off only the self-cancel tip shows: it describes a feature
+  // that is on, while the others describe the inbox's workflow.
+  if (!supportInboxEnabled && subject !== "Cancellation Request") return null;
   if (subject === "Cancellation Request" && selfCancelEnabled) {
     tip = (
       <>
@@ -50,7 +72,7 @@ function SelfServiceTip({ subject, selfCancelEnabled }: { subject: string; selfC
   } else if (subject === "Change My Reservation") {
     tip = (
       <>
-        Tell us the new dates, times or vehicle and we&apos;ll make the change.
+        Tell us the new dates, times or vehicle and we&apos;ll reply with your options.
         {selfCancelEnabled && (
           <>
             {" "}
@@ -66,8 +88,8 @@ function SelfServiceTip({ subject, selfCancelEnabled }: { subject: string; selfC
   } else if (subject === "Problem at the Lot") {
     tip = (
       <>
-        On your trip right now? Add your reservation number — urgent messages alert our whole team
-        immediately. Your confirmation email has the lot&apos;s address and directions.
+        On your trip right now? Add your reservation number — we flag urgent messages to our team
+        straight away. Your confirmation email has the lot&apos;s address and directions.
       </>
     );
   } else if (subject === "Booking Help") {
@@ -166,8 +188,10 @@ export default function ContactPageClient({
     }
   };
 
-  // The server validates against the same list (contactFormSchema).
-  const subjectOptions = CONTACT_SUBJECTS;
+  // The server validates against the same list (contactFormSchema). With the
+  // inbox off, the form is main's: its subjects in its order, so nothing on the
+  // page promises a workflow (urgent paging, booking lookup) that isn't running.
+  const subjectOptions = supportInboxEnabled ? CONTACT_SUBJECTS : LEGACY_SUBJECTS;
 
   return (
     <>
@@ -214,7 +238,8 @@ export default function ContactPageClient({
                       {ticket.replied
                         ? "We've emailed you a reply with next steps (check your spam folder too)."
                         : "We'll reply by email as soon as possible."}
-                      {ticket.urgent && " Our team has been alerted right now."}
+                      {/* The alert runs after this response — claim the flag, not a delivered page. */}
+                      {ticket.urgent && " We've flagged it as urgent for our team."}
                     </p>
                   ) : (
                     <p className="text-gray-600 mb-6">
@@ -323,7 +348,7 @@ export default function ContactPageClient({
                           </option>
                         ))}
                       </select>
-                      <SelfServiceTip subject={formData.subject} selfCancelEnabled={selfCancelEnabled} />
+                      <SelfServiceTip subject={formData.subject} selfCancelEnabled={selfCancelEnabled} supportInboxEnabled={supportInboxEnabled} />
                       {formData.subject === "Partnership Inquiry" && (
                         <p className="mt-2 text-sm text-gray-600">
                           Own or operate a parking lot?{" "}

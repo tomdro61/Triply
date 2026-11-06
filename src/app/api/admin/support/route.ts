@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { isAdminEmail, ALERT_EMAILS } from "@/config/admin";
 import { captureAPIError } from "@/lib/sentry";
+import { supportLivemode } from "@/lib/support/tickets";
 
 /**
  * GET /api/admin/support — the support inbox list (ADMIN_EMAILS only).
@@ -11,6 +12,9 @@ import { captureAPIError } from "@/lib/sentry";
  * Open views sort urgent → high → normal, then oldest first (who's waited longest).
  * `assignees` = the team members a ticket can be given to (alert list ∩ admins),
  * read server-side because ALERT_EMAILS is not a public env var.
+ *
+ * Staging and production share one database: only this deployment's tickets
+ * (by Stripe mode, `livemode`) are listed and counted, as admin bookings do.
  */
 
 const TICKET_COLUMNS =
@@ -39,7 +43,8 @@ export async function GET(request: NextRequest) {
     // number, email, name or reservation number can contain reach .or().
     const search = (params.get("search") ?? "").replace(/[^a-zA-Z0-9@.\-_ ]/g, "").trim();
 
-    let query = db.from("support_tickets").select(TICKET_COLUMNS, { count: "exact" });
+    const livemode = supportLivemode();
+    let query = db.from("support_tickets").select(TICKET_COLUMNS, { count: "exact" }).eq("livemode", livemode);
     if (view === "open") query = query.in("status", OPEN);
     if (view === "urgent") query = query.in("status", OPEN).eq("priority", "urgent");
     if (view === "done") query = query.eq("status", "done");
@@ -57,11 +62,20 @@ export async function GET(request: NextRequest) {
 
     const [list, openCount, urgentCount] = await Promise.all([
       query.range(from, from + PAGE_SIZE - 1),
-      db.from("support_tickets").select("id", { count: "exact", head: true }).in("status", OPEN),
-      db.from("support_tickets").select("id", { count: "exact", head: true }).in("status", OPEN).eq("priority", "urgent"),
+      db.from("support_tickets").select("id", { count: "exact", head: true }).eq("livemode", livemode).in("status", OPEN),
+      db
+        .from("support_tickets")
+        .select("id", { count: "exact", head: true })
+        .eq("livemode", livemode)
+        .in("status", OPEN)
+        .eq("priority", "urgent"),
     ]);
     // A failed count must not show "0 urgent": every read errors out loudly.
-    const failed = list.error ?? openCount.error ?? urgentCount.error;
+    const failed =
+      list.error ??
+      openCount.error ??
+      urgentCount.error ??
+      (openCount.count == null || urgentCount.count == null ? { message: "ticket counts missing" } : null);
     if (failed) {
       captureAPIError(new Error(`admin support list failed: ${failed.message}`), { endpoint: "/api/admin/support", method: "GET" });
       return NextResponse.json({ error: "Failed to load tickets" }, { status: 500 });
@@ -70,7 +84,8 @@ export async function GET(request: NextRequest) {
     const total = list.count ?? 0;
     return NextResponse.json({
       tickets: list.data ?? [],
-      counts: { open: openCount.count ?? 0, urgent: urgentCount.count ?? 0 },
+      counts: { open: openCount.count, urgent: urgentCount.count },
+      livemode,
       assignees: ALERT_EMAILS.filter((e) => isAdminEmail(e)),
       pagination: { page, limit: PAGE_SIZE, total, totalPages: Math.ceil(total / PAGE_SIZE) },
     });

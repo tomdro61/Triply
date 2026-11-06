@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { resend, FROM_EMAIL } from "@/lib/resend/client";
 import { ALERT_EMAILS } from "@/config/admin";
 import { contactFormSchema, escapeHtml, CONTACT_HONEYPOT_FIELD } from "@/lib/validation/schemas";
@@ -10,11 +10,14 @@ import { normalizeReservationNumber, triage, canSelfCancel } from "@/lib/support
 import { renderAutoReply, renderTeamEmail, SUPPORT_EMAIL } from "@/lib/support/reply";
 import {
   supportInboxEnabled,
+  supportLivemode,
   lookupBooking,
   insertTicket,
   updateTicket,
   urgentTicketEmbed,
   alertUrgentTicket,
+  mayPing,
+  noticeTeamEmailFailed,
   type BookingLookup,
 } from "@/lib/support/tickets";
 import type { ContactFormData } from "@/lib/validation/schemas";
@@ -200,19 +203,61 @@ function reportSupport(error: unknown) {
   });
 }
 
+// The inbox flow's steps are each bounded (DB 3 s in lib/support/tickets.ts,
+// emails 8 s here), so the worst case stays well inside this.
+export const maxDuration = 30;
+const EMAIL_TIMEOUT_MS = 8_000;
+
+type SendPayload = Parameters<typeof resend.emails.send>[0];
+
+/** A Resend send that fails after EMAIL_TIMEOUT_MS instead of hanging the request. Returns an error message or null. */
+async function sendWithin(payload: SendPayload): Promise<string | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<{ error: { message: string } }>((resolve) => {
+    timer = setTimeout(() => resolve({ error: { message: `timed out after ${EMAIL_TIMEOUT_MS}ms` } }), EMAIL_TIMEOUT_MS);
+  });
+  try {
+    const { error } = await Promise.race([resend.emails.send(payload), timeout]);
+    return error ? error.message : null;
+  } catch (err) {
+    return err instanceof Error ? err.message : String(err);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Work that must not shape the public response: the Discord alerts and the
+ * ticket bookkeeping. Run after the response (Next `after()` -> Vercel
+ * `waitUntil`), so neither their outcome nor their latency (an urgent alert
+ * exists only for a matched, imminent booking) is observable by the caller.
+ * Outside a request scope (tests, scripts) it runs inline.
+ */
+async function afterResponse(work: () => Promise<void>): Promise<void> {
+  try {
+    after(work);
+    return;
+  } catch {
+    // not in a request scope
+  }
+  await work();
+}
+
 /**
  * ENABLE_SUPPORT_INBOX=true. Order matters for "never lose a message":
  *   1. find the booking (only when the email matches) and triage — pure rules;
  *   2. store the ticket — on failure, carry on by email alone;
  *   3. team email — fails the request ONLY if there is no ticket either;
  *   4. the instant reply to the customer;
- *   5. urgent → Discord @here.
- * Every failure after (1) is reported to Sentry, never swallowed.
+ *   5. after the response: urgent -> Discord (@here, capped), a failed team
+ *      email -> a plain Discord note, and the ticket's bookkeeping.
+ * Every step is bounded; every failure after (1) is reported to Sentry.
  */
 async function supportInboxFlow(data: ContactFormData) {
   const { name, email, subject, message } = data;
   const reservationNumber = normalizeReservationNumber(data.reservationNumber);
   const selfCancelEnabled = process.env.ENABLE_SELF_SERVE_CANCEL === "true";
+  const livemode = supportLivemode();
   let db: Awaited<ReturnType<typeof createAdminClient>> | null = null;
   try {
     db = await createAdminClient();
@@ -243,6 +288,7 @@ async function supportInboxFlow(data: ContactFormData) {
       priority: t.priority,
       reasons: t.reasons,
       replyKind: t.replyKind,
+      livemode,
     });
   } catch (insertError) {
     reportSupport(insertError);
@@ -262,21 +308,13 @@ async function supportInboxFlow(data: ContactFormData) {
     reasons: t.reasons,
     replyKind: t.replyKind,
   });
-  // A throw is handled like a returned error: with a stored ticket the
-  // customer must still get their reply and the urgent alert.
-  let teamFailure: string | null = null;
-  try {
-    const { error: teamError } = await resend.emails.send({
-      from: FROM_EMAIL,
-      to: ALERT_EMAILS,
-      replyTo: email,
-      subject: team.subject,
-      html: team.html,
-    });
-    if (teamError) teamFailure = teamError.message;
-  } catch (teamThrow) {
-    teamFailure = teamThrow instanceof Error ? teamThrow.message : String(teamThrow);
-  }
+  const teamFailure = await sendWithin({
+    from: FROM_EMAIL,
+    to: ALERT_EMAILS,
+    replyTo: email,
+    subject: `${livemode ? "" : "[TEST] "}${team.subject}`,
+    html: team.html,
+  });
   if (teamFailure !== null) {
     reportSupport(new Error(`support team email failed${ticket ? ` (ticket #${ticket.ticketNumber} stored)` : ""}: ${teamFailure}`));
     if (!ticket) {
@@ -290,51 +328,51 @@ async function supportInboxFlow(data: ContactFormData) {
     ticketNumber,
     booking,
     canSelfCancel: canSelfCancel(booking, selfCancelEnabled),
+    selfCancelEnabled,
   });
-  let confirmationSent = true;
   const emailDomain = email.split("@")[1]?.toLowerCase() ?? "";
-  try {
-    const { error: replyError } = await resend.emails.send({
-      from: FROM_EMAIL,
-      to: [email],
-      replyTo: SUPPORT_EMAIL,
-      subject: reply.subject,
-      html: reply.html,
-    });
-    if (replyError) {
-      confirmationSent = false;
-      reportSupport(new Error(`support instant reply not sent (${emailDomain}): ${replyError.message}`));
+  const replyFailure = await sendWithin({
+    from: FROM_EMAIL,
+    to: [email],
+    replyTo: SUPPORT_EMAIL,
+    subject: reply.subject,
+    html: reply.html,
+  });
+  const confirmationSent = replyFailure === null;
+  if (replyFailure !== null) reportSupport(new Error(`support instant reply not sent (${emailDomain}): ${replyFailure}`));
+
+  await afterResponse(async () => {
+    let alertedAt: string | null = null;
+    // Urgent -> page the team even when the ticket store failed.
+    if (t.priority === "urgent") {
+      const ping = await mayPing(db);
+      const alert = await alertUrgentTicket(
+        urgentTicketEmbed({
+          ticketNumber,
+          subject,
+          reasons: t.reasons,
+          reservationNumber,
+          bookingMatch: lookup.match,
+          booking,
+          tripPhase: t.tripPhase,
+        }),
+        { livemode, ping }
+      );
+      if (alert.ok) alertedAt = new Date().toISOString();
+      else reportSupport(new Error(`urgent support alert not posted for ${ticketNumber !== null ? `#${ticketNumber}` : "an unsaved request"}: ${alert.error}`));
     }
-  } catch (replyThrow) {
-    confirmationSent = false;
-    reportSupport(new Error(`support instant reply threw (${emailDomain}): ${replyThrow instanceof Error ? replyThrow.message : String(replyThrow)}`));
-  }
-
-  // Urgent → page the team even when the ticket store failed: the reply
-  // already told the customer the team has been alerted.
-  let alertedAt: string | null = null;
-  if (t.priority === "urgent") {
-    const alert = await alertUrgentTicket(
-      urgentTicketEmbed({
-        ticketNumber,
-        subject,
-        reasons: t.reasons,
-        reservationNumber,
-        bookingMatch: lookup.match,
-        booking,
-        tripPhase: t.tripPhase,
-      })
-    );
-    if (alert.ok) alertedAt = new Date().toISOString();
-    else reportSupport(new Error(`urgent support alert not posted for ${ticketNumber !== null ? `#${ticketNumber}` : "an unsaved request"}: ${alert.error}`));
-  }
-
-  if (ticket && db) {
-    const patch: { auto_reply_sent: boolean; alerted_at?: string } = { auto_reply_sent: confirmationSent };
-    if (alertedAt) patch.alerted_at = alertedAt;
-    const updateError = await updateTicket(db, ticket.id, patch);
-    if (updateError) reportSupport(new Error(`support ticket update failed: ${updateError}`));
-  }
+    // The ticket is stored but nobody was emailed: say so where people look.
+    if (teamFailure !== null && ticket) {
+      const notice = await noticeTeamEmailFailed(ticket.ticketNumber, livemode);
+      if (!notice.ok) reportSupport(new Error(`team-email-failed notice not posted for #${ticket.ticketNumber}: ${notice.error}`));
+    }
+    if (ticket && db) {
+      const patch: { auto_reply_sent: boolean; alerted_at?: string } = { auto_reply_sent: confirmationSent };
+      if (alertedAt) patch.alerted_at = alertedAt;
+      const updateError = await updateTicket(db, ticket.id, patch);
+      if (updateError) reportSupport(new Error(`support ticket update failed: ${updateError}`));
+    }
+  });
 
   // The caller is unauthenticated: anyone who knows a customer's email and
   // reservation number could submit as them. So the public `urgent` flag comes
