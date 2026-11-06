@@ -5,8 +5,27 @@
 // Run with: npm test
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { filterSellableLots, currencySymbol, isCanadianAirport } from './airport-data.js'
+import { filterSellableLots, currencySymbol, isCanadianAirport, airportPageLots, NOT_AIRPORT_NOTE } from './airport-data.js'
 import { isOwnSiteUrl } from './external-links.js'
+
+test('airportPageLots (review of #160): an airport page drops lot-sync\'s cruise/downtown lots and names them; a cruise-port file keeps them', () => {
+  const mia = {
+    code: 'MIA',
+    parkingLots: [
+      { name: 'Holiday Inn Miami Airport', sellable: true, dailyRate: 10.18 },
+      { name: 'Bayfront Garage Miami', sellable: true, dailyRate: 8.4, notes: NOT_AIRPORT_NOTE },
+      { name: 'Closed Lot', sellable: false },
+    ],
+  }
+  const r = airportPageLots(mia)
+  assert.deepEqual(r.lots.map((l) => l.name), ['Holiday Inn Miami Airport'])
+  assert.deepEqual(r.hiddenNames, ['Bayfront Garage Miami', 'Closed Lot'])
+  // A human who confirms the lot serves the airport removes the note, and it comes back.
+  const cleared = { ...mia, parkingLots: mia.parkingLots.map((l) => ({ ...l, notes: undefined })) }
+  assert.equal(airportPageLots(cleared).lots.length, 2)
+  // POE (and any file with cruiseShuttle data) is a cruise-port page: the note doesn't hide anything there.
+  assert.equal(airportPageLots({ ...mia, code: 'POE' }).lots.length, 2)
+})
 
 test('filterSellableLots drops only lots explicitly marked sellable: false', () => {
   const lots = [

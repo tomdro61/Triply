@@ -34,6 +34,7 @@ import { env } from './config.js'
 import { updatePost } from './payload.js'
 import { submitUrls, postUrlFor } from './indexnow.js'
 import { stampField } from './stamp.js'
+import { isCruisePortFile, isNotAirportLot } from './airport-data.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
@@ -113,10 +114,13 @@ function buildRows(code: string, data: any): { rows: Row[]; skipped: Skip[] } {
     })
   }
 
-  // Off-site lots we sell.
+  // Off-site lots we sell. A lot lot-sync flagged as cruise-port/downtown stays off an airport hub's table until a
+  // human clears the note (review of #160: MIA's downtown garage, no airport shuttle, would have been the cheapest row).
+  const cruisePort = isCruisePortFile(data)
   for (const l of data.parkingLots || []) {
     const name: string = l.name
     if (l.sellable === false) { skipped.push({ name, why: 'sellable:false' }); continue }
+    if (!cruisePort && isNotAirportLot(l)) { skipped.push({ name, why: 'cruise-port/downtown (lot-sync note)' }); continue }
     const tag = name.match(/\(([A-Z]{3})\)\s*$/)?.[1]
     if (tag && tag !== code) { skipped.push({ name, why: `lot belongs to ${tag}` }); continue }
     if (daysOld(l.rateVerified) > LOT_DAYS) {

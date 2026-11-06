@@ -213,9 +213,10 @@
       "phone": "408-598-7128",
       "notes": "Lowest sellable rate at SJC on 2026-10-16: $67.07 grand total for a 7-night Nov 2-9 stay (8 billed days; $55.92 subtotal + $6.40 fees + $4.75 tax); identical on Nov 16-23. Minimum booking 1 day.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-02",
+      "reslabLocationId": 71
     },
     {
       "name": "Spring Park San Jose Airport Parking",
@@ -231,9 +232,10 @@
       "phone": "408-858-5250",
       "notes": "$75.50 grand total for Nov 2-9 (8 billed days; $55.60 subtotal + $8.78 fees + $11.12 tax); identical on Nov 16-23. Covered vs rooftop assignment depends strictly on the product bought — the $8.05/day Triply minimum may be the rooftop (uncovered) product; do not promise covered parking at that price.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-02",
+      "reslabLocationId": 475
     },
     {
       "name": "Holiday Inn San Jose Airport",
@@ -249,9 +251,10 @@
       "phone": "408-512-3153",
       "notes": "$76.91 grand total for Nov 2-9 (8 billed days; $63.92 subtotal + $6.60 fees + $6.39 tax); identical on Nov 16-23. Minimum booking 1 day.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-02",
+      "reslabLocationId": 302
     },
     {
       "name": "SJC Economy Lot 1",

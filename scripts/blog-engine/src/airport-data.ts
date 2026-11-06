@@ -21,7 +21,8 @@ export interface AirportData {
   onAirportParking?: Record<string, Record<string, unknown> | string>
   parkingLots?: Record<string, unknown>[]
   currency?: string  // "CAD" for Canadian airports (PR #96); USD when absent
-  /** Names of the lots marked `sellable: false` in the raw file (set by loadAirportData) — airport-level prose that names one is dropped by the writer prompt. */
+  /** Names of the lots the writer must not name (set by loadAirportData): `sellable: false` lots, plus lots lot-sync
+   *  flagged as cruise-port/downtown on an airport file. Airport-level prose that names one is dropped by the writer prompt. */
   unsellableLotNames?: string[]
   evCharging?: Record<string, unknown>
   lounges?: Record<string, unknown>[]
@@ -34,6 +35,39 @@ export interface AirportData {
 /** Lots the writer may name: anything not explicitly marked `sellable: false`. A lot without the field is kept (older data files predate the flag). */
 export function filterSellableLots<T extends { sellable?: unknown }>(lots: T[]): T[] {
   return lots.filter((l) => l.sellable !== false)
+}
+
+/** The `notes` line lot-sync gives a new lot that looks like a cruise-port/downtown lot. Matched by write.ts DO_NOT_LEAD. */
+export const NOT_AIRPORT_NOTE =
+  'Added by lot-sync: looks like a cruise-port/downtown lot, not an airport-shuttle lot — do not use in CTAs until a human confirms it serves the airport.'
+
+/** A lot lot-sync flagged as cruise-port/downtown that no human has cleared yet (clearing = removing the note). */
+export function isNotAirportLot(lot: { notes?: unknown }): boolean {
+  return typeof lot.notes === 'string' && lot.notes.includes(NOT_AIRPORT_NOTE)
+}
+
+/** A cruise-port page: POE, or any file whose lots carry a `cruiseShuttle` field (the same rule as write.ts cruiseContext). */
+export function isCruisePortFile(data: { code?: string; parkingLots?: Record<string, unknown>[] }): boolean {
+  return data.code === 'POE' || (data.parkingLots ?? []).some((l) => typeof l.cruiseShuttle === 'string')
+}
+
+/**
+ * The lots an airport page may name, and the names it must not: `sellable: false` lots, and on an airport (not
+ * cruise-port) file the lots lot-sync flagged as cruise-port/downtown. The note alone only kept them from leading;
+ * the writer's lot list, edit.ts and the infographics still named and priced them (review of #160: a downtown Miami
+ * garage with no airport shuttle would have been MIA's cheapest row).
+ */
+export function airportPageLots(data: { code?: string; parkingLots?: Record<string, unknown>[] }): {
+  lots: Record<string, unknown>[]
+  hiddenNames: string[]
+} {
+  const all = data.parkingLots ?? []
+  const cruise = isCruisePortFile(data)
+  const hide = (l: Record<string, unknown>) => l.sellable === false || (!cruise && isNotAirportLot(l))
+  return {
+    lots: all.filter((l) => !hide(l)),
+    hiddenNames: all.filter((l) => hide(l) && typeof l.name === 'string').map((l) => l.name as string),
+  }
 }
 
 /** Production Canadian airports. The data file's `currency: "CAD"` is the primary signal; this list is the fallback so a missing or unreadable file never hands a Canadian airport US-only sources (review of #96). */
@@ -72,10 +106,9 @@ export function loadAirportData(code: string): AirportData | null {
 
   // Writers only see lots we can sell — unsellable lots ended up recommended in new articles (PHX, 13 Oct 2026)
   if (Array.isArray(data.parkingLots)) {
-    data.unsellableLotNames = data.parkingLots
-      .filter((l) => l.sellable === false && typeof l.name === 'string')
-      .map((l) => l.name as string)
-    data.parkingLots = filterSellableLots(data.parkingLots)
+    const { lots, hiddenNames } = airportPageLots(data)
+    data.unsellableLotNames = hiddenNames
+    data.parkingLots = lots
   }
 
   // Cruise ports (POE) list cruiseLines per terminal instead of airlines

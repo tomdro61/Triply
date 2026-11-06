@@ -254,7 +254,8 @@
       "paymentMethod": "Pay Online",
       "rateVerified": "2026-11-02",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06",
+      "reslabLocationId": 254
     },
     {
       "name": "DoubleTree Washington Dulles Airport - Formerly Hilton",
@@ -276,7 +277,8 @@
       "rateVerified": "2026-11-02",
       
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06",
+      "reslabLocationId": 129
     },
     {
       "name": "Dulles Airport Parking by Crowne Plaza",
