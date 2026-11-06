@@ -20,9 +20,11 @@ import CheckoutCompleteClient from "./complete-client";
 export const metadata: Metadata = {
   title: "Confirming your booking",
   // Never let a URL carrying a payment client_secret be indexed or sent as a
-  // referrer to a third party.
+  // referrer. strict-origin sends the origin only: no-referrer stayed in force
+  // for the rest of the tab after the in-app hand-off to /confirmation, and
+  // Mapbox's URL-restricted token needs the origin as Referer.
   robots: { index: false, follow: false },
-  referrer: "no-referrer",
+  referrer: "strict-origin",
 };
 
 export default function CheckoutCompletePage() {

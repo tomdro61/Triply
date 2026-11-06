@@ -30,7 +30,7 @@ export default function PrivacyPage() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Privacy Policy</h1>
-                <p className="text-gray-600">Last updated: October 29, 2026</p>
+                <p className="text-gray-600">Last updated: November 3, 2026</p>
               </div>
             </div>
           </div>
@@ -139,6 +139,13 @@ export default function PrivacyPage() {
               <li><strong>Essential Cookies:</strong> Required for basic website functionality</li>
               <li><strong>Functional Cookies:</strong> Remember your preferences</li>
               <li><strong>Analytics Cookies:</strong> Help us understand usage patterns (Google Analytics)</li>
+              <li>
+                <strong>Session Recordings (Microsoft Clarity):</strong> Record how pages are used &mdash; clicks,
+                scrolling and page movement &mdash; so we can find what is confusing or broken. What you type into
+                booking forms (name, email, phone, vehicle and payment details) is masked and never recorded.
+                If you opt out of analytics below, Clarity stops using cookies right away and is not loaded on
+                your later visits.
+              </li>
               <li><strong>Marketing Cookies:</strong> Used for advertising (only with consent)</li>
               <li>
                 <strong>Attribution Cookies (<code>triply_attr</code>, <code>triply_attr_state</code>):</strong>{" "}

@@ -1,7 +1,7 @@
 {
   "code": "PDX",
   "fullName": "Portland International Airport",
-  "lastVerified": "2026-10-26",
+  "lastVerified": "2026-11-02",
   "overview": {
     "location": "Northeast Portland, Oregon — 12 miles northeast of downtown Portland, just south of the Columbia River in Multnomah County",
     "iataCode": "PDX",
@@ -343,7 +343,7 @@
       "freeCancellation": true,
       "notes": "Well-established PDX off-site lot. 24/7 shuttle is reliable. Gated and fenced lot with security cameras. Pre-booking online saves ~$1.50/day.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "AirPark Portland",
@@ -369,9 +369,9 @@
       "phone": "503-257-2559",
       "reslabLocationId": 105,
       "freeCancellation": true,
-      "rateVerified": "2026-10-26",
+      "rateVerified": "2026-11-02",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "taxesFor8Days": 0,
       "paymentMethod": "Pay Online"
     },
@@ -394,7 +394,7 @@
       "freeCancellation": true,
       "notes": "Regular shuttle every 15 minutes. Gated and secure. Convenient location on NE 82nd Avenue near airport.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "Holiday Inn Portland Airport",
@@ -420,9 +420,9 @@
       "phone": "503-256-5000",
       "reslabLocationId": 181,
       "freeCancellation": true,
-      "rateVerified": "2026-10-26",
+      "rateVerified": "2026-11-02",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "minimumBookingDays": 4,
       "taxesFor8Days": 0,
       "paymentMethod": "Pay Online"
@@ -446,7 +446,7 @@
       "freeCancellation": true,
       "notes": "Good budget option. Park-sleep-fly packages available if you need a pre-flight hotel stay. Verify shuttle schedule before booking.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "Hampton Inn & Suites Portland Airport Parking",
@@ -469,7 +469,7 @@
       "rating": "4.5/5",
       "notes": "Reliable shuttle and well-maintained lot. Hampton Inn quality. Good option for travelers who value a trustworthy brand.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "Radisson Portland Airport",
@@ -484,21 +484,22 @@
       "overview": "Radisson Hotel Portland Airport, 6233 NE 78th Ct, 1.6 mi from PDX (a 5- to 10-minute drive), in a quiet park-like setting by Colwood Lake and a golf course. Register the vehicle at the front desk, park within the yellow lines at the far end of the lot, then board the shuttle at the front of the hotel.",
       "notes": "Availability \"limited\" on every date checked (Nov 2, 9, 16). $11.99/day ($12.64 on Nov 16); $95.90 for Nov 2-9, no tax, paid online: about $9 under PDX Economy ($105) for the same 7-night window. Shuttle seat must be reserved by phone.",
       "driveTime": "5-10 minutes",
-      "dailyRate": 12.64,
-      "reservationRate": 12.64,
-      "totalFor8Days": 101.14,
+      "dailyRate": 14.61,
+      "reservationRate": 14.61,
+      "totalFor8Days": 116.86,
       "sampleQuote": "$95.90 total for Nov 2-9, 2026 (billed as 8 days: $88.00 + $7.90 lot fees + $0.00 tax), before Triply service fee",
       "address": "6233 NE 78th Ct, Portland, OR 97218",
       "distanceFromAirport": "1.6 mi",
       "phone": "503-251-2000",
       "reslabLocationId": 478,
       "freeCancellation": true,
-      "rateVerified": "2026-10-26",
+      "rateVerified": "2026-11-02",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "availability": "limited",
       "taxesFor8Days": 0,
-      "paymentMethod": "Pay Online"
+      "paymentMethod": "Pay Online",
+      "rateSpreadPct": 38.25
     }
   ],
   "shuttleInfo": "On-airport: free Economy shuttle every 7-9 minutes 4 AM-midnight and every 15 minutes midnight-4 AM; the Short-Term and Long-Term garages connect to the terminal by skybridge/tunnel (no shuttle). Off-site (Triply): AirPark Portland free 24 hours on demand, picks you up at your car; Radisson Portland Airport 24/7 every 30 min at :15/:45 (reserve a seat by phone within 24 hours of arrival, max 4 passengers); Holiday Inn Portland Airport every 20 min 3-11 AM, on call 11 AM-3 AM, airport pickups on call 24/7.",

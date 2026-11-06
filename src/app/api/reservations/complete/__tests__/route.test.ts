@@ -14,9 +14,17 @@ vi.mock("@/lib/booking/create-booking", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/booking/create-booking")>()),
   createBooking,
 }));
+// The pending_bookings row's confirmation_params (null = no row).
+const stored = vi.hoisted(() => ({ params: null as Record<string, string> | null }));
 vi.mock("@/lib/supabase/server", () => ({
   createAdminClient: async () => ({
-    from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) }),
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => ({ data: stored.params ? { confirmation_params: stored.params } : null }),
+        }),
+      }),
+    }),
   }),
 }));
 vi.mock("@/lib/sentry", () => ({ capturePaymentError: vi.fn(), captureBookingError: vi.fn() }));
@@ -47,6 +55,7 @@ const pi = (status: string, over: Record<string, unknown> = {}) => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  stored.params = null;
   retrieve.mockResolvedValue(pi("requires_capture"));
 });
 
@@ -124,11 +133,20 @@ describe("POST /api/reservations/complete — needs_support answer", () => {
     createBooking.mockResolvedValue({ kind: "already_exists", reservationNumber: "RTL1" });
     let body = await (await post({ paymentIntentId: "pi_abc", clientSecret: SECRET })).json();
     expect(body).toMatchObject({ state: "booked", reservationNumber: "RTL1" });
-    expect(body.confirmationUrl).toMatch(/^\/confirmation\/RTL1\?email=/);
+    expect(body.confirmationUrl).toBe("/confirmation/RTL1");
 
     createBooking.mockResolvedValue({ kind: "sold_out" });
     body = await (await post({ paymentIntentId: "pi_abc", clientSecret: SECRET })).json();
     expect(body.state).toBe("failed");
     expect(body).not.toHaveProperty("amountCents");
+  });
+
+  it("booked: the URL never carries the email (analytics records URLs); guestEmail comes from the PaymentIntent", async () => {
+    stored.params = { lot: "reslab-275", checkin: "2026-11-20", email: "typed@example.com" };
+    createBooking.mockResolvedValue({ kind: "created", reservationNumber: "RTL2" });
+    const body = await (await post({ paymentIntentId: "pi_abc", clientSecret: SECRET, email: "attacker@example.com" })).json();
+    expect(body.confirmationUrl).toBe("/confirmation/RTL2?lot=reslab-275&checkin=2026-11-20");
+    expect(body.confirmationUrl).not.toContain("email");
+    expect(body.guestEmail).toBe("ada@example.com");
   });
 });

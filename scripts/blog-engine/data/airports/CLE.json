@@ -1,7 +1,7 @@
 {
   "code": "CLE",
   "fullName": "Cleveland Hopkins International Airport",
-  "lastVerified": "2026-10-26",
+  "lastVerified": "2026-11-02",
   "overview": {
     "location": "5300 Riverside Dr, Cleveland, Ohio 44135 — on the city's southwest side next to Brook Park, about 10 miles southwest of downtown Cleveland (verify mileage).",
     "iataCode": "CLE",
@@ -216,8 +216,8 @@
     {
       "name": "2 Birds Shuttle and Detail",
       "slug": "2-birds-shuttle-and-detail",
-      "dailyRate": 7.61,
-      "reservationRate": 7.61,
+      "dailyRate": 6.04,
+      "reservationRate": 6.04,
       "sampleQuote": "$64.61 total for Nov 2-9, 2026 (8 billing days) incl. $2.90 fees + $3.71 tax; same on Nov 9-16 and Nov 16-23",
       "parkingType": "Fenced self-park lot",
       "amenities": [
@@ -230,9 +230,9 @@
       "phone": "216-905-3680",
       "notes": "Minimum booking 4 days. Free shuttle covers max 3 people per reservation; extra riders $25 payable at the lot (drop the party at the terminal first to avoid it). Arrive before the 2-hour pre-flight window.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Crowne Plaza Airport Hotel",
@@ -254,9 +254,9 @@
       "phone": "440-243-4040",
       "notes": "Check in at the front desk before parking. Return pickup is Ground Transportation Bay #7 only. No overnight shuttle (12-4 AM).",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Airport Express Parking",
@@ -277,9 +277,9 @@
       "phone": "216-212-2727",
       "notes": "Minimum booking 5 days. Daily rate is close to the Brown Lot's $13 reserved / $15 drive-up rate — sell on the 24/7 return shuttle and oversize-vehicle policy, not on price vs Brown Lot.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "CLE Park",
@@ -298,9 +298,9 @@
       "phone": "216-870-4100",
       "notes": "Minimum booking 5 days. Not the airport's own lot despite the name. Daily rate is close to the Brown Lot's $13-15 — sell on the 24/7 return shuttle, not on price vs Brown Lot.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     }
   ],
   "shuttleInfo": "On-airport: Brown Lot shuttle every ~15 minutes to the Ground Transportation Center; all other airport lots are walk-in. Off-site Triply lots: Airport Express Parking and CLE Park run return shuttles 24/7 (outbound from 4 AM); 2 Birds runs 4 AM-1 AM; Crowne Plaza runs 4 AM-midnight and returns from Ground Transportation Bay #7. CLE Park picks up on the ticketing level. No Triply lot runs outbound shuttles before 4 AM.",

@@ -56,6 +56,36 @@ function buildProductSchema(
   };
 }
 
+/** The hand-written guide's own dates (AirportContent.publishedOn/updatedOn). */
+export interface GuideDates {
+  publishedOn: string;
+  updatedOn: string;
+}
+
+/**
+ * Build Article JSON-LD for the hand-written guide on the page.
+ * Dates come from the content file, never the render: the page re-renders
+ * hourly for live prices, and a dateModified that moves with every ISR pass
+ * is a freshness claim the words don't back.
+ */
+function buildArticleSchema(
+  airport: Airport,
+  dates: GuideDates
+): Record<string, unknown> {
+  const url = `${BASE_URL}/${airport.slug}/airport-parking`;
+  return {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: `${airport.city} Airport Parking Guide (${airport.code})`,
+    datePublished: dates.publishedOn,
+    dateModified: dates.updatedOn,
+    author: { "@type": "Organization", name: "Triply Editorial Team", url: BASE_URL },
+    publisher: { "@type": "Organization", name: "Triply", url: BASE_URL },
+    mainEntityOfPage: { "@type": "WebPage", "@id": url },
+    about: { "@type": "Airport", name: airport.name, iataCode: airport.code },
+  };
+}
+
 /**
  * Build FAQPage JSON-LD schema
  */
@@ -77,13 +107,18 @@ function buildFAQSchema(faqs: FAQItem[]): Record<string, unknown> {
 /**
  * Build all JSON-LD schemas for an airport landing page.
  * Returns array of schema objects to render via <JsonLd />.
+ * `guide` is set only when the page shows hand-written copy; template pages
+ * have no authored date to give, so they get no Article.
  */
 export function buildAirportSchemas(
   airport: Airport,
   data: AirportPageData,
-  faqs: FAQItem[]
+  faqs: FAQItem[],
+  guide?: GuideDates | null
 ): Record<string, unknown>[] {
   const schemas: Record<string, unknown>[] = [buildAirportSchema(airport)];
+
+  if (guide) schemas.push(buildArticleSchema(airport, guide));
 
   const productSchema = buildProductSchema(airport, data);
   if (productSchema) schemas.push(productSchema);

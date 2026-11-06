@@ -31,10 +31,15 @@ CREATE TABLE IF NOT EXISTS disputes (
   -- The booking's status BEFORE the webhook flipped it to 'disputed' — the
   -- evidence must say whether it was cancelled, not that it is disputed.
   booking_status_at_dispute TEXT,
-  -- Claim columns: each side effect runs once, set NULL → now() by a
+  -- Claim column: the evidence draft is attempted once, set NULL → now() by a
   -- conditional UPDATE. Stripe delivers events concurrently and out of order,
-  -- so row existence alone can't gate them.
+  -- so row existence alone can't gate it.
   draft_attempted_at  TIMESTAMPTZ,
+  -- The alert email's lease: held only while a delivery sends, released on a
+  -- failed send, and taken over once older than 2 minutes (the route can't
+  -- run past 60 s). alert_sent_at is written only AFTER Resend accepted the
+  -- email, so a delivery that dies mid-send can't mark it sent.
+  alert_claimed_at    TIMESTAMPTZ,
   alert_sent_at       TIMESTAMPTZ,
   -- Set once the webhook saved an evidence draft to Stripe (never submitted —
   -- a person reviews and submits in the Stripe dashboard).
@@ -48,10 +53,18 @@ CREATE TABLE IF NOT EXISTS disputes (
   updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Added in review after the first draft of this file: a table created from
+-- that draft lacks the lease column, and CREATE TABLE IF NOT EXISTS would
+-- skip it. Without it every alert lease fails and Stripe retries for days.
+ALTER TABLE disputes ADD COLUMN IF NOT EXISTS alert_claimed_at TIMESTAMPTZ;
+
 CREATE INDEX IF NOT EXISTS disputes_booking_id_idx ON disputes (booking_id);
 CREATE INDEX IF NOT EXISTS disputes_open_due_idx ON disputes (evidence_due_by) WHERE closed_at IS NULL;
 
 ALTER TABLE disputes ENABLE ROW LEVEL SECURITY;
+-- Belt and braces on top of RLS, as 029: no client role touches this table.
+REVOKE ALL ON TABLE disputes FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE ON TABLE disputes TO service_role;
 
 DROP TRIGGER IF EXISTS update_disputes_updated_at ON disputes;
 CREATE TRIGGER update_disputes_updated_at

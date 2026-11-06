@@ -1,7 +1,7 @@
 {
   "code": "OAK",
   "fullName": "Oakland San Francisco Bay Airport",
-  "lastVerified": "2026-10-26",
+  "lastVerified": "2026-11-02",
   "overview": {
     "location": "Oakland, California — about 7 miles south of downtown Oakland and 12 miles east of San Francisco, off I-880 via Hegenberger Road / Airport Drive. Formerly Metropolitan Oakland International Airport; renamed Oakland San Francisco Bay Airport in July 2025 after a 2024 rename ('San Francisco Bay Oakland International Airport') was blocked by a November 2024 injunction won by San Francisco (SFO). The dispute was settled in April 2026: OAK keeps 'Oakland San Francisco Bay Airport' and its IATA code, 'Oakland' must come first, and the name drops 'International'.",
     "iataCode": "OAK",
@@ -177,9 +177,9 @@
       "phone": "510-899-2014",
       "notes": "Lowest grand total at OAK on 2026-10-16: $75.50 for a 7-night Nov 2-9 stay (8 billed days; $55.60 subtotal + fees + 20% tax); same on Nov 9-16 and 16-23. The listing mentions indoor parking but does not say a Triply booking gets a covered space — do not promise covered parking.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Spring Park Airport Parking",
@@ -195,9 +195,9 @@
       "phone": "510-333-6603",
       "notes": "$76.50 grand total for Nov 2-9 (8 billed days), same on all three test weeks. Same $6.95/day as Express Park Fly but $1 more in fees. Listing description says '0.5 miles' of drive; Triply's search measures 1.4 mi — use 1.4 mi.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Airpark Oakland Parking",
@@ -215,9 +215,9 @@
       "specialConditions": "No RVs, no Sprinter vans, no dually trucks.",
       "notes": "$121.16 grand total for Nov 2-9 (8 billed days), same on all three test weeks. Must be booked at least 24 hours ahead. Only Triply OAK lot with a scheduled (every-10-minute) shuttle and a fixed curb pickup (4F); after midnight call for pickup. Wheelchair access listed.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Park 'N Fly Oakland",
@@ -226,7 +226,7 @@
       "address": "82 98th Ave, Oakland, CA 94603",
       "notes": "Major off-airport operator on 98th Avenue. Not sold on Triply — comparison only; never use as a CTA.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "VIP Airport Parking",
@@ -235,7 +235,7 @@
       "address": "303 Hegenberger Rd, Oakland, CA 94621",
       "notes": "Off-airport operator on Hegenberger Road. Not sold on Triply — comparison only; never use as a CTA.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     }
   ],
   "shuttleInfo": "On-airport: Economy Lot shuttle every 15-20 minutes from 7 stops, on demand overnight (510-563-3890); Daily, Hourly and Premier are walkable. Off-site: Triply's three OAK lots are 1.3-1.7 mi away and all run 24/7 — Express Park Fly and Spring Park on demand (call after bags), Airpark every 10 minutes from the 4th curb (Section 4F), continuous until midnight then call 510-568-1221.",

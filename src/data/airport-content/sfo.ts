@@ -1,8 +1,10 @@
 import { AirportContent } from "./types";
 
 const sfoContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-11-05",
   metaDescription:
-    "Compare 4+ off-airport SFO parking lots from $8/day. Save vs $27–$60/day on-airport rates. Free shuttle, BART directly at International Terminal for $11.80 to downtown SF. Free cancellation.",
+    "Compare bookable off-airport SFO parking lots at today's prices. Save vs $27–$60/day on-airport rates. BART directly at the International Terminal for $11.80 to downtown SF. Free cancellation.",
 
   sections: [
     {
@@ -11,17 +13,21 @@ const sfoContent: AirportContent = {
 
 SFO has 4 terminals: Harvey Milk Terminal 1 (renamed in 2019), Terminal 2, Terminal 3, and the International Terminal. They're connected by the free AirTrain people mover running 24/7 every 4 minutes.
 
-On-airport parking at SFO is among the most expensive at any U.S. airport. Domestic Garage is $39/day, International Garage $37/day, Long-Term Garage $27/day, ParkFAST premium reserved $60/day, ParkVALET $45/day. Off-airport parking through Triply starts at around $8/day pre-booked — saving up to 87% compared to terminal garages.`,
+On-airport parking at SFO is among the most expensive at any U.S. airport. Domestic Garage is $39/day, International Garage $37/day, Long-Term Garage $27/day, ParkFAST premium reserved $60/day, ParkVALET $45/day. Off-airport parking through Triply typically costs a fraction of the terminal garage rate; the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees. Most bookable SFO lots have no shuttle, so budget for a rideshare each way when you compare.`,
     },
     {
       heading: "Best Off-Airport Parking Lots Near SFO",
-      body: `Note: SFO's off-site parking market is more limited than other major airports. Many travelers opt for the on-airport Long-Term Garage ($27/day) given the free AirTrain Blue Line connection.
+      body: `Note: SFO's off-site parking market is more limited than other major airports, and only one bookable lot runs a shuttle. Many travelers opt for the on-airport Long-Term Garage ($27/day) given the free AirTrain Blue Line connection.
 
-**Long-Term Garage (on-airport)** — $27/day. Connected via free AirTrain Blue Line to Level 5 of all terminals. Most affordable on-airport option for trips of 3+ days. **Free EV charging** in Green Vehicle Parking Zones.
+**Best Western Grosvenor Hotel** — **Closest bookable lot** at 2.1 miles, and the only one with a shuttle. Complimentary shuttle every 45 minutes, 5:00–10:15 AM and 5:00–10:25 PM only — outside those hours you can still park, but you arrange your own Uber/Lyft. Call 650-873-3200 for an airport pickup. 24/7 front desk. No extra charge for full-size vans, pickups or large SUVs.
 
-**Off-site lots** — Several private operators serve SFO via free shuttle from rates around $8/day pre-booked. Pre-book through Triply for guaranteed space and the lowest rates.
+**Courtyard San Francisco Airport** — Hotel lot 2.3 miles out (about a 5-minute drive). **No shuttle** — arrange your own Uber/Lyft to and from SFO. 24/7 front desk.
 
-**Hotel options on-airport:** Grand Hyatt at SFO is connected to AirTrain — convenient for park-sleep-fly travelers, though parking rates are premium.
+**Hampton Inn SFO** — Just off Highway 101, 2.7 miles out. **No shuttle** — taxi, Uber or Lyft at your own expense. No hotel stay required. 24/7 front desk.
+
+**Home2Suites by Hilton** — Hotel lot 2.7 miles out, right off US-101 and a short walk from the BART and Caltrain stations. **No shuttle** — you pay for your own transportation to and from the airport. 24/7 front desk. No extra charge for full-size vans, pickups or large SUVs.
+
+**DoubleTree San Francisco Airport North Bayfront** — Hotel lot 3.6 miles out (about 11 minutes). **No shuttle** — arrange your own Uber/Lyft. Check in at the front desk for a validation code before parking. Security patrols the lot.
 
 **BART is the major alternative to parking:** $11.80 from downtown SF, ~30 minutes, fully integrated into the International Terminal Level 3.`,
     },
@@ -65,6 +71,7 @@ What else to know about SFO in 2026:
 • **Free EV charging in all garages** — SFO provides complimentary Level 1 and Level 2 EV charging in Green Vehicle Parking Zones across all garages. Free with paid parking. Long-Term Garage 4th floor has up to 104 ChargePoint Level 2 ports.
 • **Cell Phone Waiting Lot is free** — Off North Access Road, near airport entrance. Maximum 60 minutes (longer than most airports).
 • **Long-Term Garage is your best on-airport bet** — At $27/day with free AirTrain Blue Line access, it's significantly cheaper than terminal garages. Reserve in advance.
+• **Add the rideshare before you compare** — Courtyard, Hampton Inn, Home2Suites and DoubleTree North Bayfront have no shuttle, and the Best Western Grosvenor shuttle runs only mornings and evenings. Price a round-trip Uber/Lyft into an off-airport booking.
 • **Watch for fog (May Gray, June Gloom)** — Pacific marine layer brings morning fog from May–June. SFO's parallel runways are only 750 ft apart, so fog can drop arrival capacity from 60/hour to 25–30/hour. Morning flights face the most delays.
 • **Sunday BART starts at 8:08 AM** — For early Sunday flights, plan rideshare or alternative transport.
 • **All terminals connected post-security** — Terminals 1, 2, 3 are connected airside. Terminal 3 connector to International Terminal exists. You can move between most terminals without re-clearing security.`,
@@ -75,12 +82,12 @@ What else to know about SFO in 2026:
     {
       question: "What is the cheapest parking at SFO?",
       answer:
-        "Off-site lots from around $8/day pre-booked are the cheapest options. The cheapest on-airport option is the Long-Term Garage at $27/day with free AirTrain Blue Line access to all terminals. Note: SFO's off-site parking market is more limited than other major airports — many travelers use the on-airport Long-Term Garage. All prices are based on a sample 5-day booking and may vary.",
+        "Off-airport hotel lots booked through Triply typically cost a fraction of on-airport rates, but most have no shuttle — Courtyard San Francisco Airport, Hampton Inn SFO, Home2Suites by Hilton and DoubleTree North Bayfront need a rideshare each way, and the Best Western Grosvenor shuttle runs only 5:00–10:15 AM and 5:00–10:25 PM. The cheapest on-airport option is the Long-Term Garage at $27/day with free AirTrain Blue Line access to all terminals. Off-airport prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.",
     },
     {
       question: "How much does it cost to park at SFO?",
       answer:
-        "On-airport parking at SFO ranges from $27/day (Long-Term Garage with free AirTrain) to $60/day (ParkFAST premium reserved). Domestic Garage is $39/day, International Garage $37/day, ParkVALET $45/day. Off-airport parking through Triply starts at around $8/day pre-booked.",
+        "On-airport parking at SFO ranges from $27/day (Long-Term Garage with free AirTrain) to $60/day (ParkFAST premium reserved). Domestic Garage is $39/day, International Garage $37/day, ParkVALET $45/day. Off-airport parking through Triply typically costs a fraction of the garage rate — see the lot list on this page for current rates, and note that most off-airport lots have no shuttle.",
     },
     {
       question: "Does SFO have free EV charging?",

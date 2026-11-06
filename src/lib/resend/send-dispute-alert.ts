@@ -26,10 +26,46 @@ export type DisputeAlert = {
   playbook: Playbook;
   draftSaved: boolean;
   draftError: string | null;
+  /** An earlier delivery took the draft and never recorded a result. */
+  draftUnknown: boolean;
 };
 
 const dashboardUrl = (id: string, livemode: boolean) =>
   `https://dashboard.stripe.com/${livemode ? "" : "test/"}disputes/${encodeURIComponent(id)}`;
+
+// The webhook has 60 s in all; a hung send must fail inside it so the caller
+// can free its lease and ask Stripe to redeliver, not be killed mid-await.
+const SEND_TIMEOUT_MS = 10_000;
+
+async function sendBounded(payload: Parameters<typeof resend.emails.send>[0], what: string) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${what} timed out after ${SEND_TIMEOUT_MS}ms`)), SEND_TIMEOUT_MS);
+  });
+  try {
+    const { error } = await Promise.race([resend.emails.send(payload), timeout]);
+    if (error) throw new Error(`${what} failed: ${error.message}`);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Stripe's `due_by` is a real instant (often 23:59:59 UTC, i.e. early evening
+ * Eastern). The team works in Eastern time, so show the deadline there with
+ * the clock time — a bare UTC date reads as "all day" and can be a day late.
+ */
+export function formatDeadline(iso: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(new Date(iso));
+}
 
 /**
  * Emails the payment-alert list the moment a dispute opens. Sentry alone was
@@ -37,7 +73,7 @@ const dashboardUrl = (id: string, livemode: boolean) =>
  * deadline is an automatic loss.
  */
 export async function sendDisputeOpenedAlert(a: DisputeAlert) {
-  const due = a.dueByISO ? a.dueByISO.slice(0, 10) : "unknown — check Stripe";
+  const due = a.dueByISO ? formatDeadline(a.dueByISO) : "unknown — check Stripe";
   const rows: [string, string][] = [
     ["Amount", `$${(a.amountCents / 100).toFixed(2)}`],
     ["Reason", `${esc(a.playbook.label)} <span style="color:#6b7280;">(${esc(a.reason)})</span>`],
@@ -50,7 +86,9 @@ export async function sendDisputeOpenedAlert(a: DisputeAlert) {
 
   const draftLine = a.draftSaved
     ? "An evidence draft from the booking record is already saved on the dispute. It is <strong>not submitted</strong>."
-    : a.draftError
+    : a.draftUnknown
+      ? "An earlier attempt to save the evidence draft was interrupted, so it may or may not be on the dispute. Check the evidence in Stripe before filling it in."
+      : a.draftError
       ? `The evidence draft could NOT be saved: ${esc(a.draftError)}. Fill the evidence in by hand.`
       : a.confirmationNumber
         ? "No evidence draft was saved on this dispute. Fill the evidence in by hand."
@@ -60,7 +98,7 @@ export async function sendDisputeOpenedAlert(a: DisputeAlert) {
     ? ""
     : `<div style="background:#fef9c3;border:1px solid #fde047;border-radius:6px;padding:8px 12px;margin-bottom:16px;font-size:12px;color:#854d0e;">TEST-mode dispute.</div>`;
 
-  const { error } = await resend.emails.send({
+  await sendBounded({
     from: FROM_EMAIL,
     to: PAYMENT_ALERT_EMAILS,
     subject: `⚠️ Dispute opened: $${(a.amountCents / 100).toFixed(2)} — respond by ${due}`,
@@ -83,8 +121,7 @@ export async function sendDisputeOpenedAlert(a: DisputeAlert) {
         <a href="${dashboardUrl(a.disputeId, a.livemode)}" style="display:inline-block;background:#f87356;color:#fff;text-decoration:none;font-weight:700;font-size:13px;padding:10px 24px;border-radius:8px;">Open the dispute in Stripe</a>
       </div>
     `,
-  });
-  if (error) throw new Error(`Dispute alert email failed: ${error.message}`);
+  }, "Dispute alert email");
 }
 
 /**
@@ -148,7 +185,7 @@ export async function sendDisputeClosedAlert(a: {
   confirmationNumber: string | null;
 }) {
   const won = a.outcome === "won" || a.outcome === "warning_closed";
-  const { error } = await resend.emails.send({
+  await sendBounded({
     from: FROM_EMAIL,
     to: PAYMENT_ALERT_EMAILS,
     subject: `${won ? "✅" : "❌"} Dispute ${a.outcome}: $${(a.amountCents / 100).toFixed(2)}${a.confirmationNumber ? ` (${a.confirmationNumber})` : ""}`,
@@ -158,6 +195,5 @@ export async function sendDisputeClosedAlert(a: {
         <a href="${dashboardUrl(a.disputeId, a.livemode)}" style="font-size:13px;color:#f87356;">Open in Stripe</a>
       </div>
     `,
-  });
-  if (error) throw new Error(`Dispute closed email failed: ${error.message}`);
+  }, "Dispute closed email");
 }

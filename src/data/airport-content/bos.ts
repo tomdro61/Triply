@@ -1,6 +1,8 @@
 import { AirportContent } from "./types";
 
 const bosContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-10-30",
   metaDescription:
     "Compare bookable off-airport BOS parking lots, including 24/7 shuttle lots, at today's prices. Save vs $46/day Central Parking — and the Silver Line SL1 is FREE from airport to downtown. Free cancellation.",
 

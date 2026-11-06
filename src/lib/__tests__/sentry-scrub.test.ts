@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { scrubEventCredentials, scrubUrlCredentials } from "../sentry-scrub";
+import { scrubBreadcrumbUrls, scrubEventCredentials, scrubUrlCredentials } from "../sentry-scrub";
 
 /** The scrubbed event, failing the test if it was dropped. */
 function scrub<T extends object>(event: T): T {
@@ -26,6 +26,76 @@ describe("sentry-scrub", () => {
 
   it("scrubs a query_string where the token comes first (Sentry drops the leading ?)", () => {
     expect(scrubUrlCredentials("token=abc123&id=x")).toBe("token=[redacted]&id=x");
+  });
+
+  it("removes the guest email and Stripe client secret from URLs; leaves utm_medium=email alone", () => {
+    expect(scrubUrlCredentials("https://www.triplypro.com/confirmation/RTL1?lot=reslab-2&email=dana%40example.com")).toBe(
+      "https://www.triplypro.com/confirmation/RTL1?lot=reslab-2&email=[redacted]"
+    );
+    expect(scrubUrlCredentials("/api/reservations/RTL1?email=dana@example.com&x=1")).toBe("/api/reservations/RTL1?email=[redacted]&x=1");
+    // Sentry's query_string has no leading "?".
+    expect(scrubUrlCredentials("email=dana%40example.com")).toBe("email=[redacted]");
+    expect(
+      scrubUrlCredentials("/checkout/complete?payment_intent=pi_3Abc&payment_intent_client_secret=pi_3Abc_secret_XyZ123&redirect_status=succeeded")
+    ).toBe("/checkout/complete?payment_intent=pi_3Abc&payment_intent_client_secret=[redacted]&redirect_status=succeeded");
+    // The secret on its own (an encoded URL, a message) keeps the PaymentIntent id.
+    expect(scrubUrlCredentials("retrieve failed for pi_3Abc_secret_XyZ123")).toBe("retrieve failed for pi_3Abc_secret_[redacted]");
+    // Values and other params named like it are left alone.
+    expect(scrubUrlCredentials("/blog/x?utm_source=triply&utm_medium=email&utm_campaign=welcome")).toBe(
+      "/blog/x?utm_source=triply&utm_medium=email&utm_campaign=welcome"
+    );
+    expect(scrubUrlCredentials("/x?customer_email=a&emails=b")).toBe("/x?customer_email=a&emails=b");
+  });
+
+  it("removes the x-booking-email request header the server SDK attaches", () => {
+    const event = scrub({
+      request: {
+        url: "https://www.triplypro.com/api/reservations/RTL1",
+        headers: { "x-booking-email": "dana@example.com", "user-agent": "x" },
+      },
+    });
+    expect(event.request.headers["x-booking-email"]).toBe("[redacted]");
+    expect(event.request.headers["user-agent"]).toBe("x");
+    expect(JSON.stringify(event)).not.toContain("dana@example.com");
+  });
+
+  it("removes the header copied onto the root span (http.request.header.x_booking_email), escapes included", () => {
+    const event = scrub({
+      type: "transaction",
+      contexts: {
+        trace: {
+          data: {
+            "http.request.header.x_booking_email": 'dana"quoted\\@example.com',
+            "http.request.header.accept": "*/*",
+          },
+        },
+      },
+    });
+    expect(event.contexts.trace.data["http.request.header.x_booking_email"]).toBe("[redacted]");
+    expect(event.contexts.trace.data["http.request.header.accept"]).toBe("*/*");
+    expect(JSON.stringify(event)).not.toContain("dana");
+  });
+
+  it("removes the email / client secret inside an encoded URL", () => {
+    expect(scrubUrlCredentials("/login?next=%2Fconfirmation%2FRTL1%3Flot%3Dx%26email%3Ddana%2540example.com%26y%3D1")).toBe(
+      "/login?next=%2Fconfirmation%2FRTL1%3Flot%3Dx%26email%3D[redacted]%26y%3D1"
+    );
+    expect(scrubUrlCredentials("r=%2Fcheckout%2Fcomplete%3Fpayment_intent_client_secret%3Dpi_3Abc_secret_XyZ")).toBe(
+      "r=%2Fcheckout%2Fcomplete%3Fpayment_intent_client_secret%3D[redacted]"
+    );
+  });
+
+  it("breadcrumbs: only the URL strings are scrubbed; an Error in data is kept as is", () => {
+    const err = new Error("boom");
+    const crumb = scrubBreadcrumbUrls({
+      category: "navigation",
+      message: "to /confirmation/RTL1?email=dana%40example.com",
+      data: { from: "/checkout?x=1", to: "/confirmation/RTL1?email=dana%40example.com", error: err },
+    });
+    expect(crumb.message).toBe("to /confirmation/RTL1?email=[redacted]");
+    expect(crumb.data?.to).toBe("/confirmation/RTL1?email=[redacted]");
+    expect(crumb.data?.from).toBe("/checkout?x=1");
+    expect(crumb.data?.error).toBe(err);
   });
 
   it("removes a Discord webhook token whatever the id looks like; leaves our Stripe route alone", () => {

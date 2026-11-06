@@ -453,6 +453,54 @@ describe("direct booking", () => {
     expect(h.state.detailSelect).toBeNull();
   });
 
+  describe("guest email in the x-booking-email header (kept out of URLs)", () => {
+    const callWith = (id: string, opts: { header?: string; query?: string }) =>
+      GET(
+        new NextRequest(
+          `https://x.test/api/reservations/${id}${opts.query ? `?email=${encodeURIComponent(opts.query)}` : ""}`,
+          { headers: opts.header ? { "x-booking-email": opts.header } : {} }
+        ),
+        { params: Promise.resolve({ id }) }
+      );
+
+    it("the header alone opens the booking", async () => {
+      h.state.detailRow = { data: row(), error: null };
+      const res = await callWith(TRP, { header: EMAIL });
+      expect(res.status).toBe(200);
+      expect((await res.json()).reservation.reservationNumber).toBe(TRP);
+    });
+
+    it("every answer says Vary: x-booking-email (the service worker's cache must not hand it to another guest)", async () => {
+      h.state.detailRow = { data: row(), error: null };
+      expect((await callWith(TRP, { header: EMAIL })).headers.get("vary")).toContain("x-booking-email");
+      expect((await callWith(TRP, {})).headers.get("vary")).toContain("x-booking-email");
+    });
+
+    it("?email= alone still works (emailed links)", async () => {
+      h.state.detailRow = { data: row(), error: null };
+      expect((await callWith(TRP, { query: EMAIL })).status).toBe(200);
+    });
+
+    it("a wrong header → 403 before anything is read", async () => {
+      h.state.pendingRow = { data: { customer: { email: "also-someone-else@example.com" } }, error: null };
+      const res = await callWith(TRP, { header: "someone-else@example.com" });
+      expect(res.status).toBe(403);
+      expect(h.state.detailSelect).toBeNull();
+    });
+
+    it("the header decides when both are sent: wrong header + right query → 403", async () => {
+      h.state.pendingRow = { data: { customer: { email: "also-someone-else@example.com" } }, error: null };
+      const res = await callWith(TRP, { header: "someone-else@example.com", query: EMAIL });
+      expect(res.status).toBe(403);
+    });
+
+    it("no header and no query → 403 'Authentication required'", async () => {
+      const res = await callWith(TRP, {});
+      expect(res.status).toBe(403);
+      expect((await res.json()).error).toBe("Authentication required");
+    });
+  });
+
   describe("booked by a signed-in customer FOR someone else (filed under the booker's customers row)", () => {
     const ACCOUNT = "booker@example.com";
     const withPi = (email: string): Result => ({ data: { customer_id: "c1", stripe_payment_intent_id: "pi_direct", customers: { email, user_id: "u_booker" } }, error: null });
