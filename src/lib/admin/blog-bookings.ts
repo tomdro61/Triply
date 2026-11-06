@@ -33,6 +33,9 @@ export const LIVE_STATUSES = ["confirmed", "completed", "disputed"] as const;
 
 export const DEFAULT_RANGE_DAYS = 90;
 export const MAX_RANGE_DAYS = 366;
+/** Net take runs one ResLab read per blog booking; past ~3 months that
+ *  outgrows the route's 60 s budget, so the net section refuses wider ranges. */
+export const MAX_NET_RANGE_DAYS = 92;
 /** Below this many Google clicks, "no bookings" is just a quiet page. */
 export const MIN_CLICKS_FLAG = 25;
 
@@ -115,6 +118,21 @@ export function inRange(createdAt: string, r: DateRange): boolean {
 }
 
 /**
+ * Ids of live bookings in the range whose first or last touch is a blog
+ * article — the only bookings net take is computed for.
+ */
+export function blogTouchedIds(rows: readonly BlogBookingRow[], range: DateRange): string[] {
+  const ids: string[] = [];
+  for (const row of rows) {
+    if (!LIVE_STATUSES.includes(row.status as (typeof LIVE_STATUSES)[number])) continue;
+    if (!inRange(row.created_at, range)) continue;
+    const b = classifyBooking(row);
+    if (b.firstSlug || b.lastSlug) ids.push(row.id);
+  }
+  return ids;
+}
+
+/**
  * What Triply kept on one booking, from the reconciler's per-booking detail:
  * its `triply_total` (channel commission + service fee + PG margin) less
  * ResLab's channel fee, exactly as the reconciler's headline total
@@ -157,7 +175,10 @@ export interface Counts {
 export interface NetFigures {
   /** Net take summed over blog bookings (either touch) with a known net. */
   blogNet: number;
-  /** Blog bookings whose net is unknown (reconciler had no figure). */
+  /** Blog bookings with a known net (the ones in blogNet). 0 = show "—", not $0. */
+  blogNetKnown: number;
+  /** Blog bookings whose net is unknown (reconciler had no figure — including
+   *  disputed and direct-lot bookings, which never have one). */
   blogNetUnknown: number;
 }
 
@@ -170,7 +191,8 @@ export interface AirportRow extends Counts {
   /** Clicks on this airport's articles (CMS airportCode); null without Search Console. */
   gscClicks: number | null;
   gscImpressions: number | null;
-  /** anyBlog per 100 Google clicks; null without clicks. */
+  /** Blog bookings (either touch) created inside the Search Console window,
+   *  per 100 Google clicks; null without clicks. */
   bookingsPer100Clicks: number | null;
 }
 
@@ -209,6 +231,9 @@ export interface AggregateInput {
   netById?: ReadonlyMap<string, number | null>;
   /** Article slug → Search Console figures. Omit when Search Console is unavailable. */
   gscBySlug?: ReadonlyMap<string, GscPage>;
+  /** The days gscBySlug covers (the range clipped to Search Console's last
+   *  day). Per-100-clicks counts only bookings created inside it. */
+  gscWindow?: DateRange;
   /** Article slug → CMS title / airport. */
   articleMeta?: ReadonlyMap<string, ArticleMeta>;
 }
@@ -222,26 +247,33 @@ const emptyCounts = (): Counts => ({
   unknownInvalid: 0,
 });
 
+const emptyNet = (): NetFigures => ({ blogNet: 0, blogNetKnown: 0, blogNetUnknown: 0 });
+
 function addNet(n: NetFigures, id: string, netById: ReadonlyMap<string, number | null>): void {
   const v = netById.get(id);
   if (v === undefined || v === null) n.blogNetUnknown += 1;
-  else n.blogNet += v;
+  else {
+    n.blogNet += v;
+    n.blogNetKnown += 1;
+  }
 }
 
 const per100 = (bookings: number, clicks: number | null): number | null =>
   clicks !== null && clicks > 0 ? (bookings / clicks) * 100 : null;
 
 export function aggregateBlogBookings(input: AggregateInput): BlogBookingsReport {
-  const { range, netById, gscBySlug, articleMeta } = input;
+  const { range, netById, gscBySlug, articleMeta, gscWindow } = input;
   const hasNet = netById !== undefined;
   const hasGsc = gscBySlug !== undefined;
 
   const totals = emptyCounts();
-  const totalNet: NetFigures = { blogNet: 0, blogNetUnknown: 0 };
-  const byAirport = new Map<string, { c: Counts; net: NetFigures }>();
+  const totalNet: NetFigures = emptyNet();
+  // `inGsc` = blog bookings created inside the Search Console window (the
+  // numerator of per-100-clicks, so clicks and bookings cover the same days).
+  const byAirport = new Map<string, { c: Counts; net: NetFigures; inGsc: number }>();
   const byArticle = new Map<
     string,
-    { first: number; last: number; any: number; net: NetFigures; airports: Map<string, number> }
+    { first: number; last: number; any: number; inGsc: number; net: NetFigures; airports: Map<string, number> }
   >();
   let dropped = 0;
 
@@ -252,7 +284,7 @@ export function aggregateBlogBookings(input: AggregateInput): BlogBookingsReport
       continue;
     }
     const b = classifyBooking(row);
-    const a = byAirport.get(b.airport) ?? { c: emptyCounts(), net: { blogNet: 0, blogNetUnknown: 0 } };
+    const a = byAirport.get(b.airport) ?? { c: emptyCounts(), net: emptyNet(), inGsc: 0 };
     byAirport.set(b.airport, a);
     for (const c of [totals, a.c]) {
       c.bookings += 1;
@@ -263,6 +295,8 @@ export function aggregateBlogBookings(input: AggregateInput): BlogBookingsReport
       if (b.firstSlug || b.lastSlug) c.anyBlog += 1;
     }
     if (!b.firstSlug && !b.lastSlug) continue;
+    const inGsc = gscWindow !== undefined && inRange(row.created_at, gscWindow);
+    if (inGsc) a.inGsc += 1;
     if (netById) {
       addNet(totalNet, b.id, netById);
       addNet(a.net, b.id, netById);
@@ -272,13 +306,15 @@ export function aggregateBlogBookings(input: AggregateInput): BlogBookingsReport
         first: 0,
         last: 0,
         any: 0,
-        net: { blogNet: 0, blogNetUnknown: 0 },
+        inGsc: 0,
+        net: emptyNet(),
         airports: new Map<string, number>(),
       };
       byArticle.set(slug, art);
       if (b.firstSlug === slug) art.first += 1;
       if (b.lastSlug === slug) art.last += 1;
       art.any += 1;
+      if (inGsc) art.inGsc += 1;
       art.airports.set(b.airport, (art.airports.get(b.airport) ?? 0) + 1);
       if (netById) addNet(art.net, b.id, netById);
     }
@@ -306,10 +342,10 @@ export function aggregateBlogBookings(input: AggregateInput): BlogBookingsReport
       firstTouch: art?.first ?? 0,
       lastTouch: art?.last ?? 0,
       bookings,
-      net: hasNet ? (art?.net ?? { blogNet: 0, blogNetUnknown: 0 }) : null,
+      net: hasNet ? (art?.net ?? emptyNet()) : null,
       gscClicks: gsc ? gsc.clicks : null,
       gscImpressions: gsc ? gsc.impressions : null,
-      bookingsPer100Clicks: per100(bookings, gsc ? gsc.clicks : null),
+      bookingsPer100Clicks: per100(art?.inGsc ?? 0, gsc ? gsc.clicks : null),
       flagClicksNoBookings: gsc !== null && gsc.clicks >= MIN_CLICKS_FLAG && bookings === 0,
     };
   });
@@ -317,15 +353,18 @@ export function aggregateBlogBookings(input: AggregateInput): BlogBookingsReport
     (x, y) => y.bookings - x.bookings || (y.gscClicks ?? 0) - (x.gscClicks ?? 0) || x.slug.localeCompare(y.slug)
   );
 
-  // Search Console per airport: clicks on articles whose airport is known.
+  // Search Console per airport: clicks on articles the CMS tags with that
+  // airport only — not the booked-airport fallback the article rows show,
+  // which would move an article's clicks with whoever happened to book.
   const gscByAirport = new Map<string, GscPage>();
   if (hasGsc) {
-    for (const a of articles) {
-      if (!a.airport || a.gscClicks === null) continue;
-      const g = gscByAirport.get(a.airport) ?? { clicks: 0, impressions: 0 };
-      g.clicks += a.gscClicks;
-      g.impressions += a.gscImpressions ?? 0;
-      gscByAirport.set(a.airport, g);
+    for (const [slug, page] of gscBySlug) {
+      const airport = articleMeta?.get(slug)?.airport;
+      if (!airport) continue;
+      const g = gscByAirport.get(airport) ?? { clicks: 0, impressions: 0 };
+      g.clicks += page.clicks;
+      g.impressions += page.impressions;
+      gscByAirport.set(airport, g);
     }
   }
 
@@ -338,10 +377,10 @@ export function aggregateBlogBookings(input: AggregateInput): BlogBookingsReport
       airport,
       ...c,
       blogShare: c.bookings > 0 ? c.anyBlog / c.bookings : null,
-      net: hasNet ? (a?.net ?? { blogNet: 0, blogNetUnknown: 0 }) : null,
+      net: hasNet ? (a?.net ?? emptyNet()) : null,
       gscClicks: g ? g.clicks : null,
       gscImpressions: g ? g.impressions : null,
-      bookingsPer100Clicks: per100(c.anyBlog, g ? g.clicks : null),
+      bookingsPer100Clicks: per100(a?.inGsc ?? 0, g ? g.clicks : null),
     };
   });
   airports.sort(
@@ -374,5 +413,15 @@ export interface BlogBookingsResponse {
   gsc: Section<{ window: DateRange }>;
   cms: Section<{ articles: number }>;
   /** Absent when net take was not requested. */
-  net?: Section<{ bookings: number }>;
+  net?: Section<NetSummary>;
+}
+
+/** The net section's own health, for the page's notice. */
+export interface NetSummary {
+  /** Blog bookings net take was asked for. */
+  bookings: number;
+  /** Of those, how many came back with a figure. */
+  known: number;
+  /** ResLab reads that failed (result.reslab.fetchErrors). */
+  fetchErrors: number;
 }

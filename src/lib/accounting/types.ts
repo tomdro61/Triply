@@ -18,6 +18,15 @@ export interface ReconcileOptions {
   invoiceAmount: number;
   includeReslab: boolean;
   includeStripe: boolean;
+  /**
+   * Restrict the read to these booking ids (still inside from/to). Omitted =
+   * every booking in the range (the monthly accounting page). The id list is
+   * chunked and each chunk paged, so PostgREST's 1,000-row cap can't truncate
+   * it. An empty array reads nothing.
+   */
+  bookingIds?: readonly string[];
+  /** ResLab reads in flight at once. Default 5. */
+  reslabConcurrency?: number;
 }
 
 export interface BookingDetail {

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   aggregateBlogBookings,
   blogSlug,
+  blogTouchedIds,
   classifyBooking,
   defaultRange,
   inRange,
@@ -160,14 +161,21 @@ describe("aggregateBlogBookings", () => {
         [r3.id, 99], // not a blog booking
       ]),
     });
-    expect(rep.totals.net).toEqual({ blogNet: 15, blogNetUnknown: 1 });
-    expect(rep.articles.find((a) => a.slug === "a")?.net).toEqual({ blogNet: 15, blogNetUnknown: 1 });
+    expect(rep.totals.net).toEqual({ blogNet: 15, blogNetKnown: 1, blogNetUnknown: 1 });
+    expect(rep.articles.find((a) => a.slug === "a")?.net).toEqual({ blogNet: 15, blogNetKnown: 1, blogNetUnknown: 1 });
+  });
+
+  it("net take: no known figure is blogNetKnown 0 (shown as \u2014), not a $0 earner", () => {
+    const r1 = row({ first: "/blog/a" });
+    const rep = aggregateBlogBookings({ range: RANGE, rows: [r1], netById: new Map([[r1.id, null]]) });
+    expect(rep.totals.net).toEqual({ blogNet: 0, blogNetKnown: 0, blogNetUnknown: 1 });
   });
 
   it("joins Search Console: per-100-click rate, airport clicks via CMS, flags clicks with no bookings", () => {
     const rep = aggregateBlogBookings({
       range: RANGE,
       rows: [row({ first: "/blog/a" }), row({ first: "/blog/a" })],
+      gscWindow: RANGE,
       gscBySlug: new Map([
         ["a", { clicks: 40, impressions: 1000 }],
         ["quiet", { clicks: MIN_CLICKS_FLAG, impressions: 500 }],
@@ -187,9 +195,55 @@ describe("aggregateBlogBookings", () => {
     expect(rep.airports.find((r) => r.airport === "LGA")).toMatchObject({ bookings: 0, gscClicks: 25, bookingsPer100Clicks: 0 });
   });
 
+  it("per 100 clicks counts only bookings inside the Search Console window", () => {
+    const rep = aggregateBlogBookings({
+      range: RANGE,
+      rows: [
+        row({ first: "/blog/a", created_at: "2026-10-10T15:00:00Z" }),
+        row({ first: "/blog/a", created_at: "2026-10-30T15:00:00Z" }), // after Search Console's last day
+      ],
+      gscWindow: { from: RANGE.from, to: "2026-10-28" },
+      gscBySlug: new Map([["a", { clicks: 50, impressions: 900 }]]),
+      articleMeta: new Map([["a", { title: "A", airport: "JFK" }]]),
+    });
+    const a = rep.articles.find((x) => x.slug === "a")!;
+    expect(a.bookings).toBe(2);
+    expect(a.bookingsPer100Clicks).toBe(2);
+    expect(rep.airports.find((r) => r.airport === "JFK")).toMatchObject({ anyBlog: 2, bookingsPer100Clicks: 2 });
+  });
+
+  it("airport Google clicks come from CMS-tagged articles only, not the booked-airport fallback", () => {
+    const rep = aggregateBlogBookings({
+      range: RANGE,
+      rows: [row({ first: "/blog/untagged", airport_code: "EWR" })],
+      gscWindow: RANGE,
+      gscBySlug: new Map([["untagged", { clicks: 80, impressions: 2000 }]]),
+      articleMeta: new Map([["untagged", { title: "No airport", airport: null }]]),
+    });
+    // The article row still shows its booked airport...
+    expect(rep.articles.find((x) => x.slug === "untagged")?.airport).toBe("EWR");
+    // ...but its clicks are not credited to EWR.
+    expect(rep.airports.find((r) => r.airport === "EWR")).toMatchObject({ anyBlog: 1, gscClicks: 0, bookingsPer100Clicks: null });
+  });
+
   it("without Search Console, no article is flagged and click columns are null", () => {
     const rep = aggregateBlogBookings({ range: RANGE, rows: [row({ first: "/blog/a" })] });
     expect(rep.articles[0]).toMatchObject({ gscClicks: null, bookingsPer100Clicks: null, flagClicksNoBookings: false });
+  });
+});
+
+describe("blogTouchedIds", () => {
+  it("returns live, in-range bookings with a blog first or last touch", () => {
+    const blogFirst = row({ first: "/blog/a" });
+    const blogLast = row({ first: "/", last: "/blog/b" });
+    const notBlog = row({ first: "/" });
+    const noAttr = row();
+    const cancelled = row({ first: "/blog/a", status: "cancelled" });
+    const outside = row({ first: "/blog/a", created_at: "2026-11-15T15:00:00Z" });
+    expect(blogTouchedIds([blogFirst, blogLast, notBlog, noAttr, cancelled, outside], RANGE)).toEqual([
+      blogFirst.id,
+      blogLast.id,
+    ]);
   });
 });
 

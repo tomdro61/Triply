@@ -106,7 +106,7 @@ async function retrievePaymentIntentWithRetry(
   }
 }
 
-const DATE_COLUMN: Record<DateField, string> = {
+const DATE_COLUMN: Record<DateField, "created_at" | "check_out" | "check_in"> = {
   created: "created_at",
   checkout: "check_out",
   checkin: "check_in",
@@ -268,16 +268,7 @@ interface SupabaseRow {
 const oneCustomer = (c: CustomersJoin | CustomersJoin[]): CustomersJoin =>
   Array.isArray(c) ? (c[0] ?? null) : c;
 
-export async function reconcileRevenue(opts: ReconcileOptions): Promise<ReconcileResult> {
-  const supabase = await createAdminClient();
-  const dateCol = DATE_COLUMN[opts.by];
-
-  // Test-booking filter (isTestBooking, applied below): a booking at a TEST
-  // ResLab lot id, or one paid in Stripe TEST mode (livemode === false).
-  const { data: rows, error } = await supabase
-    .from("bookings")
-    .select(
-      `
+const BOOKINGS_SELECT = `
       id, reslab_reservation_number, status, created_at, check_in, check_out,
       grand_total, subtotal, due_at_location, triply_service_fee, service_fee_refunded,
       protection_plan, protection_plan_price, protection_plan_wholesale, pg_identifier,
@@ -285,16 +276,79 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       reslab_location_id, location_name, airport_code,
       inventory_source, direct_lot_id, livemode, discount_amount,
       customers ( email )
-    `
-    )
+    `;
+
+type AdminClient = Awaited<ReturnType<typeof createAdminClient>>;
+
+/** Every booking in the range — the monthly accounting read, unchanged. */
+async function readRowsInRange(
+  supabase: AdminClient,
+  dateCol: string,
+  opts: ReconcileOptions
+): Promise<SupabaseRow[]> {
+  const { data: rows, error } = await supabase
+    .from("bookings")
+    .select(BOOKINGS_SELECT)
     .gte(dateCol, `${opts.from}T00:00:00Z`)
     .lte(dateCol, `${opts.to}T23:59:59.999Z`)
     .order(dateCol, { ascending: true })
     .returns<SupabaseRow[]>();
 
   if (error) throw new Error(`Supabase query failed: ${error.message}`);
+  return rows ?? [];
+}
 
-  const allRows: SupabaseRow[] = rows ?? [];
+/** Ids per `.in()` list: 200 uuids keep the request URL near 7.5 KB. */
+export const BOOKING_ID_CHUNK = 200;
+/** PostgREST's default max-rows. */
+const BOOKINGS_PAGE = 1000;
+
+/**
+ * Only the given booking ids (still inside from/to). Ids go in chunks of
+ * BOOKING_ID_CHUNK and every chunk is paged with `.range()` until a short
+ * page, so neither the URL length nor PostgREST's row cap can drop a row.
+ * Returned in the same order as the range read (date column, then id).
+ */
+async function readRowsByIds(
+  supabase: AdminClient,
+  dateCol: (typeof DATE_COLUMN)[DateField],
+  opts: ReconcileOptions,
+  ids: readonly string[]
+): Promise<SupabaseRow[]> {
+  const unique = [...new Set(ids)];
+  const out: SupabaseRow[] = [];
+  for (let c = 0; c < unique.length; c += BOOKING_ID_CHUNK) {
+    const chunk = unique.slice(c, c + BOOKING_ID_CHUNK);
+    for (let from = 0; ; from += BOOKINGS_PAGE) {
+      const { data, error } = await supabase
+        .from("bookings")
+        .select(BOOKINGS_SELECT)
+        .in("id", chunk)
+        .gte(dateCol, `${opts.from}T00:00:00Z`)
+        .lte(dateCol, `${opts.to}T23:59:59.999Z`)
+        .order(dateCol, { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, from + BOOKINGS_PAGE - 1)
+        .returns<SupabaseRow[]>();
+      if (error) throw new Error(`Supabase query failed: ${error.message}`);
+      const rows = data ?? [];
+      out.push(...rows);
+      if (rows.length < BOOKINGS_PAGE) break;
+    }
+  }
+  const key = (r: SupabaseRow) => r[dateCol] ?? "";
+  return out.sort((a, b) => key(a).localeCompare(key(b)) || a.id.localeCompare(b.id));
+}
+
+export async function reconcileRevenue(opts: ReconcileOptions): Promise<ReconcileResult> {
+  const supabase = await createAdminClient();
+  const dateCol = DATE_COLUMN[opts.by];
+
+  // Test-booking filter (isTestBooking, applied below): a booking at a TEST
+  // ResLab lot id, or one paid in Stripe TEST mode (livemode === false).
+  const allRows: SupabaseRow[] = opts.bookingIds
+    ? await readRowsByIds(supabase, dateCol, opts, opts.bookingIds)
+    : await readRowsInRange(supabase, dateCol, opts);
 
   // Three-way partition, BEFORE any vendor fetch:
   //   - test rows (isTestBooking) are dropped. A test-LOT row counts as
@@ -393,7 +447,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   const reslabPromise = (async (): Promise<ReslabSlice[]> => {
     if (!opts.includeReslab || real.length === 0) return real.map(() => ({ ...emptyReslab }));
     const token = await reslabAuth();
-    return withConcurrency(real, RESLAB_CONCURRENCY, async (b) => {
+    return withConcurrency(real, opts.reslabConcurrency ?? RESLAB_CONCURRENCY, async (b) => {
       if (!b.reslab_reservation_number) return { ...emptyReslab };
       try {
         const data = await reslabReservation(b.reslab_reservation_number, token);

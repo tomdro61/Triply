@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { unstable_cache } from "next/cache";
 import { z } from "zod";
@@ -11,8 +12,10 @@ import { reconcileRevenue } from "@/lib/accounting/reconcile";
 import {
   aggregateBlogBookings,
   blogSlug,
+  blogTouchedIds,
   defaultRange,
   LIVE_STATUSES,
+  MAX_NET_RANGE_DAYS,
   MAX_RANGE_DAYS,
   netTakeOfDetail,
   rangeBoundsUtc,
@@ -22,6 +25,7 @@ import {
   type BlogBookingsResponse,
   type DateRange,
   type GscPage,
+  type NetSummary,
   type Section,
 } from "@/lib/admin/blog-bookings";
 
@@ -33,17 +37,20 @@ import {
  * clicks per article and the CMS's airportCode per article. Range = ET days,
  * default the last 90.
  *
- * `net=1` adds net take per booking from the accounting reconciler
- * (reconcileRevenue, ResLab only, no Stripe). That is one ResLab call per
- * booking in the range, so the page asks for it as a second, slower request.
+ * `net=1` adds net take from the accounting reconciler (reconcileRevenue,
+ * ResLab only, no Stripe) for the BLOG-touched bookings only — one ResLab
+ * read each, so the page asks for it only on an explicit "Load net take".
+ * Ranges past MAX_NET_RANGE_DAYS get a net section error instead. The result
+ * is cached 6 h per (range, id set); a result with ResLab fetch errors is not.
  *
  * Search Console and the CMS are independent sections: a failure is
  * { ok: false, error } (and Sentry), never shown as zero clicks.
  */
 
 export const dynamic = "force-dynamic";
-// net=1 runs the reconciler over the whole range (ResLab, concurrency 5).
-export const maxDuration = 300;
+// net=1 reads ResLab once per blog booking: ≤ 92 days of blog bookings
+// (~400 at today's volume) at concurrency 10 and ~1 s a read is ~40 s.
+export const maxDuration = 60;
 
 const isoDate = z
   .string()
@@ -59,6 +66,8 @@ const querySchema = z
   .refine((q) => rangeDays(q) <= MAX_RANGE_DAYS, { message: `range must be ≤ ${MAX_RANGE_DAYS} days` });
 
 const CACHE_S = 3600;
+const NET_CACHE_S = 6 * 3600;
+const NET_RESLAB_CONCURRENCY = 10;
 const PAGE = 1000; // PostgREST's default max-rows
 const MAX_ROWS = 20_000;
 
@@ -180,11 +189,25 @@ async function readArticleMeta(): Promise<Array<[string, ArticleMeta]>> {
   throw new Error(`CMS has more than ${CMS_PAGE * CMS_MAX_PAGES} posts`);
 }
 
+interface NetData {
+  /** Booking id → net take (plain entries: unstable_cache JSON-serialises). */
+  entries: Array<[string, number | null]>;
+  fetchErrors: number;
+}
+
+/** Thrown out of the cached function so a partial result is never cached. */
+class UncachedNet extends Error {
+  constructor(readonly data: NetData) {
+    super("net take had ResLab fetch errors");
+  }
+}
+
 /**
- * Net take per booking id from the reconciler. Its range is UTC days and ours
- * is ET days, so ask for one extra day each side and join by id.
+ * Net take per blog booking id from the reconciler. Its range is UTC days and
+ * ours is ET days, so ask for one extra day each side; the id list does the
+ * real narrowing.
  */
-async function readNet(range: DateRange): Promise<Map<string, number | null>> {
+async function computeNet(range: DateRange, ids: string[]): Promise<NetData> {
   const result = await reconcileRevenue({
     from: shiftIsoDate(range.from, -1),
     to: shiftIsoDate(range.to, 1),
@@ -192,8 +215,74 @@ async function readNet(range: DateRange): Promise<Map<string, number | null>> {
     invoiceAmount: 0,
     includeReslab: true,
     includeStripe: false,
+    bookingIds: ids,
+    reslabConcurrency: NET_RESLAB_CONCURRENCY,
   });
-  return new Map(result.bookings.map((b) => [b.id, netTakeOfDetail(b)]));
+  return {
+    entries: result.bookings.map((b) => [b.id, netTakeOfDetail(b)]),
+    fetchErrors: result.reslab.fetchErrors.length,
+  };
+}
+
+async function readNet(range: DateRange, ids: string[]): Promise<NetData> {
+  if (ids.length === 0) return { entries: [], fetchErrors: 0 };
+  const idsHash = createHash("sha256").update([...ids].sort().join(",")).digest("hex").slice(0, 32);
+  try {
+    return await unstable_cache(
+      async () => {
+        const data = await computeNet(range, ids);
+        if (data.fetchErrors > 0) throw new UncachedNet(data);
+        return data;
+      },
+      ["admin-blog-bookings", "net", range.from, range.to, idsHash],
+      { revalidate: NET_CACHE_S }
+    )();
+  } catch (err) {
+    if (err instanceof UncachedNet) return err.data;
+    throw err;
+  }
+}
+
+/**
+ * The net section as the page sees it. Errors (not partial figures) when the
+ * range is too wide or when most blog bookings came back without a figure.
+ */
+async function netSection(
+  range: DateRange,
+  ids: string[]
+): Promise<{ section: Section<NetSummary>; netById?: Map<string, number | null>; report: boolean }> {
+  const days = rangeDays(range);
+  if (days > MAX_NET_RANGE_DAYS) {
+    return {
+      section: { ok: false, error: `net take covers at most ${MAX_NET_RANGE_DAYS} days — this range is ${days}` },
+      report: false,
+    };
+  }
+  const s = await section(() => readNet(range, ids));
+  if (!s.ok) return { section: s, report: true };
+  const netById = new Map(s.data.entries);
+  const known = ids.filter((id) => {
+    const v = netById.get(id);
+    return v !== undefined && v !== null;
+  }).length;
+  const summary: NetSummary = { bookings: ids.length, known, fetchErrors: s.data.fetchErrors };
+  if (s.data.fetchErrors > 0) {
+    captureAPIError(new Error(`admin blog-bookings: ${s.data.fetchErrors} ResLab fetch error(s) in net take`), {
+      endpoint: "/api/admin/blog-bookings",
+      method: "GET",
+      stage: "net",
+    });
+  }
+  if (ids.length > 0 && known * 2 < ids.length) {
+    return {
+      section: {
+        ok: false,
+        error: `ResLab returned a figure for only ${known} of ${ids.length} blog bookings (${s.data.fetchErrors} fetch error(s))`,
+      },
+      report: true,
+    };
+  }
+  return { section: { ok: true, data: summary }, netById, report: false };
 }
 
 export async function GET(request: NextRequest) {
@@ -238,18 +327,19 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Bookings query failed — see Sentry for details" }, { status: 500 });
   }
 
-  const [gsc, cms, net] = await Promise.all([
+  const [gsc, cms, netResult] = await Promise.all([
     section(() => readGsc(range, today)),
     section(readArticleMeta),
-    wantNet ? section(() => readNet(range)) : Promise.resolve(null),
+    wantNet ? netSection(range, blogTouchedIds(rows, range)) : Promise.resolve(null),
   ]);
+  const net = netResult?.section ?? null;
 
-  for (const [name, s] of [
-    ["gsc", gsc],
-    ["cms", cms],
-    ["net", net],
+  for (const [name, s, report] of [
+    ["gsc", gsc, true],
+    ["cms", cms, true],
+    ["net", net, netResult?.report ?? false],
   ] as const) {
-    if (s && !s.ok) {
+    if (s && !s.ok && report) {
       captureAPIError(new Error(`admin blog-bookings: ${name} unavailable: ${s.error}`), {
         endpoint: "/api/admin/blog-bookings",
         method: "GET",
@@ -262,15 +352,16 @@ export async function GET(request: NextRequest) {
     rows,
     range,
     gscBySlug: gsc.ok ? new Map(gsc.data.pages) : undefined,
+    gscWindow: gsc.ok ? gsc.data.window : undefined,
     articleMeta: cms.ok ? new Map(cms.data) : undefined,
-    netById: net?.ok ? net.data : undefined,
+    netById: netResult?.netById,
   });
 
   const body: BlogBookingsResponse = {
     report,
     gsc: gsc.ok ? { ok: true, data: { window: gsc.data.window } } : gsc,
     cms: cms.ok ? { ok: true, data: { articles: cms.data.length } } : cms,
-    ...(net ? { net: net.ok ? { ok: true as const, data: { bookings: net.data.size } } : net } : {}),
+    ...(net ? { net } : {}),
   };
   return NextResponse.json(body, { headers: { "Cache-Control": "no-store" } });
 }

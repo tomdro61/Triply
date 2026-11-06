@@ -4,13 +4,13 @@
  * /admin/blog-bookings — which airports and which blog articles produce
  * bookings. Bookings are credited from bookings.attribution (first / last
  * touch landing page); Google clicks come from Search Console; article
- * airport + title from the CMS. Net take loads second (it calls ResLab once
- * per booking in the range via the accounting reconciler).
+ * airport + title from the CMS. Net take loads only on "Load net take" (it
+ * calls ResLab once per blog booking via the accounting reconciler, <= 92 days).
  *
  * Shows "unavailable" rather than zeros for any source that fails.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Flag, Loader2 } from "lucide-react";
 import type {
   AirportRow,
@@ -19,8 +19,11 @@ import type {
   DateRange,
   NetFigures,
 } from "@/lib/admin/blog-bookings";
+import { fmtNet } from "@/lib/admin/blog-bookings-format";
 
 const DEFAULT_DAYS = 90;
+/** Mirrors MAX_NET_RANGE_DAYS in src/lib/admin/blog-bookings.ts (the route enforces it). */
+const MAX_NET_DAYS = 92;
 const ARTICLE_PAGE = 100;
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sept", "Oct", "Nov", "Dec"];
@@ -32,8 +35,6 @@ const fmtRange = (r: DateRange) => `${fmtDay(r.from)}–${fmtDay(r.to)}`;
 const fmtInt = (n: number | null) => (n === null ? "—" : Math.round(n).toLocaleString("en-US"));
 const fmtPct = (r: number | null) => (r === null ? "—" : `${(r * 100).toFixed(0)}%`);
 const fmtRate = (r: number | null) => (r === null ? "—" : r.toFixed(1));
-const fmtMoney = (n: number) =>
-  n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
 /** ET calendar day, "YYYY-MM-DD" (the API works in ET days). */
 function todayEt(): string {
@@ -51,16 +52,28 @@ function shiftDay(iso: string, days: number): string {
   const t = new Date(Date.UTC(y, m - 1, d + days));
   return t.toISOString().slice(0, 10);
 }
+function rangeDays(r: DateRange): number {
+  return Math.round((Date.parse(`${r.to}T00:00:00Z`) - Date.parse(`${r.from}T00:00:00Z`)) / 86_400_000) + 1;
+}
 function defaultRange(): DateRange {
   const to = todayEt();
   return { from: shiftDay(to, -(DEFAULT_DAYS - 1)), to };
 }
 
 function NetCell({ net, loading }: { net: NetFigures | null; loading: boolean }) {
-  if (!net) return <span className="text-gray-400">{loading ? "…" : "—"}</span>;
+  if (!net || net.blogNetKnown === 0) {
+    return (
+      <span
+        className="text-gray-400"
+        title={net && net.blogNetUnknown > 0 ? `${net.blogNetUnknown} booking(s), none with a net figure` : undefined}
+      >
+        {fmtNet(net, loading)}
+      </span>
+    );
+  }
   return (
     <span title={net.blogNetUnknown > 0 ? `${net.blogNetUnknown} booking(s) with no net figure, not included` : undefined}>
-      {fmtMoney(net.blogNet)}
+      {fmtNet(net)}
       {net.blogNetUnknown > 0 && <span className="ml-1 text-xs text-amber-700">+{net.blogNetUnknown}?</span>}
     </span>
   );
@@ -337,25 +350,16 @@ export default function AdminBlogBookingsPage() {
   const [draft, setDraft] = useState<DateRange>(range);
   const [data, setData] = useState<BlogBookingsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [netState, setNetState] = useState<"loading" | "done" | { error: string }>("loading");
+  const [netState, setNetState] = useState<"idle" | "loading" | "done" | { error: string }>("idle");
+  // Bumped on every Apply, so a net load for an old range can't land on a new one.
+  const rangeSeq = useRef(0);
 
   useEffect(() => {
     let alive = true;
-    // Counts + Google clicks first (fast), then the same report with net take
-    // (one ResLab call per booking in the range).
+    // Counts + Google clicks only. Net take waits for "Load net take".
     load(range, false)
       .then((body) => {
-        if (!alive) return;
-        setData(body);
-        return load(range, true)
-          .then((withNet) => {
-            if (!alive) return;
-            setData(withNet);
-            setNetState(withNet.net && !withNet.net.ok ? { error: withNet.net.error } : "done");
-          })
-          .catch((e: unknown) => {
-            if (alive) setNetState({ error: e instanceof Error ? e.message : String(e) });
-          });
+        if (alive) setData(body);
       })
       .catch((e: unknown) => {
         if (alive) setError(e instanceof Error ? e.message : String(e));
@@ -364,6 +368,21 @@ export default function AdminBlogBookingsPage() {
       alive = false;
     };
   }, [range]);
+
+  const netTooWide = rangeDays(range) > MAX_NET_DAYS;
+  function loadNet() {
+    const seq = rangeSeq.current;
+    setNetState("loading");
+    load(range, true)
+      .then((withNet) => {
+        if (seq !== rangeSeq.current) return;
+        setData(withNet);
+        setNetState(withNet.net && !withNet.net.ok ? { error: withNet.net.error } : "done");
+      })
+      .catch((e: unknown) => {
+        if (seq === rangeSeq.current) setNetState({ error: e instanceof Error ? e.message : String(e) });
+      });
+  }
 
   const draftValid = /^\d{4}-\d{2}-\d{2}$/.test(draft.from) && /^\d{4}-\d{2}-\d{2}$/.test(draft.to) && draft.from <= draft.to;
   const netLoading = netState === "loading";
@@ -388,7 +407,8 @@ export default function AdminBlogBookingsPage() {
             // Reset here, not in the effect (react-hooks/set-state-in-effect).
             setData(null);
             setError(null);
-            setNetState("loading");
+            setNetState("idle");
+            rangeSeq.current += 1;
             setRange(draft);
           }}
         >
@@ -433,11 +453,33 @@ export default function AdminBlogBookingsPage() {
           {!data.gsc.ok && <Notice>Google clicks unavailable — {data.gsc.error}</Notice>}
           {!data.cms.ok && <Notice>Article titles and airports unavailable — {data.cms.error}</Notice>}
           {typeof netState === "object" && <Notice>Net take unavailable — {netState.error}</Notice>}
-          {netLoading && (
-            <p className="mb-2 flex items-center gap-2 text-xs text-gray-500">
-              <Loader2 className="h-3 w-3 animate-spin" /> Loading net take from ResLab…
-            </p>
+          {data.net?.ok && data.net.data.fetchErrors > 0 && (
+            <Notice>
+              {data.net.data.fetchErrors} ResLab read(s) failed — net take covers {data.net.data.known} of{" "}
+              {data.net.data.bookings} blog bookings.
+            </Notice>
           )}
+          <div className="mb-2 flex flex-wrap items-center gap-3 text-xs text-gray-500">
+            {netLoading ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="h-3 w-3 animate-spin" /> Loading net take from ResLab…
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={loadNet}
+                disabled={netTooWide}
+                className="rounded-lg bg-gray-100 px-3 py-1.5 text-gray-700 hover:bg-gray-200 disabled:opacity-50"
+              >
+                {netState === "done" ? "Reload net take" : "Load net take"}
+              </button>
+            )}
+            <span>
+              {netTooWide
+                ? `Net take covers at most ${MAX_NET_DAYS} days — narrow the range.`
+                : "One ResLab read per blog booking; up to a minute the first time."}
+            </span>
+          </div>
 
           <Card title="Summary" range={`Bookings ${fmtRange(data.report.range)} (ET)`}>
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
@@ -458,7 +500,7 @@ export default function AdminBlogBookingsPage() {
               />
               <Stat
                 label="Blog net take"
-                value={data.report.totals.net ? fmtMoney(data.report.totals.net.blogNet) : netLoading ? "…" : "—"}
+                value={fmtNet(data.report.totals.net, netLoading)}
                 sub={
                   data.report.totals.net && data.report.totals.net.blogNetUnknown > 0
                     ? `${data.report.totals.net.blogNetUnknown} booking(s) without a figure`
@@ -470,7 +512,9 @@ export default function AdminBlogBookingsPage() {
               Live bookings only (cancelled and refunded left out, test bookings excluded). Unknown = no attribution
               cookie or an unreadable one — counted in the totals, never as blog or non-blog. Net take is the
               accounting page&apos;s per-booking figure (commission − ResLab fee + service fee + Park Guard margin,
-              before Stripe fees); direct-lot bookings have none.
+              before Stripe fees). Disputed and direct-lot bookings never have one: they show as &ldquo;+N?&rdquo;
+              (no figure) and are left out of the sum, not counted as $0. &ldquo;—&rdquo; = no booking in that cell has a
+              figure.
             </p>
           </Card>
 
@@ -481,7 +525,8 @@ export default function AdminBlogBookingsPage() {
             <AirportTable rows={data.report.airports} netLoading={netLoading} />
             <p className="mt-3 text-xs text-gray-500">
               Airport = the airport booked (else the last airport searched). Google clicks per airport = clicks on
-              articles the CMS tags with that airport. Per 100 clicks = blog bookings ÷ Google clicks × 100.
+              articles the CMS tags with that airport. Per 100 clicks = blog bookings created inside the Google clicks
+              window{data.gsc.ok ? ` (${fmtRange(data.gsc.data.window)})` : ""} ÷ Google clicks × 100.
             </p>
           </Card>
 
@@ -494,6 +539,7 @@ export default function AdminBlogBookingsPage() {
               />
               <p className="mt-3 text-xs text-gray-500">
                 Articles with {data.report.minClicksFlag}+ Google clicks in the range and no booking on either touch.
+                Per 100 clicks counts only bookings inside the Google clicks window.
               </p>
             </Card>
           )}
