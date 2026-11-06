@@ -113,9 +113,9 @@ export function directLotToUnified(lot: DirectLot, airport: Airport, window: Dir
     checkoutOpen: isDirectCheckoutOpen(),
 
     extraFields: [],
-    // Left undefined on purpose: the booking widget then shows Triply's own
-    // "Free cancellation up to 24h before", which is the policy direct bookings
-    // get (eligibility.ts, Phase 5).
+    // Left undefined on purpose. No screen reads it any more: the slider, lot
+    // page and checkout state Triply's own 24 h rule for every lot
+    // (lib/cancellation/free-cancel-window.ts, same gate as eligibility.ts).
     cancellationPolicies: undefined,
   };
 }

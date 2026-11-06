@@ -6,6 +6,10 @@ import { nearbyAirports } from "@/lib/search/nearby-airports";
  * dates, and offer the nearest airports for the same dates, so a search is
  * never a dead end (customer-army audit 2026-11-06, item 5). Same look as the
  * one-line message it replaces.
+ *
+ * Plain <a> for the airport chips on purpose: /search reads its airport and dates from the URL once,
+ * on mount, so a client-side <Link> to another /search URL would change the
+ * address bar but keep these empty results. A full load runs the new search.
  */
 export function NoLotsHere({
   airportCode,
@@ -32,14 +36,13 @@ export function NoLotsHere({
           <p className="text-gray-500 text-sm mt-3">Try a nearby airport for the same dates:</p>
           <div className="flex flex-wrap justify-center gap-2 mt-2">
             {nearby.map(({ airport, miles }) => (
-              <Link
+              <a
                 key={airport.code}
                 href={href(airport.code)}
-                prefetch={false}
                 className="inline-flex items-center px-3 py-1.5 bg-white border border-gray-200 rounded-full text-sm text-gray-700 font-medium hover:border-brand-orange"
               >
                 {airport.city} ({airport.code}) · {Math.round(miles)} mi
-              </Link>
+              </a>
             ))}
           </div>
         </>

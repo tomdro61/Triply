@@ -10,6 +10,7 @@ describe("nearbyAirports", () => {
 
   it("closest first, never further than the cap", () => {
     const out = nearbyAirports("SLC", 5);
+    expect(out.length).toBeGreaterThan(1);
     for (let i = 1; i < out.length; i++) expect(out[i].miles).toBeGreaterThanOrEqual(out[i - 1].miles);
     for (const x of out) expect(x.miles).toBeLessThanOrEqual(NEARBY_MAX_MILES);
   });

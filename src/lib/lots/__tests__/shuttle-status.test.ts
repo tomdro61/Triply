@@ -106,7 +106,7 @@ describe("shuttleStatus — hours", () => {
     ["4 AM - Midnight On Demand", 240, 1440],
     ["Shuttle runs from 4:30 AM to 10 PM every 30 minutes within shuttle hours.", 270, 1320],
     ["7am to 10pm once an hour top of the hour", 420, 1320],
-    ["4AM - 12PM, every 30 minutes, except at 7AM, 3PM, and 11PM", 240, 1440],
+    ["Shuttle runs from 4AM to 12AM every 30 minutes and pick ups on demand.", 240, 1440],
   ])("free-form %s", (s, start, end) => {
     expect(shuttleStatus(s)).toEqual({ kind: "hours", windows: [{ start, end }] });
   });
@@ -118,6 +118,57 @@ describe("shuttleStatus — hours", () => {
     expect(s).toEqual({ kind: "hours", windows: null });
     expect(shuttleLabel(s)).toBe("Shuttle: limited hours");
     expect(outsideShuttleHours(s, "3:00 AM")).toBe(false);
+  });
+});
+
+describe("shuttleStatus — review regressions (2026-11-06): never a wrong definite answer", () => {
+  it("a lone structured window is its hours, not 24/7", () => {
+    expect(shuttleStatus("5:00 AM - 11:00 PM: Shuttle runs every 30 minutes.")).toEqual({
+      kind: "hours",
+      windows: [{ start: 300, end: 1380 }],
+    });
+  });
+
+  it("'24 hours' notice is a booking rule, not 24/7 service", () => {
+    expect(shuttleStatus("Shuttle requires 24 hours advance notice. Shuttle runs 6 AM to 11 PM.")).toEqual({
+      kind: "hours",
+      windows: [{ start: 360, end: 1380 }],
+    });
+    expect(shuttleStatus("6 AM - 10 PM. Call 24 hours in advance to book a pickup.")).toEqual({
+      kind: "hours",
+      windows: [{ start: 360, end: 1320 }],
+    });
+    expect(shuttleStatus("On demand with 24 hours' notice").kind).toBe("unknown");
+  });
+
+  it("'24 hours' next to a stated range, or with no shuttle words, is not 24/7", () => {
+    expect(shuttleStatus("Shuttle runs 5 AM - 11 PM every 20 minutes. Lot open 24 hours.").kind).toBe("unknown");
+    expect(shuttleStatus("24 hours valet - we drive your car to the terminal").kind).toBe("unknown");
+  });
+
+  it("a stray clock time outside the range makes it unknown (no '12 PM means midnight' guess)", () => {
+    expect(shuttleStatus("4AM - 12PM, every 30 minutes, except at 7AM, 3PM, and 11PM").kind).toBe("unknown");
+    expect(shuttleStatus("Shuttle runs 4 AM - 12:00 PM. Office closes at 5 PM.").kind).toBe("unknown");
+  });
+
+  it("'No shuttle' or 'suspended' with hours attached is a schedule, not an absence", () => {
+    expect(shuttleStatus("No shuttle between 11 PM and 5 AM. Shuttle runs 5 AM to 11 PM.").kind).toBe("unknown");
+    expect(shuttleStatus("Shuttle service suspended 1 AM - 4 AM nightly; every 15 minutes otherwise").kind).toBe("unknown");
+    expect(shuttleStatus("Valet service suspended. Shuttle every 15 minutes").kind).not.toBe("suspended");
+  });
+
+  it("windows that meet across midnight merge into one", () => {
+    const s = shuttleStatus(
+      "12:00 AM - 2:00 AM: Shuttle runs on demand.  2:00 AM - 5:00 AM: No shuttle.  5:00 AM - 12:00 AM: Shuttle runs every 30 minutes."
+    );
+    expect(s).toEqual({ kind: "hours", windows: [{ start: 300, end: 120 }] });
+    expect(shuttleLabel(s)).toBe("Shuttle 5 AM–2 AM");
+  });
+
+  it("a picked 12:00 AM is inside a window that ends at midnight", () => {
+    const s = shuttleStatus("4:00 AM - 12:00 AM: Shuttle runs every 30 minutes.  12:00 AM - 4:00 AM: No shuttle.");
+    expect(outsideShuttleHours(s, "12:00 AM")).toBe(false);
+    expect(outsideShuttleHours(s, "12:30 AM")).toBe(true);
   });
 });
 

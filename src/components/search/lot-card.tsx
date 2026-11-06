@@ -25,7 +25,7 @@ import { trackSelectItem } from "@/lib/analytics/gtag";
 import { customerPerDayFromPricing, customerTotalFromPricing } from "@/lib/utils/service-fee";
 import { TaxesAndFeesIncluded } from "@/components/shared/taxes-fees-included";
 import { ShuttleChip } from "@/components/shared/shuttle-chip";
-import { amenitiesBesideShuttle } from "@/lib/lots/shuttle-status";
+import { amenitiesBesideShuttle, shuttleLabel, shuttleStatus } from "@/lib/lots/shuttle-status";
 import { unmetMinimumStay } from "@/lib/lots/min-stay";
 import { LotBadges } from "./lot-badges";
 
@@ -120,6 +120,7 @@ export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false, ex
   const perDay = customerPerDayFromPricing(lot.pricing);
   const minStay = unmetMinimumStay(lot);
   const amenities = amenitiesBesideShuttle(lot.amenities, lot.shuttleInfo?.summary);
+  const showsShuttle = shuttleLabel(shuttleStatus(lot.shuttleInfo?.summary)) !== null;
 
   return (
     <div
@@ -197,10 +198,11 @@ export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false, ex
         </div>
 
         {/* Amenities */}
-        {(amenities.length > 0 || lot.shuttleInfo) && (
+        {(amenities.length > 0 || showsShuttle) && (
           <div className="flex flex-wrap gap-1.5 mt-2 mb-3">
             <ShuttleChip
               shuttleInfo={lot.shuttleInfo}
+              iconSize={14}
               className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-gray-200 rounded-full text-xs text-gray-700 font-medium"
             />
             {amenities.slice(0, 4).map((amenity) => {

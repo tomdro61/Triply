@@ -104,9 +104,13 @@ export function CheckoutForm({
   // Under two days out the badge is hidden; say what applies instead, so the
   // promise made on the search slider never just disappears (audit item 4).
   // Display only: the 24 h gate stays server-side (lib/cancellation).
-  const [shortNoticeCancelText] = useState(() =>
-    freeCancelText(freeCancelWindow(checkIn, checkInTime, getAirportByCode(lot.airportCode ?? "")?.timezone, new Date()))
-  );
+  const [shortNoticeCancelText] = useState(() => {
+    const w = freeCancelWindow(checkIn, checkInTime, getAirportByCode(lot.airportCode ?? "")?.timezone, new Date());
+    // Same caveat the full badge carries whenever cancellation is still open.
+    return w.kind === "open"
+      ? `${freeCancelText(w)}. Park Guard protection plans are partly non-refundable.`
+      : freeCancelText(w);
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);

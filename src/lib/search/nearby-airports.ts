@@ -18,7 +18,7 @@ export function nearbyAirports(code: string, limit = 3): { airport: Airport; mil
   const from = getAirportByCode(code);
   if (!from) return [];
   return productionAirports
-    .filter((a) => a.code !== from.code && !a.isSeaport && !a.isTest)
+    .filter((a) => a.code !== from.code && !a.isSeaport)
     .map((airport) => ({
       airport,
       miles: calculateDistance(from.latitude, from.longitude, airport.latitude, airport.longitude, false),

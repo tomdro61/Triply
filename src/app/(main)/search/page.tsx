@@ -63,6 +63,10 @@ function SearchPageContent() {
   // True when /api/search answered with direct lots only because ResLab was
   // unreachable (`reslabUnavailable`) — a partial list, shown with a banner.
   const [partialResults, setPartialResults] = useState(false);
+  // True when the answer says some inventory wasn't read (a degraded or thin
+  // location list, or the direct-lot read failed). An empty list is then NOT
+  // "nothing bookable here", so the no-lots message must not claim it.
+  const [incompleteResults, setIncompleteResults] = useState(false);
   // A deterministic date problem (the API's 400) is NOT a transient upstream
   // fault — it gets its own message and no "Try again" that can never succeed.
   const [dateError, setDateError] = useState<string | null>(null);
@@ -90,6 +94,7 @@ function SearchPageContent() {
     setLoading(true);
     setLoadError(false);
     setPartialResults(false);
+    setIncompleteResults(false);
     setDateError(null);
     // Full date rules (past check-in, advance-booking window, reversed range) — a
     // bookmarked or emailed link with a bad check-in used to round-trip to
@@ -142,6 +147,12 @@ function SearchPageContent() {
             : null
         );
         setPartialResults(data.reslabUnavailable === true);
+        setIncompleteResults(
+          data.reslabUnavailable === true ||
+            data.directUnavailable === true ||
+            data.listIncomplete === true ||
+            data.degraded === true
+        );
         if (data.closedForToday === true && (data.results?.length ?? 0) === 0) {
           setDateError(
             "No lots near this airport can take a booking for the rest of today. Try a check-in date of tomorrow."
@@ -304,8 +315,14 @@ function SearchPageContent() {
               partialResults={partialResults}
               onRetry={fetchResults}
               emptyState={
-                partialResults ? undefined : (
-                  <NoLotsHere airportCode={airport} checkin={departDate} checkout={returnDate} />
+                incompleteResults ? undefined : (
+                  // What was searched (URL + priced dates), never the header's
+                  // unsubmitted edits.
+                  <NoLotsHere
+                    airportCode={(urlSearch.airport ?? airport).toUpperCase()}
+                    checkin={pricedStay?.checkIn ?? departDate}
+                    checkout={pricedStay?.checkOut ?? returnDate}
+                  />
                 )
               }
               renderExtraBadge={

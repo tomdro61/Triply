@@ -8,7 +8,7 @@ import { customerPerDayFromPricing, customerTotalFromPricing } from "@/lib/utils
 import { TaxesAndFeesIncluded } from "@/components/shared/taxes-fees-included";
 import { ShuttleChip } from "@/components/shared/shuttle-chip";
 import { unmetMinimumStay } from "@/lib/lots/min-stay";
-import { amenitiesBesideShuttle } from "@/lib/lots/shuttle-status";
+import { amenitiesBesideShuttle, shuttleLabel, shuttleStatus } from "@/lib/lots/shuttle-status";
 import { LotBadges } from "./lot-badges";
 
 interface MobileMapCardProps {
@@ -40,6 +40,7 @@ export function MobileMapCard({ lot, onSelect, extraBadge }: MobileMapCardProps)
   const perDay = customerPerDayFromPricing(lot.pricing);
   const topAmenities = amenitiesBesideShuttle(lot.amenities, lot.shuttleInfo?.summary).slice(0, 3);
   const minStay = unmetMinimumStay(lot);
+  const showsShuttle = shuttleLabel(shuttleStatus(lot.shuttleInfo?.summary)) !== null;
 
   return (
     <div
@@ -112,7 +113,7 @@ export function MobileMapCard({ lot, onSelect, extraBadge }: MobileMapCardProps)
       </div>
 
       {/* Amenity tags, shuttle first (same chip style) */}
-      {(topAmenities.length > 0 || lot.shuttleInfo) && (
+      {(topAmenities.length > 0 || showsShuttle) && (
         <div className="flex gap-1.5 flex-wrap px-3">
           <ShuttleChip
             shuttleInfo={lot.shuttleInfo}

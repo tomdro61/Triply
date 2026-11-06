@@ -208,10 +208,19 @@ describe("minimum stay", () => {
     expect(bookableFirst([bolt, okB, okA]).map((l) => l.id)).toEqual(["reslab-902", "reslab-901", "reslab-900"]);
   });
 
-  it("every sort puts the unbookable lot last, even when it is cheapest or closest", () => {
-    for (const sort of ["price_asc", "price_desc", "distance", "rating"] as const) {
-      const out = sortLots([bolt, okA, okB], sort, { recommended: false });
+  it("every sort puts the unbookable lot last, even when it would naturally come first", () => {
+    // Cheapest (wins price_asc) and best rated (wins rating):
+    const cheap = { ...bolt, rating: 5 };
+    for (const sort of ["price_asc", "rating"] as const) {
+      const out = sortLots([cheap, okA, okB], sort, { recommended: false });
       expect(out[out.length - 1].id).toBe("reslab-900");
+    }
+    // Closest and dearest (wins distance, price_desc, and the distance fallback
+    // of "popularity" with ranking off):
+    const near = withStay(lot(904, 500, 0.1), 5, 6);
+    for (const sort of ["price_desc", "distance", "popularity"] as const) {
+      const out = sortLots([near, okA, okB], sort, { recommended: false });
+      expect(out[out.length - 1].id).toBe("reslab-904");
     }
     expect(rankRecommended([bolt, okA, okB], null).map((l) => l.id)).toEqual(["reslab-901", "reslab-902", "reslab-900"]);
   });

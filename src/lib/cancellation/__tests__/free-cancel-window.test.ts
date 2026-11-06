@@ -38,6 +38,12 @@ describe("freeCancelWindow", () => {
     expect(freeCancelWindow("2026-11-06", undefined, NY, NOW)).toEqual({ kind: "closed" });
   });
 
+  it("no time picked: closed only once the day's last slot (11:30 PM) is inside 24 h", () => {
+    // Check-in Nov 7; last slot 11:30 PM Nov 7 ET = Nov 8 04:30Z; cutoff Nov 7 04:30Z.
+    expect(freeCancelWindow("2026-11-07", "", NY, new Date("2026-11-07T04:29:00Z"))).toEqual({ kind: "open", until: null });
+    expect(freeCancelWindow("2026-11-07", "", NY, new Date("2026-11-07T04:30:00Z"))).toEqual({ kind: "closed" });
+  });
+
   it("no time picked yet and more than a day out: the generic line", () => {
     const w = freeCancelWindow("2026-11-20", "", NY, NOW);
     expect(w).toEqual({ kind: "open", until: null });

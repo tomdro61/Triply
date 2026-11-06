@@ -50,10 +50,11 @@ export function freeCancelWindow(
   const minutes = checkInTime ? parseTime12Strict(checkInTime) : null;
 
   if (minutes === null) {
-    // No time yet: only a check-in day whose every slot is already inside the
-    // cutoff counts as closed — that is, check-in today (any time today is
-    // under 24 h away).
-    if (now && zonedWallClock(timeZone, now).date >= checkInDate) return { kind: "closed" };
+    // No time yet: closed only when even the day's last slot (11:30 PM, the
+    // last time-picker option) is inside the cutoff. Measured with the same
+    // instant math, so a daylight-saving night can't close it early.
+    const lastSlot = checkInInstantMs(`${checkInDate} 23:30:00`, timeZone);
+    if (now && lastSlot !== null && now.getTime() >= lastSlot - CUTOFF_MS) return { kind: "closed" };
     return { kind: "open", until: null };
   }
 

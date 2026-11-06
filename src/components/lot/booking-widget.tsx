@@ -163,7 +163,7 @@ export function BookingWidget({
 
   // The real promise for the chosen check-in: dated cutoff, or "not cancellable
   // online" once inside 24 h (lib/cancellation/free-cancel-window.ts). The
-  // clock stays null until mount, so the server render shows the generic line.
+  // clock stays null until mount, so the server render never claims "closed".
   const cancelWindow = freeCancelWindow(checkIn, selectedCheckInTime, airportTimeZone, clock === null ? null : new Date(clock));
   const cancellationText = freeCancelText(cancelWindow);
 

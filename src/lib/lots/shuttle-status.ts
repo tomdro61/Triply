@@ -14,6 +14,8 @@
  * wrong "24/7" is worse than saying nothing.
  */
 
+import { parseTime12Strict } from "@/lib/utils/time";
+
 /** Minutes after midnight, 0–1440. */
 export interface ShuttleWindow {
   start: number;
@@ -75,40 +77,82 @@ function mergeTouching(windows: ShuttleWindow[]): ShuttleWindow[] {
     if (last && last.end % 1440 === w.start % 1440) last.end = w.end;
     else out.push({ ...w });
   }
+  // "12 AM - 2 AM … 5 AM - 12 AM" is one window, 5 AM–2 AM, across midnight.
+  if (out.length > 1 && out[out.length - 1].end === 1440 && out[0].start === 0) {
+    const last = out[out.length - 1];
+    out[0] = { start: last.start, end: out[0].end };
+    out.length -= 1;
+  }
   return out;
 }
 
 const WEEKDAY =/\b(mon|tue|wed|thu|fri|sat|sun)[a-z]*\s*[-–]\s*(mon|tue|wed|thu|fri|sat|sun)/i;
 /** Direction- or cruise-specific schedules that one window can't describe. */
 const SPLIT_SCHEDULE = /from the airport to|to the parking lot|check-?in starts|shuttles? to airport start|embark|disembark|cruise terminal/i;
-const ALL_DAY = /\b24\/7\b|\b24 hours\b|24\/7\/365/i;
+/**
+ * Continuous service. Not "24 hours notice / in advance / ahead": that is a
+ * booking rule, not an operating schedule.
+ */
+const ALL_DAY = /\b24\/7\b|\b24 hours\b(?!['’]?\s*(?:advance|notice|ahead|in advance|before|prior))/i;
+
+/** True when the windows together cover every minute of the day. */
+function coversWholeDay(windows: readonly ShuttleWindow[]): boolean {
+  const covered = new Array<boolean>(1440).fill(false);
+  for (const w of windows) {
+    const end = w.end <= w.start ? w.end + 1440 : w.end;
+    for (let m = w.start; m < end; m++) covered[m % 1440] = true;
+  }
+  return covered.every(Boolean);
+}
+
+/** Every standalone clock time in the text ("3PM", "5:00 PM"), in minutes. */
+function clockTimes(text: string): number[] {
+  const re = new RegExp(TIME, "gi");
+  const out: number[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    const t = toMinutes(m[1], m[2], m[3]);
+    if (t !== null) out.push(t);
+  }
+  return out;
+}
 
 export function shuttleStatus(summary: string | null | undefined): ShuttleStatus {
   const text = (summary ?? "").replace(/\s+/g, " ").trim();
   if (!text) return { kind: "unknown" };
 
-  if (/^no shuttle\b/i.test(text)) return { kind: "none" };
-  if (/\bsuspended\b/i.test(text)) return { kind: "suspended" };
+  const found = ranges(text);
+  // "No shuttle" with no hours attached. "No shuttle between 11 PM and 5 AM.
+  // Shuttle runs 5 AM to 11 PM." is a schedule, not an absence.
+  if (/^no shuttle\b/i.test(text) && found.length === 0) return { kind: "none" };
+  // The shuttle itself suspended, in one sentence ("Shuttle temporarily
+  // suspended"), not "valet service suspended" or a suspension window.
+  if (found.length === 0 && /shuttle[^.]*\bsuspended\b|\bsuspended\b[^.]*shuttle/i.test(text)) {
+    return { kind: "suspended" };
+  }
   if (SPLIT_SCHEDULE.test(text)) return { kind: "unknown" };
 
   // ResLab's structured form: "4:00 AM - 11:00 PM: Shuttle runs …  11:00 PM - 4:00 AM: No shuttle."
-  const found = ranges(text);
   const structured = found.length > 0 && found.every((r) => /^\s*:/.test(r.tail));
   if (structured) {
     if (WEEKDAY.test(text)) return { kind: "hours", windows: null };
-    const running = found.filter((r) => !/no shuttle/i.test(r.tail));
+    const running = found
+      .filter((r) => !/no shuttle/i.test(r.tail))
+      .map(({ start, end }) => ({ start, end }));
     if (running.length === 0) return { kind: "none" };
-    const hasGap = running.length < found.length;
-    if (!hasGap) return { kind: "all_day" };
-    // "12:00 AM - 12:00 AM" style full-day window.
-    if (running.some((r) => r.start === 0 && r.end === 1440)) return { kind: "all_day" };
-    return { kind: "hours", windows: mergeTouching(running.map(({ start, end }) => ({ start, end }))) };
+    // 24/7 only when the running windows really cover the day; a lone
+    // "6:00 AM - 11:00 PM: Shuttle runs every 30 minutes." is 6 AM–11 PM.
+    if (coversWholeDay(running)) return { kind: "all_day" };
+    return { kind: "hours", windows: mergeTouching(running) };
   }
 
   if (ALL_DAY.test(text)) {
+    // A stated range next to "24/7" contradicts it: say nothing.
+    if (found.length > 0) return { kind: "unknown" };
     // "24/7 complimentary Lyft" and "24/7 Valet Service – will drop you off" are
     // not a shuttle; say nothing rather than "24/7 shuttle".
-    if (!/shuttle|every|on demand|on call|runs|pick ?-?ups?|hour/i.test(text)) return { kind: "unknown" };
+    // ("hour" is not evidence: "24 hours" itself contains it.)
+    if (!/shuttle|every|on demand|on call|runs|pick ?-?ups?/i.test(text)) return { kind: "unknown" };
     return { kind: "all_day" };
   }
 
@@ -119,13 +163,17 @@ export function shuttleStatus(summary: string | null | undefined): ShuttleStatus
   if (found.length === 1) {
     const [{ start, end }] = found;
     if (start === end || (start === 0 && end === 1440)) return { kind: "all_day" };
-    let fixedEnd = end;
-    // "4AM - 12PM, every 30 minutes, except at 7AM, 3PM, and 11PM": the listed
-    // 3 PM and 11 PM departures show "12PM" was meant as midnight.
-    if (end === 720 && start < 720 && /\b(?:[1-9]|1[01])\s*(?::\d{2})?\s*pm\b/i.test(text.slice(text.search(/12\s*pm/i) + 4))) {
-      fixedEnd = 1440;
-    }
-    return { kind: "hours", windows: [{ start, end: fixedEnd }] };
+    const window = { start, end };
+    // The range may describe the GAP, not the service ("suspended 1 AM - 4 AM",
+    // "closed 12 PM - 4 PM", "no shuttle 11 PM - 5 AM"). Only "no shuttle
+    // outside of these hours" is known to mean the range is the service.
+    const gapWords = /suspend|except|closed|no shuttle(?! outside)/i;
+    if (gapWords.test(text)) return { kind: "unknown" };
+    // Any other clock time outside the range contradicts it ("4AM - 12PM ...
+    // except at 3PM and 11PM", "4 AM - 12 PM. Office closes at 5 PM"): never
+    // guess which one the lot meant.
+    if (clockTimes(text).some((t) => !inWindow(t, window))) return { kind: "unknown" };
+    return { kind: "hours", windows: [window] };
   }
 
   return { kind: "unknown" };
@@ -184,6 +232,8 @@ export function shuttleIsWarning(status: ShuttleStatus): boolean {
 
 /** Inclusive on both ends; windows may wrap past midnight. */
 function inWindow(t: number, w: ShuttleWindow): boolean {
+  // A window ending at midnight (end 1440) includes a picked "12:00 AM" (0).
+  if (t === 0 && w.end === 1440) return true;
   if (w.start <= w.end) return t >= w.start && t <= w.end;
   return t >= w.start || t <= w.end;
 }
@@ -195,9 +245,8 @@ function inWindow(t: number, w: ShuttleWindow): boolean {
  */
 export function outsideShuttleHours(status: ShuttleStatus, time: string | null | undefined): boolean {
   if (status.kind !== "hours" || !status.windows || !time) return false;
-  const m = new RegExp(`^\\s*${TIME}\\s*$`, "i").exec(time);
-  if (!m) return false;
-  const t = toMinutes(m[1], m[2], m[3]);
+  // The time selects' own format ("4:00 AM"), read with the shared strict parser.
+  const t = parseTime12Strict(time);
   if (t === null) return false;
   return !status.windows.some((w) => inWindow(t, w));
 }
