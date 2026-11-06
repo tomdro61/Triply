@@ -25,12 +25,15 @@
  *     table; whitespace and case ignored) is replaced by `html`; "" deletes it. A list item is
  *     replaced inside its list (html may be "<li>…</li>" or inline HTML).
  *   Headings and texts must match exactly once; 0 or 2+ matches are refused and the error lists the
- *   nearest candidates. Operations run in order on the result of the previous one and may not touch
- *   content an earlier operation wrote. Replace runs before insert.
+ *   nearest candidates (headings are found ignoring case; a rename is decided case-sensitively).
+ *   Operations run in order on the result of the previous one and may not touch content an earlier
+ *   operation wrote: section/remove refuse any range holding earlier output, and a whole-list text op
+ *   is refused after an item edit in that list. Replace runs before insert.
  *   Links and images inside REMOVED content are expected to go: the guard allows exactly those
  *   (by URL / media id) and still fails on any other loss; the preview log and .diff.txt list them.
- *   The new HTML gets the full price check (blocking); the price check also runs on the whole
- *   resulting body and lists figures still in the post that are not in the allow-list (warning).
+ *   The new HTML gets the full price check (blocking); for EVERY body edit (insert included) the price
+ *   check also runs on the whole resulting body and lists figures still in the post that are not in the
+ *   allow-list (warning).
  *
  * --preview reads the post by slug (any status), applies the edit in memory, runs the lint, the
  * price check and the link/image guard, and writes reports/apply-preview/<slug>.html (+ .diff.txt +
@@ -58,7 +61,7 @@ import { fileURLToPath, pathToFileURL } from 'url'
 import { z } from 'zod'
 import { htmlToLexical } from './html-to-lexical.js'
 import { lexicalToHtml, countNodesOfType, readUploadValue } from './lexical-to-html.js'
-import { lintArticle, formatLint, stripTags, priceCheck, collectMoneyFigures, type LintFinding } from './lint.js'
+import { lintArticle, formatLint, stripTags, loadApprovedCodes, loadApprovedOffers, priceCheck, collectMoneyFigures, type LintFinding } from './lint.js'
 // P3 price check + allow-list live in lint.ts (generate uses them too, W1.8 P3c); re-exported for callers and tests.
 export { priceCheck, collectMoneyFigures } from './lint.js'
 import { stampField, factsDiff, lexicalText, type FactsDiff } from './stamp.js'
@@ -137,7 +140,8 @@ export interface EditResult {
 function nodeText(n: Node): string {
   return n.text ?? (n.children || []).map(nodeText).join('')
 }
-const norm = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase()
+const collapse = (s: string) => s.replace(/\s+/g, ' ').trim()
+const norm = (s: string) => collapse(s).toLowerCase()
 const LEVEL = (n: Node) => (n.type === 'heading' && n.tag ? Number(n.tag.slice(1)) : 99)
 
 /**
@@ -243,7 +247,8 @@ export function applyReplace(content: Doc, ops: ReplaceOp[]): { content: Doc; st
       const sub = added.find((n) => n.type === 'heading' && LEVEL(n) <= LEVEL(head))
       if (sub) throw new Error(`${what}: the html for "${op.section}" has an <${sub.tag}>, the same or a higher level than the section's <${head.tag}> — it would split the section`)
       removed = kids.slice(at + 1, end)
-      const rename = op.heading !== undefined && norm(op.heading) !== norm(nodeText(head))
+      // Case-insensitive to FIND the heading, case-sensitive to decide a rename ("parking rates" → "Parking Rates" renames).
+      const rename = op.heading !== undefined && collapse(op.heading) !== collapse(nodeText(head))
       if (rename) {
         const tag = head.tag || 'h2'
         const renamed = parseNodes(`<${tag}>${op.heading!.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</${tag}>`)
@@ -253,7 +258,7 @@ export function applyReplace(content: Doc, ops: ReplaceOp[]): { content: Doc; st
       } else {
         kids = [...kids.slice(0, at + 1), ...added, ...kids.slice(end)]
       }
-      if (norm(toHtml(removed)) === norm(toHtml(added))) throw new Error(`${what}: section "${op.section}" already has exactly this content — nothing to replace`)
+      if (collapse(toHtml(removed)) === collapse(toHtml(added))) throw new Error(`${what}: section "${op.section}" already has exactly this content — nothing to replace`)
       label = `replace section "${op.section}"${rename ? ` (renamed "${op.heading}")` : ''}`
     } else {
       const want = norm(op.text)
@@ -285,10 +290,13 @@ export function applyReplace(content: Doc, ops: ReplaceOp[]): { content: Doc; st
         removed = [items[item]]
         const html = op.html.trim()
         const tag = block.tag || 'ul'
-        added = html ? ((parseNodes(`<${tag}>${/^<li[\s>]/i.test(html) ? html : `<li>${html}</li>`}</${tag}>`)[0]?.children as Node[] | undefined) || []) : []
-        if (html && !added.length) throw new Error(`${what}: the replacement list item converts to nothing`)
-        const nextItems = [...items.slice(0, item), ...added, ...items.slice(item + 1)]
+        const parsed = html ? ((parseNodes(`<${tag}>${/^<li[\s>]/i.test(html) ? html : `<li>${html}</li>`}</${tag}>`)[0]?.children as Node[] | undefined) || []) : []
+        if (html && !parsed.length) throw new Error(`${what}: the replacement list item converts to nothing`)
+        // Renumber FIRST, then protect the nodes actually in the tree: renumbering copies an item, so
+        // protecting the pre-copy objects would let a later op target what this one wrote (review, Nov 2026).
+        const nextItems = [...items.slice(0, item), ...parsed, ...items.slice(item + 1)]
           .map((li, k) => (li.type === 'listitem' && li.value !== k + 1 ? { ...li, value: k + 1 } : li))
+        added = nextItems.slice(item, item + parsed.length)
         if (nextItems.length === 0) {
           kids = [...kids.slice(0, top), ...kids.slice(top + 1)]
         } else {
@@ -476,7 +484,10 @@ export function checkEdit(post: PostLike, res: EditResult, edit: EditSpec, known
   })
   const before = lintOf(post), after = lintOf(res.after)
   const key = (e: LintFinding) => `${e.rule}|${e.message}`
-  const old = new Set(before.errors.map(key))
+  // Baseline = EVERY error in the live post, not just the first match per rule: the lint reports one match
+  // per rule (with the matched text in the message), so fixing block A would surface an untouched old claim
+  // in block B as "new" and block the edit. Linting each block on its own collects all of them.
+  const old = new Set([...before.errors, ...baselineErrors(post, known)].map(key))
   const preexisting = after.errors.filter((e) => old.has(key(e)))
   // New material = the inserted section + everything a replace writes (renamed headings included).
   const insertedHtml = [edit.insert?.html || '', ...res.replaced.map((st) => st.addedHtml)].filter(Boolean).join('\n')
@@ -514,6 +525,21 @@ export function checkEdit(post: PostLike, res: EditResult, edit: EditSpec, known
     ...(loss ? [`would lose ${loss}`] : []),
   ]
   return { blockers, warnings: after.warnings, preexisting, remainingPrices, removedRefs: removedRefsReport(res.replaced) }
+}
+
+/** Lint every block of the live post on its own (list items and table cells too), so each block's errors are known. */
+function baselineErrors(post: PostLike, known: ReadonlySet<number> | null): LintFinding[] {
+  const approvedCodes = loadApprovedCodes(), approvedOffers = loadApprovedOffers()
+  const units: Node[] = []
+  const walk = (n: Node) => {
+    units.push(n)
+    if (['list', 'listitem', 'table', 'tablerow', 'tablecell', 'quote'].includes(n.type)) for (const c of n.children || []) if (c.children) walk(c)
+  }
+  post.content.root.children.forEach(walk)
+  return units.flatMap((n) => lintArticle({
+    title: '', html: toHtml([n]), keyword: post.slug.replace(/-/g, ' '), slug: post.slug, isNew: false,
+    approvedCodes, approvedOffers, knownFigures: known ? [...known].map((c) => c / 100) : undefined,
+  }).errors)
 }
 
 export const sha256 = (s: string) => crypto.createHash('sha256').update(s).digest('hex')

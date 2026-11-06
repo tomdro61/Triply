@@ -98,18 +98,24 @@ leaves the post contradicting itself). An array of operations, run in order, bef
 ```
 
 - `section`: replaces everything between that heading and the next heading of the same or higher level
-  (sub-headings included). The heading stays unless `heading` renames it (same level). The new html may hold
+  (sub-headings included). The heading stays unless `heading` renames it (same level; the
+  heading is FOUND ignoring case and whitespace, but a rename is decided case-sensitively, so a case-only fix renames). The new html may hold
   lower-level sub-headings, never one that would split the section.
 - `remove`: drops the heading and its whole section.
 - `text`: replaces ONE block (paragraph, quote, list, list item or table) whose whole plain text equals `text`
   (whitespace and case ignored; table cells and list items are joined with a space). `"html": ""` deletes it.
   A list item is replaced inside its list (`html` may be `<li>…</li>` or inline HTML).
 - Headings and texts must match exactly once. 0 or 2+ matches are refused, and the error lists the nearest
-  headings / blocks so you can copy the exact text. An operation may not target content an earlier operation wrote.
+  headings / blocks so you can copy the exact text. An operation may not target content an earlier operation wrote:
+  a `section` or `remove` refuses any range that holds earlier output, and a whole-list `text` op is refused after an
+  item edit in that same list. Operations run in order, so op 2 sees the post as op 1 left it.
+- Lint: errors already in the live post (every match, block by block, not just the first per rule) are reported as
+  pre-existing, not blocking; an error in the inserted / replaced html always blocks.
 - Links and images inside removed content are expected to go: the guard allows exactly those (by URL / media id)
   and still blocks any other loss. The preview log and `.diff.txt` list every removed link and image (`✂`).
 - `.diff.txt` starts with `REPLACE OPERATIONS` (every removed and added line, op by op), then the full text diff.
-- The new html gets the full price check (blocking). The price check also runs on the whole resulting body and
+- The new html gets the full price check (blocking). For every body edit (`insert` included, not only `replace`)
+  the price check also runs on the whole resulting body and
   lists figures still in the post that the allow-list lacks (`⚠ figures still in the post…`, in the log, the
   diff and `.meta.json`) — so a stale `$26/day` two paragraphs down is still seen. It warns, it does not block:
   old posts carry computed totals the allow-list never holds.

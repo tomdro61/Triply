@@ -64,7 +64,11 @@ test('section replace can rename the heading, keeps its level, and refuses html 
   assert.ok(at > 0)
   assert.equal(kids[at].tag, 'h2')
   assert.throws(() => applyEdit(post(), { replace: [{ section: 'Tips', html: '<h2>Other</h2><p>x</p>' }] }), /would split the section/)
-  assert.doesNotThrow(() => applyEdit(post(), { replace: [{ section: 'Tips', html: '<h3>Sub</h3><p>x</p>' }] }))
+  const sub = applyEdit(post(), { replace: [{ section: 'Tips', html: '<h3>Sub</h3><p>x</p>' }] })
+  const subKids = sub.after.content.root.children
+  const tipsAt = subKids.findIndex((n) => blockText(n as Parameters<typeof blockText>[0]) === 'Tips')
+  assert.deepEqual(subKids.slice(tipsAt, tipsAt + 4).map((n) => [n.type, n.tag ?? '', blockText(n as Parameters<typeof blockText>[0])]),
+    [['heading', 'h2', 'Tips'], ['heading', 'h3', 'Sub'], ['paragraph', '', 'x'], ['heading', 'h2', 'Summary']], 'a lower-level sub-heading stays inside the section')
 })
 
 test('remove drops the heading and its whole section', () => {
@@ -77,7 +81,9 @@ test('text replace swaps one paragraph, deletes a list item, and replaces a whol
   const para = applyEdit(post(), { replace: [{ text: 'Economy is $20/day.', html: '<p>Economy is $20/day at the drive-up rate.</p>' }] })
   assert.equal(texts(para.after).at(-1), 'Economy is $20/day at the drive-up rate.')
   // whitespace and case are ignored
-  assert.doesNotThrow(() => applyEdit(post(), { replace: [{ text: '  economy IS   $20/day. ', html: '<p>x</p>' }] }))
+  const loose = applyEdit(post(), { replace: [{ text: '  economy IS   $20/day. ', html: '<p>x</p>' }] })
+  assert.equal(texts(loose.after).at(-1), 'x')
+  assert.equal(texts(loose.after).length, texts(post()).length)
   const item = applyEdit(post(), { replace: [{ text: 'Old Lot X costs $26/day.', html: '' }] })
   const list = item.after.content.root.children.find((n) => n.type === 'list')!
   assert.deepEqual(list.children!.map((x) => [blockText(x as Parameters<typeof blockText>[0]), x.value]), [['Book early.', 1], ['Use the Economy Lot.', 2]], 'renumbered')
@@ -87,6 +93,8 @@ test('text replace swaps one paragraph, deletes a list item, and replaces a whol
   assert.equal(list2.children![1].type, 'listitem')
   const tbl = applyEdit(post(), { replace: [{ text: 'Lot Rate Old Lot X $26/day', html: '' }] })
   assert.ok(!tbl.after.content.root.children.some((n) => n.type === 'table'))
+  assert.deepEqual(tbl.after.content.root.children.slice(1, 4).map((n) => n.type), ['heading', 'paragraph', 'upload'], 'only the table goes; its neighbours stay')
+  assert.equal(tbl.replaced[0].removed.length, 1)
 })
 
 test('missing and non-unique matches are refused, with the nearest candidates named', () => {
@@ -165,4 +173,111 @@ test('replace runs before insert; both together produce one content patch', () =
   assert.deepEqual(Object.keys(r.patch), ['content'])
   assert.equal(texts(r.after).at(-1), 'Shuttles run 24/7.')
   assert.ok(!texts(r.after).includes('Off-site lots'))
+})
+
+// ── Review round (Nov 2026): regressions + behaviour locked in ──────────────
+const doc = (...children: unknown[]): PostLike => ({ id: 1, slug: 'x-airport-parking', status: 'published', title: 'X', airportCode: 'IAD', updatedAt: 't', content: { root: { type: 'root', children } } as PostLike['content'] })
+const kidsOf = (pst: PostLike) => pst.content.root.children.map((n) => `${n.type === 'heading' ? `${n.tag}:` : ''}${blockText(n as Parameters<typeof blockText>[0])}`)
+
+test('fix 1: a list item an earlier op wrote is protected even after renumbering copies it', () => {
+  const three = () => doc(h('h2', 'L'), ul('one', 'two', 'three'))
+  assert.throws(() => applyEdit(three(), { replace: [{ text: 'two', html: 'NEW' }, { text: 'NEW', html: 'NEWER' }] }), /earlier operation/)
+  const ab = () => doc(h('h2', 'L'), ul('A one.', 'B two.', 'C three.'))
+  assert.throws(() => applyEdit(ab(), { replace: [{ text: 'B two.', html: '<li>New item.</li>' }, { text: 'New item.', html: '' }] }), /earlier operation/)
+  // the step records the node actually in the tree (renumbered)
+  const r = applyEdit(ab(), { replace: [{ text: 'B two.', html: '<li>New item.</li>' }] })
+  const list = r.after.content.root.children[1]
+  assert.equal(r.replaced[0].added[0], list.children![1], 'added = the node in the tree, not the pre-copy object')
+  assert.equal(list.children![1].value, 2)
+  // a whole-list text op after an item edit in that list is refused too
+  assert.throws(() => applyEdit(ab(), { replace: [{ text: 'B two.', html: 'Bee.' }, { text: 'A one. Bee. C three.', html: '' }] }), /earlier operation/)
+})
+
+test('fix 2: an untouched old lint error in another block is pre-existing, not new; a genuinely new one blocks', () => {
+  const base = () => doc(h('h2', 'Deals'), p('Book ahead and save up to 60% on parking.'), h('h2', 'More'), p('Members save up to 70% at some lots.'))
+  const fixA: EditSpec = { replace: [{ text: 'Book ahead and save up to 60% on parking.', html: '<p>Book ahead for the lowest rates.</p>' }] }
+  const c = checkEdit(base(), applyEdit(base(), fixA), fixA, known)
+  assert.deepEqual(c.blockers, [], c.blockers.join(' | '))
+  assert.ok(c.preexisting.some((e) => e.message.includes('70%')), 'the old 70% claim is reported as pre-existing')
+  const worse: EditSpec = { replace: [{ text: 'Book ahead and save up to 60% on parking.', html: '<p>Book ahead and save up to 80% on parking.</p>' }] }
+  const cw = checkEdit(base(), applyEdit(base(), worse), worse, known)
+  assert.ok(cw.blockers.some((b) => b.includes('80%')), cw.blockers.join(' | '))
+})
+
+test('fix 3: a case-only heading rename is applied (matching stays case-insensitive)', () => {
+  const r = applyEdit(doc(h('h2', 'parking rates'), p('Old.')), { replace: [{ section: 'PARKING RATES', html: '<p>New.</p>', heading: 'Parking Rates' }] })
+  assert.deepEqual(kidsOf(r.after), ['h2:Parking Rates', 'New.'])
+  assert.match(r.replaced[0].label, /renamed "Parking Rates"/)
+  // only the case changes, content identical: still a real change
+  const only = applyEdit(doc(h('h2', 'parking rates'), p('Old.')), { replace: [{ section: 'parking rates', html: '<p>Old.</p>', heading: 'Parking Rates' }] })
+  assert.deepEqual(kidsOf(only.after), ['h2:Parking Rates', 'Old.'])
+})
+
+test('overlapping ops: a later op may not reach into or around what an earlier op changed', () => {
+  assert.throws(() => applyEdit(post(), { replace: [{ text: 'Shuttles run every 30 minutes.', html: '<p>Shuttles run hourly.</p>' }, { remove: 'Shuttles' }] }), /holds content written by an earlier operation/)
+  assert.throws(() => applyEdit(post(), { replace: [{ remove: 'Shuttles' }, { text: 'Shuttles run every 30 minutes.', html: '' }] }), /no block has exactly this text/)
+  assert.throws(() => applyEdit(post(), { replace: [{ section: 'Off-site lots', html: '<p>x</p>' }, { remove: 'Shuttles' }] }), /heading not found/)
+})
+
+test('op order: a target made unique by op 1 is found by op 2', () => {
+  const dup = post()
+  dup.content.root.children.push(p('Book early.'))
+  assert.throws(() => applyEdit(dup, { replace: [{ text: 'Book early.', html: '' }] }), /2 blocks have exactly this text/)
+  const r = applyEdit(dup, { replace: [{ remove: 'Tips' }, { text: 'Book early.', html: '' }] })
+  assert.ok(!texts(r.after).includes('Book early.'))
+  assert.equal(texts(r.after).at(-1), 'Economy is $20/day.')
+})
+
+test('nested headings: section stops at the next same-level heading; h4 inside ok; h3 inside an h3 refused; remove h3 keeps siblings', () => {
+  const nest = () => doc(h('h2', 'A'), p('a'), h('h3', 'B'), p('b'), h('h4', 'C'), p('c'), h('h3', 'D'), p('d'), h('h2', 'E'), p('e'))
+  assert.deepEqual(kidsOf(applyEdit(nest(), { replace: [{ section: 'A', html: '<p>new</p>' }] }).after), ['h2:A', 'new', 'h2:E', 'e'])
+  assert.deepEqual(kidsOf(applyEdit(nest(), { replace: [{ section: 'B', html: '<h4>C2</h4><p>c2</p>' }] }).after), ['h2:A', 'a', 'h3:B', 'h4:C2', 'c2', 'h3:D', 'd', 'h2:E', 'e'])
+  assert.throws(() => applyEdit(nest(), { replace: [{ section: 'B', html: '<h3>X</h3><p>x</p>' }] }), /would split/)
+  assert.deepEqual(kidsOf(applyEdit(nest(), { replace: [{ remove: 'B' }] }).after), ['h2:A', 'a', 'h3:D', 'd', 'h2:E', 'e'])
+})
+
+test('a heading at the end of the document: empty section can be filled, last section removed', () => {
+  const end = () => doc(h('h2', 'A'), p('a'), h('h2', 'End'))
+  assert.deepEqual(kidsOf(applyEdit(end(), { replace: [{ section: 'End', html: '<p>filled</p>' }] }).after), ['h2:A', 'a', 'h2:End', 'filled'])
+  assert.deepEqual(kidsOf(applyEdit(end(), { replace: [{ remove: 'End' }] }).after), ['h2:A', 'a'])
+  assert.equal(texts(applyEdit(post(), { replace: [{ remove: 'Summary' }] }).after).at(-1), 'See the Economy Lot guide')
+})
+
+test('whitespace-only html: a text op deletes the block, a section op is refused', () => {
+  const r = applyEdit(post(), { replace: [{ text: 'Economy is $20/day.', html: '   ' }] })
+  assert.equal(texts(r.after).at(-1), 'Summary')
+  assert.match(r.replaced[0].label, /delete paragraph/)
+  assert.throws(() => applyEdit(post(), { replace: [{ section: 'Summary', html: '  \n ' }] }), /converts to nothing/)
+})
+
+test('a table cell is not a block of its own; a one-item list counts once', () => {
+  assert.throws(() => applyEdit(post(), { replace: [{ text: 'Old Lot X', html: '' }] }), /no block has exactly this text/)
+  const one = applyEdit(doc(h('h2', 'L'), ul('Only item.')), { replace: [{ text: 'Only item.', html: '<p>Para.</p>' }] })
+  assert.deepEqual(kidsOf(one.after), ['h2:L', 'Para.'])
+  assert.match(one.replaced[0].label, /replace list/)
+})
+
+test('guard counts links per occurrence', () => {
+  const before = doc(h('h2', 'A'), pl('First ', '/blog/x', 'x'), pl('Second ', '/blog/x', 'x'))
+  const r = applyEdit(before, { replace: [{ text: 'First x', html: '' }] })
+  assert.equal(guardLoss(before.content, r.after.content, removedNodes(r.replaced)), null, 'one of two copies removed on purpose')
+  const tampered = JSON.parse(JSON.stringify(r.after.content))
+  tampered.root.children = tampered.root.children.slice(0, 1)
+  assert.match(guardLoss(before.content, tampered, removedNodes(r.replaced)) || '', /lost: \/blog\/x/)
+})
+
+test('a section op that changes nothing is refused', () => {
+  assert.throws(() => applyEdit(post(), { replace: [{ section: 'Summary', html: '<p>Economy is $20/day.</p>' }] }), /already has exactly this content/)
+})
+
+test('a renamed heading is written as text, not html', () => {
+  const r = applyEdit(post(), { replace: [{ section: 'Tips', html: '<p>x</p>', heading: 'A & B <x>' }] })
+  assert.ok(kidsOf(r.after).includes('h2:A & B <x>'), kidsOf(r.after).join(' | '))
+})
+
+test('insert-only edit: remainingPrices still lists stale figures in the resulting body (intended)', () => {
+  const ins: EditSpec = { insert: { underHeading: 'Summary', html: '<p>Shuttles run 24/7.</p>', position: 'end' } }
+  const c = checkEdit(post(), applyEdit(post(), ins), ins, known)
+  assert.deepEqual(c.blockers, [], c.blockers.join(' | '))
+  assert.deepEqual(c.remainingPrices, ['$26'])
 })
