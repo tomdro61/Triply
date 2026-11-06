@@ -9,22 +9,26 @@
  * EWR sold 12 lots while its file had 2 sellable; JFK's cheapest lot (The Parking Point,
  * $9.95) was missing; ORD was missing 5; DFW's Red Roof Inn was wrongly unsellable.
  *
- * WHAT IT DOES (per airport, sequentially, at most 2 search calls)
+ * WHAT IT DOES (per airport, sequentially, at most 3 search calls)
  *   1. Pulls the live list from our own public search API (the same call refresh-rates makes).
  *   2. Matches every file lot to a live lot, strongest evidence first, one-to-one:
- *        ResLab id -> slug -> normalised name -> unique street address -> same name tokens
+ *        STRONG (applied): ResLab id -> slug -> normalised name -> unique street address
+ *        WEAK (reported for a human to confirm; applied only with --accept-fuzzy): same name tokens
  *        (airport code and filler words removed) -> one name's tokens inside the other's (2+ tokens,
- *        unambiguous both ways) -> fuzzy (reported only, unless --accept-fuzzy).
+ *        unambiguous both ways) -> fuzzy. LAS "Best Western McCarran Inn" subset-matched the live
+ *        "Best Western" (a different hotel) — that is why weak matches no longer write anything.
  *   3. Diffs: live lots missing from the file (added), file lots gone from search (marked
- *      sellable:false — never deleted, history kept), sellable flips, price changes.
+ *      sellable:false — never deleted, history kept — and only when missing on 2+ check-in dates),
+ *      sellable flips, price changes. A match whose price moved >3x writes nothing at all.
  *   4. --apply writes the file in place (same surgical writer as refresh-rates, so the diff
  *      shows only what changed) and refuses to write unless the result parses back exactly.
  *
  * PRICE BASIS: the files' own. dailyRate = pricing.minPrice ((subtotal + fees) / days, pre-tax),
  * for a stay of the lot's own N days when it carries totalFor<N>Days, else DEFAULT_DAYS (7),
- * 10:00 AM -> 2:00 PM, exactly like refresh-rates. Call 1 prices the default stay; call 2
- * prices the most common other N in the file, or (if every lot uses the default) a second
- * check-in date that only widens presence: a lot sold out on one date is not "gone".
+ * 10:00 AM -> 2:00 PM, exactly like refresh-rates. Call 1 prices the default stay; if the file
+ * prices some lots at another N, call 2 prices that N on the same date; the last call is always
+ * the default stay on a second check-in date, which only widens presence: a lot sold out on one
+ * date is not "gone".
  *
  * WHAT IT WILL NOT DO
  *  - Invent fields. An added lot carries only what search returns (name, slug, ResLab id,
@@ -34,16 +38,20 @@
  *  - Move the file-level `lastVerified`. That date also covers on-airport rates and the
  *    3-date median refresh-rates takes; one or two search calls do not verify those.
  *    Per-lot `rateVerified` / `sellableCheckedOn` record what this run checked.
- *  - Write from a degraded/stale/incomplete or empty response, or create a missing file
+ *  - Write from a degraded/stale/incomplete, ownAirportFallback or empty response, or create a missing file
  *    (`npm run bootstrap` makes new airports; this reports what live search shows instead).
- *  - Add lots another airport's search owns (results carry `airportCode`).
+ *  - Add lots another airport's search owns. NOTE: production stamps EVERY result with the searched
+ *    airport's code (search.ts), so the `airportCode` check below is only a guard; the real protection
+ *    is refusing `ownAirportFallback` responses (fetchLive), the only time other airports' lots appear.
+ *  - Let a cruise/downtown lot lead: a new lot named "cruise"/"port(s)", or with no shuttle and >5 mi
+ *    out, gets a `notes` line with "do not use in CTAs" (write.ts DO_NOT_LEAD) and is flagged.
  *
  * CLI:
  *   npm run lot-sync                         # every airport file, dry run
  *   npm run lot-sync -- -a EWR               # one airport (works for a code with no file: report only)
  *   npm run lot-sync -- --apply              # write
  *   npm run lot-sync -- --lead 35 --md ../notes/SYNC.md
- *   npm run lot-sync -- --accept-fuzzy       # also apply fuzzy name matches (check them first)
+ *   npm run lot-sync -- --accept-fuzzy       # also apply weak (tokens/subset/fuzzy) matches, id included (check them first)
  */
 
 import fs from 'fs'
@@ -67,6 +75,7 @@ import {
   reproduces,
   round2,
   sleep,
+  effectiveLead,
   type CatalogueLot,
   type LiveLot,
   type LivePricing,
@@ -99,6 +108,13 @@ export interface MergedLive {
 
 export type Via = 'id' | 'slug' | 'name' | 'address' | 'tokens' | 'subset' | 'fuzzy'
 
+/** Matches strong enough to write `reslabLocationId` / `sellable` / price without a human. */
+export const STRONG_VIA: ReadonlySet<Via> = new Set<Via>(['id', 'slug', 'name', 'address'])
+
+/** The `notes` line that keeps a cruise/downtown lot out of ranges and CTAs (matched by write.ts DO_NOT_LEAD). */
+export const NOT_AIRPORT_NOTE =
+  'Added by lot-sync: looks like a cruise-port/downtown lot, not an airport-shuttle lot — do not use in CTAs until a human confirms it serves the airport.'
+
 export interface Match {
   live: number
   via: Via
@@ -126,8 +142,16 @@ export interface SyncReport {
   gone: string[]
   flippedToSellable: string[]
   priceChanges: PriceChange[]
-  fuzzyPending: { lot: string; live: string; score: number }[]
-  implausible: { lot: string; from: number; to: number }[]
+  /** Weak (tokens/subset/fuzzy) matches NOT applied: a human confirms, then --accept-fuzzy. */
+  needsConfirmation: { lot: string; live: string; via: Via; score: number }[]
+  /** Price moved >3x: nothing about the lot was written (not the id, not sellable). */
+  implausible: { lot: string; from: number; to: number; via: Via }[]
+  /** `reslabLocationId` written (or changed) by this run. */
+  idSet: { lot: string; live: string; id: number; via: Via }[]
+  /** Absent from search, but only checked on one check-in date: reported, NOT marked unsellable. */
+  missingOneDate: string[]
+  /** Lots given the NOT_AIRPORT_NOTE (cruise/downtown). */
+  notAirport: string[]
   unpriced: { lot: string; days: number }[]
   collapsedDuplicates: string[]
   otherAirport: string[]
@@ -354,19 +378,41 @@ export function newLotFromLive(m: MergedLive, days: number, today: string): Cata
 }
 
 /**
+ * Why a lot looks like a cruise-port/downtown lot rather than an airport lot, or '' when it does not:
+ * "cruise" or "port(s)" as a word in the name ("Airport" does not count), or no shuttle and more than 5 mi out.
+ */
+export function notAirportReason(lot: { name: string; shuttleInfo?: unknown; distanceFromAirport?: unknown }): string {
+  if (/\bcruise\b|\bports?\b/i.test(lot.name)) return 'cruise/port name'
+  const d = typeof lot.distanceFromAirport === 'number' ? lot.distanceFromAirport : parseFloat(String(lot.distanceFromAirport ?? ''))
+  const shuttle = typeof lot.shuttleInfo === 'string' ? lot.shuttleInfo : ''
+  const noShuttle = !shuttle.trim() || /^\s*no shuttle/i.test(shuttle)
+  if (noShuttle && Number.isFinite(d) && d > 5) return `no shuttle, ${d} mi out`
+  return ''
+}
+
+/** A lot lot-sync added that nobody has reviewed yet (its `needsReview` flag is still lot-sync's). */
+function addedByLotSync(lot: CatalogueLot): boolean {
+  return typeof lot.needsReview === 'string' && lot.needsReview.startsWith('added by lot-sync')
+}
+
+/**
  * The whole diff for one airport. Mutates `lots` the way --apply will change the file (so the
  * caller can verify the surgical write reproduces it) and returns the edits, the new lots and
  * the report. Pure apart from that: no I/O.
+ *
+ * `checkinDates` = how many distinct check-in dates the samples covered. A lot missing from
+ * search is marked unsellable only when that is 2+ (one date can be a sell-out, not a delisting).
  */
 export function planSync(
   code: string,
   lots: CatalogueLot[],
   merged: MergedLive[],
-  opts: { today: string; defaultDays: number; acceptFuzzy: boolean }
+  opts: { today: string; defaultDays: number; acceptFuzzy: boolean; checkinDates: number }
 ): { edits: Edit[]; newLots: CatalogueLot[]; report: SyncReport } {
   const report: SyncReport = {
     code, liveCount: merged.length, matched: [], added: [], gone: [], flippedToSellable: [], priceChanges: [],
-    fuzzyPending: [], implausible: [], unpriced: [], collapsedDuplicates: [], otherAirport: [], notAdded: [],
+    needsConfirmation: [], implausible: [], idSet: [], missingOneDate: [], notAirport: [], unpriced: [],
+    collapsedDuplicates: [], otherAirport: [], notAdded: [],
   }
   const edits: Edit[] = []
   const newLots: CatalogueLot[] = []
@@ -388,40 +434,54 @@ export function planSync(
     const m = matches.get(i)
     if (!m) {
       if (lot.sellable !== false) {
-        report.gone.push(lot.name)
-        set(i, 'sellable', false)
-        set(i, 'sellableCheckedOn', opts.today)
+        if (opts.checkinDates >= 2) {
+          report.gone.push(lot.name)
+          set(i, 'sellable', false)
+          set(i, 'sellableCheckedOn', opts.today)
+        } else {
+          report.missingOneDate.push(lot.name)
+        }
       }
       continue
     }
     const live = merged[m.live]
     reserved.add(m.live)
-    if (m.via === 'fuzzy' && !opts.acceptFuzzy) {
-      report.fuzzyPending.push({ lot: lot.name, live: live.lot.name, score: round2(m.score) })
+    if (!STRONG_VIA.has(m.via) && !opts.acceptFuzzy) {
+      report.needsConfirmation.push({ lot: lot.name, live: live.lot.name, via: m.via, score: round2(m.score) })
       continue
     }
+
+    // Price sanity BEFORE any write: a >3x move says "probably not the same lot", so nothing is written.
+    const n = lotDays(lot) ?? opts.defaultDays
+    const p = live.pricing.get(n)
+    const to = p && typeof p.minPrice === 'number' ? round2(p.minPrice) : null
+    const from = typeof lot.dailyRate === 'number' ? lot.dailyRate : undefined
+    if (to !== null && from && from > 0) {
+      const ratio = to / from
+      if (ratio > MAX_PLAUSIBLE_RATIO || ratio < 1 / MAX_PLAUSIBLE_RATIO) {
+        report.implausible.push({ lot: lot.name, from, to, via: m.via })
+        continue
+      }
+    }
+
     report.matched.push({ lot: lot.name, live: live.lot.name, via: m.via })
     if (lot.sellable !== true) report.flippedToSellable.push(lot.name)
     set(i, 'sellable', true)
     set(i, 'sellableCheckedOn', opts.today)
     if (typeof live.lot.reslabLocationId === 'number' && lot.reslabLocationId !== live.lot.reslabLocationId) {
       set(i, 'reslabLocationId', live.lot.reslabLocationId)
+      report.idSet.push({ lot: lot.name, live: live.lot.name, id: live.lot.reslabLocationId, via: m.via })
+    }
+    // Lots an earlier run added and nobody reviewed get the same cruise/downtown check as new ones.
+    const why = addedByLotSync(lot) && lot.notes === undefined ? notAirportReason(lot) : ''
+    if (why) {
+      set(i, 'notes', NOT_AIRPORT_NOTE)
+      report.notAirport.push(`${lot.name} (${why})`)
     }
 
-    const n = lotDays(lot) ?? opts.defaultDays
-    const p = live.pricing.get(n)
-    if (!p || typeof p.minPrice !== 'number') {
+    if (to === null || !p) {
       report.unpriced.push({ lot: lot.name, days: n })
       continue
-    }
-    const to = round2(p.minPrice)
-    const from = typeof lot.dailyRate === 'number' ? lot.dailyRate : undefined
-    if (from && from > 0) {
-      const ratio = to / from
-      if (ratio > MAX_PLAUSIBLE_RATIO || ratio < 1 / MAX_PLAUSIBLE_RATIO) {
-        report.implausible.push({ lot: lot.name, from, to })
-        continue
-      }
     }
     if (from !== to) report.priceChanges.push({ lot: lot.name, from, to, days: n })
     set(i, 'dailyRate', to)
@@ -443,6 +503,11 @@ export function planSync(
       continue
     }
     const lot = newLotFromLive(m, opts.defaultDays, opts.today)
+    const why = notAirportReason(lot)
+    if (why) {
+      lot.notes = NOT_AIRPORT_NOTE
+      report.notAirport.push(`${m.lot.name} (${why})`)
+    }
     newLots.push(lot)
     report.added.push({ name: m.lot.name, dailyRate: (lot.dailyRate as number) ?? null, days: opts.defaultDays, availability: m.lot.availability })
   }
@@ -499,6 +564,25 @@ function mostCommonOtherDays(lots: CatalogueLot[], defaultDays: number): number 
   return best
 }
 
+/**
+ * The search calls for one airport (<=3). Call 1: the default stay. Then the other stay length the file
+ * prices at, on the SAME date, if any. Last: the default stay on a second check-in date, so a "gone"
+ * verdict always rests on 2 distinct dates. With no file there is nothing to mark gone: one call.
+ */
+export function planCalls(
+  lots: CatalogueLot[] | null,
+  defaultDays: number,
+  leadDays: number
+): { calls: { days: number; lead: number }[]; checkinDates: number } {
+  const calls: { days: number; lead: number }[] = [{ days: defaultDays, lead: leadDays }]
+  if (lots) {
+    const other = mostCommonOtherDays(lots, defaultDays)
+    if (other) calls.push({ days: other, lead: leadDays })
+    calls.push({ days: defaultDays, lead: leadDays + SECOND_SAMPLE_SPACING_DAYS })
+  }
+  return { calls, checkinDates: new Set(calls.map((c) => effectiveLead(c.days, c.lead))).size }
+}
+
 async function syncAirport(
   code: string,
   opts: { apply: boolean; acceptFuzzy: boolean; leadDays: number; defaultDays: number; today: string }
@@ -509,12 +593,7 @@ async function syncAirport(
   const data = raw ? (JSON.parse(raw) as Record<string, unknown>) : null
   const lots = ((data?.parkingLots as CatalogueLot[] | undefined) ?? []) as CatalogueLot[]
 
-  // Call 1: the default stay. Call 2: the other stay length this file prices at, or a second date.
-  const calls: { days: number; lead: number }[] = [{ days: opts.defaultDays, lead: opts.leadDays }]
-  if (hasFile) {
-    const other = mostCommonOtherDays(lots, opts.defaultDays)
-    calls.push(other ? { days: other, lead: opts.leadDays } : { days: opts.defaultDays, lead: opts.leadDays + SECOND_SAMPLE_SPACING_DAYS })
-  }
+  const { calls, checkinDates } = planCalls(hasFile ? lots : null, opts.defaultDays, opts.leadDays)
   const samples: { days: number; lots: SyncLive[] }[] = []
   for (const c of calls) {
     const live = await fetchLive(code, c.days, c.lead)
@@ -526,15 +605,15 @@ async function syncAirport(
 
   if (!hasFile || !data) {
     const report: SyncReport = {
-      code, liveCount: live.length, matched: [], gone: [], flippedToSellable: [], priceChanges: [], fuzzyPending: [],
-      implausible: [], unpriced: [], collapsedDuplicates: collapsed, otherAirport, notAdded: [],
+      code, liveCount: live.length, matched: [], gone: [], flippedToSellable: [], priceChanges: [], needsConfirmation: [],
+      implausible: [], idSet: [], missingOneDate: [], notAirport: [], unpriced: [], collapsedDuplicates: collapsed, otherAirport, notAdded: [],
       added: live.map((m) => ({ name: m.lot.name, dailyRate: m.pricing.get(opts.defaultDays)?.minPrice != null ? round2(m.pricing.get(opts.defaultDays)!.minPrice!) : null, days: opts.defaultDays, availability: m.lot.availability })),
       note: `no data file — not created (new airports go through \`npm run bootstrap\`); "added" lists what live search sells`,
     }
     return { report, written: false, hasFile }
   }
 
-  const { edits, newLots, report } = planSync(code, lots, live, { today: opts.today, defaultDays: opts.defaultDays, acceptFuzzy: opts.acceptFuzzy })
+  const { edits, newLots, report } = planSync(code, lots, live, { today: opts.today, defaultDays: opts.defaultDays, acceptFuzzy: opts.acceptFuzzy, checkinDates })
   report.collapsedDuplicates = collapsed
   report.otherAirport = otherAirport
 
@@ -564,18 +643,22 @@ export function reportLines(r: SyncReport): string[] {
   for (const f of r.flippedToSellable) out.push(`- ↑ now sellable: ${f}`)
   for (const g of r.gone) out.push(`- − gone from search -> sellable:false: ${g}`)
   for (const p of r.priceChanges) out.push(`- $ ${p.lot}: ${money(p.from)} -> ${money(p.to)}${p.days !== DEFAULT_DAYS ? ` (${p.days}-day basis)` : ''}`)
-  for (const f of r.fuzzyPending) out.push(`- ? fuzzy, NOT applied: "${f.lot}" ~ "${f.live}" (${f.score}) — check, then --accept-fuzzy`)
-  for (const x of r.implausible) out.push(`- ! price refused: ${x.lot} ${money(x.from)} -> ${money(x.to)} (>${MAX_PLAUSIBLE_RATIO}x move)`)
+  for (const g of r.missingOneDate) out.push(`- ~ missing from search on one check-in date only — NOT marked unsellable: ${g}`)
+  for (const f of r.needsConfirmation) out.push(`- ? needs confirmation (${f.via}${f.via === 'fuzzy' ? ` ${f.score}` : ''}), NOT applied: "${f.lot}" ~ live "${f.live}" — check, then --accept-fuzzy`)
+  for (const x of r.implausible) out.push(`- ! price refused, nothing written: ${x.lot} ${money(x.from)} -> ${money(x.to)} (>${MAX_PLAUSIBLE_RATIO}x move, matched by ${x.via})`)
+  for (const x of r.idSet) out.push(`- # reslabLocationId ${x.id} set: "${x.lot}" = live "${x.live}" (matched by ${x.via})`)
+  for (const x of r.notAirport) out.push(`- cruise/downtown, noted "do not use in CTAs": ${x}`)
   for (const u of r.unpriced) out.push(`- · no ${u.days}-day price for ${u.lot} — run refresh-rates`)
   for (const c of r.collapsedDuplicates) out.push(`- duplicate listing: ${c}`)
   for (const o of r.otherAirport) out.push(`- skipped (another airport's lot): ${o}`)
   for (const n of r.notAdded) out.push(`- not added: ${n}`)
-  for (const m of r.matched.filter((x) => x.via !== 'id' && x.via !== 'slug' && x.via !== 'name')) out.push(`- matched by ${m.via}: "${m.lot}" = live "${m.live}"`)
+  const idSetFor = new Set(r.idSet.map((x) => x.lot))
+  for (const m of r.matched.filter((x) => x.via !== 'id' && x.via !== 'slug' && x.via !== 'name' && !idSetFor.has(x.lot))) out.push(`- matched by ${m.via}: "${m.lot}" = live "${m.live}"`)
   return out
 }
 
 function summaryRow(r: SyncReport, hasFile: boolean): string {
-  return `| ${r.code} | ${hasFile ? r.liveCount : `${r.liveCount} (no file)`} | ${r.added.length} | ${r.gone.length} | ${r.flippedToSellable.length} | ${r.priceChanges.length} | ${r.fuzzyPending.length + r.implausible.length + r.unpriced.length} |`
+  return `| ${r.code} | ${hasFile ? r.liveCount : `${r.liveCount} (no file)`} | ${r.added.length} | ${r.gone.length} | ${r.flippedToSellable.length} | ${r.priceChanges.length} | ${r.needsConfirmation.length + r.implausible.length + r.unpriced.length + r.notAirport.length} |`
 }
 
 // ── entry point ──────────────────────────────────────────────────────────────
@@ -619,7 +702,7 @@ async function main(): Promise<void> {
   console.log(
     `  ${results.length} airports: +${tot((r) => r.added.length)} added, ${tot((r) => r.gone.length)} -> sellable:false, ` +
       `${tot((r) => r.flippedToSellable.length)} -> sellable:true, ${tot((r) => r.priceChanges.length)} price changes, ` +
-      `${tot((r) => r.fuzzyPending.length + r.implausible.length + r.unpriced.length)} need a human`
+      `${tot((r) => r.needsConfirmation.length + r.implausible.length + r.unpriced.length + r.notAirport.length)} need a human`
   )
   if (failed.length) console.log(`  not checked (bad/degraded response): ${failed.join(', ')}`)
   if (!apply) console.log('  nothing was written — re-run with --apply')
@@ -633,7 +716,7 @@ async function main(): Promise<void> {
     const md: string[] = [
       `# lot-sync ${apply ? '(applied)' : '(dry run)'} — ${today}`,
       '',
-      `Live: \`/api/search\`, ${defaultDays}-day stay from +${leadDays}d (10:00 AM -> 2:00 PM), ≤2 calls per airport. dailyRate = pricing.minPrice (pre-tax, fees in).`,
+      `Live: \`/api/search\`, ${defaultDays}-day stay from +${leadDays}d (10:00 AM -> 2:00 PM), ≤3 calls per airport. dailyRate = pricing.minPrice (pre-tax, fees in).`,
       '',
       '| Airport | Live lots | Added | -> unsellable | -> sellable | Price changes | Needs a human |',
       '|---|---|---|---|---|---|---|',

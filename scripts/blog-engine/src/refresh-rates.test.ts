@@ -8,7 +8,7 @@
 // Run with: npm test
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { coverageDecision } from './refresh-rates.js'
+import { coverageDecision, findMatch, unusableReason, type LiveLot } from './refresh-rates.js'
 
 type S = 'updated' | 'unchanged' | 'fuzzy-skipped' | 'implausible' | 'absent' | 'unpriced'
 const o = (...statuses: S[]) => statuses.map((status) => ({ status }))
@@ -49,4 +49,32 @@ test('--min-coverage is measured over PRESENT lots, not the catalogue', () => {
 test('min-coverage 0 still needs at least one present lot', () => {
   assert.equal(coverageDecision(o('absent', 'absent'), 0).bump, false)
   assert.equal(coverageDecision(o('fuzzy-skipped'), 0).bump, true)
+})
+
+// ── response usability (2026-11-06 review) ───────────────────────────────────
+
+test('ownAirportFallback responses are unusable, like degraded/stale/listIncomplete', () => {
+  assert.equal(unusableReason({ results: [] }), null)
+  assert.equal(unusableReason({ results: [], ownAirportFallback: false }), null)
+  assert.match(unusableReason({ results: [], ownAirportFallback: true }) ?? '', /ownAirportFallback/)
+  assert.match(unusableReason({ results: [], degraded: true }) ?? '', /degraded=true/)
+  assert.match(unusableReason({ results: [], listIncomplete: true }) ?? '', /listIncomplete=true/)
+})
+
+// ── matching: ResLab id first ────────────────────────────────────────────────
+
+const L = (name: string, reslabLocationId?: number): LiveLot => ({ name, reslabLocationId, pricing: { minPrice: 10, numberOfDays: 7 } })
+
+test('refresh-rates matches by ResLab id first, even when the name drifted', () => {
+  const m = findMatch({ name: 'Apex EWR Airport Parking', reslabLocationId: 10 }, [L('Apex EWR Airport Parking', 11), L('Apex Airport Parking', 10)])
+  assert.equal(m?.live.reslabLocationId, 10)
+})
+
+test('a lot whose id is absent from a sample is absent from it: no fallback to name or fuzzy', () => {
+  // LAS-shaped: the file's Best Western McCarran Inn must not be stood in for by another listing with a similar name.
+  assert.equal(findMatch({ name: 'Best Western McCarran Inn', reslabLocationId: 91 }, [L('Best Western McCarran Inn', 92), L('Best Western', 93)]), null)
+  // Without an id the name tiers still apply.
+  assert.equal(findMatch({ name: 'Best Western McCarran Inn' }, [L('Best Western McCarran Inn', 92)])?.live.reslabLocationId, 92)
+  // A sample that carries no ids at all says nothing about ids: names still match.
+  assert.equal(findMatch({ name: 'Hilton', reslabLocationId: 5 }, [L('Hilton')])?.live.name, 'Hilton')
 })

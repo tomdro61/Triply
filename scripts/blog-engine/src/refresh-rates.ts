@@ -36,7 +36,8 @@
  *  2. It never writes from a degraded response. The API sets `degraded` / `stale` /
  *     `listIncomplete` when the lot list or the per-lot pricing calls were only partly
  *     successful. Writing a thin result would silently corrupt the catalogue AND bump
- *     `lastVerified`, hiding the damage behind a fresh date.
+ *     `lastVerified`, hiding the damage behind a fresh date. `ownAirportFallback` (own lots all
+ *     sold out, so the radius list is returned under this airport's code) is refused the same way.
  *
  *  3. It only bumps top-level `lastVerified` when every lot PRESENT in live search was
  *     re-verified (see --min-coverage), and at least one lot is present. Fuzzy-skipped,
@@ -144,12 +145,14 @@ export interface LiveLot {
   dueAtLocation?: boolean
 }
 
-interface SearchResponse {
+export interface SearchResponse {
   results?: LiveLot[]
   total?: number
   degraded?: boolean
   stale?: boolean
   listIncomplete?: boolean
+  /** Every own-airport lot was sold out, so search returned the whole radius list stamped with THIS airport's code. */
+  ownAirportFallback?: boolean
 }
 
 export type CatalogueLot = Record<string, unknown> & { name: string; slug?: string; dailyRate?: number }
@@ -454,8 +457,28 @@ export function reproduces(out: string, expected: unknown): boolean {
  * Returns null when the response is unusable — the caller must then leave the file
  * alone rather than write a partial refresh.
  */
+/** The check-in lead fetchLive actually uses: the requested lead, pulled in so the stay fits the booking window. */
+export function effectiveLead(days: number, leadDays: number): number {
+  return Math.min(leadDays, MAX_ADVANCE_BOOKING_DAYS - (days - 1))
+}
+
+/**
+ * Why a search response must not be acted on, or null when it is usable. `ownAirportFallback` counts: when every
+ * own-airport lot is sold out, search returns the full radius list (other airports' lots included) stamped with the
+ * searched airport's code, so neither "present" nor "absent" can be trusted for that sample.
+ */
+export function unusableReason(body: SearchResponse): string | null {
+  if (body.degraded || body.stale || body.listIncomplete) {
+    return `response flagged degraded=${body.degraded} stale=${body.stale} listIncomplete=${body.listIncomplete}`
+  }
+  if (body.ownAirportFallback === true) {
+    return "ownAirportFallback: own lots sold out, results are the radius list (other airports' lots, stamped with this code)"
+  }
+  return null
+}
+
 export async function fetchLive(code: string, days: number, leadDays: number): Promise<LiveLot[] | null> {
-  const lead = Math.min(leadDays, MAX_ADVANCE_BOOKING_DAYS - (days - 1))
+  const lead = effectiveLead(days, leadDays)
   if (lead < 1) {
     console.log(`  ! ${code}: a ${days}-day stay does not fit inside the ${MAX_ADVANCE_BOOKING_DAYS}-day booking window`)
     return null
@@ -483,11 +506,9 @@ export async function fetchLive(code: string, days: number, leadDays: number): P
   }
 
   const body = (await res.json()) as SearchResponse
-  if (body.degraded || body.stale || body.listIncomplete) {
-    console.log(
-      `  ! ${code}: response flagged degraded=${body.degraded} stale=${body.stale} ` +
-        `listIncomplete=${body.listIncomplete} — refusing to write from a partial result`
-    )
+  const why = unusableReason(body)
+  if (why) {
+    console.log(`  ! ${code}: ${why} — refusing to write from it`)
     return null
   }
   return body.results ?? []
@@ -495,14 +516,18 @@ export async function fetchLive(code: string, days: number, leadDays: number): P
 
 // ── matching ─────────────────────────────────────────────────────────────────
 
-function findMatch(
+export function findMatch(
   lot: CatalogueLot,
   live: LiveLot[]
 ): { live: LiveLot; via: 'name' | 'address' | 'fuzzy'; score: number } | null {
   // The ResLab id survives renames ("Apex EWR Airport Parking" is listed as "Apex Airport Parking"); lot-sync writes it.
+  // A lot WITH an id that this sample does not carry is absent from it: falling back to name/address/fuzzy would
+  // let a different lot with a similar name stand in for it. (Only when the sample carries ids at all — a response
+  // without them says nothing either way, so the name tiers still apply.)
   if (typeof lot.reslabLocationId === 'number') {
     const byId = live.find((r) => r.reslabLocationId === lot.reslabLocationId)
     if (byId) return { live: byId, via: 'name', score: 1 }
+    if (live.some((r) => typeof r.reslabLocationId === 'number')) return null
   }
   const key = normName(lot.name)
   const exact = live.find((r) => normName(r.name) === key)
