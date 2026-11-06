@@ -218,6 +218,9 @@ function violatedUnique(table: string, row: Row, rows: Row[]): string | null {
     case "review_email_optouts":
       // 037: the opt-out table's PK.
       return rows.some((r) => r.email === row.email) ? "review_email_optouts_pkey" : null;
+    case "disputes":
+      // 045: stripe_dispute_id is the PRIMARY KEY — the ledger's 23505 race paths.
+      return rows.some((r) => r.stripe_dispute_id === row.stripe_dispute_id) ? "disputes_pkey" : null;
     default:
       return null;
   }
@@ -553,9 +556,10 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
     if (!this.selectStr.includes("customers!inner") && !this.selectStr.includes("customers(")) return row;
     const cust = this.db.tables.customers.find((c) => c.id === row.customer_id);
     if (!cust) return { ...row, customers: null };
-    // first_name only when the select asks for it (the review cron does).
+    // Names only when the select asks for them (the review cron, disputes).
     const embed: Row = { email: cust.email };
     if (this.selectStr.includes("first_name")) embed.first_name = cust.first_name ?? null;
+    if (this.selectStr.includes("last_name")) embed.last_name = cust.last_name ?? null;
     if (this.selectStr.includes("user_id")) embed.user_id = cust.user_id ?? null;
     return { ...row, customers: embed };
   }
