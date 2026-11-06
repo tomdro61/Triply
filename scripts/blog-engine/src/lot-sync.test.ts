@@ -260,6 +260,10 @@ test('notAirportReason: an AIRPORT listing whose name says ports, and a far meet
   assert.equal(notAirportReason({ name: 'Simply Valet', shuttleInfo: 'No shuttle. A driver meets you at the terminal.', distanceFromAirport: 8 }), '')
   assert.notEqual(notAirportReason({ name: 'Park By The Ports Cruise Parking', shuttleInfo: '7 AM to 2 PM', distanceFromAirport: 1.6 }), '')
   assert.notEqual(notAirportReason({ name: 'Downtown Garage', shuttleInfo: 'No shuttle', distanceFromAirport: 8 }), '')
+  // Onsite valet is not airport transport (round-3 Codex): only explicit terminal service exempts a far no-shuttle lot.
+  assert.notEqual(notAirportReason({ name: 'Downtown Garage', shuttleInfo: 'No shuttle. Valet parking only.', distanceFromAirport: 8 }), '')
+  assert.notEqual(notAirportReason({ name: 'City Valet Garage', shuttleInfo: 'No shuttle', distanceFromAirport: 8 }), '')
+  assert.equal(notAirportReason({ name: 'Curbside Co', shuttleInfo: 'No shuttle. Curbside valet at your terminal.', distanceFromAirport: 9 }), '')
 })
 
 test('a duplicate file entry of a lot another entry owns by name still goes unsellable (not "ambiguous")', () => {

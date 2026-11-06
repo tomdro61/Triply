@@ -6,7 +6,7 @@
  * reports/chart-redraw/prices.mts; kept here so the rules have tests.
  */
 import { transferBlocker } from './prompts/write.js'
-import { isNotAirportLot, VALET } from './airport-data.js'
+import { isNotAirportLot } from './airport-data.js'
 import type { Transfer } from './rate-chart.js'
 
 export interface LiveShuttle { name: string; summary?: string; details?: string }
@@ -18,6 +18,7 @@ const PER_RIDER_FEE = /(?:C\$|CAD\s?\$?|US\$|\$)\s?\d+(?:\.\d{2})?\s*(?:per|\/|a
 const SHUTTLE_PAYMENT = /shuttle (?:payment|fee)s? (?:will be|is|are) (?:collected|charged)|pay(?:ment)? for the shuttle/i
 const EXTRA_RIDER = /(?:additional|extra|beyond|more than \d)[^.]{0,30}$/i
 const NO_SHUTTLE = /\bno (?:airport )?shuttle\b|shuttle (?:service )?(?:is )?not (?:available|provided|offered|included)|does not (?:offer|provide) (?:a |an )?(?:airport )?shuttle/i
+const VALET = /valet|meets? you (?:at|on) (?:the |your )?(?:terminal|curb)|drives? you (?:to|and)|drop(?:s)? you off at your terminal|curbside/i
 const SHUTTLE = /shuttle|on[- ]demand|every\s+(?:\d|hour|half)|once an hour|hourly|continuous|to and from the airport|pick ?ups?\b|on the hour|top of the hour/i
 
 /**

@@ -99,7 +99,7 @@ import {
   type LiveLot,
   type LivePricing,
 } from './refresh-rates.js'
-import { NOT_AIRPORT_NOTE, VALET } from './airport-data.js'
+import { NOT_AIRPORT_NOTE } from './airport-data.js'
 
 export { NOT_AIRPORT_NOTE }
 
@@ -452,14 +452,20 @@ export function newLotFromLive(m: MergedLive, days: number, today: string): Cata
 export function notAirportReason(lot: { name: string; shuttleInfo?: unknown; distanceFromAirport?: unknown }): string {
   // Since the note keeps a lot off airport content entirely, a false positive costs a lot we sell (round-2 review
   // of #160). So, like chart-lots: a name that also says "airport" is the operator's airport listing ("Park By The
-  // Ports AIRPORT Parking", FLL), and a valet that meets you at the terminal serves the airport without a shuttle.
+  // Ports AIRPORT Parking", FLL), and explicit terminal service (a driver meets you at the terminal) serves the
+  // airport without a shuttle.
   if (/\bcruise\b|\bports?\b/i.test(lot.name) && !/\bairport\b/i.test(lot.name)) return 'cruise/port name'
   const d = typeof lot.distanceFromAirport === 'number' ? lot.distanceFromAirport : parseFloat(String(lot.distanceFromAirport ?? ''))
   const shuttle = typeof lot.shuttleInfo === 'string' ? lot.shuttleInfo : ''
   const noShuttle = !shuttle.trim() || /^\s*no shuttle/i.test(shuttle)
-  if (noShuttle && !VALET.test(`${lot.name} ${shuttle}`) && Number.isFinite(d) && d > 5) return `no shuttle, ${d} mi out`
+  if (noShuttle && !TERMINAL_SERVICE.test(`${lot.name} ${shuttle}`) && Number.isFinite(d) && d > 5) return `no shuttle, ${d} mi out`
   return ''
 }
+
+/** Explicit airport-terminal service without a shuttle (a driver meets you at the terminal). NOT the bare word "valet":
+ *  "No shuttle. Valet parking only." at a downtown garage is onsite valet, not airport transport (round-3 Codex). */
+const TERMINAL_SERVICE =
+  /meets? you (?:at|on) (?:the |your )?(?:terminal|curb)|drives? you (?:to|and from) (?:the |your )?(?:airport|terminal)|drop(?:s)? you off at (?:the |your )?terminal|curbside (?:valet|drop-?off|pick-?up)|terminal (?:valet|drop-?off|pick-?up)|valet (?:at|to|from) (?:the |your )?(?:airport|terminal)/i
 
 /** A lot lot-sync added that nobody has reviewed yet (its `needsReview` flag is still lot-sync's). */
 function addedByLotSync(lot: CatalogueLot): boolean {
