@@ -1,7 +1,7 @@
 {
   "code": "LGA",
   "fullName": "LaGuardia Airport",
-  "lastVerified": "2026-10-05",
+  "lastVerified": "2026-11-06",
   "overview": {
     "location": "East Elmhurst, Queens, New York — 8 miles east of Midtown Manhattan",
     "passengerVolume": "33.5 million passengers per year (31.8M domestic, 1.7M international)",
@@ -153,9 +153,9 @@
     {
       "name": "Carvia Parking (LGA)",
       "slug": "carvia-parking-lga",
-      "dailyRate": 16.75,
-      "totalFor4Days": 73.61,
-      "taxesFor4Days": 6.62,
+      "dailyRate": 20.95,
+      "totalFor4Days": 92.07,
+      "taxesFor4Days": 8.28,
       "paymentMethod": "Pay at Location",
       "distanceFromAirport": "0.6 mi",
       "driveTime": "5 minutes",
@@ -172,7 +172,7 @@
       "rateVerified": "2026-11-06",
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
-      "rateSpreadPct": 18.81,
+      "rateSpreadPct": 50.16,
       "reslabLocationId": 388
     },
     {
@@ -201,9 +201,9 @@
     {
       "name": "Parking Place (LGA)",
       "slug": "parking-place-lga",
-      "dailyRate": 17.8,
-      "totalFor4Days": 78.22,
-      "taxesFor4Days": 7.03,
+      "dailyRate": 22,
+      "totalFor4Days": 96.68,
+      "taxesFor4Days": 8.69,
       "paymentMethod": "Pay at Location",
       "distanceFromAirport": "0.7 mi",
       "driveTime": "5 minutes",
@@ -220,7 +220,8 @@
       "rateVerified": "2026-11-06",
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
-      "reslabLocationId": 387
+      "reslabLocationId": 387,
+      "rateSpreadPct": 47.2
     },
     {
       "name": "Park For U (LGA)",
@@ -268,7 +269,7 @@
       "knownCoupons": ["LGA7 ($7 off, valid through 12/31/2026)"],
       "notes": "CAUTION: BBB F rating with 10 unanswered complaints. Hidden fees reported: 4% credit card surcharge, 3.75% service charge, $5/day SUV surcharge. No shuttle 8PM-4AM. Cheapest LGA lot but numerous complaints about misleading pricing, unprofessional staff, and safety concerns. Advertised low price is misleading once surcharges are added.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Hyatt Place Flushing - LAZ Parking (LGA)",

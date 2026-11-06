@@ -211,7 +211,7 @@
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-06",
+      "rateVerified": "2026-11-02",
       "reslabLocationId": 559
     },
     {
@@ -231,7 +231,7 @@
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-06",
+      "rateVerified": "2026-11-02",
       "reslabLocationId": 404
     },
     {
@@ -251,7 +251,7 @@
       "notes": "Lowest-priced Triply KCI lot with a free 24/7 shuttle. Payment is collected at the hotel.",
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
-      "rateVerified": "2026-11-06",
+      "rateVerified": "2026-11-02",
       "reslabLocationId": 186
     },
     {
@@ -271,7 +271,7 @@
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-06",
+      "rateVerified": "2026-11-02",
       "reslabLocationId": 419
     },
     {
@@ -291,7 +291,7 @@
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-06",
+      "rateVerified": "2026-11-02",
       "reslabLocationId": 57
     },
     {
@@ -312,7 +312,7 @@
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-06",
+      "rateVerified": "2026-11-02",
       "reslabLocationId": 158
     }
   ],

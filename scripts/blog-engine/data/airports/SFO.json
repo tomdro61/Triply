@@ -1,7 +1,7 @@
 {
   "code": "SFO",
   "fullName": "San Francisco International Airport",
-  "lastVerified": "2026-11-02",
+  "lastVerified": "2026-11-06",
   "overview": {
     "location": "Unincorporated San Mateo County, California — 12 miles south of downtown San Francisco",
     "passengerVolume": "54.5 million passengers per year (2025) — 13th busiest in the U.S., 2nd busiest in California after LAX",
@@ -817,7 +817,8 @@
       "sellableCheckedOn": "2026-11-06",
       "reslabLocationId": 432,
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-06"
+      "rateVerified": "2026-11-06",
+      "rateSpreadPct": 23.4
     },
     {
       "name": "Travelodge SFO Airport Parking",
@@ -834,7 +835,7 @@
       "knownCoupons": [],
       "notes": "Budget-friendly option with strong reviews. Hotel parking lot.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Aloft Westin SFO Airport Parking",
@@ -851,7 +852,7 @@
       "knownCoupons": [],
       "notes": "Closest off-site lot at 0.8 mi. Best seller on multiple platforms. Minimum 2-day booking.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Burlingame Airport Parking",
@@ -864,7 +865,7 @@
       "knownCoupons": [],
       "notes": "Mid-range option in Burlingame.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Hyatt Regency SFO Parking",
@@ -877,7 +878,7 @@
       "knownCoupons": [],
       "notes": "Hotel parking with upscale amenities. Park-sleep-fly packages available (5 days self-parking included with overnight stay).",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "The Westin SFO Parking",
@@ -894,7 +895,7 @@
       "knownCoupons": [],
       "notes": "Close proximity (0.9 mi). Frequently sells out — book in advance. Minimum 2-day booking.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Park N Fly SFO",
@@ -911,7 +912,7 @@
       "knownCoupons": [],
       "notes": "Highest-rated SFO lot (5.0/5 with 971 reviews). Premium pricing but excellent service. Established airport parking operator with locations nationwide.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Crowne Plaza SFO Parking",
@@ -924,7 +925,7 @@
       "knownCoupons": [],
       "notes": "Premium hotel parking. Park-sleep-fly packages available (7 days complimentary parking with overnight stay). Highest off-site rate — only worth it with hotel package.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Best Western Grosvenor Hotel (SFO)",

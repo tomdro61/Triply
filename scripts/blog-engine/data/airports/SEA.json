@@ -1,7 +1,7 @@
 {
   "code": "SEA",
   "fullName": "Seattle-Tacoma International Airport",
-  "lastVerified": "2026-11-01",
+  "lastVerified": "2026-11-06",
   "overview": {
     "location": "City of SeaTac, Washington — 14 miles south of downtown Seattle and 20 miles north of Tacoma",
     "iataCode": "SEA",
@@ -207,7 +207,7 @@
       "freeCancellation": true,
       "notes": "Closest off-site lot. 50+ years in business. 3-minute shuttle is fastest of all off-site options. Early booking saves up to 30%.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "WallyPark Premier Garage",
@@ -224,7 +224,7 @@
       "freeCancellation": true,
       "notes": "Best covered off-site option. Premium amenities (WiFi, coffee, water). Text-for-shuttle return service is convenient.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "WallyPark Outdoor Self Park",
@@ -240,7 +240,7 @@
       "freeCancellation": true,
       "notes": "Same great shuttle and amenities as WallyPark Premier but uncovered and cheaper. Good value for budget-conscious travelers.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "MasterPark Lot A",
@@ -258,7 +258,7 @@
       "freeCancellation": true,
       "notes": "38+ years in business. EV charging available. Rewards program for frequent parkers. Largest shuttle fleet at SEA.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "MasterPark Garage",
@@ -276,7 +276,7 @@
       "freeCancellation": true,
       "notes": "Covered garage option from MasterPark. Valet available. Good for travelers concerned about Seattle rain.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Jiffy Airport Parking",
@@ -294,7 +294,7 @@
       "weeklyRate": 69.95,
       "notes": "Good budget option with 24/7 shuttle and car-side pickup. Weekly rate ($69.95) is competitive for longer trips.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "ShuttlePark2",
@@ -312,7 +312,7 @@
       "weeklyRate": 80.00,
       "notes": "Convenient self-park and lock — no waiting for valet. Pre-pay online for best rates. Shuttle drops at garage level for easy terminal access.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Ajax Parking R Us",
@@ -328,7 +328,7 @@
       "freeCancellation": true,
       "notes": "Competitive budget option. Online pre-booking recommended for best rates.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Motel 6",
@@ -355,8 +355,8 @@
     {
       "name": "Fox Parking SeaTac",
       "slug": "fox-parking-seatac",
-      "dailyRate": 13.51,
-      "reservationRate": 13.51,
+      "dailyRate": 15.1,
+      "reservationRate": 15.1,
       "amenities": [
         "24/7 Front Desk",
         "Valet"
@@ -396,7 +396,7 @@
       "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
       "rateVerified": "2026-11-06",
-      "rateSpreadPct": 99.56,
+      "rateSpreadPct": 27.54,
       "reslabLocationId": 470
     },
     {

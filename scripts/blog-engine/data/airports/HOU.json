@@ -163,7 +163,7 @@
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-06",
+      "rateVerified": "2026-11-02",
       "reslabLocationId": 411
     },
     {
@@ -183,7 +183,7 @@
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-06",
+      "rateVerified": "2026-11-02",
       "reslabLocationId": 42
     },
     {
@@ -203,7 +203,7 @@
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-06",
+      "rateVerified": "2026-11-02",
       "reslabLocationId": 560
     },
     {
@@ -223,7 +223,7 @@
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-06",
+      "rateVerified": "2026-11-02",
       "reslabLocationId": 341
     }
   ],

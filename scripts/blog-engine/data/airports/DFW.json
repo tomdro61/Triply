@@ -1,7 +1,7 @@
 {
   "code": "DFW",
   "fullName": "Dallas/Fort Worth International Airport",
-  "lastVerified": "2026-11-01",
+  "lastVerified": "2026-11-06",
   "overview": {
     "location": "Unincorporated areas of Tarrant and Dallas counties, Texas — between Dallas and Fort Worth, straddling the cities of Irving, Euless, Grapevine, and Coppell",
     "iataCode": "DFW",
@@ -260,7 +260,7 @@
       "freeCancellation": true,
       "notes": "On-demand shuttle is a strong advantage — no fixed schedule to worry about. Covered parking protects from Texas sun and hail. Loyalty rewards program available.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "The Parking Spot Premium (DFW)",
@@ -276,7 +276,7 @@
       "freeCancellation": true,
       "notes": "Best off-site option for frequent travelers who want covered parking + priority shuttle. Higher rate justified by priority service and covered spots.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "The Parking Spot South (DFW)",
@@ -292,7 +292,7 @@
       "freeCancellation": true,
       "notes": "Best option for travelers approaching from the south (Fort Worth, Arlington). On-demand shuttle is reliable. Same quality as North location.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Ausby Airport Parking (DFW)",
@@ -308,7 +308,7 @@
       "freeCancellation": true,
       "notes": "WARNING: Shuttle only runs free 10 AM - 9:30 PM. After-hours pickup costs $25 extra. Not ideal for early morning or late night flights unless you factor in the after-hours fee. Budget rate is attractive for daytime travelers.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Days Inn by Wyndham DFW Airport North (Parking)",
@@ -324,7 +324,7 @@
       "freeCancellation": true,
       "notes": "Budget hotel parking option. Confirm current shuttle schedule before booking — hours may vary. Good option for park-sleep-fly packages.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Red Roof Inn Dallas DFW Airport North (Parking)",

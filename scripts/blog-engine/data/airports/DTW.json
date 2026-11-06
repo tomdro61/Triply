@@ -1,7 +1,7 @@
 {
   "code": "DTW",
   "fullName": "Detroit Metropolitan Wayne County Airport",
-  "lastVerified": "2026-11-02",
+  "lastVerified": "2026-11-06",
   "overview": {
     "location": "Romulus, Michigan — 21 miles southwest of downtown Detroit in Wayne County",
     "iataCode": "DTW",
@@ -342,7 +342,7 @@
       "freeCancellation": true,
       "notes": "Lowest off-site rate at $6.00/day pre-booked. 30-shuttle fleet means very short waits. Best overall value for budget-conscious travelers.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Airlines Parking (DTW)",
@@ -363,7 +363,7 @@
       "freeCancellation": true,
       "notes": "Very close to airport — only 5-minute shuttle ride. 24/7 on-demand shuttle. Good balance of price and convenience.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Qwik Park (DTW)",
@@ -387,7 +387,7 @@
       "freeCancellation": true,
       "notes": "Premium off-site option with car services (wash, oil change, detailing). Covered parking available. Park-stay-fly hotel packages available through partners. Closest major off-site lot.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Valet Connections (DTW)",
@@ -442,7 +442,7 @@
       "freeCancellation": true,
       "notes": "Good mid-range option. A bit further than US Park or Airlines Parking but still affordable. Weekly rate of ~$102 available.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Clarion Hotel Detroit Metro Airport (Park Sleep Fly)",
@@ -463,7 +463,7 @@
       "freeCancellation": true,
       "notes": "Park-sleep-fly option available. Higher daily rate but 24/7 shuttle and hotel amenities access. Good for travelers with early flights.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Detroit Metro Airport Marriott",

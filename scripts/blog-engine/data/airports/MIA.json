@@ -277,7 +277,7 @@
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-06",
+      "rateVerified": "2026-11-01",
       "reslabLocationId": 436
     },
     {
@@ -311,7 +311,7 @@
       "freeCancellation": true,
       "notes": "Shuttle only runs 5 AM - 10 PM hourly. Not ideal for late night flights but covers most departure times.",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-06",
+      "rateVerified": "2026-11-01",
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
       "reslabLocationId": 409
@@ -410,6 +410,24 @@
       "minimumBookingDays": 3,
       "paymentMethod": "Pay Online",
       "dailyRate": 15.41,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled",
+      "notes": "Added by lot-sync: looks like a cruise-port/downtown lot, not an airport-shuttle lot — do not use in CTAs until a human confirms it serves the airport."
+    },
+    {
+      "name": "Premier Cruise Parking",
+      "slug": "premier-cruise-parking",
+      "reslabLocationId": 218,
+      "address": "250 SE 3rd Avenue",
+      "distanceFromAirport": "6.3 mi",
+      "phone": "1-800-435-3195",
+      "shuttleInfo": "Disembarkation: 7:30 AM to 10:45 AM, every 30 minutesEmbarkation: 11 AM to 3:15 PM, every 30 minutes",
+      "amenities": ["Wheelchair Access", "Security", "Covered/Garage"],
+      "minimumBookingDays": 3,
+      "paymentMethod": "Pay at Location",
+      "dailyRate": 16.92,
       "rateVerified": "2026-11-06",
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",

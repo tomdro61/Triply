@@ -1,7 +1,7 @@
 {
   "code": "BNA",
   "fullName": "Nashville International Airport",
-  "lastVerified": "2026-11-02",
+  "lastVerified": "2026-11-06",
   "overview": {
     "location": "Southeast Nashville, Tennessee — 8 miles southeast of downtown Nashville",
     "iataCode": "BNA",
@@ -216,7 +216,7 @@
       "freeCancellation": true,
       "notes": "24/7 shuttle is a strong advantage. One of the most established off-site lots near BNA. Fenced with continuous video surveillance.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Cambria Hotel Nashville Airport",
@@ -270,7 +270,7 @@
       "freeCancellation": true,
       "notes": "One of the cheapest off-site options near BNA. Verify shuttle hours before booking for early/late flights.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Sheraton Music City Hotel (BNA)",
@@ -286,7 +286,7 @@
       "freeCancellation": true,
       "notes": "Full-service hotel with upscale amenities. Good park-sleep-fly option. Shuttle included.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Holiday Inn Express Nashville Airport",
@@ -355,22 +355,6 @@
       "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
     },
     {
-      "name": "Radisson Hotel",
-      "slug": "radisson-hotel",
-      "reslabLocationId": 116,
-      "address": "1112 Airport Center Drive, Nashville, TN",
-      "distanceFromAirport": "1.4 mi",
-      "phone": "(615) 889-9090",
-      "shuttleInfo": "24 hours every 30 Minutes to the airport and pick ups are on demand",
-      "amenities": ["Security", "24/7 Front Desk", "Restaurant", "Fitness Center", "Free Internet/Wifi"],
-      "paymentMethod": "Pay Online",
-      "dailyRate": 11.5,
-      "rateVerified": "2026-11-06",
-      "sellable": true,
-      "sellableCheckedOn": "2026-11-06",
-      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
-    },
-    {
       "name": "Avid Hotel Nashville Airport",
       "slug": "avid-hotel-nashville-airport",
       "reslabLocationId": 217,
@@ -381,6 +365,22 @@
       "amenities": ["24/7 Front Desk", "Restaurant", "Wheelchair Access", "Fitness Center", "Free Internet/Wifi", "Breakfast Included"],
       "paymentMethod": "Pay Online",
       "dailyRate": 10.95,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+    },
+    {
+      "name": "Radisson Hotel",
+      "slug": "radisson-hotel",
+      "reslabLocationId": 116,
+      "address": "1112 Airport Center Drive, Nashville, TN",
+      "distanceFromAirport": "1.4 mi",
+      "phone": "(615) 889-9090",
+      "shuttleInfo": "24 hours every 30 Minutes to the airport and pick ups are on demand",
+      "amenities": ["Security", "24/7 Front Desk", "Restaurant", "Fitness Center", "Free Internet/Wifi"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 11.5,
       "rateVerified": "2026-11-06",
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",

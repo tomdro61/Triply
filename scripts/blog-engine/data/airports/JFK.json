@@ -1,7 +1,7 @@
 {
   "code": "JFK",
   "fullName": "John F. Kennedy International Airport",
-  "lastVerified": "2026-11-01",
+  "lastVerified": "2026-11-06",
   "overview": {
     "location": "Queens, New York — 16 miles southeast of Midtown Manhattan",
     "passengerVolume": "55+ million passengers per year",
@@ -256,9 +256,9 @@
     {
       "name": "ARB Parking (JFK)",
       "slug": "arb-parking-jfk",
-      "dailyRate": 16.51,
-      "totalFor6Days": 109.46,
-      "taxesFor6Days": 10.41,
+      "dailyRate": 19.96,
+      "totalFor6Days": 132.33,
+      "taxesFor6Days": 12.58,
       "paymentMethod": "Pay at Location",
       "distanceFromAirport": "2.5 mi",
       "driveTime": "5 minutes",
@@ -274,15 +274,15 @@
       "rateVerified": "2026-11-06",
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
-      "rateSpreadPct": 20.9,
+      "rateSpreadPct": 25.08,
       "reslabLocationId": 237
     },
     {
       "name": "PARK AC JFK Airport Parking (JFK)",
       "slug": "park-ac-jfk-airport-parking-jfk",
-      "dailyRate": 13.6,
-      "totalFor6Days": 89.65,
-      "taxesFor6Days": 8.06,
+      "dailyRate": 18.5,
+      "totalFor6Days": 121.96,
+      "taxesFor6Days": 10.97,
       "paymentMethod": "Pay at Location",
       "distanceFromAirport": "2.5 mi (0.5 mi direct)",
       "driveTime": "5 minutes",
@@ -298,7 +298,7 @@
       "rateVerified": "2026-11-06",
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
-      "rateSpreadPct": 36.03,
+      "rateSpreadPct": 54.05,
       "reslabLocationId": 275
     },
     {
@@ -321,7 +321,7 @@
       "notes": "NO overnight shuttle — must use rideshare after 9 PM. Arrive 30-60 min before desired airport time. Farther away than other options.",
       "rateVerified": "2026-09-14",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Hyatt Place Flushing - LAZ Parking (LGA)",
@@ -343,7 +343,7 @@
       "notes": "Technically an LGA lot but appears in JFK search results. Covered/indoor parking. No oversized vehicles. Arrive 2 hours before flight. Limited shuttle hours.",
       "rateVerified": "2026-10-05",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Queens Crossing - LAZ Parking (LGA)",
@@ -365,7 +365,7 @@
       "notes": "Cheapest option but 8.7 mi from JFK. LGA lot appearing in JFK results. Limited availability badge shown. Must print receipt — no receipt = no service, no refund. Arrive 2 hours before flight. Limited shuttle hours.",
       "rateVerified": "2026-10-05",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "The Parking Point JFK",
@@ -391,11 +391,12 @@
       "shuttleInfo": "24/7 every 10 minutes",
       "amenities": ["Valet", "Covered/Garage", "24/7 Front Desk"],
       "paymentMethod": "Pay at Location",
-      "dailyRate": 23.22,
+      "dailyRate": 26.22,
       "rateVerified": "2026-11-06",
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
-      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled",
+      "rateSpreadPct": 25.27
     },
     {
       "name": "Hampton Inn John F. Kennedy Airport",

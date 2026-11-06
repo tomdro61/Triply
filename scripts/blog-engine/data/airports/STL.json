@@ -1,7 +1,7 @@
 {
   "code": "STL",
   "fullName": "St. Louis Lambert International Airport",
-  "lastVerified": "2026-11-02",
+  "lastVerified": "2026-11-06",
   "overview": {
     "location": "Unincorporated St. Louis County, Missouri, between Berkeley and Bridgeton — 14 miles northwest of downtown St. Louis",
     "iataCode": "STL",
@@ -280,7 +280,7 @@
       "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
       "rateVerified": "2026-11-06",
-      "rateSpreadPct": 22.57,
+      
       "reslabLocationId": 514
     },
     {

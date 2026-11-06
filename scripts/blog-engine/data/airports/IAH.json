@@ -1,7 +1,7 @@
 {
   "code": "IAH",
   "fullName": "George Bush Intercontinental Airport",
-  "lastVerified": "2026-11-01",
+  "lastVerified": "2026-11-06",
   "overview": {
     "location": "Houston, Texas — 23 miles north of downtown Houston, in unincorporated Harris County",
     "iataCode": "IAH",
@@ -222,7 +222,7 @@
       "freeCancellation": true,
       "notes": "Shuttle every 5-7 minutes is among the most frequent off-site options at IAH. Free luggage assistance. EV charging available on first-come basis. Valet option for premium service.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "The Parking Spot (IAH)",
@@ -238,7 +238,7 @@
       "freeCancellation": true,
       "notes": "3 IAH locations on JFK Blvd. Spot Club rewards earn free parking days. Covered parking available at a premium. Reliable national chain.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "PreFlight Airport Parking (IAH)",
@@ -254,7 +254,7 @@
       "freeCancellation": true,
       "notes": "Best value for long-term parking — 7-day rate drops to $3.99/day uncovered. Same location as Fine Airport Parking on Greens Road. Budget pick.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Fast Park & Relax (IAH)",
@@ -270,7 +270,7 @@
       "freeCancellation": true,
       "notes": "All covered parking — important in Houston's extreme heat and frequent rain. Staffed 24/7 for security. Good mid-range option.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Comfort Suites Houston IAH Airport (Parking)",
