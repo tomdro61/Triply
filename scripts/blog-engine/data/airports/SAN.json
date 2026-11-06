@@ -375,7 +375,8 @@
       "rateVerified": "2026-11-06",
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
-      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled",
+      "notes": "Added by lot-sync: looks like a cruise-port/downtown lot, not an airport-shuttle lot — do not use in CTAs until a human confirms it serves the airport."
     }
   ],
   "shuttleInfo": "All off-site lots include free shuttle to both terminals. Frequency varies: Aladdin (every 5-10 min), SDAP (continuous), Park Shuttle & Fly (24/7 express), Fox (every 25 min), hotel lots (every 15-30 min). Hotel lots have limited hours (5-6 AM to midnight). Economy Lot has own shuttle (~3 min). San Diego Flyer provides FREE shuttle between terminals and Old Town Transit Center.",

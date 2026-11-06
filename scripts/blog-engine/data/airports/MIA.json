@@ -363,7 +363,8 @@
       "rateVerified": "2026-11-06",
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
-      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled",
+      "notes": "Added by lot-sync: looks like a cruise-port/downtown lot, not an airport-shuttle lot — do not use in CTAs until a human confirms it serves the airport."
     },
     {
       "name": "Holiday Inn Miami Airport",
@@ -412,7 +413,8 @@
       "rateVerified": "2026-11-06",
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
-      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled",
+      "notes": "Added by lot-sync: looks like a cruise-port/downtown lot, not an airport-shuttle lot — do not use in CTAs until a human confirms it serves the airport."
     }
   ],
   "shuttleInfo": "On-airport: FREE MIA Mover connects terminal to Miami Intermodal Center (Metrorail, Tri-Rail, rental cars) every 2-3 minutes, 24/7. Economy Park & Ride has free 24/7 shuttle. Off-site: Most lots include free shuttle — frequency varies from on-demand (Deal Airport Parking, EVEN Hotel) to hourly (La Quinta, Hampton Inn). CRITICAL: Some off-site lots have NO shuttle outside limited hours — verify before booking for early/late flights.",

@@ -470,7 +470,8 @@
       "rateVerified": "2026-11-06",
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
-      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled",
+      "notes": "Added by lot-sync: looks like a cruise-port/downtown lot, not an airport-shuttle lot — do not use in CTAs until a human confirms it serves the airport."
     }
   ],
   "shuttleInfo": "On-airport: Free Breeze shuttle connects all four terminals. Free shuttle from Cypress Garage to terminals. Rental Car Center shuttle from arrivals level. Off-site: Most lots include free shuttle — frequency ranges from every 10 minutes (Park By The Ports, FastTrack) to hourly (Best Western). Brightline Airport Connector shuttle available from arrivals level ($12 with same-day Brightline ticket). CRITICAL: Verify shuttle hours for early morning and late night flights — some off-site lots have limited shuttle schedules.",

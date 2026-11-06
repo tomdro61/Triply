@@ -205,8 +205,8 @@
     {
       "name": "Best Western McCarran Inn",
       "slug": "best-western-mccarran-inn-las",
-      "dailyRate": 12.55,
-      "reservationRate": 12.55,
+      "dailyRate": 7.99,
+      "reservationRate": 5.99,
       "parkingType": "Uncovered, self-park (hotel lot)",
       "amenities": ["Free Airport Shuttle", "24/7 Security", "Surveillance Cameras", "Gated Lot", "Hotel Amenities"],
       "shuttleInfo": "Complimentary airport shuttle, runs on schedule throughout the day",
@@ -215,11 +215,8 @@
       "driveTime": "5-7 minutes",
       "freeCancellation": true,
       "notes": "One of the closest off-site lots. Park-sleep-fly packages include 1 night + up to 7 days parking. Good budget option with hotel amenities available.",
-      "sellable": true,
-      "sellableCheckedOn": "2026-11-06",
-      "reslabLocationId": 91,
-      "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-06"
+      "sellable": false,
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "DoubleTree by Hilton Las Vegas Airport",
