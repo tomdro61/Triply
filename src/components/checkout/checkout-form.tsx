@@ -107,7 +107,7 @@ export function CheckoutForm({
   const [shortNoticeCancelText] = useState(() => {
     const w = freeCancelWindow(checkIn, checkInTime, getAirportByCode(lot.airportCode ?? "")?.timezone, new Date());
     // Same caveat the full badge carries whenever cancellation is still open.
-    return w.kind === "open"
+    return w.kind !== "closed"
       ? `${freeCancelText(w)}. Park Guard protection plans are partly non-refundable.`
       : freeCancelText(w);
   });

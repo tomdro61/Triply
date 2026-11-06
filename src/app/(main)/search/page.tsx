@@ -77,6 +77,10 @@ function SearchPageContent() {
   // from these — never the header's unsubmitted edits, which would show these
   // results' totals for dates they were not priced for.
   const [pricedStay, setPricedStay] = useState<{ checkIn: string; checkOut: string } | null>(null);
+  // The airport the CURRENT results are for, as /api/search answered it. A sort
+  // change re-fetches with the header's airport, so neither the URL nor the
+  // header field is safe to name in the empty state.
+  const [pricedAirport, setPricedAirport] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<"list" | "map">("list");
   const [activeMapCardIndex, setActiveMapCardIndex] = useState(0);
   const carouselRef = useRef<HTMLDivElement>(null);
@@ -146,6 +150,7 @@ function SearchPageContent() {
             ? { checkIn: data.checkin, checkOut: data.checkout }
             : null
         );
+        setPricedAirport(typeof data.airport?.code === "string" ? data.airport.code : null);
         setPartialResults(data.reslabUnavailable === true);
         setIncompleteResults(
           data.reslabUnavailable === true ||
@@ -315,15 +320,26 @@ function SearchPageContent() {
               partialResults={partialResults}
               onRetry={fetchResults}
               emptyState={
-                incompleteResults ? undefined : (
-                  // What was searched (URL + priced dates), never the header's
-                  // unsubmitted edits.
+                incompleteResults ? (
+                  // Some inventory wasn't read: an empty list is not "nothing
+                  // here", so say so and offer a retry (lesson 5).
+                  <div className="text-center py-12 px-4">
+                    <p className="text-gray-700 font-medium">We couldn&apos;t load every lot for this search.</p>
+                    <button
+                      onClick={fetchResults}
+                      className="mt-3 text-brand-orange font-semibold text-sm underline underline-offset-2"
+                    >
+                      Try again
+                    </button>
+                  </div>
+                ) : pricedAirport ? (
+                  // The airport and dates the empty answer was for.
                   <NoLotsHere
-                    airportCode={(urlSearch.airport ?? airport).toUpperCase()}
-                    checkin={pricedStay?.checkIn ?? departDate}
-                    checkout={pricedStay?.checkOut ?? returnDate}
+                    airportCode={pricedAirport}
+                    checkin={pricedStay?.checkIn ?? ""}
+                    checkout={pricedStay?.checkOut ?? ""}
                   />
-                )
+                ) : undefined
               }
               renderExtraBadge={
                 parkStay

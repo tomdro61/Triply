@@ -47,7 +47,7 @@ export function generateSEOContent(
   const sections: SEOSection[] = [
     {
       heading: `Parking at ${name}`,
-      body: `Triply partners with ${totalLots} off-airport parking ${totalLots === 1 ? "facility" : "facilities"} near ${name} (${code})${priceText ? `, with daily rates ranging from ${priceText}` : ""}. ${hasShuttle ? "Most lots offer complimentary shuttle service to and from the terminal." : "Select lots offer shuttle service to the terminal."} Compare options, book online, and save compared to on-airport garage rates.`,
+      body: `Triply partners with ${totalLots} off-airport parking ${totalLots === 1 ? "facility" : "facilities"} near ${name} (${code})${priceText ? `, with daily rates ranging from ${priceText}` : ""}. ${hasShuttle ? "Most lots run a shuttle to and from the terminal." : "Check each lot's shuttle details before you book."} Compare options, book online, and save compared to on-airport garage rates.`,
     },
     {
       heading: `Long-Term ${code} Parking`,
@@ -65,7 +65,9 @@ export function generateSEOContent(
       heading: `Tips for Parking at ${name}`,
       body: [
         `• **Book ahead** — Rates are often lower when reserved in advance vs. drive-up pricing.`,
-        `• **Check shuttle schedules** — Most off-airport lots run shuttles every 5–15 minutes to ${code} terminals.`,
+        // Hours and frequency vary by lot (on-demand, hourly, none at all), so
+        // no single number is true for every airport.
+        `• **Check shuttle schedules** — Shuttle hours and frequency vary by lot; each lot's page shows its own.`,
         `• **Compare options** — Use Triply to see all ${totalLots} ${code} parking lots side by side with real-time rates.`,
         `• **Allow extra time** — Plan to arrive 15–20 minutes earlier than you would for on-airport parking to account for the shuttle ride.`,
       ].join("\n"),
@@ -110,14 +112,14 @@ export function generateFAQs(
     {
       question: `How far are parking lots from ${name}?`,
       answer: distanceRange
-        ? `Off-airport parking lots near ${code} are between ${distanceRange.min.toFixed(1)} and ${distanceRange.max.toFixed(1)} miles from the terminal. Most facilities provide complimentary shuttle service.`
-        : `Parking lots near ${code} are a short shuttle ride from the terminal.`,
+        ? `Off-airport parking lots near ${code} are between ${distanceRange.min.toFixed(1)} and ${distanceRange.max.toFixed(1)} miles from the terminal.${hasShuttle ? " Most of them run a shuttle to the terminal." : ""}`
+        : `Check each lot's distance and shuttle details on Triply.`,
     },
     {
       question: `Do ${code} parking lots offer shuttle service?`,
       answer: hasShuttle
-        ? `Yes, most off-airport parking lots near ${code} provide free shuttle service to and from the terminal. Shuttles typically run every 5–15 minutes.`
-        : `Many off-airport lots near ${code} offer shuttle service to the terminal. Check individual lot details on Triply for shuttle information.`,
+        ? `Yes, most off-airport parking lots near ${code} run a shuttle to and from the terminal. Hours, frequency and any fee vary by lot, so check each lot's shuttle details on Triply.`
+        : `Not every lot near ${code} runs a shuttle. Check each lot's shuttle details on Triply before you book.`,
     },
     {
       question: `Can I cancel my ${code} parking reservation?`,

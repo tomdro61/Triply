@@ -124,10 +124,13 @@ export function shuttleStatus(summary: string | null | undefined): ShuttleStatus
   const found = ranges(text);
   // "No shuttle" with no hours attached. "No shuttle between 11 PM and 5 AM.
   // Shuttle runs 5 AM to 11 PM." is a schedule, not an absence.
-  if (/^no shuttle\b/i.test(text) && found.length === 0) return { kind: "none" };
+  // Only a bare "No shuttle", ending the text or followed by punctuation (the
+  // live forms: "No shuttle.", "No Shuttle, guests must…", "NO SHUTTLE"). "No
+  // shuttle after 11 PM / on Sundays / between 11 PM and 5 AM" is a schedule.
+  if (/^no shuttle\s*($|[.,;:!])/i.test(text) && clockTimes(text).length === 0) return { kind: "none" };
   // The shuttle itself suspended, in one sentence ("Shuttle temporarily
   // suspended"), not "valet service suspended" or a suspension window.
-  if (found.length === 0 && /shuttle[^.]*\bsuspended\b|\bsuspended\b[^.]*shuttle/i.test(text)) {
+  if (clockTimes(text).length === 0 && /shuttle[^.]*\bsuspended\b|\bsuspended\b[^.]*shuttle/i.test(text)) {
     return { kind: "suspended" };
   }
   if (SPLIT_SCHEDULE.test(text)) return { kind: "unknown" };
@@ -136,9 +139,12 @@ export function shuttleStatus(summary: string | null | undefined): ShuttleStatus
   const structured = found.length > 0 && found.every((r) => /^\s*:/.test(r.tail));
   if (structured) {
     if (WEEKDAY.test(text)) return { kind: "hours", windows: null };
-    const running = found
-      .filter((r) => !/no shuttle/i.test(r.tail))
-      .map(({ start, end }) => ({ start, end }));
+    // Every row must say either that the shuttle runs or that there is none;
+    // anything else ("Shuttle suspended", "Closed") is not ours to interpret.
+    const runs = (tail: string) =>
+      /shuttle runs|every|on demand|on call/i.test(tail) && !/suspend|closed|no shuttle/i.test(tail);
+    if (found.some((r) => !runs(r.tail) && !/no shuttle/i.test(r.tail))) return { kind: "unknown" };
+    const running = found.filter((r) => runs(r.tail)).map(({ start, end }) => ({ start, end }));
     if (running.length === 0) return { kind: "none" };
     // 24/7 only when the running windows really cover the day; a lone
     // "6:00 AM - 11:00 PM: Shuttle runs every 30 minutes." is 6 AM–11 PM.
@@ -149,11 +155,15 @@ export function shuttleStatus(summary: string | null | undefined): ShuttleStatus
   if (ALL_DAY.test(text)) {
     // A stated range next to "24/7" contradicts it: say nothing.
     if (found.length > 0) return { kind: "unknown" };
-    // "24/7 complimentary Lyft" and "24/7 Valet Service – will drop you off" are
-    // not a shuttle; say nothing rather than "24/7 shuttle".
-    // ("hour" is not evidence: "24 hours" itself contains it.)
-    if (!/shuttle|every|on demand|on call|runs|pick ?-?ups?/i.test(text)) return { kind: "unknown" };
-    return { kind: "all_day" };
+    // The "24/7" must describe the shuttle, in its own sentence, and not be
+    // negated: "Lot open 24 hours. Shuttle every 30 minutes from 6 AM." and
+    // "Shuttle does not run 24/7." are not 24/7 service; nor are "24/7
+    // complimentary Lyft" or "24/7 Valet Service". ("hour" is not evidence:
+    // "24 hours" itself contains it.)
+    const continuous = text
+      .split(/[.;]/)
+      .some((s) => ALL_DAY.test(s) && /shuttle|every|on demand|on call|runs|pick ?-?ups?/i.test(s) && !/\bnot\b|n['’]t\b/i.test(s));
+    return continuous ? { kind: "all_day" } : { kind: "unknown" };
   }
 
   if (WEEKDAY.test(text)) return { kind: "hours", windows: null };
@@ -223,6 +233,19 @@ export function amenitiesBesideShuttle<T extends { displayName: string }>(
 ): T[] {
   if (shuttleLabel(shuttleStatus(summary)) === null) return [...amenities];
   return amenities.filter((a) => !/shuttle/i.test(a.displayName));
+}
+
+/**
+ * True when more than half the lots read as running a shuttle (24/7 or set
+ * hours). Backs the hub copy "Most lots run a shuttle…": a lot whose summary
+ * says "No shuttle" or can't be read never counts.
+ */
+export function mostLotsRunShuttle(lots: readonly { shuttleInfo?: { summary?: string } }[]): boolean {
+  const running = lots.filter((l) => {
+    const kind = shuttleStatus(l.shuttleInfo?.summary).kind;
+    return kind === "all_day" || kind === "hours";
+  }).length;
+  return lots.length > 0 && running * 2 > lots.length;
 }
 
 /** True for the statuses a customer must notice before paying. */

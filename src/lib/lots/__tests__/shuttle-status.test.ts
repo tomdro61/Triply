@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   amenitiesBesideShuttle,
+  mostLotsRunShuttle,
   formatMinutes,
   outsideShuttleHours,
   shuttleHoursText,
@@ -169,6 +170,34 @@ describe("shuttleStatus — review regressions (2026-11-06): never a wrong defin
     const s = shuttleStatus("4:00 AM - 12:00 AM: Shuttle runs every 30 minutes.  12:00 AM - 4:00 AM: No shuttle.");
     expect(outsideShuttleHours(s, "12:00 AM")).toBe(false);
     expect(outsideShuttleHours(s, "12:30 AM")).toBe(true);
+  });
+});
+
+describe("shuttleStatus — review pass 2 regressions", () => {
+  it.each([
+    "No shuttle between 11 PM and 5 AM.",
+    "No shuttle after 11 PM.",
+    "No shuttle on Sundays",
+    "Shuttle suspended between 1 AM and 4 AM, every 15 minutes otherwise",
+    // structured rows that neither run nor say "No shuttle"
+    "6:00 AM - 11:00 PM: Shuttle runs every 30 minutes.  11:00 PM - 6:00 AM: Shuttle suspended.",
+    "6:00 AM - 11:00 PM: Shuttle runs every 30 minutes.  11:00 PM - 6:00 AM: Closed.",
+    // 24/7 that isn't about the shuttle, or is negated
+    "Lot open 24 hours. Shuttle every 30 minutes from 6 AM.",
+    "Shuttle does not run 24/7.",
+  ])("%s → unknown", (s) => {
+    expect(shuttleStatus(s).kind).toBe("unknown");
+  });
+
+  it("mostLotsRunShuttle: more than half must really run one", () => {
+    const run = { shuttleInfo: { summary: "24/7 every 15 minutes" } };
+    const none = { shuttleInfo: { summary: "No shuttle" } };
+    const unread = { shuttleInfo: { summary: "Shuttle to the terminal (about 10 min)" } };
+    expect(mostLotsRunShuttle([none])).toBe(false); // SAV, BUR
+    expect(mostLotsRunShuttle([run, none])).toBe(false); // FAT, OKC: half is not most
+    expect(mostLotsRunShuttle([run, run, unread])).toBe(true);
+    expect(mostLotsRunShuttle([run, unread, unread])).toBe(false);
+    expect(mostLotsRunShuttle([])).toBe(false);
   });
 });
 
