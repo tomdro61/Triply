@@ -325,12 +325,15 @@ function SearchPageContent() {
                   // here", so say so and offer a retry (lesson 5).
                   <div className="text-center py-12 px-4">
                     <p className="text-gray-700 font-medium">We couldn&apos;t load every lot for this search.</p>
+                    {/* The partial-results banner above already has a Try again. */}
+                    {!partialResults && (
                     <button
                       onClick={fetchResults}
                       className="mt-3 text-brand-orange font-semibold text-sm underline underline-offset-2"
                     >
                       Try again
                     </button>
+                    )}
                   </div>
                 ) : pricedAirport ? (
                   // The airport and dates the empty answer was for.

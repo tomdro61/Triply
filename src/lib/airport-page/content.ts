@@ -69,7 +69,7 @@ export function generateSEOContent(
         // no single number is true for every airport.
         `• **Check shuttle schedules** — Shuttle hours and frequency vary by lot; each lot's page shows its own.`,
         `• **Compare options** — Use Triply to see all ${totalLots} ${code} parking lots side by side with real-time rates.`,
-        `• **Allow extra time** — Plan to arrive 15–20 minutes earlier than you would for on-airport parking to account for the shuttle ride.`,
+        `• **Allow extra time** — Plan to arrive 15–20 minutes earlier than you would for on-airport parking to get from the lot to the terminal.`,
       ].join("\n"),
     },
   ];

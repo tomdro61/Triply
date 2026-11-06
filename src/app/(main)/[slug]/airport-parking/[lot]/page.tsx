@@ -331,7 +331,7 @@ export async function generateMetadata({ params, searchParams }: LotPageProps) {
     };
   }
 
-  const description = `Book ${lot.name} near ${airport.name}. ${lot.description?.slice(0, 150) || "Secure, affordable airport parking with free shuttle service."}`;
+  const description = `Book ${lot.name} near ${airport.name}. ${lot.description?.slice(0, 150) || "Compare rates and book airport parking online."}`;
   const ogImage = lot.photos?.[0]?.url || "/opengraph-image";
 
   return {

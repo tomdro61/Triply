@@ -40,7 +40,7 @@ Important: Only confirm coverage for airports listed above. If asked about an ai
 1. Search — Enter your airport, travel dates, and times
 2. Compare — Browse available parking lots, compare prices, amenities, and distance from the airport
 3. Book — Select your preferred lot and complete checkout with secure payment
-4. Park — Arrive at the facility, show your confirmation QR code, park your car, and take the free shuttle to the terminal
+4. Park — Arrive at the facility, check in as its instructions say, park your car, and get to the terminal by the lot's shuttle (if it runs one) or a short ride
 
 == FAQ: BOOKING & RESERVATIONS ==
 Q: How do I make a reservation?
@@ -85,7 +85,7 @@ Q: What do I do when I arrive?
 A: Show your confirmation QR code or email to the attendant. They'll verify your reservation and direct you to park your vehicle. Some facilities have self-service kiosks where you can scan your QR code.
 
 Q: How does the shuttle service work?
-A: Most of our partner facilities offer free shuttle service to and from the airport terminal. Shuttles typically run every 10-15 minutes. Check your specific facility's details for shuttle schedule and pickup locations.
+A: Many of our partner facilities run a shuttle to and from the airport terminal; some are a short walk, and a few have no shuttle (you take a taxi or rideshare). Hours, frequency and any fee vary by lot, so check your facility's shuttle details before you book and in your confirmation.
 
 Q: What if I arrive earlier or later than my reservation?
 A: Most facilities accommodate early arrivals and late returns within reason. However, if you arrive significantly earlier, you may be charged for the additional time. Contact the facility if you expect major changes to your schedule.
