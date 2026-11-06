@@ -342,7 +342,8 @@
       "paymentMethod": "Pay Online",
       "rateVerified": "2026-11-02",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06",
+      "reslabLocationId": 49
     },
     {
       "name": "Sheraton Suites Old Town Alexandria (DCA)",
@@ -365,7 +366,8 @@
       "paymentMethod": "Pay Online",
       "rateVerified": "2026-11-02",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06",
+      "reslabLocationId": 167
     },
     {
       "name": "DoubleTree by Hilton Crystal City",

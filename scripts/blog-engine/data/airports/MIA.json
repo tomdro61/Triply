@@ -1,7 +1,7 @@
 {
   "code": "MIA",
   "fullName": "Miami International Airport",
-  "lastVerified": "2026-11-01",
+  "lastVerified": "2026-11-06",
   "overview": {
     "location": "Unincorporated Miami-Dade County, Florida — 8 miles west of downtown Miami",
     "iataCode": "MIA",
@@ -243,7 +243,7 @@
       "freeCancellation": true,
       "notes": "24/7 shuttle is a strong advantage. Valet option at $6.95/day is one of the cheapest in the market.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Green Airport Parking (MIA)",
@@ -259,7 +259,7 @@
       "freeCancellation": true,
       "notes": "WARNING: No shuttle outside 8 AM - 8 PM. Not suitable for early morning or late night flights. Closest off-site lot by distance.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "EVEN Hotel Miami",
@@ -275,9 +275,10 @@
       "freeCancellation": true,
       "notes": "Best covered off-site option. 24/7 shuttle + covered parking at $7.99/day is excellent value. Good for travelers worried about Florida sun/rain.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 436
     },
     {
       "name": "MIA Park Pro",
@@ -294,7 +295,7 @@
       "rating": "4.5/5",
       "notes": "Furthest off-site lot but 24/7 shuttle. Good for budget-conscious long-term parkers.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "La Quinta Inn & Suites Miami Airport East",
@@ -310,9 +311,10 @@
       "freeCancellation": true,
       "notes": "Shuttle only runs 5 AM - 10 PM hourly. Not ideal for late night flights but covers most departure times.",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01",
+      "rateVerified": "2026-11-06",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06",
+      "reslabLocationId": 409
     },
     {
       "name": "Hampton Inn Miami Airport West",
@@ -329,7 +331,109 @@
       "rating": "4.8/5",
       "notes": "4:30 AM first shuttle covers early morning flights. On-demand pickup from airport is nice. Limited handicap spaces.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
+    },
+    {
+      "name": "Courtyard by Marriott Miami Airport West/Doral",
+      "slug": "courtyard-by-marriott-miami-airport-west-doral",
+      "reslabLocationId": 567,
+      "address": "3929 NW 79th Ave, Miami, FL",
+      "distanceFromAirport": "2.5 mi",
+      "phone": "(305) 477-8118",
+      "shuttleInfo": "5:00 AM - 11:00 PM: Shuttle runs every 1 hour. 11:00 PM - 5:00 AM: No shuttle.",
+      "amenities": ["24/7 Front Desk", "Restaurant"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 8.01,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+    },
+    {
+      "name": "Bayfront Garage Miami",
+      "slug": "bayfront-garage-miami",
+      "reslabLocationId": 406,
+      "address": "255 Northeast 1st Street  Miami, FL",
+      "distanceFromAirport": "6.2 mi",
+      "phone": "+1 267-614-1437",
+      "shuttleInfo": "No shuttle",
+      "amenities": ["24/7 Front Desk", "Covered/Garage", "Wheelchair Access"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 8.4,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled",
+      "notes": "Added by lot-sync: looks like a cruise-port/downtown lot, not an airport-shuttle lot — do not use in CTAs until a human confirms it serves the airport."
+    },
+    {
+      "name": "Holiday Inn Miami Airport",
+      "slug": "holiday-inn-miami-airport",
+      "reslabLocationId": 384,
+      "address": "1111 S Royal Poinciana Blvd",
+      "distanceFromAirport": "1.7 mi",
+      "phone": "(305) 885-1941",
+      "shuttleInfo": "24/7 On demand",
+      "amenities": ["Security", "24/7 Front Desk", "Restaurant"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 12.14,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled",
+      "rateSpreadPct": 26.94
+    },
+    {
+      "name": "Hilton Miami Airport Blue Lagoon",
+      "slug": "hilton-miami-airport-blue-lagoon",
+      "reslabLocationId": 574,
+      "address": "5101 Waterford District Dr, Miami, FL",
+      "distanceFromAirport": "1.1 mi",
+      "phone": "305-262-1000",
+      "shuttleInfo": "4:00 AM - 1:00 AM: Shuttle runs every 30 minutes. 1:00 AM - 4:00 AM: No shuttle.",
+      "amenities": ["24/7 Front Desk", "Restaurant"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 12.11,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+    },
+    {
+      "name": "WePark in Miami Cruise Parking",
+      "slug": "wepark-in-miami-cruise-parking",
+      "reslabLocationId": 256,
+      "address": "1634 North Bayshore Drive, Miami, FL",
+      "distanceFromAirport": "6.2 mi",
+      "phone": "(305) 928-5462",
+      "shuttleInfo": "To Cruise Terminal: 11 AM - 2:30 PM, every 30 minutesFrom Cruise Terminal: 7 AM - 2:30 PM, every 30 minutes",
+      "amenities": ["Security"],
+      "minimumBookingDays": 3,
+      "paymentMethod": "Pay Online",
+      "dailyRate": 15.41,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled",
+      "notes": "Added by lot-sync: looks like a cruise-port/downtown lot, not an airport-shuttle lot — do not use in CTAs until a human confirms it serves the airport."
+    },
+    {
+      "name": "Premier Cruise Parking",
+      "slug": "premier-cruise-parking",
+      "reslabLocationId": 218,
+      "address": "250 SE 3rd Avenue",
+      "distanceFromAirport": "6.3 mi",
+      "phone": "1-800-435-3195",
+      "shuttleInfo": "Disembarkation: 7:30 AM to 10:45 AM, every 30 minutesEmbarkation: 11 AM to 3:15 PM, every 30 minutes",
+      "amenities": ["Wheelchair Access", "Security", "Covered/Garage"],
+      "minimumBookingDays": 3,
+      "paymentMethod": "Pay at Location",
+      "dailyRate": 16.92,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled",
+      "notes": "Added by lot-sync: looks like a cruise-port/downtown lot, not an airport-shuttle lot — do not use in CTAs until a human confirms it serves the airport."
     }
   ],
   "shuttleInfo": "On-airport: FREE MIA Mover connects terminal to Miami Intermodal Center (Metrorail, Tri-Rail, rental cars) every 2-3 minutes, 24/7. Economy Park & Ride has free 24/7 shuttle. Off-site: Most lots include free shuttle — frequency varies from on-demand (Deal Airport Parking, EVEN Hotel) to hourly (La Quinta, Hampton Inn). CRITICAL: Some off-site lots have NO shuttle outside limited hours — verify before booking for early/late flights.",

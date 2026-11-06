@@ -1,7 +1,7 @@
 {
   "code": "MCO",
   "fullName": "Orlando International Airport",
-  "lastVerified": "2026-11-01",
+  "lastVerified": "2026-11-06",
   "overview": {
     "location": "Orlando, Orange County, Florida — 6 miles southeast of downtown Orlando",
     "iataCode": "MCO",
@@ -244,7 +244,7 @@
       "freeCancellation": true,
       "notes": "Established national brand with consistent service. Covered parking costs more but protects from Florida sun and afternoon thunderstorms. Loyalty rewards program available. 24/7 shuttle is reliable.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "WallyPark (MCO)",
@@ -260,7 +260,7 @@
       "freeCancellation": true,
       "notes": "One of the few off-site lots with EV charging. Covered parking ideal for Florida weather. Continuous-loop shuttle minimizes wait times.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Fast Park & Relax (MCO)",
@@ -276,7 +276,7 @@
       "freeCancellation": true,
       "notes": "All covered parking — important advantage in Florida's heat and rain. Fast check-in process speeds up drop-off. Good mid-range option.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Drive & Park (MCO)",
@@ -292,7 +292,7 @@
       "freeCancellation": true,
       "notes": "Best budget off-site option at MCO. Locally owned. Uncovered parking — consider Florida sun exposure on your vehicle. 24-hour cancellation policy required for refund.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Renaissance Orlando Airport Hotel Parking",
@@ -308,7 +308,7 @@
       "freeCancellation": true,
       "notes": "Closest covered off-site option. Hotel-quality parking garage. Good for travelers wanting protection from Florida weather at a mid-range price.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Homewood Suites Orlando Airport Parking",
@@ -324,7 +324,7 @@
       "freeCancellation": true,
       "notes": "Good value hotel parking. Gated lot adds security. Popular park-sleep-fly option when combined with overnight stay.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Gold Park Orlando Airport",
@@ -342,9 +342,10 @@
       "phone": "407-601-4508",
       "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 431
     },
     {
       "name": "Omni Airport Parking",
@@ -358,9 +359,10 @@
       "phone": "(407) 326-6676",
       "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 68
     },
     {
       "name": "Holiday Inn Orlando Airport",
@@ -377,9 +379,10 @@
       "phone": "407-851-6400",
       "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 328
     },
     {
       "name": "Best Rate Airport Parking",
@@ -398,10 +401,11 @@
       "phone": "1-888-422-3782",
       "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay at Location",
-      "rateVerified": "2026-11-01",
-      "rateSpreadPct": 246.82
+      "rateVerified": "2026-11-06",
+      "rateSpreadPct": 246.82,
+      "reslabLocationId": 203
     }
   ],
   "shuttleInfo": "On-airport: Free 24/7 shuttles connect the economy lots to the terminals (North Park Place → Terminal A, South Park Place → Terminals B and C, West Park → Terminals A and C). Off-site: All major off-site lots include free shuttle service — most run 24/7 with 5-15 minute frequency. Theme park shuttles: Mears Connect to Disney ($32 RT), SuperStar Shuttle to Universal ($39 RT). CRITICAL: Disney's free Magical Express no longer exists — all MCO-to-Disney transportation is now paid.",

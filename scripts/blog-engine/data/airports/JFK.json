@@ -1,7 +1,7 @@
 {
   "code": "JFK",
   "fullName": "John F. Kennedy International Airport",
-  "lastVerified": "2026-11-01",
+  "lastVerified": "2026-11-06",
   "overview": {
     "location": "Queens, New York — 16 miles southeast of Midtown Manhattan",
     "passengerVolume": "55+ million passengers per year",
@@ -179,9 +179,10 @@
       "freeCancellation": true,
       "knownCoupons": ["PARKJFK7 ($7 off)", "Up to 20% off via coupon aggregators"],
       "notes": "JFK construction may affect shuttle times. Every 7th day free on their direct website at $24.95/day.",
-      "rateVerified": "2026-11-01",
+      "rateVerified": "2026-11-06",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06",
+      "reslabLocationId": 428
     },
     {
       "name": "Purchase Park 2 Fly (JFK)",
@@ -201,16 +202,17 @@
       "freeCancellation": true,
       "knownCoupons": ["PARKJFK7 ($7 off)", "JFK319 ($8 off via AirportParkingReservations)"],
       "notes": "Third driveway on the right when traveling on South Conduit Avenue. Must leave keys.",
-      "rateVerified": "2026-11-01",
+      "rateVerified": "2026-11-06",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06",
+      "reslabLocationId": 199
     },
     {
       "name": "DoubleTree by Hilton (JFK)",
       "slug": "doubletree-by-hilton-jfk",
-      "dailyRate": 17.42,
-      "totalFor6Days": 115.07,
-      "taxesFor6Days": 10.58,
+      "dailyRate": 22.54,
+      "totalFor6Days": 148.93,
+      "taxesFor6Days": 13.69,
       "paymentMethod": "Pay Online",
       "distanceFromAirport": "2.1 mi",
       "driveTime": "5 minutes",
@@ -223,9 +225,10 @@
       "freeCancellation": true,
       "knownCoupons": ["JFK319 ($8 off via AirportParkingReservations)"],
       "notes": "No taxes on Triply rate. Renovation traffic warning — arrive at least 3 hours before flight. Must leave keys.",
-      "rateVerified": "2026-11-01",
+      "rateVerified": "2026-11-06",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06",
+      "reslabLocationId": 132
     },
     {
       "name": "Bolt Parking (JFK)",
@@ -245,16 +248,17 @@
       "freeCancellation": true,
       "knownCoupons": ["PARKJFK7 ($7 off)", "JFK319 ($8 off)", "Up to 70% off via aggregators"],
       "notes": "Direct website rate starts at $18.99/day. Must leave keys.",
-      "rateVerified": "2026-11-01",
+      "rateVerified": "2026-11-06",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06",
+      "reslabLocationId": 415
     },
     {
       "name": "ARB Parking (JFK)",
       "slug": "arb-parking-jfk",
-      "dailyRate": 16.51,
-      "totalFor6Days": 109.46,
-      "taxesFor6Days": 10.41,
+      "dailyRate": 19.96,
+      "totalFor6Days": 132.33,
+      "taxesFor6Days": 12.58,
       "paymentMethod": "Pay at Location",
       "distanceFromAirport": "2.5 mi",
       "driveTime": "5 minutes",
@@ -267,17 +271,18 @@
       "freeCancellation": true,
       "knownCoupons": ["PARKJFK7 ($7 off)", "B2PD25 ($3 off via Book2Park)", "Groupon deals available"],
       "notes": "Surcharge for SUVs: small SUV $5/day extra, large SUV/truck $7/day extra. Available on Groupon. Direct rate from $12.95/day.",
-      "rateVerified": "2026-11-01",
+      "rateVerified": "2026-11-06",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
-      "rateSpreadPct": 20.9
+      "sellableCheckedOn": "2026-11-06",
+      "rateSpreadPct": 25.08,
+      "reslabLocationId": 237
     },
     {
       "name": "PARK AC JFK Airport Parking (JFK)",
       "slug": "park-ac-jfk-airport-parking-jfk",
-      "dailyRate": 15.7,
-      "totalFor6Days": 103.5,
-      "taxesFor6Days": 9.31,
+      "dailyRate": 18.5,
+      "totalFor6Days": 121.96,
+      "taxesFor6Days": 10.97,
       "paymentMethod": "Pay at Location",
       "distanceFromAirport": "2.5 mi (0.5 mi direct)",
       "driveTime": "5 minutes",
@@ -290,10 +295,11 @@
       "freeCancellation": true,
       "knownCoupons": ["PARKJFK7 ($7 off)", "Groupon deals available"],
       "notes": "Lowest daily rate for JFK-proximity lots. JFK renovation may cause traffic delays — arrive 3 hours before flight. Mixed reviews on pickup wait times.",
-      "rateVerified": "2026-11-01",
+      "rateVerified": "2026-11-06",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
-      "rateSpreadPct": 36.03
+      "sellableCheckedOn": "2026-11-06",
+      "rateSpreadPct": 54.05,
+      "reslabLocationId": 275
     },
     {
       "name": "Parking 4 Airport (JFK)",
@@ -315,7 +321,7 @@
       "notes": "NO overnight shuttle — must use rideshare after 9 PM. Arrive 30-60 min before desired airport time. Farther away than other options.",
       "rateVerified": "2026-09-14",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Hyatt Place Flushing - LAZ Parking (LGA)",
@@ -337,7 +343,7 @@
       "notes": "Technically an LGA lot but appears in JFK search results. Covered/indoor parking. No oversized vehicles. Arrive 2 hours before flight. Limited shuttle hours.",
       "rateVerified": "2026-10-05",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Queens Crossing - LAZ Parking (LGA)",
@@ -359,7 +365,71 @@
       "notes": "Cheapest option but 8.7 mi from JFK. LGA lot appearing in JFK results. Limited availability badge shown. Must print receipt — no receipt = no service, no refund. Arrive 2 hours before flight. Limited shuttle hours.",
       "rateVerified": "2026-10-05",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
+    },
+    {
+      "name": "The Parking Point JFK",
+      "slug": "the-parking-point-jfk",
+      "address": "150-57 183rd St",
+      "distanceFromAirport": "1.3 mi",
+      "phone": "+1 (347) 960-7065",
+      "shuttleInfo": "Shuttle to the terminal (about 10 min)",
+      "paymentMethod": "Pay Online",
+      "dailyRate": 9.95,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+    },
+    {
+      "name": "A1 JFK Park",
+      "slug": "a1-jfk-park",
+      "reslabLocationId": 561,
+      "address": "153-44 S Conduit Ave, Jamaica, Queens, NY",
+      "distanceFromAirport": "1.7 mi",
+      "phone": "929-246-2113",
+      "shuttleInfo": "24/7 every 10 minutes",
+      "amenities": ["Valet", "Covered/Garage", "24/7 Front Desk"],
+      "paymentMethod": "Pay at Location",
+      "dailyRate": 26.22,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled",
+      "rateSpreadPct": 25.27
+    },
+    {
+      "name": "Hampton Inn John F. Kennedy Airport",
+      "slug": "hampton-inn-john-f-kennedy-airport",
+      "reslabLocationId": 304,
+      "address": "144-10 135 Avenue, Jamaica, NY",
+      "distanceFromAirport": "2 mi",
+      "phone": "718-322-7500",
+      "shuttleInfo": "24/7 every 30 minutes",
+      "amenities": ["Valet", "Restaurant"],
+      "minimumBookingDays": 2,
+      "paymentMethod": "Pay Online",
+      "dailyRate": 29.11,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+    },
+    {
+      "name": "TWA Hotel",
+      "slug": "twa-hotel",
+      "reslabLocationId": 573,
+      "address": "1 Idlewild Dr, JFK International Airport, NY",
+      "distanceFromAirport": "0.3 mi",
+      "phone": "212-806-9000",
+      "shuttleInfo": "Airtrain directly to airport",
+      "amenities": ["24/7 Front Desk", "Valet", "Restaurant"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 38.17,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
     }
   ],
   "couponCodes": {

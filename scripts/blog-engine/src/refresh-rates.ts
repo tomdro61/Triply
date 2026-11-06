@@ -36,7 +36,8 @@
  *  2. It never writes from a degraded response. The API sets `degraded` / `stale` /
  *     `listIncomplete` when the lot list or the per-lot pricing calls were only partly
  *     successful. Writing a thin result would silently corrupt the catalogue AND bump
- *     `lastVerified`, hiding the damage behind a fresh date.
+ *     `lastVerified`, hiding the damage behind a fresh date. `ownAirportFallback` (own lots all
+ *     sold out, so the radius list is returned under this airport's code) is refused the same way.
  *
  *  3. It only bumps top-level `lastVerified` when every lot PRESENT in live search was
  *     re-verified (see --min-coverage), and at least one lot is present. Fuzzy-skipped,
@@ -85,19 +86,32 @@
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath, pathToFileURL } from 'url'
+import { isCanadianAirport } from './airport-data.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DATA_DIR = path.resolve(__dirname, '..', 'data', 'airports')
 const REPORTS_DIR = path.resolve(__dirname, '..', 'reports')
 
-/** Our own public search API. Override for a preview deployment or localhost. */
-const SITE = (process.env.TRIPLY_SITE_URL || 'https://www.triplypro.com').replace(/\/$/, '')
+export const PRODUCTION_SITE = 'https://www.triplypro.com'
+
+/**
+ * Our own public search API. Override for a preview deployment or localhost — for a DRY RUN only: staging and
+ * previews use a separate ResLab account (different ids, test lots not hidden), so --apply refuses any other site.
+ */
+export const SITE = (process.env.TRIPLY_SITE_URL || PRODUCTION_SITE).replace(/\/$/, '')
+
+/** Why --apply must not write from SITE, or null when it may (review of #160). */
+export function nonProductionReason(site: string = SITE): string | null {
+  return site === PRODUCTION_SITE
+    ? null
+    : `TRIPLY_SITE_URL is ${site}, not ${PRODUCTION_SITE}: staging/previews use a separate ResLab account, so its ids and lots must never reach the data files — dry run only`
+}
 
 /** ResLab refuses check-ins beyond this many days out (frontend: MAX_ADVANCE_BOOKING_DAYS). */
 const MAX_ADVANCE_BOOKING_DAYS = 60
 
 /** Days ahead to sample first. Far enough to be a normal advance booking, inside the 60d window. */
-const DEFAULT_LEAD_DAYS = 21
+export const DEFAULT_LEAD_DAYS = 21
 
 /**
  * How many check-in dates to price before believing a rate, and how far apart.
@@ -114,43 +128,52 @@ const DEFAULT_SAMPLES = 3
 const SAMPLE_SPACING_DAYS = 12
 
 /** Stay length used for lots that carry no totalFor<N>Days of their own. */
-const DEFAULT_DAYS = 7
+export const DEFAULT_DAYS = 7
 
 /** A move beyond this ratio is treated as a bad join, not a price change. */
-const MAX_PLAUSIBLE_RATIO = 3
+export const MAX_PLAUSIBLE_RATIO = 3
 
 /** Dice coefficient over name tokens at or above this is offered as a fuzzy match. */
-const FUZZY_THRESHOLD = 0.8
+export const FUZZY_THRESHOLD = 0.8
 
-const SLEEP_MS = 1200
+export const SLEEP_MS = 1200
 
-interface LivePricing {
+export interface LivePricing {
   minPrice?: number
   grandTotal?: number
   subtotal?: number
   feesTotal?: number
   taxTotal?: number
   numberOfDays?: number
+  /** ResLab prices Canadian lots in CAD (checkout charged that number as USD until #154 hid them). */
+  currencyCode?: string
 }
 
-interface LiveLot {
+export interface LiveLot {
   name: string
   slug?: string
+  /** Stable ResLab id. Matched first: names and addresses drift between the file and the listing. */
+  reslabLocationId?: number | null
   address?: string | null
   pricing?: LivePricing
   availability?: string
   dueAtLocation?: boolean
 }
 
-interface SearchResponse {
+export interface SearchResponse {
   results?: LiveLot[]
   total?: number
   degraded?: boolean
   stale?: boolean
   listIncomplete?: boolean
+  /** Every own-airport lot was sold out, so search returned the whole radius list stamped with THIS airport's code. */
+  ownAirportFallback?: boolean
+  /** The ResLab or the direct-lot (CMS) read failed: results hold only the other source, and are NOT flagged degraded. */
+  reslabUnavailable?: boolean
+  directUnavailable?: boolean
 }
 
-type CatalogueLot = Record<string, unknown> & { name: string; slug?: string; dailyRate?: number }
+export type CatalogueLot = Record<string, unknown> & { name: string; slug?: string; dailyRate?: number }
 
 interface Change {
   field: string
@@ -211,9 +234,9 @@ export function coverageDecision(
 // Catalogue and live names share a convention ("Safe Park (JFK)"), because the
 // newer airport files were captured from this same API. Stripping the airport
 // parenthetical and punctuation matches 9/9 JFK lots and 8/9 LGA lots exactly.
-const STOP = new Set(['airport', 'parking', 'lot', 'the', 'by', 'at', 'and', 'a', 'of', 'inc', 'llc'])
+export const STOP = new Set(['airport', 'parking', 'lot', 'the', 'by', 'at', 'and', 'a', 'of', 'inc', 'llc'])
 
-function normName(n: string): string {
+export function normName(n: string): string {
   return n
     .toLowerCase()
     .replace(/\([a-z]{3}\)/g, ' ')
@@ -222,33 +245,33 @@ function normName(n: string): string {
     .replace(/\s+/g, ' ')
 }
 
-function nameTokens(n: string): Set<string> {
+export function nameTokens(n: string): Set<string> {
   return new Set(normName(n).split(' ').filter((t) => t && !STOP.has(t)))
 }
 
 /** House number + first street tokens — enough to identify, loose enough to survive formatting. */
-function normAddress(a: unknown): string | null {
+export function normAddress(a: unknown): string | null {
   if (typeof a !== 'string' || !a.trim()) return null
   const t = a.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(Boolean)
   return t.length ? t.slice(0, 3).join(' ') : null
 }
 
-function dice(a: Set<string>, b: Set<string>): number {
+export function dice(a: Set<string>, b: Set<string>): number {
   if (!a.size || !b.size) return 0
   let inter = 0
   for (const t of a) if (b.has(t)) inter++
   return (2 * inter) / (a.size + b.size)
 }
 
-function round2(n: number): number {
+export function round2(n: number): number {
   return Math.round(n * 100) / 100
 }
 
-function iso(d: Date): string {
+export function iso(d: Date): string {
   return d.toISOString().slice(0, 10)
 }
 
-function sleep(ms: number): Promise<void> {
+export function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms))
 }
 
@@ -264,7 +287,7 @@ function sleep(ms: number): Promise<void> {
 // silently corrupt a file.
 
 /** Walk `text` from `from`, returning the index just past the value starting there. */
-function endOfValue(text: string, from: number): number {
+export function endOfValue(text: string, from: number): number {
   let i = from
   while (i < text.length && /\s/.test(text[i])) i++
   const c = text[i]
@@ -301,7 +324,7 @@ function endOfValue(text: string, from: number): number {
 }
 
 /** Spans of the top-level elements of the root-level array named `key`. */
-function arrayElementSpans(text: string, key: string): { start: number; end: number }[] {
+export function arrayElementSpans(text: string, key: string): { start: number; end: number }[] {
   const m = new RegExp(`"${key}"\\s*:\\s*\\[`).exec(text)
   if (!m) return []
   let i = m.index + m[0].length
@@ -368,11 +391,21 @@ function insertInSpan(text: string, start: number, end: number, key: string, jso
  * then verify the result parses to `expected` before returning it. Returns null if
  * the surgery did not reproduce the intended object — the caller must not write.
  */
-function writeSurgically(
+export function writeSurgically(
   text: string,
   edits: { lotIndex: number; field: string; value: unknown }[],
   newLastVerified: string | null,
   expected: unknown
+): string | null {
+  const out = applyLotEdits(text, edits, newLastVerified)
+  return out !== null && reproduces(out, expected) ? out : null
+}
+
+/** The in-place edits alone, without the reproduction check (lot-sync appends lots before checking). */
+export function applyLotEdits(
+  text: string,
+  edits: { lotIndex: number; field: string; value: unknown }[],
+  newLastVerified: string | null
 ): string | null {
   const spans = arrayElementSpans(text, 'parkingLots')
   let out = text
@@ -412,6 +445,11 @@ function writeSurgically(
     const vStart = m.index + m[1].length
     out = out.slice(0, vStart) + JSON.stringify(newLastVerified) + out.slice(endOfValue(out, vStart))
   }
+  return out
+}
+
+/** True when `out` parses to exactly `expected`; logs where it diverges otherwise. */
+export function reproduces(out: string, expected: unknown): boolean {
   try {
     const got = JSON.stringify(JSON.parse(out))
     const want = JSON.stringify(expected)
@@ -421,13 +459,13 @@ function writeSurgically(
       console.log(`     surgery mismatch at char ${i}:`)
       console.log(`       wanted …${want.slice(Math.max(0, i - 70), i + 70)}`)
       console.log(`       got    …${got.slice(Math.max(0, i - 70), i + 70)}`)
-      return null
+      return false
     }
   } catch (e) {
     console.log(`     surgery produced invalid JSON: ${(e as Error).message}`)
-    return null
+    return false
   }
-  return out
+  return true
 }
 
 // ── the live call ────────────────────────────────────────────────────────────
@@ -437,8 +475,37 @@ function writeSurgically(
  * Returns null when the response is unusable — the caller must then leave the file
  * alone rather than write a partial refresh.
  */
-async function fetchLive(code: string, days: number, leadDays: number): Promise<LiveLot[] | null> {
-  const lead = Math.min(leadDays, MAX_ADVANCE_BOOKING_DAYS - (days - 1))
+/** The check-in lead fetchLive actually uses: the requested lead, pulled in so the stay fits the booking window. */
+export function effectiveLead(days: number, leadDays: number): number {
+  return Math.min(leadDays, MAX_ADVANCE_BOOKING_DAYS - (days - 1))
+}
+
+/**
+ * Why a search response must not be acted on, or null when it is usable. `ownAirportFallback` counts: when every
+ * own-airport lot is sold out, search returns the full radius list (other airports' lots included) stamped with the
+ * searched airport's code, so neither "present" nor "absent" can be trusted for that sample.
+ */
+export function unusableReason(body: SearchResponse, expectedCurrency = 'USD'): string | null {
+  if (body.degraded || body.stale || body.listIncomplete) {
+    return `response flagged degraded=${body.degraded} stale=${body.stale} listIncomplete=${body.listIncomplete}`
+  }
+  if (body.ownAirportFallback === true) {
+    return "ownAirportFallback: own lots sold out, results are the radius list (other airports' lots, stamped with this code)"
+  }
+  // One source failed and the answer is the other source alone, without `degraded`. Every lot of the missing source
+  // would read as gone (review of #160: a CMS outage on both dates would mark The Parking Point JFK unsellable).
+  if (body.reslabUnavailable === true || body.directUnavailable === true) {
+    return `one inventory source failed (reslabUnavailable=${body.reslabUnavailable === true} directUnavailable=${body.directUnavailable === true})`
+  }
+  // A price in another currency than the file's (CAD lots while the file is USD, or the reverse) must not become a
+  // dailyRate the writer prints with the file's sign.
+  const other = (body.results ?? []).find((r) => r.pricing?.currencyCode && r.pricing.currencyCode.toUpperCase() !== expectedCurrency.toUpperCase())
+  if (other) return `${other.name} is priced in ${other.pricing!.currencyCode}, the file in ${expectedCurrency}`
+  return null
+}
+
+export async function fetchLive(code: string, days: number, leadDays: number): Promise<LiveLot[] | null> {
+  const lead = effectiveLead(days, leadDays)
   if (lead < 1) {
     console.log(`  ! ${code}: a ${days}-day stay does not fit inside the ${MAX_ADVANCE_BOOKING_DAYS}-day booking window`)
     return null
@@ -466,11 +533,9 @@ async function fetchLive(code: string, days: number, leadDays: number): Promise<
   }
 
   const body = (await res.json()) as SearchResponse
-  if (body.degraded || body.stale || body.listIncomplete) {
-    console.log(
-      `  ! ${code}: response flagged degraded=${body.degraded} stale=${body.stale} ` +
-        `listIncomplete=${body.listIncomplete} — refusing to write from a partial result`
-    )
+  const why = unusableReason(body, isCanadianAirport(code) ? 'CAD' : 'USD')
+  if (why) {
+    console.log(`  ! ${code}: ${why} — refusing to write from it`)
     return null
   }
   return body.results ?? []
@@ -478,10 +543,19 @@ async function fetchLive(code: string, days: number, leadDays: number): Promise<
 
 // ── matching ─────────────────────────────────────────────────────────────────
 
-function findMatch(
+export function findMatch(
   lot: CatalogueLot,
   live: LiveLot[]
 ): { live: LiveLot; via: 'name' | 'address' | 'fuzzy'; score: number } | null {
+  // The ResLab id survives renames ("Apex EWR Airport Parking" is listed as "Apex Airport Parking"); lot-sync writes it.
+  // A lot WITH an id that this sample does not carry is absent from it: falling back to name/address/fuzzy would
+  // let a different lot with a similar name stand in for it. (Only when the sample carries ids at all — a response
+  // without them says nothing either way, so the name tiers still apply.)
+  if (typeof lot.reslabLocationId === 'number') {
+    const byId = live.find((r) => r.reslabLocationId === lot.reslabLocationId)
+    if (byId) return { live: byId, via: 'name', score: 1 }
+    if (live.some((r) => typeof r.reslabLocationId === 'number')) return null
+  }
   const key = normName(lot.name)
   const exact = live.find((r) => normName(r.name) === key)
   if (exact) return { live: exact, via: 'name', score: 1 }
@@ -507,7 +581,7 @@ function findMatch(
 }
 
 /** The N in this lot's totalFor<N>Days, if it has one. */
-function lotDays(lot: CatalogueLot): number | null {
+export function lotDays(lot: CatalogueLot): number | null {
   for (const k of Object.keys(lot)) {
     const m = /^totalFor(\d+)Days$/.exec(k)
     if (m) return Number(m[1])
@@ -564,6 +638,12 @@ async function refreshAirport(
       await sleep(SLEEP_MS)
     }
     byDays.set(n, perSample)
+  }
+  // No lots on any sample is not evidence that every lot is gone (all sold out, or an outage answered with an
+  // unflagged empty list) — lot-sync has the same rule. Without this, every lot would be marked sellable:false.
+  if ([...byDays.values()].every((ps) => ps.every((s) => s.length === 0))) {
+    console.log(`  ! ${code}: live search returned no lots on any sample — not writing`)
+    return null
   }
 
   const today = iso(new Date())
@@ -793,6 +873,11 @@ async function main(): Promise<void> {
         .sort()
 
   console.log(`refresh-rates — ${codes.length} airport(s) via ${SITE}/api/search`)
+  const notProd = nonProductionReason()
+  if (apply && !coverageOnly && notProd) {
+    console.error(`  refusing --apply: ${notProd}`)
+    process.exit(1)
+  }
   console.log(
     `  stay ${defaultDays} day(s), ${samples} check-in date(s) from +${leadDays}d every ${SAMPLE_SPACING_DAYS}d (median wins), ` +
       `${apply && !coverageOnly ? 'APPLYING' : 'DRY RUN (pass --apply to write)'}`

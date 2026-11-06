@@ -1,7 +1,7 @@
 {
   "code": "DTW",
   "fullName": "Detroit Metropolitan Wayne County Airport",
-  "lastVerified": "2026-11-02",
+  "lastVerified": "2026-11-06",
   "overview": {
     "location": "Romulus, Michigan — 21 miles southwest of downtown Detroit in Wayne County",
     "iataCode": "DTW",
@@ -342,7 +342,7 @@
       "freeCancellation": true,
       "notes": "Lowest off-site rate at $6.00/day pre-booked. 30-shuttle fleet means very short waits. Best overall value for budget-conscious travelers.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Airlines Parking (DTW)",
@@ -363,7 +363,7 @@
       "freeCancellation": true,
       "notes": "Very close to airport — only 5-minute shuttle ride. 24/7 on-demand shuttle. Good balance of price and convenience.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Qwik Park (DTW)",
@@ -387,7 +387,7 @@
       "freeCancellation": true,
       "notes": "Premium off-site option with car services (wash, oil change, detailing). Covered parking available. Park-stay-fly hotel packages available through partners. Closest major off-site lot.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Valet Connections (DTW)",
@@ -412,9 +412,9 @@
       "phone": "(734) 992-4946",
       "notes": "Bring the reservation (phone or printed). 2-day minimum; book at least 1 hour ahead. Arrive before the airline 2-hour window. Late pickups are charged extra. Most of the price is paid at the lot (Nov 2-9: $82.00 of $94.00). Old claims \"every 5-10 minutes\" and \"fully insured drivers\" are not in the live listing.",
       "paymentMethod": "Pay at Location",
-      "rateVerified": "2026-11-02",
+      "rateVerified": "2026-11-06",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "totalFor8Days": 94,
       "sampleQuote": "$94.00 total for Nov 2-9, 2026 (billed as 8 days: $88.00 + $6.00 lot fees + $0.00 tax), before Triply service fee; $82.00 of it is paid at the lot",
       "reslabLocationId": 67,
@@ -442,7 +442,7 @@
       "freeCancellation": true,
       "notes": "Good mid-range option. A bit further than US Park or Airlines Parking but still affordable. Weekly rate of ~$102 available.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Clarion Hotel Detroit Metro Airport (Park Sleep Fly)",
@@ -463,14 +463,14 @@
       "freeCancellation": true,
       "notes": "Park-sleep-fly option available. Higher daily rate but 24/7 shuttle and hotel amenities access. Good for travelers with early flights.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Detroit Metro Airport Marriott",
       "slug": "detroit-metro-airport-marriott",
-      "dailyRate": 10.4,
-      "reservationRate": 10.4,
-      "totalFor8Days": 104.54,
+      "dailyRate": 9.45,
+      "reservationRate": 9.45,
+      "totalFor8Days": 95.04,
       "sampleQuote": "$104.54 total for Nov 2-9, 2026 (billed as 8 days: $79.20 + $3.96 lot fees + $21.38 tax), before Triply service fee",
       "parkingType": "Uncovered self-park (hotel lot, operated by Towne)",
       "amenities": [
@@ -488,11 +488,11 @@
       "reslabLocationId": 492,
       "notes": "Lowest base rate at DTW ($10.40/day) but the listing adds ~27% tax: the Nov 2-9 checkout is $104.54 ($13.07/day all-in), the highest of the four. Shuttle is on demand (~30 min wait), not scheduled.",
       "freeCancellation": true,
-      "rateVerified": "2026-11-02",
+      "rateVerified": "2026-11-06",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "driveTime": "~3 minutes",
-      "taxesFor8Days": 21.38,
+      "taxesFor8Days": 19.44,
       "paymentMethod": "Pay Online"
     },
     {
@@ -517,9 +517,9 @@
       "reslabLocationId": 491,
       "notes": "Lowest checkout total at DTW ($92.93 for Nov 2-9 incl. fees and tax). Shuttle only hourly - leave time.",
       "freeCancellation": true,
-      "rateVerified": "2026-11-02",
+      "rateVerified": "2026-11-06",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "driveTime": "~5 minutes",
       "taxesFor8Days": 5.04,
       "paymentMethod": "Pay Online"
@@ -546,14 +546,30 @@
       "reslabLocationId": 149,
       "notes": "Farthest sellable lot (7.1 mi, Belleville). 3-day minimum. Most of the price is paid at the lot (Nov 2-9: $83.65 of $96.60).",
       "freeCancellation": true,
-      "rateVerified": "2026-11-02",
+      "rateVerified": "2026-11-06",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "minimumBookingDays": 3,
       "paymentMethod": "Pay at Location",
       "dueAtLocation": true,
       "dueAtLocationAmount": 83.65,
       "taxesFor8Days": 0
+    },
+    {
+      "name": "Radisson Hotel Detroit Metro Airport",
+      "slug": "radisson-hotel-detroit-metro-airport",
+      "reslabLocationId": 335,
+      "address": "8800 Wickham Road, Romulus, MI",
+      "distanceFromAirport": "2 mi",
+      "phone": "734-729-9000",
+      "shuttleInfo": "Shuttle runs 24/7, every 30 minutes",
+      "amenities": ["Security", "24/7 Front Desk", "Restaurant", "Free Internet/Wifi", "Breakfast Included", "Room Service"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 10.45,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
     }
   ],
   "shuttleInfo": "On-airport: free shuttles run between on-airport lots (Green Lot) and the Ground Transportation Center at both terminals (frequency not stated on metroairport.com). You cannot walk between McNamara and Evans terminals - use the free airport shuttle. ExpressTram inside McNamara Concourse A. Off-site (Triply): Valet Connections 24 hours every 10-15 min, pickups on demand; Detroit Metro Airport Marriott 24/7 on demand (~30 min wait, call); Wyndham Garden Romulus 24/7 every hour (call for pickup); Hampton Inn Detroit/Belleville 24 hours on the hour (call for pickup).",

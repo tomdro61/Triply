@@ -330,9 +330,10 @@
       "phone": "(813) 623-6000",
       "notes": "Added 2026-11-01 from live Triply search; details from the lot listing. The operator describes it for Tampa Cruise Port travelers; shuttle 10 AM-2 PM only, 7.9 mi out. Cheapest TPA lot by rate but NOT a lead recommendation for flights — confirm the airport shuttle first.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01"
+      "rateVerified": "2026-11-01",
+      "reslabLocationId": 367
     },
     {
       "name": "241 Car Services - Secure Parking",
@@ -350,9 +351,10 @@
       "phone": "1-877-886-1583",
       "notes": "Added 2026-11-01 from live Triply search; details from the lot listing. CRUISE-PORT lot (1236 Channelside Dr, by Port Tampa Bay): the operator pitches it against port garage prices and the shuttle runs 7 AM-3 PM on demand. Do not present it as general TPA airport parking; confirm an airport shuttle before recommending it for flights.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01"
+      "rateVerified": "2026-11-01",
+      "reslabLocationId": 230
     },
     {
       "name": "Grand Hyatt Tampa Bay",
@@ -371,9 +373,10 @@
       "phone": "(813) 874-1234",
       "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01"
+      "rateVerified": "2026-11-01",
+      "reslabLocationId": 455
     }
   ],
   "shuttleInfo": "On-airport: FREE SkyConnect automated people mover connects Main Terminal to Economy Parking Garage and Rental Car Center — every 2 minutes, 24/7, under 5-minute ride. No shuttle buses needed for on-airport parking (Short-Term and Long-Term garages are walkable from terminal). Off-site: Most hotel lots include complimentary shuttle — frequency varies from 24/7 (DoubleTree) to scheduled hours. CRITICAL: Safeway Parking does NOT provide shuttle service — you must arrange your own transportation to the terminal. Always verify shuttle hours before booking off-site lots for early morning or late night flights.",

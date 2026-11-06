@@ -332,9 +332,10 @@
       "phone": "980-859-5155",
       "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01"
+      "rateVerified": "2026-11-01",
+      "reslabLocationId": 410
     },
     {
       "name": "Sheraton Charlotte Airport Hotel",
@@ -354,9 +355,10 @@
       "phone": "(704) 392-1200",
       "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01"
+      "rateVerified": "2026-11-01",
+      "reslabLocationId": 449
     }
   ],
   "shuttleInfo": "On-airport: Free shuttle service from Long Term Lots 1 & 2 and Daily North to terminal. All other on-airport parking (Hourly Deck, Daily Decks, Express Decks) is walkable to terminal via covered walkways. Off-site: Most lots include free shuttle — The Parking Spot runs 24/7 every 5-10 minutes. CRITICAL: Royal Inn has NO shuttle — verify shuttle service before booking any off-site lot.",

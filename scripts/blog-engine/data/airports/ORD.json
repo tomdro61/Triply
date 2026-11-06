@@ -1,7 +1,7 @@
 {
   "code": "ORD",
   "fullName": "Chicago O'Hare International Airport",
-  "lastVerified": "2026-11-02",
+  "lastVerified": "2026-11-06",
   "overview": {
     "location": "Unincorporated area of Cook County, Illinois — 14 miles northwest of downtown Chicago (the Loop)",
     "iataCode": "ORD",
@@ -246,7 +246,7 @@
       "freeCancellation": true,
       "notes": "Well-established ORD off-site lot with strong reviews. Indoor option is great for Chicago winters. 24/7 shuttle runs every 10-15 minutes — one of the most frequent among off-site lots.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "PreFlight Airport Parking",
@@ -263,7 +263,7 @@
       "freeCancellation": true,
       "notes": "Premium off-site option with one of the fastest shuttle frequencies (every 5-10 min). Indoor covered parking is valuable during Chicago winters. EV charging available — unusual for off-site lots.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "WallyPark Premier Airport Parking",
@@ -280,7 +280,7 @@
       "freeCancellation": true,
       "notes": "Premium option — higher rate but fully covered garage with valet. Good for travelers who want a hassle-free experience. Luggage assistance is a nice touch. $16.95/day pre-booked still saves vs $43/day terminal garages.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Loews Chicago O'Hare Hotel Parking",
@@ -297,7 +297,7 @@
       "freeCancellation": true,
       "notes": "Upscale hotel parking option. 24/7 shuttle every 15 min is reliable. Close to Rosemont entertainment district (MB Financial Park, Fashion Outlets). Good option if you want hotel amenities before an early flight.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Hilton Chicago O'Hare Airport",
@@ -314,7 +314,7 @@
       "freeCancellation": true,
       "notes": "Most convenient option — walk to Terminal 2 in minutes. Price is premium ($39/day valet only) but comparable to terminal garages. Best for business travelers, early flights, or avoiding shuttle logistics. Only on-airport hotel.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Routes Airport Parking",
@@ -331,9 +331,93 @@
       "freeCancellation": true,
       "notes": "Budget-friendly option on the Mannheim Road corridor. $7.95/day pre-booked is solid value. 24/7 shuttle. Good for price-conscious long-term parkers.",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02",
+      "rateVerified": "2026-11-06",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06",
+      "reslabLocationId": 74
+    },
+    {
+      "name": "Super 8 Chicago O'Hare Airport",
+      "slug": "super-8-chicago-o-hare-airport",
+      "reslabLocationId": 386,
+      "address": "2951 W Touhy Ave, Elk Grove Village, IL",
+      "distanceFromAirport": "2.7 mi",
+      "phone": "847-827-3133",
+      "shuttleInfo": "No shuttle, guests must arrange their own airport transportation",
+      "amenities": ["Free Internet/Wifi", "24/7 Front Desk", "Fitness Center"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 10.45,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+    },
+    {
+      "name": "Crowne Plaza",
+      "slug": "crowne-plaza",
+      "reslabLocationId": 183,
+      "address": "5440 N River Rd, Rosemont, IL",
+      "distanceFromAirport": "2.2 mi",
+      "phone": "847-671-6350",
+      "shuttleInfo": "5AM - 9:30PM, every 30 minutes",
+      "amenities": ["24/7 Front Desk", "Restaurant", "Wheelchair Access"],
+      "minimumBookingDays": 3,
+      "paymentMethod": "Pay Online",
+      "dailyRate": 12.5,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+    },
+    {
+      "name": "Hyatt Place Chicago/O'Hare",
+      "slug": "hyatt-place-chicago-o-hare",
+      "reslabLocationId": 236,
+      "address": "6810 Mannheim Rd, Rosemont, IL",
+      "distanceFromAirport": "2.3 mi",
+      "phone": "(224) 563-1800",
+      "shuttleInfo": "5:00 AM - 10:30 PM: Shuttle runs every 40 minutes. 10:30 PM - 5:00 AM: No shuttle.",
+      "amenities": ["24/7 Front Desk", "Restaurant", "Wheelchair Access"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 18.08,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+    },
+    {
+      "name": "Pride Airport Parking",
+      "slug": "pride-airport-parking",
+      "reslabLocationId": 54,
+      "address": "3950 N Mannheim Rd, Franklin Park, IL, USA",
+      "distanceFromAirport": "2 mi",
+      "phone": "847-678-1234",
+      "shuttleInfo": "24/7, on demand",
+      "amenities": ["Security", "Valet", "24/7 Front Desk"],
+      "minimumBookingDays": 3,
+      "paymentMethod": "Pay at Location",
+      "dailyRate": 15.29,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+    },
+    {
+      "name": "Marriott Suites O'Hare",
+      "slug": "marriott-suites-o-hare",
+      "reslabLocationId": 119,
+      "address": "6155 North River Road, Rosemont, IL",
+      "distanceFromAirport": "2.6 mi",
+      "phone": "(847) 696-4400",
+      "shuttleInfo": "5 AM - 10 PM, every 30 minutes",
+      "amenities": ["Restaurant", "Wheelchair Access"],
+      "minimumBookingDays": 3,
+      "paymentMethod": "Pay Online",
+      "dailyRate": 18.9,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
     }
   ],
   "shuttleInfo": "On-airport: FREE Airport Transit System (ATS) automated people mover connects all terminals (1, 2, 3, 5), Multi-Modal Facility, Economy Lots, and Kiss 'n' Fly — trains every 3-5 minutes, 24/7. Off-site: Most Mannheim Road lots (Park 'N Jet, PreFlight, WallyPark) offer free 24/7 shuttle every 5-15 minutes, with 7-10 minute ride to terminals. The Hilton O'Hare requires no shuttle — it's connected directly to Terminal 2.",

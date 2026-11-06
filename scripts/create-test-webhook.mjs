@@ -16,6 +16,9 @@ const EVENTS = [
   "payment_intent.payment_failed",
   "charge.refunded",
   "charge.dispute.created",
+  "charge.dispute.updated",
+  "charge.dispute.closed",
+  "radar.early_fraud_warning.created",
 ];
 
 const existing = await stripe.webhookEndpoints.list({ limit: 20 });
