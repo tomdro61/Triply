@@ -207,6 +207,9 @@ export default function AdminSupportPage() {
   }
 
   function open(t: Ticket) {
+    // No switching mid-save: a late 409 for the ticket being saved would merge
+    // into the newly opened ticket's draft (round-4 Codex).
+    if (saving) return;
     setSelected(t);
     setNotesDraft(t.notes);
     setNotesBase(t.updated_at);
@@ -301,6 +304,7 @@ export default function AdminSupportPage() {
                   <li key={t.id}>
                     <button
                       onClick={() => open(t)}
+                      disabled={saving}
                       className={`w-full px-4 py-3 text-left hover:bg-gray-50 ${selected?.id === t.id ? "bg-orange-50" : ""}`}
                     >
                       <div className="flex items-center justify-between gap-2">
