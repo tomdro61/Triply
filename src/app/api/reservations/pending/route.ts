@@ -231,7 +231,7 @@ export async function POST(request: NextRequest) {
           new Error(
             `Pending-booking staging rejected — promo discount stamp refused (${stampCheck.cause}): ${stampCheck.detail}`
           ),
-          { stripePaymentIntentId: piId, amount: pi.amount / 100, fingerprint: ["promo-discount-stamp", stampCheck.cause] }
+          { stripePaymentIntentId: piId, amount: pi.amount / 100, fingerprint: ["promo-discount-stamp", "pending", stampCheck.cause] }
         );
         return NextResponse.json(
           {

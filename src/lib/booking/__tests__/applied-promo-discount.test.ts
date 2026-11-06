@@ -24,6 +24,7 @@ vi.mock("@/lib/sentry", () => ({
 }));
 
 const { appliedPromoDiscount } = await import("../fulfill");
+const { PROTECTION_PLANS } = await import("@/lib/parkguard/plans");
 type AppliedPromo = import("../fulfill").AppliedPromo;
 type ReslabFulfilledReservation = import("../fulfilled-reservation").ReslabFulfilledReservation;
 
@@ -74,7 +75,22 @@ describe("appliedPromoDiscount — a usable stamp", () => {
     );
     expect(out.discountAmount).toBe(5);
     expect(out.promoCode).toBe("JFK5");
-    expect(out.stampWarnings.map((w) => w.kind)).toEqual(["mismatch"]);
+    // Nor is it a mismatch: the charge is measured against checkout's own price.
+    expect(out.stampWarnings).toEqual([]);
+  });
+
+  it("with checkout figures, a charge that disagrees with THEM is the mismatch (Park Guard counted)", () => {
+    const figures = { kind: "figures" as const, onlineParkingCents: 6800, preDiscountOnlineCents: 7400 };
+    const plan = { plan: PROTECTION_PLANS.A, premium: 12.99 };
+    expect(appliedPromoDiscount(payload, fr(), plan, promo({ checkoutFigures: figures, chargedCents: 8199 })).stampWarnings).toEqual([]);
+    const out = appliedPromoDiscount(payload, fr(), plan, promo({ checkoutFigures: figures, chargedCents: 8249 }));
+    expect(out.discountAmount).toBe(5);
+    expect(out.stampWarnings).toEqual([
+      {
+        kind: "mismatch",
+        detail: "recorded discount_amount 5.00 (discountCents 500), but Stripe charged 8249 of a pre-discount 8699, i.e. 450 off",
+      },
+    ]);
   });
 });
 

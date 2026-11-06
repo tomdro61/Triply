@@ -86,6 +86,8 @@ export type CheckoutFigures =
 
 /** 0..999,999,999 as `String(n)` stamps it. */
 const CENTS_RE = /^(0|[1-9]\d{0,8})$/;
+/** `String(dollars)` of a cents-rounded fee: "5.95", "6", "12.5". */
+const SERVICE_FEE_RE = /^(0|[1-9]\d{0,6})(\.\d{1,2})?$/;
 
 export function readCheckoutFigures(
   metadata: Readonly<Record<string, string | undefined>> | null | undefined
@@ -157,6 +159,22 @@ export function checkStampAgainstCharge(
   const parkingOnlyRaw = metadata?.parkingOnlyChargeAmountCents;
   if (parkingOnlyRaw === undefined || !CENTS_RE.test(parkingOnlyRaw)) {
     return { ok: false, cause: "stamp_inconsistent", detail: `parkingOnlyChargeAmountCents ${JSON.stringify(parkingOnlyRaw)} is not whole cents` };
+  }
+  // The two figures differ by exactly the service fee (stamped beside them by
+  // both checkout paths, never rewritten by /update-pi). Without this, an
+  // onlineParkingCents that forgot to subtract due_at_location would pass every
+  // other check and let a discount come out of the fee.
+  const feeRaw = metadata?.serviceFee;
+  if (feeRaw === undefined || !SERVICE_FEE_RE.test(feeRaw)) {
+    return { ok: false, cause: "stamp_inconsistent", detail: `serviceFee ${JSON.stringify(feeRaw)} is not a dollar amount` };
+  }
+  const feeCents = Math.round(Number(feeRaw) * 100);
+  if (checkout.preDiscountOnlineCents - checkout.onlineParkingCents !== feeCents) {
+    return {
+      ok: false,
+      cause: "stamp_inconsistent",
+      detail: `preDiscountOnlineCents ${checkout.preDiscountOnlineCents} − onlineParkingCents ${checkout.onlineParkingCents} != serviceFee ${feeCents}`,
+    };
   }
   const parkingOnly = Number(parkingOnlyRaw);
   if (checkout.preDiscountOnlineCents - stamped.cents !== parkingOnly) {

@@ -547,7 +547,7 @@ describe("POST /api/reservations/pending — a stamped promo discount (promo pla
     livemode: false,
     metadata: { customerEmail: "ada@example.com", locationId: "42", promoCode: "JFK5", ...metadata },
   });
-  const CHECKOUT = { onlineParkingCents: "9000", preDiscountOnlineCents: "9900", parkingOnlyChargeAmountCents: "9400" };
+  const CHECKOUT = { onlineParkingCents: "9000", preDiscountOnlineCents: "9900", parkingOnlyChargeAmountCents: "9400", serviceFee: "9" };
 
   it.each([
     ["an unusable discountCents", { discountCents: "5.00" }, "stamp_invalid"],
@@ -566,7 +566,7 @@ describe("POST /api/reservations/pending — a stamped promo discount (promo pla
     expect(db.tables.pending_bookings).toHaveLength(0);
     expect(reslabMock.getLocation).not.toHaveBeenCalled();
     expect(capturePaymentError).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(capturePaymentError).mock.calls[0][1]).toMatchObject({ stripePaymentIntentId: PI, fingerprint: ["promo-discount-stamp", cause] });
+    expect(vi.mocked(capturePaymentError).mock.calls[0][1]).toMatchObject({ stripePaymentIntentId: PI, fingerprint: ["promo-discount-stamp", "pending", cause] });
   });
 
   it.each([

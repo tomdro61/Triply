@@ -10,8 +10,9 @@ type BookingErrorContext = {
   inventorySource?: "reslab" | "direct";
   /** Group events by this instead of the stack trace (one Sentry issue per key). */
   fingerprint?: string[];
-  /** Below `error` for something worth seeing that is not a fault (e.g. a
-   *  price drop the customer benefits from). Omitted = Sentry's default. */
+  /** Below `error` for something worth seeing that is not a fault (e.g. the
+   *  lot's price dropped after checkout; the customer pays what they
+   *  authorized). Omitted = Sentry's default. */
   level?: "warning" | "info";
 };
 

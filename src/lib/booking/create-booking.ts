@@ -1798,8 +1798,9 @@ async function fulfilClaimed(
     return {
       kind: "failed",
       reason: detail,
-      userMessage:
-        "We couldn't verify your protection selection. You have not been charged — please start your booking again.",
+      userMessage: `We couldn't verify your protection selection. ${
+        release.released === "refunded" ? RESTART_REFUNDED : RESTART_NOT_CHARGED
+      }`,
     };
   }
   const charged = chargedResolution.charged;
@@ -1833,7 +1834,8 @@ async function fulfilClaimed(
         : {
             kind: "failed",
             reason: check.reason,
-            // A refunded customer is never told "you have not been charged".
+            // A refunded customer is told so. (Not yet on sold_out: both routes
+            // word that result "You have not been charged" — a follow-up.)
             userMessage: release.released === "refunded" ? check.userMessage.refunded : check.userMessage.released,
           };
     }
@@ -1972,18 +1974,27 @@ async function fulfilClaimed(
   // recorded by a fallback rule: the reservation is live, so it goes to the
   // reconciliation queue (Discord + customer email, PR #133) with the
   // authorization intact — the same route as an ambiguous ResLab failure.
-  if (!stampChecked) {
+  // Only while the authorization is still uncaptured: a PaymentIntent already
+  // `succeeded` (an earlier attempt captured, then the booking insert failed)
+  // has nothing left to protect, and refusing here would strand a paid
+  // customer with no booking row. That case books, and appliedPromoDiscount
+  // records the discount from the charge and reports the refused stamp.
+  if (!stampChecked && pi.status === "requires_capture") {
     const refused = stampRefusedBeforeCapture(pi, payload, fr, charged);
     if (refused) {
       const detail = `promo discount stamp refused before capture (${refused.cause}): ${refused.detail}`;
       // Alert first, then write: markTerminal can throw DurableStateError.
       capturePaymentError(
         new Error(
-          `${detail}. ResLab reservation ${fr.number} is LIVE; payment ${
-            pi.status === "requires_capture" ? "NOT captured — authorization left intact" : `already ${pi.status}`
-          }. Reconcile by hand.`
+          `${detail}. ResLab reservation ${fr.number} is LIVE; payment NOT captured — authorization left intact. Reconcile by hand.`
         ),
-        { stripePaymentIntentId: piId, amount: pi.amount / 100, fingerprint: ["promo-discount-stamp", refused.cause] }
+        {
+          stripePaymentIntentId: piId,
+          amount: pi.amount / 100,
+          // One issue per PaymentIntent: each is a live reservation on a held
+          // card that a person must resolve (runbook § 32).
+          fingerprint: ["promo-discount-stamp", "before-capture", refused.cause, piId],
+        }
       );
       await markTerminal(piId, "needs_reconciliation", detail);
       return { kind: "needs_reconciliation", reason: detail, retryable: false };
@@ -2281,15 +2292,16 @@ function stampBlocked(cause: StampRefusalCause, detail: string): Extract<Refresh
     soldOut: false,
     reason: `promo discount stamp refused (${cause}): ${detail}`,
     userMessage: { released: `${wording} ${RESTART_NOT_CHARGED}`, refunded: `${wording} ${RESTART_REFUNDED}` },
-    fingerprint: ["promo-discount-stamp", cause],
+    fingerprint: ["promo-discount-stamp", "refresh", cause],
   };
 }
 
 /**
  * The parking paid online dropped below a stamped discount that checkout's own
  * figures vouch for. Not a block: the drift guard is one-directional — the
- * customer pays what they authorized, which is at most the new price. Seen,
- * once per class, below error level.
+ * customer pays what they authorized, which is MORE than the new price, and
+ * the discount still never came out of the service fee at checkout's price.
+ * Seen, once per class, below error level.
  */
 function reportStampPriceDrop(pi: Stripe.PaymentIntent, payload: BookingPayload, detail: string): void {
   captureBookingError(

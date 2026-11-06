@@ -262,7 +262,14 @@ export function appliedPromoDiscount(
     checkout.kind === "invalid"
       ? checkout.detail
       : stampedDiscountRefusal(stamped, onlineParkingCents);
-  const preDiscountCents = preDiscountOnlineCents();
+  // With checkout's figures, the charge is measured against checkout's own
+  // pre-discount price: a lot price that moved after checkout is not a
+  // mismatch (Steps 8 and 9.5 report it, at warning). Without them, against
+  // this reservation's.
+  const preDiscountCents =
+    checkout.kind === "figures"
+      ? checkout.preDiscountOnlineCents + Math.round(protectionPremium * 100)
+      : preDiscountOnlineCents();
   const derivedCents = preDiscountCents - promo.chargedCents;
   // A blank code (`redeemedPromoCode` trims to "") is no code.
   const code = promo.code ? promo.code : null;

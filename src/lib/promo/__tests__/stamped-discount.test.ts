@@ -68,7 +68,7 @@ describe("readCheckoutFigures — checkout's own figures beside the stamp (PR 1 
 });
 
 describe("checkStampAgainstCharge — what the PaymentIntent alone can prove", () => {
-  const CHECKOUT = { onlineParkingCents: "6800", preDiscountOnlineCents: "7400", parkingOnlyChargeAmountCents: "6900" };
+  const CHECKOUT = { onlineParkingCents: "6800", preDiscountOnlineCents: "7400", parkingOnlyChargeAmountCents: "6900", serviceFee: "6" };
   const stamp = { kind: "cents" as const, cents: 500 };
 
   it("no checkout figures: only the stamp's own form", () => {
@@ -83,12 +83,22 @@ describe("checkStampAgainstCharge — what the PaymentIntent alone can prove", (
     expect(checkStampAgainstCharge(CHECKOUT, stamp, { premiumCents: 1299, piAmountCents: 8199 })).toMatchObject({ ok: true, checkout: { kind: "figures" } });
   });
 
+  it("a fee stamped as String(dollars) with cents: ok (5.95 → 595, no float drift)", () => {
+    const meta = { onlineParkingCents: "2000", preDiscountOnlineCents: "2595", parkingOnlyChargeAmountCents: "2095", serviceFee: "5.95" };
+    expect(checkStampAgainstCharge(meta, stamp, { premiumCents: 0, piAmountCents: 2095 })).toMatchObject({ ok: true });
+  });
+
   it.each([
     ["pre-discount − discount ≠ parking-only", { ...CHECKOUT, parkingOnlyChargeAmountCents: "6800" }, 6800, "stamp_inconsistent"],
     ["parking-only + premium ≠ pi.amount", CHECKOUT, 6901, "stamp_inconsistent"],
     ["parking-only missing", { onlineParkingCents: "6800", preDiscountOnlineCents: "7400" }, 6900, "stamp_inconsistent"],
     ["partial figures", { onlineParkingCents: "6800", parkingOnlyChargeAmountCents: "6900" }, 6900, "stamp_invalid"],
-    ["more than checkout's online parking", { onlineParkingCents: "400", preDiscountOnlineCents: "7400", parkingOnlyChargeAmountCents: "6900" }, 6900, "stamp_exceeds_checkout_online_parking"],
+    ["more than checkout's online parking", { onlineParkingCents: "400", preDiscountOnlineCents: "1000", parkingOnlyChargeAmountCents: "500", serviceFee: "6" }, 500, "stamp_exceeds_checkout_online_parking"],
+    ["serviceFee missing", { onlineParkingCents: "6800", preDiscountOnlineCents: "7400", parkingOnlyChargeAmountCents: "6900" }, 6900, "stamp_inconsistent"],
+    ["serviceFee not a dollar amount", { ...CHECKOUT, serviceFee: "6.000" }, 6900, "stamp_inconsistent"],
+    // Due at the lot (3.00) is under the fee (5.95), so this passes online ≤ pre-discount:
+    // online parking 2.00 stamped as 5.00 would let $3 of the $5 come out of the fee.
+    ["online parking that forgot due_at_location (due under the fee)", { onlineParkingCents: "500", preDiscountOnlineCents: "795", parkingOnlyChargeAmountCents: "295", serviceFee: "5.95" }, 295, "stamp_inconsistent"],
   ])("refused: %s", (_label, meta, piAmountCents, cause) => {
     expect(checkStampAgainstCharge(meta, stamp, { premiumCents: 0, piAmountCents })).toMatchObject({ ok: false, cause });
   });
