@@ -11,7 +11,7 @@ import type Stripe from "stripe";
  */
 
 export const DISPUTE_BOOKING_SELECT =
-  "id, reslab_reservation_number, location_name, location_address, airport_code, check_in, check_out, due_at_location, status, created_at, cancellation_reason, cancelled_by, inventory_source, customers(email, first_name, last_name)";
+  "id, reslab_reservation_number, location_name, location_address, airport_code, check_in, check_out, due_at_location, status, created_at, cancellation_reason, cancelled_by, cancel_state, cancel_claimed_at, inventory_source, customers(email, first_name, last_name)";
 
 export type DisputeBooking = {
   id: string;
@@ -27,6 +27,10 @@ export type DisputeBooking = {
   created_at: string | null;
   cancellation_reason: string | null;
   cancelled_by: string | null;
+  /** Migration 017. Non-null = a cancellation was started (it may be held or
+   *  waiting on its refund while `status` still reads `confirmed`). */
+  cancel_state: string | null;
+  cancel_claimed_at: string | null;
   inventory_source: string | null;
   customers: { email: string | null; first_name: string | null; last_name: string | null } | null;
 };
@@ -119,6 +123,7 @@ export function playbookFor(reason: string): Playbook {
       return {
         label: "Customer says a refund was promised but not paid",
         addByHand: [
+          "Confirm in ResLab (or with the lot) that the reservation was not cancelled there — a lot-side cancel never reaches our booking record, and the draft's 'no cancellation' line only covers Triply's record",
           "Check Stripe for a refund already issued — if one exists, attach it and say so",
           "If they cancelled inside 24 hours or no-showed, show the cancel time vs check-in",
         ],
@@ -127,6 +132,7 @@ export function playbookFor(reason: string): Playbook {
       return {
         label: "Customer says they cancelled",
         addByHand: [
+          "Confirm in ResLab (or with the lot) that the reservation was not cancelled there — a lot-side cancel never reaches our booking record, and the draft's 'no cancellation' line only covers Triply's record",
           "Show whether a cancellation exists in admin; if none, say so plainly",
           "If they cancelled in time and weren't refunded, refund instead of fighting",
         ],
@@ -170,13 +176,16 @@ export function buildEvidence(
   // `status` is the booking's status from BEFORE the dispute (the caller
   // passes the ledger's snapshot); null means it is unknown.
   const status = booking.status && booking.status !== "disputed" ? booking.status : null;
-  // "No cancellation, no refund" needs all three: a live status (`refunded`
-  // and `payment_failed` are not, and `cancelled_by` is NULL on every cancel
-  // before 2026-09-30), nobody recorded as cancelling, and Stripe showing
-  // nothing refunded (a partial refund leaves the status `confirmed`).
+  // "No cancellation, no refund" needs all of: a live status (`refunded` and
+  // `payment_failed` are not), nobody recorded as cancelling (`cancelled_by`
+  // is best-effort and NULL on every cancel before 2026-09-30), no cancel
+  // started (a held or refund-pending cancel keeps `confirmed`), and Stripe
+  // showing nothing refunded (a partial refund leaves the status `confirmed`).
   const notCancelled =
     (status === "confirmed" || status === "completed") &&
     booking.cancelled_by == null &&
+    booking.cancel_state == null &&
+    booking.cancel_claimed_at == null &&
     charge != null &&
     charge.refundedCents === 0;
 
@@ -217,26 +226,24 @@ export function buildEvidence(
     uncategorized_text: summary,
   };
 
+  // Facts only, each scoped to its source. "Triply's booking record": a lot-
+  // or ResLab-side cancel never reaches it, so the playbook makes the person
+  // confirm in ResLab before submitting. No policy paraphrase (the policy has
+  // its own field, quoted from Terms §5), and no general claims about how
+  // reservations work — a top-up invoice is a second charge for one
+  // reservation; a guest booking has no My Reservations.
+  const noCancelOnRecord = "Triply's booking record for this reservation shows no cancellation";
   switch (reason) {
     case "credit_not_processed":
       if (notCancelled) {
-        // Facts only. When a refund is due is the policy's to say (its own
-        // field, quoted from Terms §5) — a paraphrase here would be read
-        // against the customer's case, not ours.
-        evidence.refund_refusal_explanation =
-          "Our records show no cancellation of this reservation, and no refund has been issued on this charge.";
+        evidence.refund_refusal_explanation = `${noCancelOnRecord}, and Stripe shows no refund on this charge.`;
       }
       break;
     case "subscription_canceled":
-      if (notCancelled) {
-        evidence.cancellation_rebuttal =
-          "Our records show no cancellation of this reservation." +
-          (withPolicy ? " Cancellation is available online in My Reservations until 24 hours before check-in." : "");
-      }
+      if (notCancelled) evidence.cancellation_rebuttal = `${noCancelOnRecord}.`;
       break;
     case "duplicate":
-      evidence.duplicate_charge_explanation =
-        `This charge is for reservation ${conf} only. Each reservation is a separate charge with its own confirmation number.`;
+      evidence.duplicate_charge_explanation = `This charge is for reservation ${conf}.`;
       break;
   }
 

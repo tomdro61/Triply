@@ -9,8 +9,8 @@ When a customer disputes a charge, Stripe sends `charge.dispute.created` to `/ap
    - the name and email typed at checkout (or, if there is no checkout record, the linked account, labelled as such);
    - the amount charged and anything refunded, read from Stripe, never from the booking total (that leaves out the service fee and Park Guard and includes what was paid at the lot);
    - the cancellation and refund policy, only for bookings made after the current Terms §5 went live on 2026-08-12;
-   - a "no cancellation / no refund" rebuttal only when the booking was confirmed or completed, nobody cancelled it, and Stripe shows nothing refunded.
-   If Stripe can't be read, the draft states no amount and no rebuttal.
+   - a "Triply's booking record shows no cancellation" rebuttal only when the booking was confirmed or completed, no cancellation was started or recorded, and Stripe shows nothing refunded. A cancel made by the lot or in ResLab never reaches our record, so the checklist says to confirm in ResLab first.
+   If Stripe can't be read, the draft states no amount and no rebuttal. It reads the dispute live first: if the dispute no longer takes evidence, or someone has already typed evidence in Stripe, no draft is saved over it.
 3. Emails `PAYMENT_ALERT_EMAILS` with the deadline in Eastern time, a reason-specific checklist of what to add by hand, and a link to the dispute. The email is marked sent only after Resend accepts it; if a send fails or the function dies mid-send, Stripe's redelivery sends it (worst case: a duplicate email, never a missing one).
 4. Sets the booking to `disputed`, but only if its status hasn't changed since step 1 (a refund that landed meanwhile keeps `refunded`).
 

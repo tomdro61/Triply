@@ -32,10 +32,33 @@ const MISSING_TABLE = new Set(["42P01", "PGRST205"]);
 
 // Every Stripe call here is capped well inside the route's 60 s budget, so a
 // slow one fails (and is reported) instead of the function being killed
-// mid-step. The SDK default is 80 s with 2 retries. One retry stays: the draft
-// is one-shot (draft_attempted_at), so a single 429/ECONNRESET must not lose
-// it. Worst case: charge read ~17 s + draft ~17 s + Resend 10 s.
-const STRIPE_OPTS = { timeout: 8_000, maxNetworkRetries: 1 };
+// mid-step. No SDK retries: the SDK honours a Retry-After of up to 60 s
+// between them (round-3 Codex), which alone would spend the whole budget.
+// `withOneRetry` retries once itself instead — the draft is one-shot
+// (draft_attempted_at), so a single 429/5xx/ECONNRESET must not lose it.
+// Worst case: live dispute read 17 s + draft 17 s + Resend 10 s.
+const STRIPE_OPTS = { timeout: 8_000, maxNetworkRetries: 0 };
+const STRIPE_RETRY_DELAY_MS = 1_000;
+
+function isTransientStripeError(err: unknown): boolean {
+  const e = err as { type?: string; statusCode?: number } | null;
+  if (!e) return false;
+  if (e.type === "StripeConnectionError" || e.type === "StripeRateLimitError" || e.type === "StripeAPIError") return true;
+  return typeof e.statusCode === "number" && (e.statusCode === 429 || e.statusCode >= 500);
+}
+
+/** One retry, after a fixed 1 s, on a transient Stripe failure only. Both
+ *  calls it wraps are safe to repeat (a read; an evidence update with the
+ *  same values). */
+async function withOneRetry<T>(call: () => Promise<T>): Promise<T> {
+  try {
+    return await call();
+  } catch (err) {
+    if (!isTransientStripeError(err)) throw err;
+    await new Promise((r) => setTimeout(r, STRIPE_RETRY_DELAY_MS));
+    return call();
+  }
+}
 
 // A send lease older than this belongs to a delivery that died: the route
 // cannot run past 60 s, so no live delivery still holds it.
@@ -141,22 +164,47 @@ async function takeAlertLease(supabase: Db, disputeId: string): Promise<"taken" 
   return (data as { alert_sent_at: string | null } | null)?.alert_sent_at ? "sent" : "held";
 }
 
+// Free-text evidence a person would type in the Stripe dashboard. Stripe may
+// prefill contact fields itself, so only these mean "someone is already
+// working this dispute" — and the draft would overwrite them.
+const TYPED_EVIDENCE: (keyof Stripe.Dispute.Evidence)[] = [
+  "uncategorized_text",
+  "product_description",
+  "cancellation_rebuttal",
+  "refund_refusal_explanation",
+  "duplicate_charge_explanation",
+  "cancellation_policy_disclosure",
+  "refund_policy_disclosure",
+  "access_activity_log",
+];
+
+type LiveDispute = { charge: ChargeFacts | null; acceptsEvidence: boolean; evidenceStarted: boolean };
+
 /**
- * The disputed charge as Stripe records it — the only source for "charged" and
- * "refunded" in the evidence. null (reported) when it can't be read; the draft
- * then states no amount and makes no "no refund" claim.
+ * The dispute as Stripe holds it NOW, with its charge, in one call. The event
+ * can be hours old on a redelivery: by then the dispute may no longer take
+ * evidence, or someone may have typed evidence the draft would overwrite.
+ * The charge is the only source for "charged" and "refunded" in the evidence.
+ * null (reported) when it can't be read: the draft then states no amount and
+ * makes no "no refund" claim.
  */
-async function readCharge(
+async function readLiveDispute(
   d: Stripe.Dispute,
   ctx: { stripePaymentIntentId: string; amount: number }
-): Promise<ChargeFacts | null> {
-  const chargeId = idOf(d.charge);
-  if (!chargeId) return null;
+): Promise<LiveDispute | null> {
   try {
-    const c = await stripe.charges.retrieve(chargeId, {}, STRIPE_OPTS);
-    return { capturedCents: c.amount_captured, refundedCents: c.amount_refunded, currency: c.currency };
+    const live = await withOneRetry(() => stripe.disputes.retrieve(d.id, { expand: ["charge"] }, STRIPE_OPTS));
+    const c = typeof live.charge === "string" ? null : live.charge;
+    return {
+      charge: c ? { capturedCents: c.amount_captured, refundedCents: c.amount_refunded, currency: c.currency } : null,
+      acceptsEvidence: NEEDS_RESPONSE.has(live.status),
+      evidenceStarted: TYPED_EVIDENCE.some((k) => {
+        const v = live.evidence?.[k];
+        return typeof v === "string" && v.trim() !== "";
+      }),
+    };
   } catch (err) {
-    capturePaymentError(new Error(`Dispute ${d.id}: charge read failed, draft states no amount: ${messageOf(err)}`), ctx);
+    capturePaymentError(new Error(`Dispute ${d.id}: live dispute read failed, draft states no amount: ${messageOf(err)}`), ctx);
     return null;
   }
 }
@@ -298,22 +346,30 @@ export async function handleDisputeCreated(supabase: Db, d: Stripe.Dispute): Pro
       return frozen(fail("claim failed", messageOf(err)));
     }
     if (claimed) {
-      const charge = await readCharge(d, ctx);
-      try {
-        await stripe.disputes.update(
-          d.id,
-          {
-            evidence: buildEvidence(asDisputed, d.reason, { contact, charge }),
+      const live = await readLiveDispute(d, ctx);
+      // Read failed (null): fall back to the event's status, as before.
+      const skip =
+        live && !live.acceptsEvidence
+          ? "the dispute no longer accepts evidence"
+          : live?.evidenceStarted
+            ? "evidence was already entered on the dispute, so the draft was not saved over it"
+            : null;
+      if (skip) {
+        draftError = skip;
+      } else {
+        try {
+          const params: Stripe.DisputeUpdateParams = {
+            evidence: buildEvidence(asDisputed, d.reason, { contact, charge: live?.charge ?? null }),
             submit: false,
             metadata: { booking_id: asDisputed.id },
-          },
-          STRIPE_OPTS
-        );
-        draftSaved = true;
-        draftError = null;
-      } catch (err) {
-        draftError = messageOf(err);
-        capturePaymentError(new Error(`Dispute ${d.id}: evidence draft failed: ${draftError}`), ctx);
+          };
+          await withOneRetry(() => stripe.disputes.update(d.id, params, STRIPE_OPTS));
+          draftSaved = true;
+          draftError = null;
+        } catch (err) {
+          draftError = messageOf(err);
+          capturePaymentError(new Error(`Dispute ${d.id}: evidence draft failed: ${draftError}`), ctx);
+        }
       }
       const { error } = await supabase
         .from("disputes")

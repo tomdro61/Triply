@@ -218,6 +218,9 @@ function violatedUnique(table: string, row: Row, rows: Row[]): string | null {
     case "review_email_optouts":
       // 037: the opt-out table's PK.
       return rows.some((r) => r.email === row.email) ? "review_email_optouts_pkey" : null;
+    case "disputes":
+      // 045: stripe_dispute_id is the PRIMARY KEY — the ledger's 23505 race paths.
+      return rows.some((r) => r.stripe_dispute_id === row.stripe_dispute_id) ? "disputes_pkey" : null;
     default:
       return null;
   }

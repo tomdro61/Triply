@@ -6,13 +6,13 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const { db, constructEvent, disputesUpdate, chargesRetrieve, sentry, alerts } = await vi.hoisted(async () => {
+const { db, constructEvent, disputesUpdate, disputesRetrieve, sentry, alerts } = await vi.hoisted(async () => {
   const { FakeSupabase } = await import("@/lib/booking/__tests__/supabase-fake");
   return {
     db: new FakeSupabase(),
     constructEvent: vi.fn(),
     disputesUpdate: vi.fn(),
-    chargesRetrieve: vi.fn(),
+    disputesRetrieve: vi.fn(),
     sentry: {
       capturePaymentError: vi.fn(),
       captureParkGuardError: vi.fn(),
@@ -25,7 +25,7 @@ const { db, constructEvent, disputesUpdate, chargesRetrieve, sentry, alerts } = 
 
 vi.mock("@/lib/supabase/server", () => ({ createAdminClient: async () => db }));
 vi.mock("@/lib/stripe/client", () => ({
-  stripe: { webhooks: { constructEvent }, disputes: { update: disputesUpdate }, charges: { retrieve: chargesRetrieve } },
+  stripe: { webhooks: { constructEvent }, disputes: { update: disputesUpdate, retrieve: disputesRetrieve } },
 }));
 vi.mock("@/lib/sentry", () => sentry);
 vi.mock("@/lib/resend/send-dispute-alert", () => alerts);
@@ -71,7 +71,7 @@ beforeEach(() => {
     .seed("disputes", []);
   constructEvent.mockReset();
   disputesUpdate.mockReset().mockResolvedValue({});
-  chargesRetrieve.mockReset().mockResolvedValue({ amount_captured: 5057, amount_refunded: 0, currency: "usd" });
+  disputesRetrieve.mockReset().mockResolvedValue({ status: "needs_response", evidence: {}, charge: { amount_captured: 5057, amount_refunded: 0, currency: "usd" } });
   for (const m of Object.values(sentry)) m.mockReset();
   alerts.sendDisputeOpenedAlert.mockReset().mockResolvedValue(undefined);
   alerts.sendDisputeClosedAlert.mockReset().mockResolvedValue(undefined);
