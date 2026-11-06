@@ -256,9 +256,9 @@
     {
       "name": "ARB Parking (JFK)",
       "slug": "arb-parking-jfk",
-      "dailyRate": 19.96,
-      "totalFor6Days": 132.33,
-      "taxesFor6Days": 12.58,
+      "dailyRate": 16.51,
+      "totalFor6Days": 109.46,
+      "taxesFor6Days": 10.41,
       "paymentMethod": "Pay at Location",
       "distanceFromAirport": "2.5 mi",
       "driveTime": "5 minutes",
@@ -280,9 +280,9 @@
     {
       "name": "PARK AC JFK Airport Parking (JFK)",
       "slug": "park-ac-jfk-airport-parking-jfk",
-      "dailyRate": 18.5,
-      "totalFor6Days": 121.96,
-      "taxesFor6Days": 10.97,
+      "dailyRate": 15.17,
+      "totalFor6Days": 100.04,
+      "taxesFor6Days": 9,
       "paymentMethod": "Pay at Location",
       "distanceFromAirport": "2.5 mi (0.5 mi direct)",
       "driveTime": "5 minutes",
@@ -391,12 +391,12 @@
       "shuttleInfo": "24/7 every 10 minutes",
       "amenities": ["Valet", "Covered/Garage", "24/7 Front Desk"],
       "paymentMethod": "Pay at Location",
-      "dailyRate": 26.22,
+      "dailyRate": 23.2,
       "rateVerified": "2026-11-06",
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
       "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled",
-      "rateSpreadPct": 25.27
+      "rateSpreadPct": 20.91
     },
     {
       "name": "Hampton Inn John F. Kennedy Airport",
