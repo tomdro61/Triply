@@ -1,7 +1,7 @@
 {
   "code": "BWI",
   "fullName": "Baltimore/Washington International Thurgood Marshall Airport",
-  "lastVerified": "2026-11-01",
+  "lastVerified": "2026-11-06",
   "overview": {
     "location": "Anne Arundel County, Maryland — 9 miles south of downtown Baltimore, 30 miles northeast of Washington, D.C.",
     "iataCode": "BWI",
@@ -246,7 +246,7 @@
       "freeCancellation": true,
       "notes": "24/7 shuttle is a strong advantage. Free bottle of water on departure. One of the most popular off-site lots at BWI.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "The Parking Spot (West)",
@@ -262,7 +262,7 @@
       "freeCancellation": true,
       "notes": "Former Econopark location now operated by The Parking Spot. Same shuttle frequency and amenities as East location.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "FastPark & Relax (BWI)",
@@ -278,7 +278,7 @@
       "freeCancellation": true,
       "notes": "Closest off-site lot with covered parking option. 3-minute shuttle ride is the fastest among off-site lots. Pre-booking online saves ~$1/day.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "FastPark 2 (BWI)",
@@ -294,7 +294,7 @@
       "freeCancellation": true,
       "notes": "Covered parking at a competitive rate. 2-minute shuttle is the fastest off-site option. Pre-booking recommended for best rates.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "DoubleTree by Hilton BWI Airport",
@@ -310,7 +310,7 @@
       "freeCancellation": true,
       "notes": "Best pre-book rate among off-site lots at $5.95/day. Hotel amenities available if combining with park-sleep-fly package.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Aloft BWI Baltimore Washington International Airport",
@@ -326,7 +326,7 @@
       "freeCancellation": true,
       "notes": "Park & Fly package is good value if you need a hotel night. Standalone parking rate is higher than competitors. Marriott Bonvoy points eligible for hotel stays.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Doubletree Baltimore",
@@ -346,7 +346,7 @@
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01",
+      "rateVerified": "2026-11-06",
       "reslabLocationId": 255
     },
     {
@@ -368,7 +368,7 @@
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01",
+      "rateVerified": "2026-11-06",
       "reslabLocationId": 187
     },
     {
@@ -389,7 +389,7 @@
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01",
+      "rateVerified": "2026-11-06",
       "reslabLocationId": 108
     },
     {
@@ -414,7 +414,7 @@
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01",
+      "rateVerified": "2026-11-06",
       "reslabLocationId": 370
     },
     {

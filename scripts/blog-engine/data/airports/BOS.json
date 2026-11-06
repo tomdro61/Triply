@@ -1,7 +1,7 @@
 {
   "code": "BOS",
   "fullName": "Boston Logan International Airport",
-  "lastVerified": "2026-11-01",
+  "lastVerified": "2026-11-06",
   "overview": {
     "location": "East Boston and Winthrop, Massachusetts — 3 miles northeast of downtown Boston",
     "iataCode": "BOS",
@@ -289,7 +289,7 @@
       "knownCoupons": ["Frequent Parker Rewards Program: $2/day discount for members", "Waived reservation fees for members"],
       "notes": "Closest off-site lot. On-demand shuttle means no waiting. Best for travelers who want savings without giving up convenience.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Park N Boston Logan Airport Parking",
@@ -309,7 +309,7 @@
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01",
+      "rateVerified": "2026-11-06",
       "reslabLocationId": 352
     },
     {
@@ -330,7 +330,7 @@
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01",
+      "rateVerified": "2026-11-06",
       "reslabLocationId": 481
     },
     {
@@ -350,7 +350,7 @@
       "knownCoupons": ["Park-Sleep-Fly packages available via parksleephotels.com"],
       "notes": "The closest hotel to the airport. Higher rate but unmatched convenience. Popular Park-Sleep-Fly option for travelers with very early morning flights.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Hyatt Regency Boston Harbor",
@@ -369,7 +369,7 @@
       "knownCoupons": ["Park-Sleep-Fly packages via parksleephotels.com"],
       "notes": "Best for travelers who want a nice hotel stay + parking. Harbor views are a differentiator. Shuttle on schedule (not on-demand).",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Embassy Suites by Hilton Boston at Logan Airport",
@@ -388,7 +388,7 @@
       "knownCoupons": ["Park-Sleep-Fly packages include up to 14 days parking"],
       "notes": "24-hour shuttle is a major advantage over most competitors. Free breakfast + evening reception adds significant value. Best for families or longer stays.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Courtyard by Marriott Boston Logan Airport",
@@ -407,7 +407,7 @@
       "knownCoupons": ["Park-Sleep-Fly packages via parksleepfly.com"],
       "notes": "Marriott brand reliability. Shuttle runs on schedule (not 24/7 on-demand). Reasonable rates.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Holiday Inn Express Boston Logan Airport",
@@ -426,7 +426,7 @@
       "knownCoupons": ["Park-Sleep-Fly packages via parksleephotels.com"],
       "notes": "Budget option. Shuttle not 24/7 — verify hours for early/late flights. Free breakfast is a plus.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Homewood Suites by Hilton Boston Logan Airport Chelsea",
@@ -445,7 +445,7 @@
       "knownCoupons": ["Park-Sleep-Fly packages via parksleepfly.com"],
       "notes": "24-hour shuttle is a major advantage. Kitchenettes + free breakfast + longer stays make this great for extended trips. Slightly farther drive but good value.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Broadway Motor Service",

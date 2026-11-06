@@ -1,7 +1,7 @@
 {
   "code": "MIA",
   "fullName": "Miami International Airport",
-  "lastVerified": "2026-11-01",
+  "lastVerified": "2026-11-06",
   "overview": {
     "location": "Unincorporated Miami-Dade County, Florida — 8 miles west of downtown Miami",
     "iataCode": "MIA",
@@ -243,7 +243,7 @@
       "freeCancellation": true,
       "notes": "24/7 shuttle is a strong advantage. Valet option at $6.95/day is one of the cheapest in the market.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Green Airport Parking (MIA)",
@@ -259,7 +259,7 @@
       "freeCancellation": true,
       "notes": "WARNING: No shuttle outside 8 AM - 8 PM. Not suitable for early morning or late night flights. Closest off-site lot by distance.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "EVEN Hotel Miami",
@@ -277,7 +277,7 @@
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01",
+      "rateVerified": "2026-11-06",
       "reslabLocationId": 436
     },
     {
@@ -295,7 +295,7 @@
       "rating": "4.5/5",
       "notes": "Furthest off-site lot but 24/7 shuttle. Good for budget-conscious long-term parkers.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "La Quinta Inn & Suites Miami Airport East",
@@ -311,7 +311,7 @@
       "freeCancellation": true,
       "notes": "Shuttle only runs 5 AM - 10 PM hourly. Not ideal for late night flights but covers most departure times.",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01",
+      "rateVerified": "2026-11-06",
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
       "reslabLocationId": 409
@@ -331,7 +331,7 @@
       "rating": "4.8/5",
       "notes": "4:30 AM first shuttle covers early morning flights. On-demand pickup from airport is nice. Limited handicap spaces.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Courtyard by Marriott Miami Airport West/Doral",
@@ -376,11 +376,12 @@
       "shuttleInfo": "24/7 On demand",
       "amenities": ["Security", "24/7 Front Desk", "Restaurant"],
       "paymentMethod": "Pay Online",
-      "dailyRate": 10.18,
+      "dailyRate": 12.14,
       "rateVerified": "2026-11-06",
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
-      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled",
+      "rateSpreadPct": 26.94
     },
     {
       "name": "Hilton Miami Airport Blue Lagoon",

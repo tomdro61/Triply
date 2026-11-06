@@ -1,7 +1,7 @@
 {
   "code": "PHL",
   "fullName": "Philadelphia International Airport",
-  "lastVerified": "2026-11-02",
+  "lastVerified": "2026-11-06",
   "overview": {
     "location": "Philadelphia, Pennsylvania — 7 miles southwest of downtown Philadelphia (Center City)",
     "iataCode": "PHL",
@@ -273,7 +273,7 @@
       "rating": "4.8/5",
       "notes": "#1 rated off-site PHL parking. 24/7 on-demand shuttle with professional drivers. Slightly pricier than competitors but consistently top-rated for service quality.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "The Parking Spot North (PHL)",
@@ -290,7 +290,7 @@
       "freeCancellation": true,
       "notes": "National brand with consistent quality. Covered parking available (few off-site lots offer this). Premium tier gives priority pickup.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "The Parking Spot South (PHL)",
@@ -307,7 +307,7 @@
       "freeCancellation": true,
       "notes": "Best for travelers coming from the south (Delaware, Maryland, South Jersey). Same national-brand quality as North location.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Expresspark South Lot (PHL)",
@@ -325,7 +325,7 @@
       "rating": "4.9/5",
       "notes": "98% 5-star Google rating — one of the highest-rated lots in the PHL market. Fast 2-minute shuttle. Competitive pricing.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Park N Jet (PHL)",
@@ -343,7 +343,7 @@
       "phone": "610-521-6247",
       "notes": "Note the one-time $10.11 surcharge and PHL Airport Access Fee on top of the daily rate. Factor this into total cost calculations for short stays.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Jet Stream Parking (PHL)",
@@ -360,7 +360,7 @@
       "freeCancellation": true,
       "notes": "Best budget option when pre-booked at $6.50/day. Walk-up rate is higher. 24/7 on-demand shuttle is a strong advantage at this price point.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Regal Philly Parking (PHL)",
@@ -378,7 +378,7 @@
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06"
     },
     {
       "name": "Motel 6 (PHL)",
@@ -399,7 +399,7 @@
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06"
     },
     {
       "name": "Red Carpet Inn Philadelphia Airport (PHL)",
@@ -419,7 +419,7 @@
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06"
     },
     {
       "name": "MS Parking Philly (PHL)",
@@ -443,7 +443,7 @@
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06"
     },
     {
       "name": "ARB Parking Philadelphia (PHL)",
@@ -465,7 +465,7 @@
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06"
     },
     {
       "name": "Quality Inn Philadelphia Airport (PHL)",
@@ -486,7 +486,7 @@
       "bookableOnTriply": true,
       "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 340). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
       "rateVerified": "2026-10-26"
     },

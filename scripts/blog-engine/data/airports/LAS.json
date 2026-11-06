@@ -1,7 +1,7 @@
 {
   "code": "LAS",
   "fullName": "Harry Reid International Airport",
-  "lastVerified": "2026-11-01",
+  "lastVerified": "2026-11-06",
   "overview": {
     "location": "Paradise, unincorporated Clark County, Nevada — 5 miles south of downtown Las Vegas",
     "iataCode": "LAS",
@@ -274,6 +274,7 @@
     {
       "name": "Fairfield Inn & Suites Las Vegas Convention Center",
       "slug": "fairfield-inn-las-vegas-convention-center-las",
+      "reslabLocationId": 286,
       "dailyRate": 7.3,
       "reservationRate": 7.3,
       "parkingType": "Uncovered, self-park (hotel lot)",
@@ -285,9 +286,9 @@
       "freeCancellation": true,
       "notes": "Ideal for convention attendees — close to LVCC. Marriott quality at budget parking rates. Breakfast included with park-sleep-fly.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-13",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01"
+      "rateVerified": "2026-11-06"
     },
     {
       "name": "Tahiti All-Suite Resort",
