@@ -63,8 +63,9 @@ npx tsx src/apply-edit.ts --slug <slug> --edit edit.json --apply [--stamp]
 ```
 
 `edit.json` holds `fields` (title, excerpt, seo, faqItems — **`faqItems` replaces the whole list**, so send every
-item you want to keep; the preview diff shows what goes) and/or `insert`
-(`{ "underHeading": "...", "html": "<p>...</p>", "position": "end" | "start" }`).
+item you want to keep; the preview diff shows what goes), `insert`
+(`{ "underHeading": "...", "html": "<p>...</p>", "position": "end" | "start" }`) and/or `replace`
+(below).
 - `--preview` reads the post by slug in any status and applies the edit in memory. It runs the lint
   (existing-post rules), the **P3 price check** and the link/image guard. It then writes
   `reports/apply-preview/<slug>.html`, `.diff.txt` and `.meta.json`. Nothing goes to the CMS.
@@ -83,7 +84,35 @@ item you want to keep; the preview diff shows what goes) and/or `insert`
   only an **external** link sources a paragraph; `--apply` refuses unless it is the same post, unchanged, with
   the same `edit.json` producing the same patch as the preview (hashes in `.meta.json`); a PATCH that throws is
   settled by re-reading the post (applied / not live / unknown, naming the backup); lint errors already in the
-  live post are reported, not blocking (this command cannot change old body text).
+  live post are reported, not blocking.
+
+**`replace` (Nov 2026): remove or rewrite stale body text** instead of inserting a correction above it (which
+leaves the post contradicting itself). An array of operations, run in order, before any `insert`:
+
+```json
+{ "replace": [
+  { "section": "Off-site lots", "html": "<p>...</p>", "heading": "optional new heading text" },
+  { "remove": "Old lot price table" },
+  { "text": "The DoubleTree costs about $26/day.", "html": "<p>The DoubleTree costs about $15/day.</p>" }
+] }
+```
+
+- `section`: replaces everything between that heading and the next heading of the same or higher level
+  (sub-headings included). The heading stays unless `heading` renames it (same level). The new html may hold
+  lower-level sub-headings, never one that would split the section.
+- `remove`: drops the heading and its whole section.
+- `text`: replaces ONE block (paragraph, quote, list, list item or table) whose whole plain text equals `text`
+  (whitespace and case ignored; table cells and list items are joined with a space). `"html": ""` deletes it.
+  A list item is replaced inside its list (`html` may be `<li>…</li>` or inline HTML).
+- Headings and texts must match exactly once. 0 or 2+ matches are refused, and the error lists the nearest
+  headings / blocks so you can copy the exact text. An operation may not target content an earlier operation wrote.
+- Links and images inside removed content are expected to go: the guard allows exactly those (by URL / media id)
+  and still blocks any other loss. The preview log and `.diff.txt` list every removed link and image (`✂`).
+- `.diff.txt` starts with `REPLACE OPERATIONS` (every removed and added line, op by op), then the full text diff.
+- The new html gets the full price check (blocking). The price check also runs on the whole resulting body and
+  lists figures still in the post that the allow-list lacks (`⚠ figures still in the post…`, in the log, the
+  diff and `.meta.json`) — so a stale `$26/day` two paragraphs down is still seen. It warns, it does not block:
+  old posts carry computed totals the allow-list never holds.
 
 ## Flags
 
