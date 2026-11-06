@@ -410,7 +410,7 @@ The blog roadmap as one ordered checklist. No dates: a step starts when the one 
 - [ ] **34h.** **C-6** — rate articles carry a dated per-lot table of the lots we sell there (name · daily rate · shuttle · "Prices checked"), from the synced file, linking to the airport's booking page. Hubs and booking pages keep decision 10. Vin + Claude.
 - [ ] **34a.** **E-8** — new rate pages where we sell but rank for nothing: HPN, IND, SAV, POE. Drafts written; each needs a synced data file first. Vin + Claude.
 - [ ] **34b.** **B-10** — invisible rate pages made visible: hub links at the 11 airports that don't link them, indexing requests for the unindexed URLs, city name in titles, rewrites through replace mode. Vin + Claude.
-- [ ] **34c.** **E-9** — coupon pages lead with our own code: one `<IATA>10` code per airport (10%, parking subtotal, Tom adds after #48), the top 20 promo posts rewritten, no rival codes or links. Coupons are never traded for reviews. Vin, Tom.
+- [ ] **34c.** **E-9** — coupon pages lead with our own code: one `<IATA>5` code per airport ($5 off the parking subtotal, $25 minimum; Vin 6 Nov after the board review; needs a small flat-amount checkout change from Tom, after #48), the top 20 promo posts rewritten, no rival codes or links. Coupons are never traded for reviews. Vin, Tom.
 - [ ] **34d.** **A-W8** — Blog → Bookings admin page: bookings and net take per airport and per landing article. Vin, Tom merges.
 - [ ] **34e.** **D-11** — traveler photos and tips: after the trip, opt-in ask for a lot photo and one tip; shown on spokes with consent. No discount tied to a review. Vin + Tom.
 
