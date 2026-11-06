@@ -155,6 +155,20 @@ a human.
 
 One entry per reviewed PR: what the review found, by lesson number. Newest first.
 
+- **#159 apply-edit replace mode (Nov 6):**
+  - Lesson 2: replacing a post's last section deleted the trailing booking CTA (about 3,700 posts have it).
+  - Lesson 2: a rival promo code in new text passed when the sentence didn't say "promo code".
+  - Lesson 5: an inline image or link in new HTML was dropped by the converter with no refusal.
+  - Lesson 2: a source link in a neighbouring block exempted an invented price.
+  - Lesson 3 / 5: settle compared text only, so a failed structural edit could report success.
+  - **Round 2 (lesson 15):**
+    - the new unsold-lot check blocked ordinary words ("airlines", "deal", "fine");
+    - any booking-linked last paragraph counted as the CTA;
+    - a foreign URL satisfied the booking-link check;
+    - inline HTML was garbled.
+  - **Round 3 (lesson 15):** "THE …" lot names and a bolded CTA anchor slipped through.
+  - All fixed.
+
 - **#160 lot-sync (Nov 6):**
   - Lesson 5: a direct-lot outage was accepted as a complete answer.
   - Lesson 6: weak matches re-pointed ids, and a shared address could swap products.
