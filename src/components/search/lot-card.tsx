@@ -24,6 +24,9 @@ import { UnifiedLot } from "@/types/lot";
 import { trackSelectItem } from "@/lib/analytics/gtag";
 import { customerPerDayFromPricing, customerTotalFromPricing } from "@/lib/utils/service-fee";
 import { TaxesAndFeesIncluded } from "@/components/shared/taxes-fees-included";
+import { ShuttleChip } from "@/components/shared/shuttle-chip";
+import { amenitiesBesideShuttle } from "@/lib/lots/shuttle-status";
+import { unmetMinimumStay } from "@/lib/lots/min-stay";
 import { LotBadges } from "./lot-badges";
 
 interface LotCardProps {
@@ -46,7 +49,8 @@ export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false, ex
   const getAmenityConfig = (name: string) => {
     const key = name.toLowerCase().replace(/\s+/g, "_").replace(/-/g, "_");
 
-    // Shuttle related
+    // Shuttle related. Only reached when ShuttleChip can't read shuttleInfo
+    // (amenitiesBesideShuttle drops these otherwise).
     if (key.includes("shuttle") || key.includes("free_shuttle")) {
       if (key.includes("no_shuttle") || key.includes("no shuttle")) {
         return { label: "No Shuttle", icon: <X size={14} className="text-red-500" /> };
@@ -83,7 +87,11 @@ export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false, ex
       return { label: "Accessible", icon: <Accessibility size={14} className="text-blue-600" /> };
     }
 
-    // 24 hour
+    // 24 hour. ResLab's "24/7 Front Desk" is staff on site, not 24/7 lot
+    // access or a 24/7 shuttle, so it keeps its own name.
+    if (key.includes("front_desk")) {
+      return { label: name, icon: <Clock size={14} className="text-gray-600" /> };
+    }
     if (key.includes("24") || key.includes("hour") || key.includes("always_open")) {
       return { label: "24/7 Access", icon: <Clock size={14} className="text-gray-600" /> };
     }
@@ -110,6 +118,8 @@ export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false, ex
   // fee shows only when there is no total, and then without the "included" line.
   const total = customerTotalFromPricing(lot.pricing);
   const perDay = customerPerDayFromPricing(lot.pricing);
+  const minStay = unmetMinimumStay(lot);
+  const amenities = amenitiesBesideShuttle(lot.amenities, lot.shuttleInfo?.summary);
 
   return (
     <div
@@ -180,13 +190,20 @@ export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false, ex
                 Pay at Location
               </div>
             )}
+            {minStay !== null && (
+              <div className="text-[10px] text-red-600 font-medium mt-1">Minimum {minStay} days</div>
+            )}
           </div>
         </div>
 
         {/* Amenities */}
-        {lot.amenities.length > 0 && (
+        {(amenities.length > 0 || lot.shuttleInfo) && (
           <div className="flex flex-wrap gap-1.5 mt-2 mb-3">
-            {lot.amenities.slice(0, 4).map((amenity) => {
+            <ShuttleChip
+              shuttleInfo={lot.shuttleInfo}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-gray-200 rounded-full text-xs text-gray-700 font-medium"
+            />
+            {amenities.slice(0, 4).map((amenity) => {
               const config = getAmenityConfig(amenity.displayName);
               return (
                 <div
@@ -198,9 +215,9 @@ export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false, ex
                 </div>
               );
             })}
-            {lot.amenities.length > 4 && (
+            {amenities.length > 4 && (
               <div className="inline-flex items-center px-2.5 py-1 bg-gray-100 border border-gray-200 rounded-full text-xs text-gray-500 font-medium">
-                +{lot.amenities.length - 4} more
+                +{amenities.length - 4} more
               </div>
             )}
           </div>

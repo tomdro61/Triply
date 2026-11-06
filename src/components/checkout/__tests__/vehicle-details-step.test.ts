@@ -62,6 +62,7 @@ describe("checkout forms are masked in Clarity recordings (the Privacy page says
         onNext: () => {},
         errors: {},
         showFreeCancellation: false,
+        shortNoticeCancelText: "Not cancellable online (check-in is under 24 hours away)",
       })
     );
     expect(html).toMatch(/^<form[^>]*data-clarity-mask="true"/);

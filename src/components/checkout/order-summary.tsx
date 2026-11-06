@@ -41,6 +41,8 @@ interface OrderSummaryProps {
   /** Same gate as the details step's line (checkout-form `showFreeCancellation`):
    *  a same-day or next-day booking can't be cancelled online, so no badge. */
   showFreeCancellation: boolean;
+  /** Shown instead when the badge is hidden (checkout-form `shortNoticeCancelText`). */
+  shortNoticeCancelText: string;
 }
 
 export function OrderSummary({
@@ -56,6 +58,7 @@ export function OrderSummary({
   promoLocked = false,
   vehicleEstimate = null,
   showFreeCancellation,
+  shortNoticeCancelText,
 }: OrderSummaryProps) {
   const mainImage = lot.photos[0]?.url || "/placeholder-lot.jpg";
 
@@ -279,6 +282,11 @@ export function OrderSummary({
               <p className="text-green-600 text-xs">Up to 24 hours before check-in · Park Guard plans partly non-refundable</p>
             </div>
           </div>
+        </div>
+      )}
+      {!showFreeCancellation && (
+        <div className="px-4 pb-4">
+          <p className="text-xs text-gray-600">{shortNoticeCancelText}</p>
         </div>
       )}
     </div>

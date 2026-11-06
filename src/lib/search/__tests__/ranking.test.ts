@@ -1,6 +1,8 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import type { UnifiedLot } from "@/types/lot";
+import { unmetMinimumStay } from "@/lib/lots/min-stay";
 import {
+  bookableFirst,
   compareByTotal,
   compareByTotalDesc,
   lotTotal,
@@ -181,5 +183,46 @@ describe("lowestTotalLot", () => {
     flagSwitch.open = true;
     const direct = { ...lot(900, 10, 1), id: "direct-1", source: "direct" as const };
     expect(lowestTotalLot([...JFK, direct], { resultComplete: true })?.id).toBe("direct-1");
+  });
+});
+
+// Audit 2026-11-06 item 1: live JFK Nov 20–24 listed Bolt Parking (minimum 6
+// days) on a 5-day search, priced, with a dead Reserve button.
+describe("minimum stay", () => {
+  function withStay(base: UnifiedLot, days: number, min?: number): UnifiedLot {
+    return { ...base, minimumBookingDays: min, pricing: base.pricing && { ...base.pricing, numberOfDays: days } };
+  }
+  const bolt = withStay(lot(900, 50, 2.3), 5, 6); // cheapest, but needs 6 days
+  const okA = withStay(lot(901, 80, 1.0), 5, 2);
+  const okB = withStay(lot(902, 120, 0.5), 5);
+
+  it("unmetMinimumStay: flags only a stay shorter than the minimum", () => {
+    expect(unmetMinimumStay(bolt)).toBe(6);
+    expect(unmetMinimumStay(okA)).toBeNull();
+    expect(unmetMinimumStay(okB)).toBeNull();
+    expect(unmetMinimumStay(withStay(lot(903, 50, 1), 6, 6))).toBeNull(); // exactly the minimum
+    expect(unmetMinimumStay({ minimumBookingDays: 6, pricing: undefined })).toBeNull(); // unpriced: never guessed
+  });
+
+  it("bookableFirst keeps each group's order", () => {
+    expect(bookableFirst([bolt, okB, okA]).map((l) => l.id)).toEqual(["reslab-902", "reslab-901", "reslab-900"]);
+  });
+
+  it("every sort puts the unbookable lot last, even when it is cheapest or closest", () => {
+    for (const sort of ["price_asc", "price_desc", "distance", "rating"] as const) {
+      const out = sortLots([bolt, okA, okB], sort, { recommended: false });
+      expect(out[out.length - 1].id).toBe("reslab-900");
+    }
+    expect(rankRecommended([bolt, okA, okB], null).map((l) => l.id)).toEqual(["reslab-901", "reslab-902", "reslab-900"]);
+  });
+
+  it("never gets 'Lowest total'", () => {
+    expect(lowestTotalLot([bolt, okA, okB], { resultComplete: true })?.id).toBe("reslab-901");
+    expect(lowestTotalLot([bolt], { resultComplete: true })).toBeNull();
+  });
+
+  it("is never pinned as 'Most booked'", () => {
+    const counts = new Map([[900, 20], [901, 2]]);
+    expect(pickMostBookedLot([bolt, okA, okB], [900, 901, 902], counts)).toBeNull();
   });
 });

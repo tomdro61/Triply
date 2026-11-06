@@ -14,6 +14,7 @@
 import type { UnifiedLot } from "@/types/lot";
 import { customerTotalFromPricing } from "@/lib/utils/service-fee";
 import { DIRECT_BOOKING_OPEN } from "@/lib/direct/flag";
+import { unmetMinimumStay } from "@/lib/lots/min-stay";
 
 /** A lot needs at least this many kept bookings in the window to be "most booked". */
 export const MOST_BOOKED_MIN = 3;
@@ -46,6 +47,18 @@ export function compareByTotalDesc(a: UnifiedLot, b: UnifiedLot): number {
   const fb = Number.isFinite(lotTotal(b));
   if (fa !== fb) return fa ? -1 : 1;
   return compareByTotal(b, a);
+}
+
+/**
+ * Lots the searched stay can book first, then lots below their minimum stay,
+ * each group keeping its order. Every sort ends with this, so a lot the
+ * customer can't book never sits above one they can (audit 2026-11-06, item 1).
+ */
+export function bookableFirst(lots: readonly UnifiedLot[]): UnifiedLot[] {
+  const ok: UnifiedLot[] = [];
+  const short: UnifiedLot[] = [];
+  for (const l of lots) (unmetMinimumStay(l) === null ? ok : short).push(l);
+  return [...ok, ...short];
 }
 
 function median(values: number[]): number | null {
@@ -87,7 +100,8 @@ export function pickMostBookedLot(
   if (bestId === null || best < MOST_BOOKED_MIN || best <= second) return null;
 
   const leader = returned.find((l) => l.source === "reslab" && l.reslabLocationId === bestId);
-  if (!leader) return null;
+  // Never pin (or badge) a lot this stay is too short to book.
+  if (!leader || unmetMinimumStay(leader) !== null) return null;
 
   const med = median(returned.map(lotTotal).filter(Number.isFinite));
   const total = lotTotal(leader);
@@ -101,7 +115,7 @@ export function pickMostBookedLot(
  */
 export function rankRecommended(lots: readonly UnifiedLot[], pinnedId: string | null): UnifiedLot[] {
   const pinned = pinnedId === null ? undefined : lots.find((l) => l.id === pinnedId);
-  const rest = lots.filter((l) => l !== pinned).sort(compareByTotal);
+  const rest = bookableFirst(lots.filter((l) => l !== pinned).sort(compareByTotal));
   return pinned ? [pinned, ...rest] : rest;
 }
 
@@ -114,7 +128,10 @@ export function rankRecommended(lots: readonly UnifiedLot[], pinnedId: string | 
 export function lowestTotalLot(lots: readonly UnifiedLot[], opts: { resultComplete: boolean }): UnifiedLot | null {
   if (!opts.resultComplete) return null;
   const bookable = lots.filter(
-    (l) => Number.isFinite(lotTotal(l)) && (l.source !== "direct" || DIRECT_BOOKING_OPEN)
+    (l) =>
+      Number.isFinite(lotTotal(l)) &&
+      (l.source !== "direct" || DIRECT_BOOKING_OPEN) &&
+      unmetMinimumStay(l) === null
   );
   if (bookable.length === 0) return null;
   return [...bookable].sort(compareByTotal)[0];

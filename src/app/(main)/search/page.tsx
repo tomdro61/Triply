@@ -17,7 +17,8 @@ import { useMediaQuery } from "@/hooks/use-media-query";
 import { UnifiedLot, SortOption } from "@/types/lot";
 import { getAirportByCode } from "@/config/airports";
 import { trackSearch } from "@/lib/analytics/gtag";
-import { compareByTotal, compareByTotalDesc } from "@/lib/search/ranking";
+import { bookableFirst, compareByTotal, compareByTotalDesc } from "@/lib/search/ranking";
+import { NoLotsHere } from "@/components/search/no-lots-here";
 // Park & Stay (admin-only until launch): the hook decides whether to ASK —
 // signed out, it makes no request — and the slots lazy-load the switch and
 // the card badge only when the access endpoint said yes. They get the raw
@@ -193,7 +194,8 @@ function SearchPageContent() {
       default:
         break;
     }
-    return sorted;
+    // Lots the stay can't book (below their minimum) always come last.
+    return bookableFirst(sorted);
   }, [lots, sortBy]);
 
   const handleSearch = () => {
@@ -301,6 +303,11 @@ function SearchPageContent() {
               className={mobileView === "map" ? "hidden lg:block" : ""}
               partialResults={partialResults}
               onRetry={fetchResults}
+              emptyState={
+                partialResults ? undefined : (
+                  <NoLotsHere airportCode={airport} checkin={departDate} checkout={returnDate} />
+                )
+              }
               renderExtraBadge={
                 parkStay
                   ? (lot) => <ParkStayLotBadgeSlot access={parkStay} search={urlSearch} reslabLocationId={lot.reslabLocationId ?? null} />

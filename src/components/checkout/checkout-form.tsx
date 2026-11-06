@@ -33,6 +33,8 @@ import {
   trackCheckoutValidationError,
 } from "@/lib/analytics/gtag";
 import { bucketCheckoutFailure, deviceToday, fieldList, leadDays } from "@/lib/analytics/checkout-funnel";
+import { freeCancelText, freeCancelWindow } from "@/lib/cancellation/free-cancel-window";
+import { getAirportByCode } from "@/config/airports";
 import { markPurchaseToTrack } from "@/lib/analytics/purchase-once";
 import { postAuthActionFor } from "@/lib/checkout/post-auth-outcome";
 import { saveRecoveryMarker } from "@/lib/checkout/recovery-marker";
@@ -99,6 +101,12 @@ export function CheckoutForm({
   // Two or more calendar days out (the visitor's date — display only; the
   // 24 h cancellation gate is enforced server-side in the lot's time zone).
   const [showFreeCancellation] = useState(() => (leadDays(checkIn, deviceToday()) ?? 0) >= 2);
+  // Under two days out the badge is hidden; say what applies instead, so the
+  // promise made on the search slider never just disappears (audit item 4).
+  // Display only: the 24 h gate stays server-side (lib/cancellation).
+  const [shortNoticeCancelText] = useState(() =>
+    freeCancelText(freeCancelWindow(checkIn, checkInTime, getAirportByCode(lot.airportCode ?? "")?.timezone, new Date()))
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -1259,6 +1267,7 @@ export function CheckoutForm({
               onNext={handleCustomerNext}
               errors={customerErrors}
               showFreeCancellation={showFreeCancellation}
+              shortNoticeCancelText={shortNoticeCancelText}
             />
           )}
 
@@ -1399,6 +1408,7 @@ export function CheckoutForm({
           promoLocked={clientSecret !== null}
           vehicleEstimate={vehicleEstimate}
           showFreeCancellation={showFreeCancellation}
+          shortNoticeCancelText={shortNoticeCancelText}
         />
       </div>
     </div>

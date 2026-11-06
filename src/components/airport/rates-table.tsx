@@ -1,7 +1,17 @@
 import Link from "next/link";
 import { Airport } from "@/config/airports";
-import { UnifiedLot } from "@/types/lot";
+import { UnifiedLot, type ShuttleInfo } from "@/types/lot";
 import { ArrowRight } from "lucide-react";
+import { shuttleStatus } from "@/lib/lots/shuttle-status";
+
+/** "Yes" / "24/7" / "No", read from the shuttle summary; "—" when unreadable. */
+function shuttleCell(info: ShuttleInfo | undefined): string {
+  const s = shuttleStatus(info?.summary);
+  if (s.kind === "all_day") return "24/7";
+  if (s.kind === "hours") return "Yes";
+  if (s.kind === "none" || s.kind === "suspended") return "No";
+  return "—";
+}
 
 interface RatesTableProps {
   airport: Airport;
@@ -57,7 +67,7 @@ export function RatesTable({ airport, lots }: RatesTableProps) {
                     : "—"}
                 </td>
                 <td className="py-3.5 px-4 text-sm text-gray-500 hidden md:table-cell">
-                  {lot.shuttleInfo ? "Yes" : "—"}
+                  {shuttleCell(lot.shuttleInfo)}
                 </td>
                 <td className="py-3.5 pl-4 text-right">
                   <span className="text-sm font-bold text-brand-orange">

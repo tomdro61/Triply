@@ -34,6 +34,9 @@ import { bookableCheckinTimes, stillBookableCheckinTime } from "@/lib/utils/time
 import { VehicleSizeModal } from "@/components/lot/vehicle-size-modal";
 import { directReserveQuote, surchargeRangeText } from "@/lib/direct/vehicle-display";
 import { trackBookingTimeChange } from "@/lib/analytics/gtag";
+import { shuttleStatus, shuttleTimeWarning } from "@/lib/lots/shuttle-status";
+import { ShuttleChip } from "@/components/shared/shuttle-chip";
+import { freeCancelText, freeCancelWindow } from "@/lib/cancellation/free-cancel-window";
 
 const timeOptions = [
   "12:00 AM", "12:30 AM", "1:00 AM", "1:30 AM", "2:00 AM", "2:30 AM",
@@ -157,6 +160,20 @@ export function ProductDetailSlider({
   else if (shown.kind === "view") stayDays = shown.view.days;
   const belowMinDays = !!lot.minimumBookingDays && stayDays !== null && stayDays < lot.minimumBookingDays;
   const reserveDisabled = timesMissing || bookingNotOpenYet || belowMinDays || soldOutForStay;
+  // Dated cutoff, or "not cancellable online" inside 24 h (audit item 4).
+  const cancelWindow = freeCancelWindow(
+    localCheckIn,
+    selectedCheckInTime,
+    airport?.timezone,
+    clock === null ? null : new Date(clock)
+  );
+  // Warn (never block: some lots take after-hours drop-offs) when a chosen time
+  // falls outside the lot's shuttle hours (audit item 3).
+  const shuttleWarning = shuttleTimeWarning(
+    shuttleStatus(lot.shuttleInfo?.summary),
+    selectedCheckInTime,
+    localCheckOutTime
+  );
   const reserveDisabledReason = bookingNotOpenYet
     ? "Online booking for this lot opens soon"
     : timesMissing
@@ -307,9 +324,15 @@ export function ProductDetailSlider({
                   </span>
                 </div>
               )}
-              <div className="text-green-600 font-medium flex items-center">
-                <Check size={14} className="mr-1" /> Free Cancellation
+              <div className={`${cancelWindow.kind !== "closed" ? "text-green-600" : "text-gray-600"} font-medium flex items-center`}>
+                {cancelWindow.kind !== "closed" ? (
+                  <Check size={14} className="mr-1" />
+                ) : (
+                  <AlertCircle size={14} className="mr-1" />
+                )}{" "}
+                {freeCancelText(cancelWindow)}
               </div>
+              <ShuttleChip shuttleInfo={lot.shuttleInfo} className="text-gray-700 font-medium flex items-center gap-1" />
             </div>
           </div>
 
@@ -420,6 +443,20 @@ export function ProductDetailSlider({
                   <p className="text-xs text-brand-orange font-medium flex items-center gap-1">
                     <AlertCircle size={12} className="flex-shrink-0" />
                     Please select check-in and check-out times
+                  </p>
+                )}
+                {/* Every other reason Reserve is disabled, as visible text: a
+                    `title` tooltip never shows on a phone (audit item 1). */}
+                {!timesMissing && reserveDisabledReason && (
+                  <p className="text-xs text-brand-orange font-medium flex items-center gap-1">
+                    <AlertCircle size={12} className="flex-shrink-0" />
+                    {reserveDisabledReason}
+                  </p>
+                )}
+                {shuttleWarning && (
+                  <p className="text-xs text-brand-orange font-medium flex items-start gap-1">
+                    <AlertCircle size={12} className="flex-shrink-0 mt-0.5" />
+                    {shuttleWarning}
                   </p>
                 )}
               </div>

@@ -26,6 +26,8 @@ import { PriceFooter } from "./price-footer";
 import { bookableCheckinTimes, stillBookableCheckinTime } from "@/lib/utils/time";
 import { VehicleSizeModal } from "./vehicle-size-modal";
 import { directReserveQuote, surchargeRangeText } from "@/lib/direct/vehicle-display";
+import { shuttleStatus, shuttleTimeWarning } from "@/lib/lots/shuttle-status";
+import { freeCancelText, freeCancelWindow } from "@/lib/cancellation/free-cancel-window";
 
 interface BookingWidgetProps {
   lot: UnifiedLot;
@@ -159,14 +161,15 @@ export function BookingWidget({
   });
   const shown = shownPrice(live, loadedView, price);
 
-  // Get cancellation policy text
-  const cancellationText = lot.cancellationPolicies?.[0]
-    ? lot.cancellationPolicies[0].percentage === 100
-      ? "Full refund if cancelled"
-      : `${lot.cancellationPolicies[0].percentage}% refund if cancelled`
-    : "Free cancellation up to 24h before";
+  // The real promise for the chosen check-in: dated cutoff, or "not cancellable
+  // online" once inside 24 h (lib/cancellation/free-cancel-window.ts). The
+  // clock stays null until mount, so the server render shows the generic line.
+  const cancelWindow = freeCancelWindow(checkIn, selectedCheckInTime, airportTimeZone, clock === null ? null : new Date(clock));
+  const cancellationText = freeCancelText(cancelWindow);
 
   const timesMissing = !selectedCheckInTime || !checkOutTime;
+  // Same warning as the search slider when a time is outside shuttle hours.
+  const shuttleWarning = shuttleTimeWarning(shuttleStatus(lot.shuttleInfo?.summary), selectedCheckInTime, checkOutTime);
   // Direct lots bill 24-hour days from the dates AND times on screen, so the
   // minimum stay is checked against a fresh count (review R12, same as the
   // search slider). null until both times are set (timesMissing covers that).
@@ -472,6 +475,12 @@ export function BookingWidget({
                 Please select check-in and check-out times
               </p>
             )}
+            {shuttleWarning && (
+              <p className="text-xs text-brand-orange font-medium flex items-start gap-1">
+                <AlertCircle size={12} className="flex-shrink-0 mt-0.5" />
+                {shuttleWarning}
+              </p>
+            )}
           </div>
         )}
       </DateRangePicker>
@@ -500,7 +509,7 @@ export function BookingWidget({
           Reserve Now
         </button>
         <div className="flex items-center justify-center text-sm text-gray-500 font-medium">
-          <Shield size={14} className="mr-1.5 text-green-500" />
+          <Shield size={14} className={`mr-1.5 ${cancelWindow.kind !== "closed" ? "text-green-500" : "text-gray-400"}`} />
           {cancellationText}
         </div>
       </div>
