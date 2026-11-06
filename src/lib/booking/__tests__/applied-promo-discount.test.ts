@@ -78,8 +78,14 @@ describe("appliedPromoDiscount — a usable stamp", () => {
     // Nor is it a mismatch (the charge is measured against checkout's own price),
     // but the row's totals no longer reproduce the charge: price_moved, not a fault.
     expect(out.stampWarnings).toEqual([
-      { kind: "price_moved", detail: "recorded discount_amount 5.00; checkout priced 7400 before the discount, this reservation 1000; Stripe charged 6900" },
+      { kind: "price_moved", detail: "recorded discount_amount 5.00; online parking at checkout 6800, on this reservation 400; Stripe charged 6900" },
     ]);
+  });
+
+  it("with checkout figures, a page-load service fee that differs from the charged one is not a price move", () => {
+    const figures = { kind: "figures" as const, onlineParkingCents: 6800, preDiscountOnlineCents: 7400 };
+    const staleFee = { grandTotal: 88, triplyServiceFee: 6.5 };
+    expect(appliedPromoDiscount(staleFee, fr(), null, promo({ checkoutFigures: figures })).stampWarnings).toEqual([]);
   });
 
   it("with checkout figures and a reservation priced as at checkout: nothing to report", () => {

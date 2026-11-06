@@ -308,13 +308,15 @@ export function appliedPromoDiscount(
           detail: `recorded discount_amount ${dollars(stamped.cents)} (discountCents ${stamped.cents}), but Stripe charged ${promo.chargedCents} of a pre-discount ${preDiscountCents}, i.e. ${derivedCents} off`,
         });
       } else if (
+        // Online parking only: the payload's fee comes from the page load and
+        // can differ from the fee checkout charged, which is not a price move.
         checkout.kind === "figures" &&
-        reservationPreDiscountCents !== null &&
-        Math.abs(reservationPreDiscountCents - promo.chargedCents - stamped.cents) > 1
+        reservationOnlineCents !== null &&
+        Math.abs(reservationOnlineCents - checkout.onlineParkingCents) > 1
       ) {
         stampWarnings.push({
           kind: "price_moved",
-          detail: `recorded discount_amount ${dollars(stamped.cents)}; checkout priced ${preDiscountCents} before the discount, this reservation ${reservationPreDiscountCents}; Stripe charged ${promo.chargedCents}`,
+          detail: `recorded discount_amount ${dollars(stamped.cents)}; online parking at checkout ${checkout.onlineParkingCents}, on this reservation ${reservationOnlineCents}; Stripe charged ${promo.chargedCents}`,
         });
       }
     } else if (derivedCents === null) {

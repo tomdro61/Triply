@@ -2563,8 +2563,8 @@ function checkedCheckoutFigures(pi: Stripe.PaymentIntent, charged: ChargedProtec
   const figures = readCheckoutFigures(pi.metadata);
   const stamped = readStampedDiscount(pi.metadata);
   if (figures.kind !== "figures" || stamped.kind === "absent") return figures;
-  // An unusable stamp can't be checked against them, so they are unchecked too.
-  if (stamped.kind === "invalid") return { kind: "invalid", detail: "stamp_invalid: checkout figures beside an unusable discountCents are unchecked" };
+  // An unusable stamp fails first (stamp_invalid, with its raw value), and
+  // figures beside it are then unchecked too.
   const check = checkStampAgainstCharge(pi.metadata, stamped, {
     premiumCents: Math.round((charged?.premium ?? 0) * 100),
     piAmountCents: pi.amount,
