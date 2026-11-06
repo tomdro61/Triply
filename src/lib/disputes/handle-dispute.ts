@@ -36,9 +36,13 @@ const MISSING_TABLE = new Set(["42P01", "PGRST205"]);
 // between them (round-3 Codex), which alone would spend the whole budget.
 // `withOneRetry` retries once itself instead — the draft is one-shot
 // (draft_attempted_at), so a single 429/5xx/ECONNRESET must not lose it.
-// Worst case: live dispute read 17 s + draft 17 s + Resend 10 s.
-const STRIPE_OPTS = { timeout: 8_000, maxNetworkRetries: 0 };
+const STRIPE_OPTS = { timeout: 6_000, maxNetworkRetries: 0 };
 const STRIPE_RETRY_DELAY_MS = 1_000;
+// Wall clock per Stripe step, retries included. stripe-node still retries a
+// first ECONNRESET/EPIPE with maxNetworkRetries 0, so one step can be four
+// HTTP attempts; this cap is what bounds it. Worst case: live read 15 s +
+// draft 15 s + Resend 10 s.
+const STRIPE_STEP_DEADLINE_MS = 15_000;
 
 function isTransientStripeError(err: unknown): boolean {
   const e = err as { type?: string; statusCode?: number } | null;
@@ -47,16 +51,35 @@ function isTransientStripeError(err: unknown): boolean {
   return typeof e.statusCode === "number" && (e.statusCode === 429 || e.statusCode >= 500);
 }
 
-/** One retry, after a fixed 1 s, on a transient Stripe failure only. Both
- *  calls it wraps are safe to repeat (a read; an evidence update with the
- *  same values). */
+/** One retry, after a fixed 1 s, on a transient Stripe failure only, all
+ *  inside STRIPE_STEP_DEADLINE_MS. A step cut off by the deadline may still
+ *  complete at Stripe — the caller's message says so. The draft update passes
+ *  one idempotency key to both attempts (round-4 Codex: with SDK retries off,
+ *  the SDK sends none, so a retry after a lost response could overwrite an
+ *  edit made in between). */
 async function withOneRetry<T>(call: () => Promise<T>): Promise<T> {
+  const attempts = (async () => {
+    try {
+      return await call();
+    } catch (err) {
+      if (!isTransientStripeError(err)) throw err;
+      await new Promise((r) => setTimeout(r, STRIPE_RETRY_DELAY_MS));
+      return call();
+    }
+  })();
+  // A late failure after the deadline must not become an unhandled rejection.
+  attempts.catch(() => {});
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`Stripe step timed out after ${STRIPE_STEP_DEADLINE_MS}ms (it may still complete at Stripe)`)),
+      STRIPE_STEP_DEADLINE_MS
+    );
+  });
   try {
-    return await call();
-  } catch (err) {
-    if (!isTransientStripeError(err)) throw err;
-    await new Promise((r) => setTimeout(r, STRIPE_RETRY_DELAY_MS));
-    return call();
+    return await Promise.race([attempts, deadline]);
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -363,7 +386,8 @@ export async function handleDisputeCreated(supabase: Db, d: Stripe.Dispute): Pro
             submit: false,
             metadata: { booking_id: asDisputed.id },
           };
-          await withOneRetry(() => stripe.disputes.update(d.id, params, STRIPE_OPTS));
+          const draftOpts = { ...STRIPE_OPTS, idempotencyKey: `dispute-draft-${d.id}-${crypto.randomUUID()}` };
+          await withOneRetry(() => stripe.disputes.update(d.id, params, draftOpts));
           draftSaved = true;
           draftError = null;
         } catch (err) {

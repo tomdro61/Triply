@@ -69,7 +69,7 @@ const BOOKING = {
 
 // Bounded, and no SDK retries (they honour a Retry-After of up to 60 s); the
 // handler retries once itself.
-const STRIPE_OPTS = { timeout: 8_000, maxNetworkRetries: 0 };
+const STRIPE_OPTS = { timeout: 6_000, maxNetworkRetries: 0 };
 const CHECKOUT: DisputeContact = { name: "Ann Lee", email: "ann@typed.com", source: "checkout" };
 const PAID: ChargeFacts = { capturedCents: 6356, refundedCents: 0, currency: "usd" };
 const FACTS = { contact: CHECKOUT, charge: PAID };
@@ -124,7 +124,8 @@ describe("handleDisputeCreated", () => {
     expect(params.submit).toBe(false);
     expect(params.evidence.service_date).toBe("2026-10-10");
     // Bounded: a hung Stripe call fails inside the route's 60 s.
-    expect(opts).toEqual(STRIPE_OPTS);
+    expect(opts).toMatchObject(STRIPE_OPTS);
+    expect(opts.idempotencyKey).toMatch(/^dispute-draft-dp_1-/);
     expect(disputesRetrieve).toHaveBeenCalledWith("dp_1", { expand: ["charge"] }, STRIPE_OPTS);
 
     expect(alerts.sendDisputeOpenedAlert).toHaveBeenCalledTimes(1);
@@ -291,8 +292,26 @@ describe("handleDisputeCreated", () => {
     disputesUpdate.mockRejectedValueOnce(Object.assign(new Error("lock_timeout"), { type: "StripeRateLimitError", statusCode: 429 }));
     await handleDisputeCreated(sb, dispute());
     expect(disputesUpdate).toHaveBeenCalledTimes(2);
+    // Same idempotency key on both attempts: a retry after a lost response
+    // replays the first result instead of writing over an edit made since.
+    expect(disputesUpdate.mock.calls[1][2].idempotencyKey).toBe(disputesUpdate.mock.calls[0][2].idempotencyKey);
     expect(db.tables.disputes[0].evidence_drafted_at).toBeTruthy();
     expect(alerts.sendDisputeOpenedAlert.mock.calls[0][0]).toMatchObject({ draftSaved: true });
+  });
+
+  it("a Stripe step that hangs is cut off at 15 s and the alert still goes out", async () => {
+    vi.useFakeTimers();
+    try {
+      disputesUpdate.mockReturnValueOnce(new Promise(() => {}));
+      const run = handleDisputeCreated(sb, dispute());
+      await vi.advanceTimersByTimeAsync(15_000);
+      const r = await run;
+      expect(r.retryable).toBe(false);
+      expect(db.tables.disputes[0].evidence_draft_error).toContain("timed out after 15000ms (it may still complete at Stripe)");
+      expect(alerts.sendDisputeOpenedAlert).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("a failed draft is recorded and still alerts, without a retry", async () => {
