@@ -12,6 +12,9 @@ through this code.
 ## Review guidelines
 
 Report only issues you can tie to specific lines. Rank Critical / High / Medium.
+`docs/review-lessons.md` lists what our reviews keep finding (untrue customer-facing claims, "sent" before
+success, unbounded calls, partial data treated as complete, weak evidence written as strong, tests that
+can't fail) — check the diff against it too.
 These are the failure modes this codebase has actually shipped — look for them first:
 
 - **Silent defaults for customer data.** `searchParams.get("x") || "default"`,
