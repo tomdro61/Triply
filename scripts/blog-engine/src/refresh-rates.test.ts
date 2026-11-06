@@ -8,7 +8,7 @@
 // Run with: npm test
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { coverageDecision, findMatch, unusableReason, type LiveLot } from './refresh-rates.js'
+import { coverageDecision, findMatch, nonProductionReason, unusableReason, PRODUCTION_SITE, type LiveLot } from './refresh-rates.js'
 
 type S = 'updated' | 'unchanged' | 'fuzzy-skipped' | 'implausible' | 'absent' | 'unpriced'
 const o = (...statuses: S[]) => statuses.map((status) => ({ status }))
@@ -59,6 +59,27 @@ test('ownAirportFallback responses are unusable, like degraded/stale/listIncompl
   assert.match(unusableReason({ results: [], ownAirportFallback: true }) ?? '', /ownAirportFallback/)
   assert.match(unusableReason({ results: [], degraded: true }) ?? '', /degraded=true/)
   assert.match(unusableReason({ results: [], listIncomplete: true }) ?? '', /listIncomplete=true/)
+})
+
+test('one failed inventory source makes a response unusable (review of #160: a CMS outage would mark The Parking Point JFK gone)', () => {
+  const resLabOnly = { results: [{ name: 'PARK AC' }], directUnavailable: true }
+  assert.match(unusableReason(resLabOnly) ?? '', /directUnavailable=true/)
+  assert.match(unusableReason({ results: [{ name: 'The Parking Point' }], reslabUnavailable: true }) ?? '', /reslabUnavailable=true/)
+  assert.equal(unusableReason({ results: [{ name: 'PARK AC' }], directUnavailable: false, reslabUnavailable: false }), null)
+})
+
+test('a price in another currency than the file\'s is refused (CAD lots must never become a USD dailyRate, or the reverse)', () => {
+  const cad = { results: [{ name: 'Car Park Pearson', pricing: { minPrice: 14.2, currencyCode: 'CAD' } }] }
+  assert.match(unusableReason(cad) ?? '', /CAD, the file in USD/)
+  assert.equal(unusableReason(cad, 'CAD'), null)
+  assert.match(unusableReason({ results: [{ name: 'X', pricing: { minPrice: 10, currencyCode: 'USD' } }] }, 'CAD') ?? '', /USD, the file in CAD/)
+  assert.equal(unusableReason({ results: [{ name: 'No code', pricing: { minPrice: 10 } }] }), null, 'no currencyCode = nothing to compare')
+})
+
+test('--apply refuses any site but production (staging uses a separate ResLab account)', () => {
+  assert.equal(nonProductionReason(PRODUCTION_SITE), null)
+  assert.match(nonProductionReason('https://triply-abc123.vercel.app') ?? '', /dry run only/)
+  assert.match(nonProductionReason('http://localhost:3000') ?? '', /dry run only/)
 })
 
 // ── matching: ResLab id first ────────────────────────────────────────────────

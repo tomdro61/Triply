@@ -65,7 +65,9 @@ test('EWR-shaped: Apex is a token match (not its shared address) — reported fo
   const accepted = file()
   const a = planSync('EWR', accepted, m, { ...opts, acceptFuzzy: true })
   assert.deepEqual(a.report.matched, [{ lot: 'Apex EWR Airport Parking', live: 'Apex Airport Parking', via: 'tokens' }])
-  assert.deepEqual(a.report.priceChanges, [{ lot: 'Apex EWR Airport Parking', from: 8.95, to: 9.26, days: 7 }])
+  assert.deepEqual(a.report.priceChanges, [], 'an existing price is refresh-rates\' job')
+  assert.deepEqual(a.report.priceDrift, [{ lot: 'Apex EWR Airport Parking', file: 8.95, live: 9.26, days: 7 }])
+  assert.equal(accepted[0].dailyRate, 8.95)
   assert.equal(accepted[0].sellable, true)
   assert.equal(accepted[0].reslabLocationId, 10, 'confirmed by the human: the id is written so refresh-rates matches it next time')
 })
@@ -129,7 +131,8 @@ test('fuzzy matches are reported, not applied, and the live lot is not added as 
   assert.equal(r.edits.length, 0)
   const accepted = planSync('EWR', [{ ...lots[0] }], m, { ...opts, acceptFuzzy: true })
   assert.equal(accepted.report.matched[0].via, 'fuzzy')
-  assert.equal(accepted.report.priceChanges[0].to, 16.02)
+  assert.equal(accepted.report.priceDrift[0].live, 16.02)
+  assert.deepEqual(accepted.report.priceChanges, [])
 })
 
 test('a rejected (>3x) price move writes nothing: not the price, not sellable, not the id', () => {
@@ -142,8 +145,8 @@ test('a rejected (>3x) price move writes nothing: not the price, not sellable, n
   assert.deepEqual(report.idSet, [])
 })
 
-test('a lot with totalFor8Days is priced on the 8-day sample and keeps its totals in step', () => {
-  const lots: CatalogueLot[] = [{ name: 'Bolt', dailyRate: 21.9, totalFor8Days: 190, taxesFor8Days: 15, sellable: true }]
+test('a lot with totalFor8Days is compared on the 8-day sample; its price and totals are left to refresh-rates', () => {
+  const lots: CatalogueLot[] = [{ name: 'Bolt', dailyRate: 21.9, totalFor8Days: 190, taxesFor8Days: 15, rateVerified: '2026-11-02', sellable: true }]
   const m = mergeSamples(
     [
       { days: 7, lots: [live('Bolt', { price: 25 })] },
@@ -151,10 +154,86 @@ test('a lot with totalFor8Days is priced on the 8-day sample and keeps its total
     ],
     'EWR'
   ).live
-  const { report } = planSync('EWR', lots, m, opts)
-  assert.deepEqual(report.priceChanges, [{ lot: 'Bolt', from: 21.9, to: 26.68, days: 8 }])
-  assert.equal(lots[0].totalFor8Days, 230.1)
-  assert.equal(lots[0].taxesFor8Days, 16.66)
+  const { report, edits } = planSync('EWR', lots, m, opts)
+  assert.deepEqual(report.priceDrift, [{ lot: 'Bolt', file: 21.9, live: 26.68, days: 8 }])
+  assert.deepEqual(report.priceChanges, [])
+  assert.deepEqual(lots[0], { name: 'Bolt', dailyRate: 21.9, totalFor8Days: 190, taxesFor8Days: 15, rateVerified: '2026-11-02', sellable: true, sellableCheckedOn: TODAY })
+  assert.ok(!edits.some((e) => /Rate|total|taxes|rateVerified/.test(e.field)), 'one search date never overwrites the 3-date median')
+  assert.ok(reportLines(report).some((l) => l.includes('NOT written, run refresh-rates')))
+})
+
+test('a matched lot with NO dailyRate is priced from the sample (nothing to protect)', () => {
+  const lots: CatalogueLot[] = [{ name: 'Maas Parking Newark', sellable: false }]
+  const { report } = planSync('EWR', lots, merged([live('Maas Parking Newark', { price: 10.4475, reslabLocationId: 5 })]), opts)
+  assert.deepEqual(report.priceChanges, [{ lot: 'Maas Parking Newark', from: undefined, to: 10.45, days: 7 }])
+  assert.equal(lots[0].dailyRate, 10.45)
+  assert.equal(lots[0].rateVerified, TODAY)
+})
+
+// ── review of #160 (2026-11-06) ──────────────────────────────────────────────
+
+test('ID CONFLICT: a name match never re-points an established id — not even with --accept-fuzzy; not gone either', () => {
+  const file = (): CatalogueLot[] => [{ name: 'Best Western McCarran Inn', reslabLocationId: 91, dailyRate: 7.99, sellable: true }]
+  const m = mergeSamples([{ days: 7, lots: [{ ...live('Best Western McCarran Inn', { reslabLocationId: 92, price: 12.55 }), airportCode: 'LAS' }] }], 'LAS').live
+  for (const acceptFuzzy of [false, true]) {
+    const lots = file()
+    const { report, edits, newLots } = planSync('LAS', lots, m, { ...opts, acceptFuzzy })
+    assert.deepEqual(report.idConflicts, [{ lot: 'Best Western McCarran Inn', fileId: 91, live: 'Best Western McCarran Inn', liveId: 92, via: 'name' }])
+    assert.equal(edits.length, 0)
+    assert.equal(newLots.length, 0, 'the live lot is not added as a duplicate either')
+    assert.deepEqual(report.gone, [])
+    assert.deepEqual(lots[0], file()[0])
+  }
+  assert.ok(reportLines(planSync('LAS', file(), m, opts).report).some((l) => l.includes('id conflict')))
+})
+
+test('SAN-shaped: two products at one address — the airport lot never takes the port lot\'s id and price', () => {
+  const lots: CatalogueLot[] = [{ name: 'Aladdin Airport Parking', reslabLocationId: 39, address: '2000 Pacific Hwy, San Diego', dailyRate: 26.99, sellable: true }]
+  // The airport lot is sold out on both dates; only the port product at the same address comes back.
+  const m = mergeSamples([{ days: 7, lots: [{ ...live('Aladdin Port Parking', { reslabLocationId: 564, address: '2000 Pacific Highway, San Diego', price: 24.1 }), airportCode: 'SAN' }] }], 'SAN').live
+  const { report, edits } = planSync('SAN', lots, m, { ...opts, acceptFuzzy: true })
+  assert.equal(report.idConflicts.length, 1)
+  assert.equal(edits.length, 0)
+  assert.equal(lots[0].reslabLocationId, 39)
+  assert.equal(lots[0].dailyRate, 26.99)
+})
+
+test('an address match is weak: reported for confirmation, never written without --accept-fuzzy', () => {
+  const lots: CatalogueLot[] = [{ name: 'Old Name Parking', address: '100 Union Avenue, Irvington, NJ', dailyRate: 5, sellable: false }]
+  const { report, edits } = planSync('EWR', lots, merged([live('Red Carpet Inn', { address: '100 Union Ave, Irvington NJ', reslabLocationId: 184, price: 5.2 })]), opts)
+  assert.deepEqual(report.needsConfirmation.map((x) => x.via), ['address'])
+  assert.equal(edits.length, 0)
+})
+
+test('two FILE lots at one street match neither by address', () => {
+  const lots: CatalogueLot[] = [
+    { name: 'North Garage', address: '819 Spring Street, Elizabeth' },
+    { name: 'South Garage', address: '819 Spring St, Elizabeth' },
+  ]
+  const r = matchLots(lots, [live('Completely Different', { address: '819 Spring St. Elizabeth, NJ' })], 'EWR')
+  assert.equal(r.size, 0)
+})
+
+test('the loser of an ambiguous match is reported, not marked gone', () => {
+  const lots: CatalogueLot[] = [
+    { name: 'Comfort Suites North', dailyRate: 9, sellable: true },
+    { name: 'Comfort Suites South', dailyRate: 9, sellable: true },
+  ]
+  const { report, edits } = planSync('EWR', lots, merged([live('Comfort Suites', { price: 9 })]), opts)
+  assert.deepEqual(report.gone, [], 'the matcher itself found the evidence ambiguous')
+  assert.equal(report.ambiguous.length + report.needsConfirmation.length, 2)
+  assert.ok(!edits.some((e) => e.field === 'sellable'))
+  assert.ok(lots.every((l) => l.sellable === true))
+})
+
+test('a duplicate file entry of a lot another entry owns by name still goes unsellable (not "ambiguous")', () => {
+  const lots: CatalogueLot[] = [
+    { name: 'Doubletree Baltimore', sellable: true, dailyRate: 6.16 },
+    { name: 'Doubletree  Baltimore', sellable: true, dailyRate: 7.95 },
+  ]
+  const { report } = planSync('BWI', lots, mergeSamples([{ days: 7, lots: [{ ...live('Doubletree Baltimore', { price: 6.16 }), airportCode: 'BWI' }] }], 'BWI').live, opts)
+  assert.deepEqual(report.gone, ['Doubletree  Baltimore'])
+  assert.deepEqual(report.ambiguous, [])
 })
 
 test('mergeSamples: union across dates, first sample prices, same-name listings collapsed', () => {
