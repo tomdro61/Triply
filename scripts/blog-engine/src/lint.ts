@@ -139,6 +139,22 @@ export function loadApprovedCodes(file: string = APPROVED_CODES_PATH): string[] 
   }
 }
 
+/** Code → the dollar figures its own terms state (`amountOff`, `minSubtotal`), e.g. DFW5 → [5, 25]. A flat-amount
+ *  code's "$5 off" and "$25 minimum" come from the code itself, so the price check accepts them beside that code. */
+export function loadApprovedOfferFigures(file: string = APPROVED_CODES_PATH): Record<string, number[]> {
+  try {
+    const raw = JSON.parse(fs.readFileSync(file, 'utf-8')) as { codes?: { code: string; amountOff?: unknown; minSubtotal?: unknown }[] }
+    const out: Record<string, number[]> = {}
+    for (const c of raw.codes || []) {
+      const figs = [c.amountOff, c.minSubtotal].filter((n): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0)
+      if (figs.length) out[String(c.code).toUpperCase()] = figs
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
 /** Code → documented percent off, from the same file. A code with no `percentOff` sources no savings claim at all. */
 export function loadApprovedOffers(file: string = APPROVED_CODES_PATH): Record<string, number> {
   try {
