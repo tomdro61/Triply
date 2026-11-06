@@ -65,10 +65,10 @@ export function resolvePostImages(post: any): any {
   return post
 }
 
-async function fetchCmsOnce(url: string, revalidate: number): Promise<Response> {
+async function fetchCmsOnce(url: string, revalidate: number, signal?: AbortSignal): Promise<Response> {
   return fetch(url, {
     next: { revalidate },
-    signal: AbortSignal.timeout(8000),
+    signal: signal ? AbortSignal.any([AbortSignal.timeout(8000), signal]) : AbortSignal.timeout(8000),
     ...(CMS_API_KEY
       ? { headers: { Authorization: `users API-Key ${CMS_API_KEY}` } }
       : {}),
@@ -81,19 +81,25 @@ export async function fetchFromCms(
   // 1 hour. Posts publish almost daily and content rarely updates after
   // publish; an hour matches the user's editorial cadence while cutting
   // CMS-to-Postgres traffic ~60× vs the original 60-second window.
-  revalidate = 3600
+  revalidate = 3600,
+  // Optional caller cancellation (e.g. a time budget that ran out): aborts the
+  // request in flight and starts no retry once fired. Omitted = unchanged.
+  signal?: AbortSignal
 ) {
   const searchParams = new URLSearchParams(params)
   const url = `${CMS_URL}/api${path}?${searchParams.toString()}`
 
+  signal?.throwIfAborted()
   let res: Response
   try {
-    res = await fetchCmsOnce(url, revalidate)
+    res = await fetchCmsOnce(url, revalidate, signal)
     if (res.status >= 500) throw new Error(`CMS ${res.status}`)
   } catch (firstErr) {
+    signal?.throwIfAborted()
     await new Promise((r) => setTimeout(r, 500))
+    signal?.throwIfAborted()
     try {
-      res = await fetchCmsOnce(url, revalidate)
+      res = await fetchCmsOnce(url, revalidate, signal)
     } catch (retryErr) {
       throw new Error(`CMS unreachable: ${path}`, { cause: retryErr })
     }
