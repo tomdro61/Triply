@@ -6,6 +6,7 @@
  * reports/chart-redraw/prices.mts; kept here so the rules have tests.
  */
 import { transferBlocker } from './prompts/write.js'
+import { isNotAirportLot } from './airport-data.js'
 import type { Transfer } from './rate-chart.js'
 
 export interface LiveShuttle { name: string; summary?: string; details?: string }
@@ -72,5 +73,7 @@ export function cruisePortLot(live: LiveShuttle, file: FileLot, fileMatchIsExact
   if (/(?:to|from) (?:and from )?the (?:cruise )?port\b|port of [a-z]+|cruise (?:terminal|port|ship)/i.test(own) && !servesAirport) return 'shuttle runs to the cruise port'
   const notes = typeof file?.notes === 'string' ? file.notes : ''
   if (fileMatchIsExact && /cruise[- ]port lot|do not present it as general [a-z ]*airport parking|operator describes it for [^.]*cruise/i.test(notes)) return 'cruise-port lot (data file notes)'
+  // lot-sync's note says "cruise-port/downtown lot", which the pattern above does not match (round-2 review of #160).
+  if (fileMatchIsExact && file && isNotAirportLot(file)) return 'flagged by lot-sync as cruise-port/downtown (data file notes)'
   return ''
 }

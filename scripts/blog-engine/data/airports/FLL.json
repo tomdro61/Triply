@@ -1,7 +1,7 @@
 {
   "code": "FLL",
   "fullName": "Fort Lauderdale-Hollywood International Airport",
-  "lastVerified": "2026-11-01",
+  "lastVerified": "2026-11-06",
   "overview": {
     "location": "Dania Beach, Broward County, Florida — 3 miles southwest of downtown Fort Lauderdale, 21 miles north of downtown Miami",
     "iataCode": "FLL",
@@ -221,10 +221,11 @@
       "freeCancellation": true,
       "notes": "Dual-purpose lot serving both airport and cruise port travelers. 24/7 shuttle is reliable. Good value at $7.99/day compared to $20-36 on-airport.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01",
-      "rateSpreadPct": 93.71
+      "rateVerified": "2026-11-06",
+      "rateSpreadPct": 53.55,
+      "reslabLocationId": 244
     },
     {
       "name": "Homewood Suites",
@@ -241,9 +242,10 @@
       "freeCancellation": true,
       "notes": "Closest off-site lot to FLL. Hotel lot, well lit. Hourly shuttle only (none 1-4 AM) — say so when recommending it for early flights. Rate is the live Triply rate.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 115
     },
     {
       "name": "Self Park FLL",
@@ -259,7 +261,7 @@
       "freeCancellation": true,
       "notes": "Well-known local provider. Note: lot may undergo construction/relocation — check website for current status before booking.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "FastTrack Fort Lauderdale Airport Parking",
@@ -275,7 +277,7 @@
       "freeCancellation": true,
       "notes": "Valet option is convenient for travelers in a rush. Pre-book online for best rate ($6.99 vs $9.95 walk-up).",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Gold Coast FLL Airport Parking",
@@ -291,7 +293,7 @@
       "freeCancellation": true,
       "notes": "On-demand shuttle means less waiting. Fenced and monitored lot. Pre-book for $7.49 vs $9.95 walk-up.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Best Western Plus Fort Lauderdale Airport & Cruise Port (FLL)",
@@ -307,7 +309,7 @@
       "freeCancellation": true,
       "notes": "Also serves Port Everglades cruise passengers. Hourly shuttle — plan accordingly for early/late flights. Gated lot adds security.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Rodeway Inn & Suites FLL Airport Parking",
@@ -323,7 +325,156 @@
       "freeCancellation": true,
       "notes": "Best budget off-site option at $5.95/day pre-booked. Basic lot but gets the job done. Verify shuttle hours before booking for early/late flights.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
+    },
+    {
+      "name": "Springhill Suites",
+      "slug": "springhill-suites",
+      "reslabLocationId": 117,
+      "address": "151 Southwest 18th Court, Dania Beach, FL",
+      "distanceFromAirport": "1.9 mi",
+      "phone": "954-920-9696 - press \"7\"",
+      "shuttleInfo": "Sun-Thu4:30 AM - 11:30 PM: Shuttle runs every 1 hour. 11:30 PM - 4:30 AM: No shuttle. Fri-Sat4:30 AM - 12:45 AM: Shuttle runs every 1 hour. 12:45 AM - 4:30 AM: No shuttle.",
+      "amenities": ["Security", "24/7 Front Desk", "Restaurant", "Wheelchair Access", "Free Internet/Wifi"],
+      "minimumBookingDays": 3,
+      "paymentMethod": "Pay Online",
+      "dailyRate": 8.17,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled",
+      "rateSpreadPct": 35.41
+    },
+    {
+      "name": "Fairfield Inn & Suites",
+      "slug": "fairfield-inn-suites",
+      "reslabLocationId": 97,
+      "address": "2081 Griffin Road, Fort Lauderdale, FL",
+      "distanceFromAirport": "1.3 mi",
+      "phone": "954-981-2700",
+      "shuttleInfo": "24 hours every hour on the hour; Pickups are on demand.",
+      "amenities": ["Restaurant"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 9.4,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+    },
+    {
+      "name": "Home2 Suites by Hilton Ft. Lauderdale Airport",
+      "slug": "home2-suites-by-hilton-ft-lauderdale-airport",
+      "reslabLocationId": 479,
+      "address": "161 SW 19th Ct, Dania Beach, FL",
+      "distanceFromAirport": "1.9 mi",
+      "phone": "(954) 998-0200",
+      "shuttleInfo": "5:00 AM - 10:30 PM: Shuttle runs every 1 hour. Pickups from Airport on demand 10:30 PM - 5:00 AM: No shuttle.",
+      "amenities": ["24/7 Front Desk", "Restaurant"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 9.4,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+    },
+    {
+      "name": "The Harrison Hotel Downtown Hollywood",
+      "slug": "the-harrison-hotel-downtown-hollywood",
+      "reslabLocationId": 377,
+      "address": "1925 Harrison St, Hollywood, FL",
+      "distanceFromAirport": "4.4 mi",
+      "phone": "(954) 704-6944",
+      "shuttleInfo": "5:30 AM - 9:30 PM: Shuttle runs on demand. 9:30 PM - 5:30 AM: No shuttle.",
+      "amenities": ["Covered/Garage", "24/7 Front Desk", "Restaurant", "Fitness Center", "Free Internet/Wifi", "Room Service"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 10.5,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled",
+      "rateSpreadPct": 21.43
+    },
+    {
+      "name": "Aloft by Marriott Fort Lauderdale Airport",
+      "slug": "aloft-by-marriott-fort-lauderdale-airport",
+      "reslabLocationId": 493,
+      "address": "501 SE 24th St, Fort Lauderdale, Florida",
+      "distanceFromAirport": "1.6 mi",
+      "phone": "(754) 285-4848",
+      "shuttleInfo": "24/7 every hour on the hour",
+      "amenities": ["Valet", "Covered/Garage", "24/7 Front Desk", "Restaurant"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 10.99,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+    },
+    {
+      "name": "Residence Inn Fort Lauderdale Airport",
+      "slug": "residence-inn-fort-lauderdale-airport",
+      "reslabLocationId": 382,
+      "address": "4801 Anglers Ave, Fort Lauderdale",
+      "distanceFromAirport": "1.5 mi",
+      "phone": "(954) 989-3636",
+      "shuttleInfo": "5:00 AM - 11:00 PM: Shuttle runs every 1 hour. Top of the hour 11:00 PM - 5:00 AM: No shuttle.",
+      "amenities": ["Restaurant"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 11.02,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+    },
+    {
+      "name": "Courtyard Fort Lauderdale Airport",
+      "slug": "courtyard-fort-lauderdale-airport",
+      "reslabLocationId": 180,
+      "address": "400 Gulf Stream Way, Dania Beach, FL",
+      "distanceFromAirport": "1.3 mi",
+      "phone": "954-342-8333",
+      "shuttleInfo": "5:00 AM - midnight every 30 minutes pick ups are on demand within shuttle hours",
+      "amenities": ["Security", "24/7 Front Desk", "Restaurant", "Wheelchair Access", "Free Internet/Wifi"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 12.25,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+    },
+    {
+      "name": "Marriott Fort Lauderdale Airport",
+      "slug": "marriott-fort-lauderdale-airport",
+      "reslabLocationId": 360,
+      "address": "166 N Compass way, Dania beach, FL",
+      "distanceFromAirport": "1.5 mi",
+      "phone": "954-802-7543",
+      "shuttleInfo": "24/7 Shuttle every hour - Top of the hourPick-ups from airport On-Demand",
+      "amenities": ["Valet", "Covered/Garage", "Security", "24/7 Front Desk", "Restaurant", "Wheelchair Access"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 12.55,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+    },
+    {
+      "name": "Park By The Ports Cruise Parking",
+      "slug": "park-by-the-ports-cruise-parking",
+      "reslabLocationId": 245,
+      "address": "100 Fronton Blvd, Dania Beach, FL",
+      "distanceFromAirport": "1.6 mi",
+      "phone": "954-727-5566",
+      "shuttleInfo": "7 AM to 2 PM",
+      "amenities": ["Security"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 21.7,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled",
+      "notes": "Added by lot-sync: looks like a cruise-port/downtown lot, not an airport-shuttle lot — do not use in CTAs until a human confirms it serves the airport.",
+      "rateSpreadPct": 19.88
     }
   ],
   "shuttleInfo": "On-airport: Free Breeze shuttle connects all four terminals. Free shuttle from Cypress Garage to terminals. Rental Car Center shuttle from arrivals level. Off-site: Most lots include free shuttle — frequency ranges from every 10 minutes (Park By The Ports, FastTrack) to hourly (Best Western). Brightline Airport Connector shuttle available from arrivals level ($12 with same-day Brightline ticket). CRITICAL: Verify shuttle hours for early morning and late night flights — some off-site lots have limited shuttle schedules.",

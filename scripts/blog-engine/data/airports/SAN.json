@@ -1,7 +1,7 @@
 {
   "code": "SAN",
   "fullName": "San Diego International Airport",
-  "lastVerified": "2026-11-01",
+  "lastVerified": "2026-11-06",
   "overview": {
     "location": "3225 N Harbor Drive, San Diego, California — 3 miles northwest of downtown San Diego, directly adjacent to the waterfront",
     "iataCode": "SAN",
@@ -230,7 +230,7 @@
       "vehicleRestrictions": "Standard vehicles max 15 ft at $18/day. SUVs/extended trucks max 17 ft at $19/day. Extra large max 22 ft at $20/day.",
       "notes": "Most-reviewed SAN off-site lot on Yelp. Mixed reviews. Rates vary by vehicle size. Reservation strongly recommended.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Aladdin Airport Parking",
@@ -251,9 +251,10 @@
       "knownCoupons": ["Pre-book via airportparkingreservations.com from $13/day"],
       "notes": "Most established SAN off-airport lot. Also handles cruise ship parking. WallyPark customers redirected here. Shuttle among most frequent (every 5-10 min).",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01",
+      "rateVerified": "2026-11-06",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06",
+      "reslabLocationId": 39
     },
     {
       "name": "San Diego's Park Shuttle and Fly - LOT A",
@@ -274,9 +275,10 @@
       "knownCoupons": ["Book online: $18.95/day vs $24.95 walk-up", "Check sdparkshuttlefly.com/coupons/ for seasonal deals"],
       "notes": "Higher walk-up rates but 24/7 shuttle and personal valet. Additional $4.75 Airport Access fee outside booked times.",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01",
+      "rateVerified": "2026-11-06",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06",
+      "reslabLocationId": 38
     },
     {
       "name": "San Diego Park, Shuttle & Fly (Lot B)",
@@ -295,15 +297,16 @@
       "knownCoupons": ["Same deals as Lot A"],
       "notes": "Second lot from Park, Shuttle & Fly. Same rates and shuttle service as Lot A.",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01",
+      "rateVerified": "2026-11-06",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06",
+      "reslabLocationId": 65
     },
     {
       "name": "Fox Auto Parks (San Diego)",
       "slug": "fox-auto-parks-san-diego",
-      "dailyRate": 19.95,
-      "reservationRate": 8,
+      "dailyRate": 16.38,
+      "reservationRate": 16.38,
       "parkingType": "Valet (outdoor)",
       "amenities": ["Free Shuttle", "Valet", "Luggage Assistance", "24/7 Operation"],
       "shuttleInfo": "Free shuttles every 25 minutes or on demand, 24 hours daily. 5-10 minute ride to terminal.",
@@ -317,8 +320,12 @@
       "knownCoupons": ["Pre-book online from $8/day — huge savings vs walk-up"],
       "vehicleRestrictions": "Compact cars/SUVs: $19.95/day walk-up. Minivans/trucks/large SUVs: $24.95/day walk-up.",
       "notes": "Best value pre-booked ($8/day vs $19.95 walk-up). 1.9 mi from airport. Shuttle every 25 min. Established chain.",
-      "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "reslabLocationId": 362,
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-11-06",
+      "rateSpreadPct": 46.88
     },
     {
       "name": "Four Points by Sheraton San Diego",
@@ -335,7 +342,7 @@
       "knownCoupons": ["Book via cheapairportparking.org from $8.95/day"],
       "notes": "WARNING: Shuttle NOT 24/7 (6 AM - 12:30 AM only). Not suitable for very early/late flights. Under $10/day. May have limited spaces.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Sheraton San Diego Hotel and Marina",
@@ -353,7 +360,24 @@
       "knownCoupons": ["Book via cheapairportparking.org from $12/day"],
       "notes": "Closest off-site option at 0.3 miles. Shuttle 5 AM - midnight. Good value at $12/day. Best Park-Sleep-Fly candidate.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
+    },
+    {
+      "name": "Aladdin Port Parking",
+      "slug": "aladdin-port-parking",
+      "reslabLocationId": 564,
+      "address": "2548 Kettner Blvd, San Diego, California",
+      "distanceFromAirport": "1.2 mi",
+      "phone": "619-696-7434",
+      "shuttleInfo": "24 hours every 15-25 minutes; on demand",
+      "amenities": ["24/7 Front Desk", "Wheelchair Access", "Valet", "Covered/Garage", "Security"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 24.1,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled",
+      "notes": "Added by lot-sync: looks like a cruise-port/downtown lot, not an airport-shuttle lot — do not use in CTAs until a human confirms it serves the airport."
     }
   ],
   "shuttleInfo": "All off-site lots include free shuttle to both terminals. Frequency varies: Aladdin (every 5-10 min), SDAP (continuous), Park Shuttle & Fly (24/7 express), Fox (every 25 min), hotel lots (every 15-30 min). Hotel lots have limited hours (5-6 AM to midnight). Economy Lot has own shuttle (~3 min). San Diego Flyer provides FREE shuttle between terminals and Old Town Transit Center.",

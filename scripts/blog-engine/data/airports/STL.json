@@ -1,7 +1,7 @@
 {
   "code": "STL",
   "fullName": "St. Louis Lambert International Airport",
-  "lastVerified": "2026-11-02",
+  "lastVerified": "2026-11-06",
   "overview": {
     "location": "Unincorporated St. Louis County, Missouri, between Berkeley and Bridgeton — 14 miles northwest of downtown St. Louis",
     "iataCode": "STL",
@@ -217,9 +217,10 @@
       "phone": "314-427-5955 or 314-630-6924",
       "notes": "Best price at STL but the most restrictive shuttle: no runs to the airport before 4:30 AM or after 11 PM, and you must call ahead the day before. Bring the email confirmation. Arrive at the lot before the 2-hour pre-flight window.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 154
     },
     {
       "name": "Renaissance St. Louis Airport",
@@ -236,9 +237,10 @@
       "phone": "314-429-1100",
       "notes": "Check in at the front desk for a validation code, then register your vehicle via the QR code at the desk and park in the area staff assign. Allow extra time for check-in. Good value pick for early flights because the shuttle runs on demand overnight.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 291
     },
     {
       "name": "Hilton St. Louis Airport",
@@ -255,15 +257,16 @@
       "phone": "(314) 426-5500",
       "notes": "Show the reservation on your phone to the attendant. One of the few STL off-site lots that advertises EV charging and accepts full-size trucks/vans at no surcharge. Online booking required for the discounted rate.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 447
     },
     {
       "name": "The Parking Spot 3",
       "slug": "the-parking-spot-3",
-      "dailyRate": 9.74,
-      "reservationRate": 9.74,
+      "dailyRate": 7.94,
+      "reservationRate": 7.94,
       "sampleQuote": "$69.76 total for Nov 2-8, 2026 (incl. $1.66 fees + $1.60 tax), before Triply service fee",
       "parkingType": "Covered and uncovered self-park (dedicated parking facility)",
       "amenities": ["Free 24/7 Shuttle", "Covered/Garage", "24/7 Staffed", "Door-to-Door Shuttle Pickup at Your Car", "Shuttle Tracking", "Baggage Assistance", "Contactless QR Entry/Exit", "Fully Fenced & Well-Lit"],
@@ -274,10 +277,11 @@
       "phone": "314-428-4204",
       "notes": "Covered parking clearance is 9'6\" — tall vans/lifted trucks should book uncovered. Scan the QR code in your confirmation to enter and exit. Only sellable STL option with covered parking and continuous shuttle.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02",
-      "rateSpreadPct": 22.57
+      "rateVerified": "2026-11-06",
+      
+      "reslabLocationId": 514
     },
     {
       "name": "Marriott St. Louis Airport",
@@ -294,9 +298,10 @@
       "phone": "(314) 423-9700",
       "notes": "Show reservation to the attendant on arrival; drive out on return with no check-out. Availability was 'limited' on the Nov 2-8 test search — book early.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 446
     },
     {
       "name": "Crowne Plaza Airport",
@@ -313,9 +318,10 @@
       "phone": "(314) 291-6700",
       "notes": "Online reservation is required to use the lot and shuttle without a hotel room. Only sellable lot on the Bridgeton (west) side of the airport.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 448
     }
   ],
   "shuttleInfo": "On-airport: free Super Park shuttles serve Lots A-E 24/7 every 8-15 minutes (live tracking on flystl.com via Passio GO), and a free Terminal Shuttle connects Terminals 1 and 2 24/7 every 8-15 minutes — there is no walking route between terminals. Off-site: every sellable hotel/lot includes a free shuttle; The Parking Spot 3 runs continuously, Marriott every 20 minutes 24/7, Hilton and Crowne Plaza every 30 minutes 24/7, Renaissance every 20-30 minutes (on demand overnight), Quality Inn 4:30 AM-11 PM only with a call-ahead requirement.",

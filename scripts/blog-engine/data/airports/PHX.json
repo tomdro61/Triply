@@ -1,7 +1,7 @@
 {
   "code": "PHX",
   "fullName": "Phoenix Sky Harbor International Airport",
-  "lastVerified": "2026-11-02",
+  "lastVerified": "2026-11-06",
   "overview": {
     "location": "3 miles east of downtown Phoenix, Maricopa County, Arizona",
     "iataCode": "PHX",
@@ -347,7 +347,7 @@
       "rating": "4.7/5",
       "notes": "Best rated off-site lot at PHX. All-covered parking protects your car from 110F+ summer heat. Closest off-site option via 44th Street.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "The Parking Spot 2 (Van Buren St)",
@@ -370,7 +370,7 @@
       "freeCancellation": true,
       "notes": "Good option for Scottsdale/Paradise Valley travelers. Extra-wide uncovered spaces are a plus for larger vehicles. Covered option recommended in summer.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "The Parking Spot South (formerly Blue Sky)",
@@ -392,7 +392,7 @@
       "freeCancellation": true,
       "notes": "Best value covered off-site parking at $7.25/day pre-booked. 3-minute shuttle ride. Ideal for Southeast Valley travelers.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "PreFlight Airport Parking (PHX)",
@@ -415,9 +415,9 @@
       "freeCancellation": true,
       "notes": "Pull a ticket on entry and keep it; pay/validate at the West Lobby cashier on return. EV charging was listed previously but is not in the live listing (verify). T3 curb pickup closed 10 PM-6 AM from 2/08 to 4/26 - use the Sky Train to T4.",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02",
+      "rateVerified": "2026-11-06",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "totalFor8Days": 117.02,
       "sampleQuote": "$117.02 total for Nov 2-9, 2026 (billed as 8 days, incl. $9.95 lot fees), before Triply service fee",
       "address": "44 N 44th St, Phoenix, AZ 85034",
@@ -450,9 +450,9 @@
       "address": "4120 East Van Buren Street, Phoenix, AZ 85008",
       "phone": "(602) 275-5746",
       "reslabLocationId": 179,
-      "rateVerified": "2026-11-02",
+      "rateVerified": "2026-11-06",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "taxesFor8Days": 0,
       "paymentMethod": "Pay Online"
     },
@@ -475,7 +475,7 @@
       "freeCancellation": true,
       "notes": "Good mid-range option between the budget Howard Johnson and premium Parking Spot lots. Uncovered — consider covered alternatives in summer months.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Sky Harbor Airport Parking (PHX)",
@@ -501,9 +501,9 @@
       "phone": "602-273-7007",
       "reslabLocationId": 193,
       "notes": "Closest sellable lot (0.8 mi). Most of the total is paid at the lot (live quote: $101.15 due at location of $120.68).",
-      "rateVerified": "2026-11-02",
+      "rateVerified": "2026-11-06",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "dueAtLocation": true,
       "dueAtLocationAmount": 101.15,
       "taxesFor8Days": 3.79,
@@ -529,9 +529,9 @@
       "phone": "(602) 225-0500",
       "reslabLocationId": 397,
       "notes": "No shuttle 11 PM-4 AM - flag for red-eyes and very early flights. Parking type (covered/uncovered) not stated in the live listing (verify).",
-      "rateVerified": "2026-11-02",
+      "rateVerified": "2026-11-06",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "taxesFor8Days": 2.06,
       "paymentMethod": "Pay Online"
     },
@@ -555,18 +555,18 @@
       "phone": "(602) 244-8800",
       "reslabLocationId": 99,
       "notes": "No shuttle midnight-4 AM. Parking type (covered/uncovered) not stated in the live listing (verify).",
-      "rateVerified": "2026-11-02",
+      "rateVerified": "2026-11-06",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "taxesFor8Days": 1.67,
       "paymentMethod": "Pay Online"
     },
     {
       "name": "Crowne Plaza Phoenix Airport",
       "slug": "crowne-plaza-phoenix-airport",
-      "dailyRate": 11.22,
-      "reservationRate": 11.22,
-      "totalFor8Days": 81.44,
+      "dailyRate": 12.92,
+      "reservationRate": 12.92,
+      "totalFor8Days": 93.72,
       "sampleQuote": "$78.60 total for Nov 2-9, 2026 (billed as 8 days, incl. $6.60 lot fees), before Triply service fee",
       "parkingType": "Five-level parking garage with rooftop level (indoor space not guaranteed at peak)",
       "amenities": [
@@ -584,12 +584,11 @@
       "phone": "602-273-7778",
       "reslabLocationId": 120,
       "notes": "Maximum vehicle height 7 ft. At peak times guests may be directed to the uncovered rooftop level. License plate required at booking.",
-      "rateVerified": "2026-11-02",
+      "rateVerified": "2026-11-06",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "taxesFor8Days": 0,
-      "paymentMethod": "Pay Online",
-      "rateSpreadPct": 21.72
+      "paymentMethod": "Pay Online"
     },
     {
       "name": "La Quinta Inn & Suites Tempe University",
@@ -610,9 +609,9 @@
       "phone": "(480) 774-2500",
       "reslabLocationId": 287,
       "notes": "Cheapest sellable lot but NO shuttle and in Tempe (3.9 mi); live availability \"limited\". Only suits travelers with a drop-off/rideshare plan or staying in Tempe.",
-      "rateVerified": "2026-11-02",
+      "rateVerified": "2026-11-06",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "availability": "limited",
       "taxesFor8Days": 0,
       "paymentMethod": "Pay Online"

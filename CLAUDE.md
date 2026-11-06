@@ -118,9 +118,14 @@ live in two different places and are governed differently:
 Before opening a PR:
 
 - `npm run build` + `npm test` (app) — must pass.
+- **Check the diff against [`docs/review-lessons.md`](docs/review-lessons.md)** and list the lessons
+  you checked in the PR body. Every lesson there is a mistake our reviews keep finding; most PRs
+  needed 2–8 review rounds for them.
 - Self-review the diff against the anti-patterns below.
 - Customer-facing or money/booking code → get a second set of eyes: run
   `/scoped-review` (committed to this repo — see **Skills** below).
+- When a review of your PR finds something, add one line to the **Log** in
+  `docs/review-lessons.md` (the reviewer adds it when they fix it on your branch).
 
 ### Codex (OpenAI) is part of review — since October 12, 2026
 
@@ -206,4 +211,4 @@ npm run publish          # promote draft/review posts to published
 
 *Shared team CLAUDE.md — committed to the `triply` repo so every contributor's
 Claude Code reads the same rules. Personal/ops notes stay in each dev's own
-environment, not here. Last updated: October 12, 2026 — Codex reviews moved to `gpt-6.1-sol` (Astra drained the Plus allowance).*
+environment, not here. Last updated: November 6, 2026 — `docs/review-lessons.md`: check every PR against it (Code review). October 12, 2026 — Codex reviews moved to `gpt-6.1-sol` (Astra drained the Plus allowance).*

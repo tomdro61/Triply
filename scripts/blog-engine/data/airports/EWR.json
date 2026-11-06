@@ -1,7 +1,7 @@
 {
   "code": "EWR",
   "fullName": "Newark Liberty International Airport",
-  "lastVerified": "2026-11-01",
+  "lastVerified": "2026-11-06",
   "overview": {
     "location": "3 Brewster Rd, Newark, NJ 07114 — straddles Newark and Elizabeth, NJ, across Essex and Union counties. 9 miles west-southwest of Manhattan, 4.5 miles south of downtown Newark.",
     "iataCode": "EWR",
@@ -242,7 +242,7 @@
       "knownCoupons": ["25PARK (friends & family discount — $17/day rate)", "FLYEWR10 ($10 off reservation)", "Check ezwayparking.com/promo-codes for seasonal codes"],
       "notes": "Closest lot to EWR entrance. $6 one-time service fee added. Valet only — must leave keys. Promo code 25PARK is widely used.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "ABC Airport Parking (EWR)",
@@ -262,13 +262,13 @@
       "knownCoupons": ["Check abcairportparking.net for current 48% off coupon", "EWR319 ($5 off via AirportParkingReservations)"],
       "notes": "Good value with frequent shuttle. $6 service fee on top of daily rate. One of the more affordable options near EWR.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Apex EWR Airport Parking",
       "slug": "apex-ewr-airport-parking",
-      "dailyRate": 8.95,
-      "reservationRate": 6.95,
+      "dailyRate": 9.26,
+      "reservationRate": 9.26,
       "parkingType": "Valet (outdoor, uncovered)",
       "amenities": ["Free Shuttle 24/7", "Valet", "Security", "Luggage Assistance"],
       "shuttleInfo": "Round-the-clock shuttle every 5-10 minutes to all EWR terminals.",
@@ -281,8 +281,11 @@
       "freeCancellation": true,
       "knownCoupons": ["EWR319 ($5 off via AirportParkingReservations)", "Book via Way.com from $3.35/day"],
       "notes": "Extremely close to airport. Among the lowest daily rates when pre-booked. Valet only — must leave keys.",
-      "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "reslabLocationId": 317,
+      "paymentMethod": "Pay at Location",
+      "rateVerified": "2026-11-06"
     },
     {
       "name": "Victoria Parking (EWR)",
@@ -303,7 +306,7 @@
       "knownCoupons": ["Groupon deals available", "WEBSITE code for website discount"],
       "notes": "One of few lots offering indoor/covered parking. Indoor rate higher than outdoor. Shuttle is frequent and reliable.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Newark Airport Long Term Parking (NALTP)",
@@ -323,7 +326,7 @@
       "knownCoupons": ["Check newarklongtermparking.com/resources/ for seasonal coupons", "NALTP Club members get exclusive deals"],
       "notes": "Higher priced than competitors but emphasizes service quality. EV charging available. Dynamic pricing — rates vary by season and occupancy.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Hilton Newark Airport Parking",
@@ -343,9 +346,10 @@
       "knownCoupons": ["EWR319 ($5 off via AirportParkingReservations)"],
       "notes": "Hotel lot — convenient if combining with Park-Sleep-Fly package. Self-park (keep your keys). Shuttle every 15 min.",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01",
+      "rateVerified": "2026-11-06",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06",
+      "reslabLocationId": 320
     },
     {
       "name": "Courtyard by Marriott Newark Elizabeth",
@@ -365,9 +369,10 @@
       "knownCoupons": ["Book via cheapairportparking.org from $8.99/day"],
       "notes": "Among cheapest hotel-based parking options. Good for budget travelers who want a reliable lot.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-01",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 323
     },
     {
       "name": "The Parking Point (EWR)",
@@ -387,7 +392,151 @@
       "knownCoupons": ["Pre-book online from $5.95/day — significant savings vs walk-up"],
       "notes": "Excellent pre-book savings ($5.95 vs $9.95 walk-up). Real-time shuttle tracking is a plus. Valet only — must leave keys.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-06"
+    },
+    {
+      "name": "Red Carpet Inn",
+      "slug": "red-carpet-inn",
+      "reslabLocationId": 184,
+      "address": "100 Union Avenue, Irvington, NJ",
+      "distanceFromAirport": "3.8 mi",
+      "phone": "973-375-4102",
+      "shuttleInfo": "No Shuttle. Uber and Lyft are readily available, affordable, and will bring you directly to and from airport without the wait.",
+      "amenities": ["Wheelchair Access"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 5.2,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+    },
+    {
+      "name": "Motel 6 Newark Airport",
+      "slug": "motel-6-newark-airport",
+      "reslabLocationId": 62,
+      "address": "853 Spring St, Elizabeth, NJ",
+      "distanceFromAirport": "1.3 mi",
+      "phone": "908-201-3529",
+      "shuttleInfo": "24 hours every 15 minutes. Pick ups are on demand.",
+      "amenities": ["24/7 Front Desk", "Restaurant"],
+      "paymentMethod": "Pay at Location",
+      "dailyRate": 9.78,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+    },
+    {
+      "name": "Maas Parking Newark",
+      "slug": "maas-parking-newark",
+      "reslabLocationId": 322,
+      "address": "646-696 Frelinghuysen Ave, Newark",
+      "distanceFromAirport": "1.3 mi",
+      "phone": "862-704-0770 OR 862-704-0763",
+      "shuttleInfo": "24/7 every 15 minutes",
+      "amenities": ["24/7 Front Desk"],
+      "paymentMethod": "Pay at Location",
+      "dailyRate": 10.45,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+    },
+    {
+      "name": "ARB Parking Newark",
+      "slug": "arb-parking-newark",
+      "reslabLocationId": 260,
+      "address": "27-63 Haynes Ave, Newark, NJ",
+      "distanceFromAirport": "1.3 mi",
+      "phone": "862-395-7691",
+      "shuttleInfo": "24/7 every 15 minutes",
+      "amenities": ["24/7 Front Desk", "Wheelchair Access", "Valet"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 11.33,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+    },
+    {
+      "name": "Renaissance Newark Airport Hotel",
+      "slug": "renaissance-newark-airport-hotel",
+      "reslabLocationId": 259,
+      "address": "1000 Spring St, Elizabeth, NJ",
+      "distanceFromAirport": "1.1 mi",
+      "phone": "888-960-7275",
+      "shuttleInfo": "4:00 AM - 12:00 AM: Shuttle runs every 15 minutes. 12:00 AM - 4:00 AM: Shuttle runs every 30 minutes.",
+      "amenities": ["24/7 Front Desk", "Restaurant"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 13.71,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+    },
+    {
+      "name": "Courtyard Newark Liberty",
+      "slug": "courtyard-newark-liberty",
+      "reslabLocationId": 378,
+      "address": "600 US 1 &, US-9, Newark, NJ",
+      "distanceFromAirport": "1.4 mi",
+      "phone": "973-643-8500",
+      "shuttleInfo": "Shuttle runs 24/7 every 30 minutes",
+      "amenities": ["24/7 Front Desk", "Restaurant", "Wheelchair Access"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 13.01,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+    },
+    {
+      "name": "Embassy Suites Hilton Newark Airport",
+      "slug": "embassy-suites-hilton-newark-airport",
+      "reslabLocationId": 277,
+      "address": "95 International Blvd, Elizabeth, NJ",
+      "distanceFromAirport": "1.9 mi",
+      "phone": "(908) 558-0752",
+      "shuttleInfo": "Every 30 minutes to and from the airport",
+      "amenities": ["Security", "24/7 Front Desk", "Restaurant"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 13.71,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+    },
+    {
+      "name": "EWR Airport Parking",
+      "slug": "ewr-airport-parking",
+      "reslabLocationId": 63,
+      "address": "819 Spring St, Elizabeth, NJ",
+      "distanceFromAirport": "1.3 mi",
+      "phone": "908-527-1300",
+      "shuttleInfo": "24/7 on demand",
+      "amenities": ["Security", "Valet"],
+      "paymentMethod": "Pay at Location",
+      "dailyRate": 17.12,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+    },
+    {
+      "name": "Snap Parking",
+      "slug": "snap-parking",
+      "reslabLocationId": 76,
+      "address": "98 Frelinghuysen Avenue, Newark, NJ",
+      "distanceFromAirport": "2.1 mi",
+      "phone": "973-732-5855",
+      "shuttleInfo": "Shuttle runs 24 hours on demand to and from the airport",
+      "amenities": ["24/7 Front Desk", "Wheelchair Access", "Security", "Valet", "Covered/Garage"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 20.7,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
     }
   ],
   "couponCodes": {

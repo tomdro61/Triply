@@ -1,7 +1,7 @@
 {
   "code": "BNA",
   "fullName": "Nashville International Airport",
-  "lastVerified": "2026-11-02",
+  "lastVerified": "2026-11-06",
   "overview": {
     "location": "Southeast Nashville, Tennessee — 8 miles southeast of downtown Nashville",
     "iataCode": "BNA",
@@ -216,7 +216,7 @@
       "freeCancellation": true,
       "notes": "24/7 shuttle is a strong advantage. One of the most established off-site lots near BNA. Fenced with continuous video surveillance.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Cambria Hotel Nashville Airport",
@@ -232,15 +232,16 @@
       "freeCancellation": true,
       "notes": "WARNING: No shuttle outside 5 AM - 11 PM. Not suitable for red-eye or very late flights. Good option for standard departure times.",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02",
+      "rateVerified": "2026-11-06",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06",
+      "reslabLocationId": 232
     },
     {
       "name": "Comfort Suites BNA Airport",
       "slug": "comfort-suites-bna-airport",
-      "dailyRate": 9.95,
-      "reservationRate": 8.95,
+      "dailyRate": 11.44,
+      "reservationRate": 11.44,
       "parkingType": "Uncovered, self-park (hotel lot)",
       "amenities": ["Free Shuttle", "Security Cameras", "Handicap Accessible"],
       "shuttleInfo": "Shuttle service every 60 minutes during operating hours.",
@@ -249,8 +250,11 @@
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
       "notes": "Hourly shuttle frequency is less convenient than other options. Good budget choice if your schedule aligns with shuttle times.",
-      "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "reslabLocationId": 172,
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-11-06"
     },
     {
       "name": "GLo Best Western Nashville Airport",
@@ -266,7 +270,7 @@
       "freeCancellation": true,
       "notes": "One of the cheapest off-site options near BNA. Verify shuttle hours before booking for early/late flights.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Sheraton Music City Hotel (BNA)",
@@ -282,7 +286,7 @@
       "freeCancellation": true,
       "notes": "Full-service hotel with upscale amenities. Good park-sleep-fly option. Shuttle included.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06"
     },
     {
       "name": "Holiday Inn Express Nashville Airport",
@@ -298,9 +302,89 @@
       "freeCancellation": true,
       "notes": "Reliable IHG brand with shuttle service. Good mid-range option for park-and-fly.",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02",
+      "rateVerified": "2026-11-06",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-06",
+      "reslabLocationId": 566
+    },
+    {
+      "name": "Southwestern Airport Parking",
+      "slug": "southwestern-airport-parking",
+      "reslabLocationId": 471,
+      "address": "2451 Atrium Way, Nashville, TN",
+      "distanceFromAirport": "2.5 mi",
+      "phone": "615-391-2669",
+      "shuttleInfo": "No Shuttle. Uber and Lyft are a convenient option for affordable transportation to and from the airport.",
+      "paymentMethod": "Pay Online",
+      "dailyRate": 5.2,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+    },
+    {
+      "name": "Best Western Plus Nashville Airport",
+      "slug": "best-western-plus-nashville-airport",
+      "reslabLocationId": 169,
+      "address": "911 Airport Center Drive, Nashville, TN",
+      "distanceFromAirport": "1.6 mi",
+      "phone": "(615) 872-0109",
+      "shuttleInfo": "4:00 AM - 11:00 PM: Shuttle runs every 1 hour. 11:00 PM - 4:00 AM: No shuttle.",
+      "amenities": ["Security", "Restaurant", "Wheelchair Access"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 11.25,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+    },
+    {
+      "name": "Fly Away Airport Parking Nashville",
+      "slug": "fly-away-airport-parking-nashville",
+      "reslabLocationId": 334,
+      "address": "1671 Murfreesboro Pike, Nashville, TN",
+      "distanceFromAirport": "1.7 mi",
+      "phone": "(615) 367-2200",
+      "shuttleInfo": "24/7 Shuttle, every 10 minutes",
+      "minimumBookingDays": 4,
+      "paymentMethod": "Pay Online",
+      "dailyRate": 11.45,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+    },
+    {
+      "name": "Avid Hotel Nashville Airport",
+      "slug": "avid-hotel-nashville-airport",
+      "reslabLocationId": 217,
+      "address": "40 Rachel Drive Nashville, TN",
+      "distanceFromAirport": "1.3 mi",
+      "phone": "615-730-8496",
+      "shuttleInfo": "4 AM - Midnight On Demand",
+      "amenities": ["24/7 Front Desk", "Restaurant", "Wheelchair Access", "Fitness Center", "Free Internet/Wifi", "Breakfast Included"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 10.95,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+    },
+    {
+      "name": "Radisson Hotel",
+      "slug": "radisson-hotel",
+      "reslabLocationId": 116,
+      "address": "1112 Airport Center Drive, Nashville, TN",
+      "distanceFromAirport": "1.4 mi",
+      "phone": "(615) 889-9090",
+      "shuttleInfo": "24 hours every 30 Minutes to the airport and pick ups are on demand",
+      "amenities": ["Security", "24/7 Front Desk", "Restaurant", "Fitness Center", "Free Internet/Wifi"],
+      "paymentMethod": "Pay Online",
+      "dailyRate": 11.5,
+      "rateVerified": "2026-11-06",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-06",
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
     }
   ],
   "shuttleInfo": "On-airport: FREE shuttle from Economy Lots B and C to terminal every 10-15 minutes, 24/7. Off-site: Most lots include free shuttle — frequency varies from every 15 minutes (Executive Travel) to hourly (Comfort Suites). CRITICAL: Some off-site hotel lots have limited shuttle hours (e.g., Cambria 5 AM-11 PM only) — verify before booking for early morning or late night flights.",

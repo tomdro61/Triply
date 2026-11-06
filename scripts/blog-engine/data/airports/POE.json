@@ -2,7 +2,7 @@
   "code": "POE",
   "fullName": "Port Everglades Cruise Port",
   "destinationType": "seaport",
-  "lastVerified": "2026-11-02",
+  "lastVerified": "2026-11-06",
   "overview": {
     "location": "Fort Lauderdale, Hollywood and Dania Beach, Broward County, Florida. Main address: 1850 Eller Drive, Fort Lauderdale, FL 33316. 1.8 miles from Fort Lauderdale-Hollywood International Airport (FLL).",
     "operator": "Broward County Port Everglades Department",
@@ -243,16 +243,17 @@
       "distanceFromAirport": "3.9 mi from Port Everglades (Triply API distance)",
       "notes": "AIRPORT PARKING ONLY - the operator states there is no cruise/port shuttle. Never recommend to cruisers. Operator conditions: This lot does not accept oversized vehicles (trucks, campers, etc); size will be determined by lot management.Please note that cruise shuttle service is not available.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "phone": "954-967-9063",
       "dailyRate": 6.25,
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 115
     },
     {
       "name": "Springhill Suites",
       "slug": "springhill-suites",
-      "reservationRate": 8.53,
+      "reservationRate": 8.17,
       "reservationRateNote": "Lot rate per day before Triply service fee; quote for Nov 2-8, 2026 (7 days). 7-day grand total incl. fees: $49.64",
       "parkingType": "Uncovered, hotel self-park",
       "amenities": [
@@ -269,12 +270,13 @@
       "distanceFromAirport": "4.3 mi from Port Everglades (Triply API distance)",
       "notes": "Airport-shuttle lot; operator does not mention cruise port transport. Treat as airport-only - do not recommend to cruisers unless verified with the hotel.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "phone": "954-920-9696 - press \"7\"",
-      "dailyRate": 8.53,
+      "dailyRate": 8.17,
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02",
-      "rateSpreadPct": 35.41
+      "rateVerified": "2026-11-06",
+      "rateSpreadPct": 35.41,
+      "reslabLocationId": 117
     },
     {
       "name": "Residence Inn Fort Lauderdale Airport",
@@ -292,11 +294,12 @@
       "distanceFromAirport": "4.1 mi from Port Everglades (Triply API distance)",
       "notes": "Airport-shuttle lot; operator does not mention cruise port transport. Treat as airport-only - do not recommend to cruisers unless verified with the hotel.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "phone": "(954) 989-3636",
       "dailyRate": 11.02,
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 382
     },
     {
       "name": "Fairfield Inn & Suites",
@@ -314,16 +317,17 @@
       "distanceFromAirport": "4 mi from Port Everglades (Triply API distance)",
       "notes": "AIRPORT PARKING ONLY - the operator states there is no cruise/port shuttle. Never recommend to cruisers. Operator conditions: Airport parking only, This location does not offer cruise parking (transportation to/from port).This lot does not accept oversized vehicles (trucks, campers, etc).",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "phone": "954-981-2700",
       "dailyRate": 9.4,
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 97
     },
     {
       "name": "Park By The Ports AIRPORT Parking",
       "slug": "park-by-the-ports-airport-parking",
-      "reservationRate": 18.7,
+      "reservationRate": 17.2,
       "reservationRateNote": "Lot rate per day before Triply service fee; quote for Nov 2-8, 2026 (7 days). 7-day grand total incl. fees: $67.21",
       "parkingType": "Uncovered, self-park (fenced open-air lot)",
       "amenities": [
@@ -338,12 +342,13 @@
       "distanceFromAirport": "3 mi from Port Everglades (Triply API distance)",
       "notes": "Airport-shuttle lot; operator does not mention cruise port transport. Treat as airport-only - do not recommend to cruisers unless verified with the hotel. Operator conditions: No RV, motor homes, boats, or trailersFree shuttle transportation for up to 4 passengers; every additional is $10.00 per person.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "phone": "954-727-5566",
-      "dailyRate": 18.7,
+      "dailyRate": 17.2,
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02",
-      "rateSpreadPct": 93.71
+      "rateVerified": "2026-11-06",
+      "rateSpreadPct": 53.55,
+      "reslabLocationId": 244
     },
     {
       "name": "Home2 Suites by Hilton Ft. Lauderdale Airport",
@@ -362,11 +367,12 @@
       "distanceFromAirport": "4.4 mi from Port Everglades (Triply API distance)",
       "notes": "Airport-shuttle lot; operator does not mention cruise port transport. Treat as airport-only - do not recommend to cruisers unless verified with the hotel.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "phone": "(954) 998-0200",
       "dailyRate": 9.4,
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 479
     },
     {
       "name": "The Harrison Hotel Downtown Hollywood",
@@ -389,11 +395,13 @@
       "distanceFromAirport": "6.1 mi from Port Everglades (Triply API distance)",
       "notes": "Airport-shuttle lot; operator does not mention cruise port transport. Treat as airport-only - do not recommend to cruisers unless verified with the hotel.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "phone": "(954) 704-6944",
       "dailyRate": 10.5,
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 377,
+      "rateSpreadPct": 21.43
     },
     {
       "name": "Aloft by Marriott Fort Lauderdale Airport",
@@ -414,11 +422,12 @@
       "distanceFromAirport": "1.5 mi from Port Everglades (Triply API distance)",
       "notes": "Airport-shuttle lot; operator does not mention cruise port transport. Treat as airport-only - do not recommend to cruisers unless verified with the hotel.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "phone": "(754) 285-4848",
       "dailyRate": 10.99,
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 493
     },
     {
       "name": "Courtyard Fort Lauderdale Airport",
@@ -440,11 +449,12 @@
       "distanceFromAirport": "4 mi from Port Everglades (Triply API distance)",
       "notes": "Included shuttle is FLL AIRPORT ONLY. Cruise port shuttle costs $20 per person one way (verify return-trip arrangements with the hotel). Use as a stay-park-cruise or covered-parking option, always with the $20pp caveat. Operator conditions: This reservation includes complimentary AIRPORT shuttle.Cruise port shuttle is $20 per person",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "phone": "954-342-8333",
       "dailyRate": 12.25,
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 180
     },
     {
       "name": "Marriott Fort Lauderdale Airport",
@@ -467,11 +477,12 @@
       "distanceFromAirport": "3.9 mi from Port Everglades (Triply API distance)",
       "notes": "Included shuttle is FLL AIRPORT ONLY. Cruise port shuttle costs $20 per person one way (verify return-trip arrangements with the hotel). Use as a stay-park-cruise or covered-parking option, always with the $20pp caveat. Operator conditions: Shuttle included in the reservations for Airport ONLY",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "phone": "954-802-7543",
       "dailyRate": 12.55,
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 360
     },
     {
       "name": "Park By The Ports Cruise Parking",
@@ -489,11 +500,13 @@
       "distanceFromAirport": "3 mi from Port Everglades (Triply API distance)",
       "notes": "The only Triply POE lot with port transportation included. Cruise shuttle 7 AM-2 PM, on demand every 15-30 min; free for up to 4 passengers, $10 each additional. Check in at the orange trailer; return pickup requested via trackmyshuttle.com/3824. Cruise ships only - no Balearia/ferry transport. No RVs, motor homes, boats or trailers. Primary CTA for cruise content. Operator conditions: Transportation included for up to 4 passengers per vehicle; every additional passenger is $10/person.No Balearia or Ferry transportation.No R/V, motor homes, boats, or trailers.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "phone": "954-727-5566",
       "dailyRate": 21.7,
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-06",
+      "reslabLocationId": 245,
+      "rateSpreadPct": 19.88
     }
   ],
   "shuttleInfo": "Port: free shuttle between Palm Garage and Terminal 29. Off-site: Park By The Ports Cruise Parking runs on-demand port shuttles 7 AM-2 PM every 15-30 minutes (free for up to 4 passengers, $10 each additional); return pickups requested by link, every 20-30 min 7-9 AM and every 40-50 min 9-11 AM. Courtyard and Marriott Fort Lauderdale Airport: included shuttle is airport-only; port transfer $20 per person one way. Park By The Ports Cruise Parking is the only lot with the port shuttle included; every other lot in the list is airport-only or does not state a cruise shuttle.",

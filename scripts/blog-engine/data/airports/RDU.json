@@ -185,10 +185,11 @@
       "phone": "(919) 941-5050",
       "notes": "The only sellable RDU lot with a 24/7 shuttle. Present your reservation at the front desk for a validation code, then register your vehicle via QR code and park in any space not marked 'Reserved'. Arrive before the airline's 2-hour pre-flight window. Listing address also shows '282 Page Rd I-40' — verify.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
       "rateVerified": "2026-11-02",
-      "rateSpreadPct": 55.38
+      "rateSpreadPct": 55.38,
+      "reslabLocationId": 412
     },
     {
       "name": "Embassy Suites by Hilton Research Triangle",
@@ -205,9 +206,10 @@
       "phone": "919-677-1840",
       "notes": "Most consistent price across Nov dates (marked 'lowest total' on Nov 16-23). Bring the email confirmation (phone or printed). Booking asks for license plate and number of passengers. No shuttle midnight-4 AM.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-02",
+      "reslabLocationId": 92
     },
     {
       "name": "Cambria Hotel Raleigh - Durham Airport",
@@ -224,9 +226,10 @@
       "phone": "919-361-3311",
       "notes": "Go inside to sign in and get a parking sign for your vehicle. Be on site at least 30 minutes before you need the shuttle. No overnight shuttle.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-02",
+      "reslabLocationId": 101
     },
     {
       "name": "Microtel Inn & Suites",
@@ -243,9 +246,10 @@
       "phone": "919-462-0061",
       "notes": "Show your reservation (phone, email or printed) at check-in. No shuttle 11:45 PM-4:15 AM. Missing from the Nov 16-23 search — availability can run out.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-02",
+      "reslabLocationId": 157
     },
     {
       "name": "Quality Inn & Suites",
@@ -262,9 +266,10 @@
       "phone": "(919) 481-3600",
       "notes": "Check in at the front desk on arrival. Highest-priced sellable lot but still well under ParkRDU Economy ($14.50). Slug is shared with the CVG Quality Inn & Suites listing — refer to it as 'Quality Inn & Suites Morrisville' in copy to avoid confusion.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellableCheckedOn": "2026-11-06",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-02"
+      "rateVerified": "2026-11-02",
+      "reslabLocationId": 166
     }
   ],
   "shuttleInfo": "On-airport: ParkRDU Economy shuttle 24/7 every 20 minutes; ParkRDU Express 24/7 trunk-to-terminal shuttle with luggage help. Off-site: all five Triply lots are hotel lots with free shuttles using the red curb hotel-shuttle zones outside each terminal — call the hotel after you collect bags. Only Sheraton Imperial runs 24/7 (hourly); Embassy Suites (4 AM-12 AM), Quality Inn & Suites (4 AM-12 AM), Cambria (4:15 AM-12 AM) and Microtel (4:15 AM-11:45 PM) do not run overnight.",

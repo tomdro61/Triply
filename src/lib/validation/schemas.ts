@@ -31,10 +31,12 @@ export const CONTACT_HONEYPOT_FIELD = "hp_x7q";
  * there is a spam relay ("Claim your refund at …"), escaping or not.
  */
 export const CONTACT_SUBJECTS = [
-  "General Inquiry",
   "Booking Help",
+  "Change My Reservation",
   "Cancellation Request",
+  "Problem at the Lot",
   "Payment Issue",
+  "General Inquiry",
   "Feedback",
   "Partnership Inquiry",
   "Other",
@@ -46,7 +48,16 @@ export const contactFormSchema = z.object({
   email: z.string().email("Invalid email address").max(254),
   subject: z.enum(CONTACT_SUBJECTS, { message: "Please choose a subject" }),
   message: z.string().min(1, "Message is required").max(5000),
+  // Optional: lets /api/contact match the booking (only when the email on the
+  // booking equals `email`). Shape-checked here, normalised in
+  // src/lib/support/triage.ts. Empty string = not given.
+  reservationNumber: z
+    .string()
+    .max(40)
+    .regex(/^[A-Za-z0-9#\-\s]*$/, "Reservation numbers use only letters, numbers and dashes")
+    .optional(),
 });
+export type ContactFormData = z.infer<typeof contactFormSchema>;
 
 export const paymentIntentSchema = z.object({
   amount: z.number().positive("Amount must be positive").max(100000),
