@@ -18,6 +18,7 @@ import {
   Calculator,
   BarChart3,
   Scale,
+  Newspaper,
 } from "lucide-react";
 import { isAdminEmail } from "@/config/admin";
 
@@ -113,6 +114,7 @@ export default function AdminLayout({
     { href: "/admin", icon: LayoutDashboard, label: "Dashboard" },
     { href: "/admin/numbers", icon: LineChart, label: "Monthly numbers" },
     { href: "/admin/analytics", icon: BarChart3, label: "Analytics" },
+    { href: "/admin/blog-bookings", icon: Newspaper, label: "Blog bookings" },
     { href: "/admin/accounting", icon: Calculator, label: "Accounting" },
     { href: "/admin/bookings", icon: Ticket, label: "Bookings" },
     { href: "/admin/disputes", icon: Scale, label: "Disputes" },
