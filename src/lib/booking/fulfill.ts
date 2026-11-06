@@ -173,10 +173,14 @@ export interface StampWarning {
    *             discount is DERIVED FROM THE CHARGE and the code recorded —
    *             the row needs a repair, the detail says what was written
    *   mismatch  used, but Stripe's charge implies a discount more than 1¢ away
+   *   price_moved  used (checkout's figures hold), but this reservation is
+   *             priced differently from checkout, so the row's totals minus
+   *             the discount no longer equal Stripe's charge — not a fault
+   *             (the customer pays what they authorized), reported at warning
    *   no_code   a stamped discount was recorded but no promoCode came with it
    *             — the booking will not count as a use of any code
    */
-  kind: "refused" | "mismatch" | "no_code";
+  kind: "refused" | "mismatch" | "price_moved" | "no_code";
   detail: string;
 }
 
@@ -254,18 +258,24 @@ export function appliedPromoDiscount(
   // reservation's — so it never comes out of the service fee.
   const stampWarnings: StampWarning[] = [];
   const checkout = promo.checkoutFigures;
+  // An unknown reservation figure cannot vouch for a stamp (NaN refuses it),
+  // exactly as Step 9.5 treats it — never "due 0", which would let the bound
+  // grow to the whole grand total.
   const onlineParkingCents =
     checkout.kind === "figures"
       ? checkout.onlineParkingCents
-      : Math.round((parkingTotal - (fr.money.dueAtLocation || 0)) * 100);
+      : fr.money.grandTotal === null || fr.money.dueAtLocation === null
+      ? Number.NaN
+      : Math.round((fr.money.grandTotal - fr.money.dueAtLocation) * 100);
   const refusal =
     checkout.kind === "invalid"
       ? checkout.detail
       : stampedDiscountRefusal(stamped, onlineParkingCents);
-  // With checkout's figures, the charge is measured against checkout's own
+  // With checkout's figures (checked against the charge by the engine before
+  // they get here), the charge is measured against checkout's own
   // pre-discount price: a lot price that moved after checkout is not a
-  // mismatch (Steps 8 and 9.5 report it, at warning). Without them, against
-  // this reservation's.
+  // mismatch but a `price_moved`, below. Without them, against this
+  // reservation's.
   const preDiscountCents =
     checkout.kind === "figures"
       ? checkout.preDiscountOnlineCents + Math.round(protectionPremium * 100)
@@ -282,6 +292,14 @@ export function appliedPromoDiscount(
         kind: "mismatch",
         detail: `recorded discount_amount ${dollars(stamped.cents)} (discountCents ${stamped.cents}), but Stripe charged ${promo.chargedCents} of a pre-discount ${preDiscountCents}, i.e. ${derivedCents} off`,
       });
+    } else if (checkout.kind === "figures") {
+      const reservationPreDiscountCents = preDiscountOnlineCents();
+      if (Math.abs(reservationPreDiscountCents - promo.chargedCents - stamped.cents) > 1) {
+        stampWarnings.push({
+          kind: "price_moved",
+          detail: `recorded discount_amount ${dollars(stamped.cents)}; checkout priced ${preDiscountCents} before the discount, this reservation ${reservationPreDiscountCents}; Stripe charged ${promo.chargedCents}`,
+        });
+      }
     }
   } else {
     discountCents = Math.max(0, derivedCents);

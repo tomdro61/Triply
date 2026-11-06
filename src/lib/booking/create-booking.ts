@@ -1974,11 +1974,14 @@ async function fulfilClaimed(
   // recorded by a fallback rule: the reservation is live, so it goes to the
   // reconciliation queue (Discord + customer email, PR #133) with the
   // authorization intact — the same route as an ambiguous ResLab failure.
-  // Only while the authorization is still uncaptured: a PaymentIntent already
-  // `succeeded` (an earlier attempt captured, then the booking insert failed)
-  // has nothing left to protect, and refusing here would strand a paid
-  // customer with no booking row. That case books, and appliedPromoDiscount
-  // records the discount from the charge and reports the refused stamp.
+  // Only while the authorization is still uncaptured. A PaymentIntent already
+  // `succeeded` — auto-captured on the FIRST attempt (Link, or manual capture
+  // switched off by DISABLE_MANUAL_CAPTURE), or captured by an earlier attempt
+  // whose booking insert failed — has nothing left to protect, and refusing
+  // here would strand a paid customer with no booking row. That case books,
+  // and appliedPromoDiscount bounds the stamp against this reservation (or
+  // the checked checkout figures), records the discount from the charge when
+  // it refuses, and the refusal is reported per PaymentIntent.
   if (!stampChecked && pi.status === "requires_capture") {
     const refused = stampRefusedBeforeCapture(pi, payload, fr, charged);
     if (refused) {
@@ -2075,7 +2078,7 @@ async function fulfilClaimed(
         ? rawDiscountPercent
         : 0,
     stampedDiscount: readStampedDiscount(pi.metadata),
-    checkoutFigures: readCheckoutFigures(pi.metadata),
+    checkoutFigures: checkedCheckoutFigures(pi, charged),
     // The real charge, in cents — the source of truth for what the customer
     // paid, so the stored discount reconciles to Stripe exactly.
     chargedCents: pi.amount,
@@ -2091,10 +2094,18 @@ async function fulfilClaimed(
   // Reported once here (the derivation is pure and runs for the row too). The
   // money has moved, so a doubtful stamp cannot refuse the booking any more —
   // the row and receipt follow appliedPromoDiscount's rule, and we look. A
-  // refused stamp is normally unreachable here (Steps 8 and 9.5 refuse it
-  // before capture); each one that arrives needs its row repaired, so it gets
-  // its own Sentry issue per PaymentIntent.
+  // refused stamp reaches here only on a payment captured before Step 9.5
+  // could check it (auto-capture with ResLab's price unreadable, or a
+  // captured resume); each one needs its row repaired, so it gets its own
+  // Sentry issue per PaymentIntent. A price that moved is not a fault: warning.
   for (const warning of appliedDiscount.stampWarnings) {
+    if (warning.kind === "price_moved") {
+      captureBookingError(
+        new Error(`Promo discountCents price_moved on ${piId} (reservation ${fr.number}): ${warning.detail}`),
+        { step: "checkout", airportCode: payload.airportCode, fingerprint: ["promo-discount-stamp", "price_moved"], level: "warning" }
+      );
+      continue;
+    }
     capturePaymentError(
       new Error(`Promo discountCents ${warning.kind} on ${piId} (reservation ${fr.number}): ${warning.detail}`),
       {
@@ -2536,6 +2547,28 @@ function stampRefusedBeforeCapture(
   }
   const refusal = stampedDiscountRefusal(stamped, onlineParkingCents);
   return refusal === null ? null : { cause: "stamp_exceeds_online_parking", detail: `${refusal} (reservation ${fr.number})` };
+}
+
+/**
+ * Checkout's figures for the backstop (`appliedPromoDiscount`), but only once
+ * they have passed the same check as Steps 8 and 9.5. A captured payment can
+ * reach the backstop with neither having run (a `succeeded` resume skips
+ * both), and the backstop measures the charge against these figures: figures
+ * that don't add up would otherwise record the stamp with no warning. Failed
+ * figures come back `invalid`, so the stamp is refused, the discount derived
+ * from this reservation, and the PaymentIntent reported.
+ */
+function checkedCheckoutFigures(pi: Stripe.PaymentIntent, charged: ChargedProtection | null): CheckoutFigures {
+  const figures = readCheckoutFigures(pi.metadata);
+  const stamped = readStampedDiscount(pi.metadata);
+  if (figures.kind !== "figures" || stamped.kind === "absent") return figures;
+  // An unusable stamp can't be checked against them, so they are unchecked too.
+  if (stamped.kind === "invalid") return { kind: "invalid", detail: "stamp_invalid: checkout figures beside an unusable discountCents are unchecked" };
+  const check = checkStampAgainstCharge(pi.metadata, stamped, {
+    premiumCents: Math.round((charged?.premium ?? 0) * 100),
+    piAmountCents: pi.amount,
+  });
+  return check.ok ? figures : { kind: "invalid", detail: `${check.cause}: ${check.detail}` };
 }
 
 /** DEV_SKIP_PAYMENT path — no PaymentIntent, so no payment state machine. */

@@ -75,8 +75,16 @@ describe("appliedPromoDiscount — a usable stamp", () => {
     );
     expect(out.discountAmount).toBe(5);
     expect(out.promoCode).toBe("JFK5");
-    // Nor is it a mismatch: the charge is measured against checkout's own price.
-    expect(out.stampWarnings).toEqual([]);
+    // Nor is it a mismatch (the charge is measured against checkout's own price),
+    // but the row's totals no longer reproduce the charge: price_moved, not a fault.
+    expect(out.stampWarnings).toEqual([
+      { kind: "price_moved", detail: "recorded discount_amount 5.00; checkout priced 7400 before the discount, this reservation 1000; Stripe charged 6900" },
+    ]);
+  });
+
+  it("with checkout figures and a reservation priced as at checkout: nothing to report", () => {
+    const figures = { kind: "figures" as const, onlineParkingCents: 6800, preDiscountOnlineCents: 7400 };
+    expect(appliedPromoDiscount(payload, fr(), null, promo({ checkoutFigures: figures })).stampWarnings).toEqual([]);
   });
 
   it("with checkout figures, a charge that disagrees with THEM is the mismatch (Park Guard counted)", () => {
@@ -95,6 +103,23 @@ describe("appliedPromoDiscount — a usable stamp", () => {
 });
 
 describe("appliedPromoDiscount — the backstop: a REFUSED stamp still proves a discount was applied", () => {
+  it.each([
+    ["no due_at_location", { dueAtLocation: null }],
+    ["no grand_total", { grandTotal: null }],
+  ])("no checkout figures and %s on the reservation: the stamp cannot be vouched for (refused, as Step 9.5), never bounded by 'due 0'", (_label, money) => {
+    const out = appliedPromoDiscount(payload, fr(money), null, promo());
+    expect(out.stampWarnings[0]).toMatchObject({ kind: "refused", detail: expect.stringContaining("online parking is unknown") });
+  });
+
+  it("checkout figures marked invalid by the engine (they failed the charge check): refused, derived from THIS reservation", () => {
+    const out = appliedPromoDiscount(payload, fr(), null, promo({ checkoutFigures: { kind: "invalid", detail: "stamp_inconsistent: x" }, chargedCents: 7500 }));
+    expect(out.discountAmount).toBe(0); // 74.00 − 75.00, clamped
+    expect(out.promoCode).toBeNull();
+    expect(out.stampWarnings).toEqual([
+      { kind: "refused", detail: "stamp_inconsistent: x; recorded discount_amount 0.00 derived from Stripe's charge (7400 − 7500) and promo_code none" },
+    ]);
+  });
+
   it("an unusable stamp, no percent: the discount is derived from the charge (never $0) and the code recorded", () => {
     const out = appliedPromoDiscount(payload, fr(), null, promo({ stampedDiscount: { kind: "invalid", raw: "5.00" } }));
     expect(out.discountAmount).toBe(5); // 74.00 − 69.00

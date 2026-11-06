@@ -1116,6 +1116,23 @@ describe("Park Guard tiers (migration 021)", () => {
     expect(reslabMock.createReservation).not.toHaveBeenCalled();
     expect(cancelPaymentIntent).toHaveBeenCalled();
     expect(db.tables.bookings).toHaveLength(0);
+    expect(out.kind === "failed" && out.userMessage).toBe(
+      "We couldn't verify your protection selection. You have not been charged — please start your booking again."
+    );
+  });
+
+  it("an inconsistent protection pair on an AUTO-CAPTURED payment: refunded, and the customer is told so", async () => {
+    db.seed("pending_bookings", [pendingRow({ has_protection_plan: true, protection_plan_code: "A" })]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(
+      paymentIntent({ status: "succeeded", amount: 8699, latest_charge: { amount_refunded: 0 }, metadata: meta({ protectionPlanCode: "A" }) })
+    );
+
+    const out = await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    expect(createRefund).toHaveBeenCalled();
+    expect(out.kind === "failed" && out.userMessage).toBe(
+      "We couldn't verify your protection selection. We've refunded your payment in full — refunds take 5–10 business days to appear on your statement. Please start your booking again."
+    );
   });
 
   it("counts the charged premium in the price-drift guard (a parking price rise still blocks a tier booking)", async () => {
@@ -2401,6 +2418,10 @@ describe("a stamped discountCents — ResLab (promo plan Part 1, readers)", () =
         costs_token: "tok_2",
         reservation: { sold_out: false, sub_total: 20, fees_total: 0, tax_total: 4, grand_total: 24, due_at_location: 20 },
       });
+      // …and the reservation it creates is priced the same.
+      const dropped = reslabReservation();
+      Object.assign(dropped.history[0], { grand_total: 24, subtotal: 20, total_fees: 0, total_tax: 4, due_at_location_total: 20 });
+      reslabMock.createReservation.mockResolvedValue(dropped);
 
       expect((await createBooking({ source: "client", stripePaymentIntentId: PI })).kind).toBe("created");
       expect(capturePaymentIntent).toHaveBeenCalled();
@@ -2408,8 +2429,13 @@ describe("a stamped discountCents — ResLab (promo plan Part 1, readers)", () =
       expect(drops).toHaveLength(1);
       expect(drops[0][1]).toMatchObject({ level: "warning", fingerprint: ["promo-discount-stamp", "price_drop_below_stamp"] });
       expect(blockAlerts()).toEqual([]);
-      // Measured against checkout's figures, the charge matches: no error-level mismatch.
+      // Measured against checkout's figures, the charge matches: no error-level mismatch…
       expect(stampAlerts()).toEqual([]);
+      // …but the row's totals no longer reproduce Stripe's charge: one price_moved, at warning.
+      const moved = vi.mocked(captureBookingError).mock.calls.filter(([e]) => /price_moved/.test(e.message));
+      expect(moved).toHaveLength(1);
+      expect(moved[0][1]).toMatchObject({ level: "warning", fingerprint: ["promo-discount-stamp", "price_moved"] });
+      expect(db.tables.bookings[0]).toMatchObject({ discount_amount: 5, promo_code: "JFK5" });
     });
 
     it("WITHOUT checkout figures the same fresh drop is still refused (today's bound)", async () => {
@@ -2458,11 +2484,70 @@ describe("a stamped discountCents — ResLab (promo plan Part 1, readers)", () =
       expect(capturePaymentIntent).not.toHaveBeenCalled();
       expect(createRefund).not.toHaveBeenCalled();
       expect(db.tables.bookings).toHaveLength(1);
-      expect(db.tables.pending_bookings[0].status).not.toBe("needs_reconciliation");
+      // Derived from the charge: 74.00 before the promo − 5.99 charged = 68.01, with the code.
+      expect(db.tables.bookings[0]).toMatchObject({ discount_amount: 68.01, promo_code: "JFK5" });
+      expect(db.tables.pending_bookings[0].status).toBe("completed");
       expect(vi.mocked(capturePaymentError).mock.calls.some(([e]) => /refused before capture/.test(e.message))).toBe(false);
       const refused = vi.mocked(capturePaymentError).mock.calls.filter(([e]) => /discountCents refused/.test(e.message));
       expect(refused).toHaveLength(1);
       expect(refused[0][1]).toMatchObject({ fingerprint: ["promo-discount-stamp", "refused", PI] });
+    });
+
+    it("FIRST attempt of an auto-captured (Link) payment, ResLab down, an out-of-range stamp: books, the refusal recorded from the charge and reported per PaymentIntent", async () => {
+      db.seed("pending_bookings", [pendingRow()]);
+      stripeMock.paymentIntents.retrieve.mockResolvedValue(
+        fixedPi({ status: "succeeded", amount: 599, latest_charge: { amount_refunded: 0 }, metadata: { discountCents: "6801" } })
+      );
+      reslabMock.getCost.mockRejectedValue(new ReslabError(502, "upstream"));
+
+      expect(await createBooking({ source: "client", stripePaymentIntentId: PI })).toMatchObject({ kind: "created" });
+      expect(createRefund).not.toHaveBeenCalled();
+      expect(db.tables.bookings[0]).toMatchObject({ discount_amount: 68.01, promo_code: "JFK5" });
+      const refused = stampAlerts().filter(([e]) => /discountCents refused/.test(e.message));
+      expect(refused).toHaveLength(1);
+      expect(refused[0][1]).toMatchObject({ fingerprint: ["promo-discount-stamp", "refused", PI] });
+    });
+
+    it.each([
+      // Codex round 3: the pre-discount figure is 80.00 though the reservation's is 74.00.
+      ["figures that fail the fee identity", { preDiscountOnlineCents: "8000", parkingOnlyChargeAmountCents: "7500" }],
+      ["figures that do not add up to the charge", {}],
+    ])(
+      "RESUME of an ALREADY-CAPTURED payment with %s: books, the stamp is refused (never recorded from those figures) and reported per PaymentIntent",
+      async (_label, overrides) => {
+        db.seed("pending_bookings", [resumeRow()]);
+        stripeMock.paymentIntents.retrieve.mockResolvedValue(
+          fixedPi({ status: "succeeded", amount: 7500, latest_charge: { amount_refunded: 0 }, metadata: { ...CHECKOUT, ...overrides } })
+        );
+
+        expect(await createBooking({ source: "webhook", stripePaymentIntentId: PI })).toMatchObject({ kind: "created" });
+        // Derived from the reservation: 74.00 before the promo, 75.00 charged → no discount, no code.
+        expect(db.tables.bookings[0].discount_amount).toBe(0);
+        expect(db.tables.bookings[0].promo_code ?? null).toBeNull();
+        const refused = stampAlerts().filter(([e]) => /discountCents refused/.test(e.message));
+        expect(refused).toHaveLength(1);
+        expect(refused[0][0].message).toMatch(/stamp_inconsistent/);
+        expect(refused[0][1]).toMatchObject({ fingerprint: ["promo-discount-stamp", "refused", PI] });
+      }
+    );
+
+    it("RESUME of an ALREADY-CAPTURED payment with an UNUSABLE stamp beside figures: the figures are not trusted either (derived from the reservation)", async () => {
+      db.seed("pending_bookings", [resumeRow()]);
+      stripeMock.paymentIntents.retrieve.mockResolvedValue(
+        fixedPi({
+          status: "succeeded",
+          amount: 7500,
+          latest_charge: { amount_refunded: 0 },
+          metadata: { ...CHECKOUT, discountCents: "5.00", preDiscountOnlineCents: "8000", parkingOnlyChargeAmountCents: "7500" },
+        })
+      );
+
+      expect(await createBooking({ source: "webhook", stripePaymentIntentId: PI })).toMatchObject({ kind: "created" });
+      // From the figures it would be 80.00 − 75.00 = 5.00; from the reservation 74.00 − 75.00 → 0.
+      expect(db.tables.bookings[0].discount_amount).toBe(0);
+      const refused = stampAlerts().filter(([e]) => /discountCents refused/.test(e.message));
+      expect(refused).toHaveLength(1);
+      expect(refused[0][0].message).toMatch(/stamp_invalid/);
     });
 
     it("RESUME with an unusable stamp → needs_reconciliation, never captured", async () => {
