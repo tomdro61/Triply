@@ -31,11 +31,19 @@ CREATE TABLE IF NOT EXISTS fraud_warnings (
   fraud_type         TEXT NOT NULL,
   actionable         BOOLEAN NOT NULL,
   livemode           BOOLEAN NOT NULL,
-  -- Claim for the one alert email (NULL → now() by conditional UPDATE).
+  -- The alert email's lease, as on disputes (045): held only while a delivery
+  -- sends, taken over once older than 2 minutes; alert_sent_at is written
+  -- only AFTER Resend accepted the email.
+  alert_claimed_at   TIMESTAMPTZ,
   alert_sent_at      TIMESTAMPTZ,
   created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+-- A table made from an earlier draft of this file lacks the lease column.
+ALTER TABLE fraud_warnings ADD COLUMN IF NOT EXISTS alert_claimed_at TIMESTAMPTZ;
 
 CREATE INDEX IF NOT EXISTS fraud_warnings_booking_id_idx ON fraud_warnings (booking_id);
 
 ALTER TABLE fraud_warnings ENABLE ROW LEVEL SECURITY;
+-- Belt and braces on top of RLS, as 029 / 045: no client role touches this table.
+REVOKE ALL ON TABLE fraud_warnings FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE ON TABLE fraud_warnings TO service_role;

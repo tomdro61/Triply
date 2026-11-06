@@ -49,15 +49,36 @@ describe("handleEarlyFraudWarning", () => {
     expect(db.tables.fraud_warnings).toHaveLength(1);
     expect(db.tables.fraud_warnings[0].booking_id).toBe("b1");
     expect(alerts.sendFraudWarningAlert).toHaveBeenCalledTimes(1);
-    expect(alerts.sendFraudWarningAlert.mock.calls[0][0]).toMatchObject({ confirmationNumber: "RTL1", amount: "$42.00" });
+    expect(alerts.sendFraudWarningAlert.mock.calls[0][0]).toMatchObject({ confirmationNumber: "RTL1" });
+    // No amount: grand_total is not the card charge, and a warning carries none.
+    expect(alerts.sendFraudWarningAlert.mock.calls[0][0]).not.toHaveProperty("amount");
+    expect(db.tables.fraud_warnings[0].alert_sent_at).toBeTruthy();
   });
 
-  it("a failed email releases the claim and asks for a retry", async () => {
+  it("a failed email releases the lease and asks for a retry; the retry sends it", async () => {
     alerts.sendFraudWarningAlert.mockRejectedValueOnce(new Error("Resend down"));
     expect((await handleEarlyFraudWarning(sb, warning())).retryable).toBe(true);
-    expect(db.tables.fraud_warnings[0].alert_sent_at).toBeNull();
+    expect(db.tables.fraud_warnings[0].alert_sent_at).toBeFalsy();
+    expect(db.tables.fraud_warnings[0].alert_claimed_at).toBeNull();
     expect((await handleEarlyFraudWarning(sb, warning())).retryable).toBe(false);
     expect(alerts.sendFraudWarningAlert).toHaveBeenCalledTimes(2);
+  });
+
+  // The #149 lost-alert class: the old claim marked "sent" before Resend ran.
+  it("a lease left by a delivery that died mid-send is taken over; a live one makes Stripe come back", async () => {
+    const row = (claimedAt: string) => ({
+      stripe_warning_id: "issfr_1",
+      booking_id: "b1",
+      alert_claimed_at: claimedAt,
+      alert_sent_at: null,
+    });
+    db.seed("fraud_warnings", [row(new Date().toISOString())]);
+    expect((await handleEarlyFraudWarning(sb, warning())).retryable).toBe(true);
+    expect(alerts.sendFraudWarningAlert).not.toHaveBeenCalled();
+
+    db.seed("fraud_warnings", [row(new Date(Date.now() - 3 * 60_000).toISOString())]);
+    expect((await handleEarlyFraudWarning(sb, warning())).retryable).toBe(false);
+    expect(alerts.sendFraudWarningAlert).toHaveBeenCalledTimes(1);
   });
 
   it("non-actionable and test warnings still alert", async () => {

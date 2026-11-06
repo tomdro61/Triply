@@ -137,13 +137,13 @@ export async function sendFraudWarningAlert(a: {
   confirmationNumber: string | null;
   bookingStatus: string | null;
   checkIn: string | null;
-  amount: string | null;
 }) {
   const advice = a.actionable
     ? "If the car was <strong>not</strong> parked, refund it in Stripe now: a refund before a dispute avoids the dispute fee. If it was parked, keep the lot's proof for the dispute that may follow."
     : "Stripe marks this warning as not actionable (already refunded or disputed). Nothing to do unless a dispute opens.";
+  // No amount row: a warning carries none, and the booking total is not the
+  // card charge — the Stripe link shows the real one.
   const rows: [string, string][] = [
-    ["Amount", a.amount ? esc(a.amount) : "—"],
     ["Fraud type", esc(a.fraudType)],
     ["Booking", a.confirmationNumber ? esc(a.confirmationNumber) : "<strong>No booking found for this charge</strong>"],
     ["Status", a.bookingStatus ? esc(a.bookingStatus) : "—"],
@@ -153,10 +153,10 @@ export async function sendFraudWarningAlert(a: {
     ? `https://dashboard.stripe.com/${a.livemode ? "" : "test/"}payments/${encodeURIComponent(a.chargeId)}`
     : `https://dashboard.stripe.com/${a.livemode ? "" : "test/"}radar/early-fraud-warnings`;
 
-  const { error } = await resend.emails.send({
+  await sendBounded({
     from: FROM_EMAIL,
     to: PAYMENT_ALERT_EMAILS,
-    subject: `⚠️ Likely fraud flagged${a.amount ? `: ${a.amount}` : ""}${a.confirmationNumber ? ` (${a.confirmationNumber})` : ""}${a.livemode ? "" : " [TEST]"}`,
+    subject: `⚠️ Likely fraud flagged${a.confirmationNumber ? ` (${a.confirmationNumber})` : ""}${a.livemode ? "" : " [TEST]"}`,
     html: `
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#111827;">
         <h2 style="color:#d97706;margin-bottom:12px;">Card network flagged a charge as likely fraud</h2>
@@ -172,8 +172,7 @@ export async function sendFraudWarningAlert(a: {
         <a href="${link}" style="display:inline-block;background:#f87356;color:#fff;text-decoration:none;font-weight:700;font-size:13px;padding:10px 24px;border-radius:8px;">Open in Stripe</a>
       </div>
     `,
-  });
-  if (error) throw new Error(`Fraud warning email failed: ${error.message}`);
+  }, "Fraud warning email");
 }
 
 /** Emails the outcome when Stripe closes a dispute (won, lost, warning closed). */

@@ -2,26 +2,28 @@ import type Stripe from "stripe";
 import { capturePaymentError } from "@/lib/sentry";
 import { sendFraudWarningAlert } from "@/lib/resend/send-dispute-alert";
 import type { createAdminClient } from "@/lib/supabase/server";
-import type { DisputeOutcome } from "./handle-dispute";
+import { markAlertSent, releaseAlertLease, takeAlertLease, type AlertLedger, type DisputeOutcome } from "./handle-dispute";
 
 type Db = Awaited<ReturnType<typeof createAdminClient>>;
 
 const MISSING_TABLE = new Set(["42P01", "PGRST205"]);
 const idOf = (x: string | { id: string } | null | undefined) => (typeof x === "string" ? x : x?.id ?? null);
+const messageOf = (err: unknown) => (err instanceof Error ? err.message : String(err));
+const LEDGER: AlertLedger = { table: "fraud_warnings", key: "stripe_warning_id" };
 
 type WarningBooking = {
   id: string;
   reslab_reservation_number: string | null;
   status: string | null;
   check_in: string | null;
-  grand_total: number | string | null;
 };
 
 /**
  * radar.early_fraud_warning.created: the card network says this charge is
  * likely fraud, usually days before the dispute. Refunding first avoids the
  * dispute and its fee — but only a person decides (the parking may already
- * have been used). Ledger row and one alert email.
+ * have been used). Ledger row and one alert email, sent through the same
+ * lease as the dispute alert (`alert_sent_at` only after Resend accepted it).
  * Nothing is refunded here.
  */
 export async function handleEarlyFraudWarning(supabase: Db, w: Stripe.Radar.EarlyFraudWarning): Promise<DisputeOutcome> {
@@ -40,7 +42,7 @@ export async function handleEarlyFraudWarning(supabase: Db, w: Stripe.Radar.Earl
   if (paymentIntentId) {
     const { data, error } = await supabase
       .from("bookings")
-      .select("id, reslab_reservation_number, status, check_in, grand_total")
+      .select("id, reslab_reservation_number, status, check_in")
       .eq("stripe_payment_intent_id", paymentIntentId)
       .maybeSingle();
     if (error) return fail("booking lookup failed", error);
@@ -58,17 +60,19 @@ export async function handleEarlyFraudWarning(supabase: Db, w: Stripe.Radar.Earl
   });
   if (insErr && insErr.code !== "23505") return fail("ledger insert failed", insErr);
 
-  const { data: claimed, error: claimErr } = await supabase
-    .from("fraud_warnings")
-    .update({ alert_sent_at: new Date().toISOString() })
-    .eq("stripe_warning_id", w.id)
-    .is("alert_sent_at", null)
-    .select("stripe_warning_id");
-  if (claimErr) return fail("alert claim failed", claimErr);
-  if (!Array.isArray(claimed) || claimed.length === 0) return { retryable: false };
-
-  const amount = booking?.grand_total != null ? `$${Number(booking.grand_total).toFixed(2)}` : null;
+  let lease: "taken" | "sent" | "held";
   try {
+    lease = await takeAlertLease(supabase, LEDGER, w.id);
+  } catch (err) {
+    return fail("alert lease failed", { message: messageOf(err) });
+  }
+  if (lease === "sent") return { retryable: false };
+  // Another delivery is sending now, or died less than 2 minutes ago.
+  if (lease === "held") return { retryable: true };
+
+  try {
+    // No amount: a warning carries none, and bookings.grand_total is not the
+    // card charge. The email links to the charge in Stripe.
     await sendFraudWarningAlert({
       warningId: w.id,
       chargeId: idOf(w.charge),
@@ -78,13 +82,22 @@ export async function handleEarlyFraudWarning(supabase: Db, w: Stripe.Radar.Earl
       confirmationNumber: booking?.reslab_reservation_number ?? null,
       bookingStatus: booking?.status ?? null,
       checkIn: booking?.check_in ?? null,
-      amount,
     });
   } catch (err) {
-    const { error } = await supabase.from("fraud_warnings").update({ alert_sent_at: null }).eq("stripe_warning_id", w.id);
-    if (error) capturePaymentError(new Error(`Fraud warning ${w.id}: claim release failed: ${error.message}`), ctx);
-    return fail("alert email failed", { message: err instanceof Error ? err.message : String(err) });
+    const { error } = await releaseAlertLease(supabase, LEDGER, w.id);
+    if (error) {
+      capturePaymentError(
+        new Error(`Fraud warning ${w.id}: alert lease release failed (a redelivery sends it after the lease expires): ${error.message}`),
+        ctx
+      );
+    }
+    return fail("alert email failed", { message: messageOf(err) });
   }
 
+  const { error: sentErr } = await markAlertSent(supabase, LEDGER, w.id);
+  if (sentErr) {
+    // The email went out. Not retried: a redelivery would only send it twice.
+    capturePaymentError(new Error(`Fraud warning ${w.id}: alert sent but not recorded: ${sentErr.message}`), ctx);
+  }
   return { retryable: false };
 }
