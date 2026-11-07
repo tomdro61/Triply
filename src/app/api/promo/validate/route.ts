@@ -26,7 +26,7 @@ const promoValidateSchema = z.object({
  *       discountPercent is null for a fixed code and discountCents null for a
  *       percent one. Checkout pages loaded before PR 2 still read
  *       discountPercent at Apply, but their checkout POST is refused as a stale
- *       page before any payment (promoPricing), so a figure they misread is
+ *       page before any payment (no promo-pricing header), so a figure they misread is
  *       never charged.
  *   200 { valid: false, error, reason }   unknown / inactive / expired / used up /
  *       not available (a fixed code while PROMO_FIXED_ENABLED is off)
