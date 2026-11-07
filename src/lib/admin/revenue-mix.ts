@@ -35,11 +35,16 @@ export interface KeptMix {
   parkingCommission: number;
   /** ResLab's channel fee ("RL Fee"), a cost against the commission. */
   reslabFee: number;
+  /**
+   * Promo discounts on ResLab bookings — funded by Triply (ResLab invoices the
+   * lot's full share), so another cost against the commission (promo plan D3).
+   */
+  promoDiscounts: number;
   /** Includes the service fee kept on refunded bookings. */
   serviceFee: number;
   /** Premiums − Park Guard wholesale, refunded opt-ins included; can be negative. */
   pgMargin: number;
-  /** = commission − ResLab fee + service fee + PG margin. Accounting's "Triply revenue (gross)". */
+  /** = commission − ResLab fee − promo discounts + service fee + PG margin. Accounting's "Triply revenue (gross)". */
   total: number;
   /** null when Stripe fee data is incomplete for the period. */
   stripeFees: number | null;
@@ -92,6 +97,9 @@ export const accountingMixSchema = z.object({
     pgMargin: z.number(),
     parkingChannelCommission: z.number().nullable(),
     reslabChannelFee: z.number().nullable(),
+    // Required: a cached or older response without it is a miss, never a
+    // breakdown whose slices stop summing to `total`.
+    promoDiscounts: z.number().nullable(),
     total: z.number().nullable(),
     cashTotal: z.number().nullable(),
     stripeProcessingFees: z.number().nullable(),
@@ -123,7 +131,7 @@ export function mixFromAccounting(a: AccountingMix): MoneyMix {
     pgWholesaleMissing: a.pgWholesaleMissingReservations.length,
   };
   const t = a.triplyNet;
-  if (t.total === null || t.parkingChannelCommission === null || t.reslabChannelFee === null) {
+  if (t.total === null || t.parkingChannelCommission === null || t.reslabChannelFee === null || t.promoDiscounts === null) {
     return { ...base, kept: null, keptReason: t.totalReason ?? "the reconciler returned no total" };
   }
   return {
@@ -131,6 +139,7 @@ export function mixFromAccounting(a: AccountingMix): MoneyMix {
     kept: {
       parkingCommission: t.parkingChannelCommission,
       reslabFee: t.reslabChannelFee,
+      promoDiscounts: t.promoDiscounts,
       serviceFee: t.serviceFee,
       pgMargin: t.pgMargin,
       total: t.total,
@@ -146,8 +155,8 @@ export function share(part: number, whole: number): number | null {
   return whole > 0 ? part / whole : null;
 }
 
-/** The parking slice of what we kept: commission after ResLab's fee. Negative when the fee is bigger. */
-export const netCommission = (k: KeptMix) => k.parkingCommission - k.reslabFee;
+/** The parking slice of what we kept: commission after ResLab's fee and the promo discounts Triply funded. Can be negative. */
+export const netCommission = (k: KeptMix) => k.parkingCommission - k.reslabFee - k.promoDiscounts;
 
 /** What we finally keep: net cash when Stripe fees are known, else the pre-Stripe total. */
 export const bottomLine = (k: KeptMix) => k.net ?? k.total;

@@ -233,8 +233,9 @@ export type AccountingSlice = z.infer<typeof accountingSliceSchema>;
  * did — this page was leading with the after-Stripe figure while accounting's
  * headline tile is the gross one):
  *   gross = triplyNet.total      "Triply revenue (gross)": channel commission −
- *                                ResLab channel fee + service fee + Park Guard
- *                                margin — accounting's headline tile
+ *                                ResLab channel fee − promo discounts + service
+ *                                fee + Park Guard margin — accounting's headline
+ *                                tile
  *   cash  = triplyNet.cashTotal  "net cash … after Stripe fees" — accounting's
  *                                subtitle and its P&L bottom line
  */

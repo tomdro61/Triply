@@ -149,11 +149,16 @@ export function trackPurchase(booking: {
   confirmationNumber: string;
   lotId: string;
   lotName: string;
+  /** The booking's total BEFORE the promo discount (purchasePromo's grossTotal). */
   grandTotal: number;
   serviceFee?: number;
   /** Park Guard pass-through; Triply earns no commission on this. */
   protectionPlanPrice?: number;
   airportCode?: string;
+  /** The promo discount (Triply funds it on a ResLab booking); 0 / absent with no code. */
+  promoDiscount?: number;
+  /** The code's family (promoCouponFamily) — never a per-person WELCOME code. */
+  coupon?: string | null;
 }) {
   if (typeof window !== "undefined" && window.gtag) {
     // Defensive: any of these arriving as NaN/undefined would emit "NaN"
@@ -174,14 +179,20 @@ export function trackPurchase(booking: {
     const protectionPlanPrice = Number.isFinite(booking.protectionPlanPrice)
       ? (booking.protectionPlanPrice || 0)
       : 0;
+    const discount = Number.isFinite(booking.promoDiscount) ? Math.max(0, booking.promoDiscount || 0) : 0;
+    // The value is what the booking was worth after the code (promo plan D3).
+    const value = +(grandTotal - discount).toFixed(2);
     // Commission base excludes the Park Guard premium (pass-through to a
-    // third party) AND the Triply service fee (already broken out below).
+    // third party) AND the Triply service fee (already broken out below). The
+    // promo discount is Triply's cost, so it comes off the commission estimate
+    // itself, not off the base it is a percentage of.
     const commissionBase = Math.max(0, grandTotal - serviceFee - protectionPlanPrice);
     window.gtag("event", "purchase", {
       transaction_id: booking.confirmationNumber,
-      value: grandTotal,
+      value,
       currency: "USD",
-      triply_commission: +(commissionBase * 0.15).toFixed(2),
+      ...(booking.coupon && { coupon: booking.coupon }),
+      triply_commission: +(commissionBase * 0.15 - discount).toFixed(2),
       triply_service_fee: serviceFee,
       protection_plan_price: protectionPlanPrice,
       airport_code: booking.airportCode,
@@ -189,7 +200,9 @@ export function trackPurchase(booking: {
         {
           item_id: booking.lotId,
           item_name: booking.lotName,
-          price: grandTotal,
+          price: value,
+          ...(discount > 0 && { discount }),
+          ...(booking.coupon && { coupon: booking.coupon }),
         },
       ],
     });

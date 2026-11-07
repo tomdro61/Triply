@@ -559,8 +559,8 @@ export default function AdminBlogBookingsPage() {
               Live bookings only (cancelled and refunded left out, test bookings excluded). Unknown = no attribution
               cookie or an unreadable one — counted in the totals, never as blog or non-blog, and left out of blog
               share (blog bookings ÷ bookings with attribution). Net take is the
-              accounting page&apos;s per-booking figure (commission − ResLab fee + service fee + Park Guard margin,
-              before Stripe fees). Disputed and direct-lot bookings never have one: they show as &ldquo;+N?&rdquo;
+              accounting page&apos;s per-booking figure (commission − ResLab fee − promo discount + service fee + Park
+              Guard margin, before Stripe fees). Disputed and direct-lot bookings never have one: they show as &ldquo;+N?&rdquo;
               (no figure) and are left out of the sum, not counted as $0. &ldquo;—&rdquo; = no booking in that cell has a
               figure.
             </p>

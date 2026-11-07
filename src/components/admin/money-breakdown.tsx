@@ -177,7 +177,7 @@ export function MoneyBreakdown({
         {/* --- What customers paid --- */}
         <section>
           <h3 className="font-semibold text-gray-900">Where the money came from</h3>
-          <p className="text-xs text-gray-500 mb-4">What customers paid, confirmed bookings</p>
+          <p className="text-xs text-gray-500 mb-4">What customers paid, confirmed bookings — before promo discounts</p>
           {paid ? (
             <>
               <Row
@@ -234,7 +234,9 @@ export function MoneyBreakdown({
                 amount={slices.commission}
                 ratio={share(slices.commission, keptMix.total)}
                 color={SERIES.commission.color}
-                note={`${formatPrice(keptMix.parkingCommission)} commission less ResLab's ${formatPrice(keptMix.reslabFee)} channel fee`}
+                note={`${formatPrice(keptMix.parkingCommission)} commission less ResLab's ${formatPrice(keptMix.reslabFee)} channel fee${
+                  keptMix.promoDiscounts > 0.005 ? ` and ${formatPrice(keptMix.promoDiscounts)} of promo discounts` : ""
+                }`}
               />
               <Row
                 label={SERIES.serviceFee.label}
