@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { checkStampAgainstCharge, readCheckoutFigures, readStampedDiscount, stampedDiscountRefusal } from "../stamped-discount";
+import { checkStampAgainstCharge, promoStampMetadata, readCheckoutFigures, readStampedDiscount, stampedDiscountRefusal } from "../stamped-discount";
 
 describe("readStampedDiscount — PaymentIntent metadata.discountCents", () => {
   it("absent when the key is not there (every PaymentIntent before the writer)", () => {
@@ -71,8 +71,12 @@ describe("checkStampAgainstCharge — what the PaymentIntent alone can prove", (
   const CHECKOUT = { onlineParkingCents: "6800", preDiscountOnlineCents: "7400", parkingOnlyChargeAmountCents: "6900", serviceFee: "6" };
   const stamp = { kind: "cents" as const, cents: 500 };
 
-  it("no checkout figures: only the stamp's own form", () => {
-    expect(checkStampAgainstCharge({}, stamp, { premiumCents: 0, piAmountCents: 1 })).toEqual({ ok: true, checkout: { kind: "absent" } });
+  it("no checkout figures: refused (required beside a stamp since PR 2); an unusable stamp still fails on its own form first", () => {
+    expect(checkStampAgainstCharge({}, stamp, { premiumCents: 0, piAmountCents: 1 })).toMatchObject({
+      ok: false,
+      cause: "stamp_invalid",
+      detail: expect.stringContaining("without onlineParkingCents"),
+    });
     expect(checkStampAgainstCharge({}, { kind: "invalid", raw: "5.00" }, { premiumCents: 0, piAmountCents: 6900 })).toMatchObject({
       ok: false,
       cause: "stamp_invalid",
@@ -101,5 +105,37 @@ describe("checkStampAgainstCharge — what the PaymentIntent alone can prove", (
     ["online parking that forgot due_at_location (due under the fee)", { onlineParkingCents: "500", preDiscountOnlineCents: "795", parkingOnlyChargeAmountCents: "295", serviceFee: "5.95" }, 295, "stamp_inconsistent"],
   ])("refused: %s", (_label, meta, piAmountCents, cause) => {
     expect(checkStampAgainstCharge(meta, stamp, { premiumCents: 0, piAmountCents })).toMatchObject({ ok: false, cause });
+  });
+});
+
+describe("promoStampMetadata — the writer's half (POST /api/checkout/lot)", () => {
+  const figures = { discountCents: 500, onlineParkingCents: 6800, preDiscountOnlineCents: 7400 };
+
+  it("the code, discountCents and both figures, always together; discountPercent only for a percent code", () => {
+    expect(promoStampMetadata({ code: "JFK5", percent: null, ...figures })).toEqual({
+      promoCode: "JFK5",
+      discountCents: "500",
+      onlineParkingCents: "6800",
+      preDiscountOnlineCents: "7400",
+    });
+    expect(promoStampMetadata({ code: "TEN", percent: 10, ...figures })).toMatchObject({ discountPercent: "10" });
+  });
+
+  it("what it writes, with checkout's other keys, passes the reader exactly (with and without Park Guard)", () => {
+    const meta = { ...promoStampMetadata({ code: "JFK5", percent: null, ...figures }), parkingOnlyChargeAmountCents: "6900", serviceFee: "6" };
+    const stamped = readStampedDiscount(meta);
+    if (stamped.kind === "absent") throw new Error("no discountCents stamped");
+    expect(checkStampAgainstCharge(meta, stamped, { premiumCents: 0, piAmountCents: 6900 })).toMatchObject({ ok: true, cents: 500 });
+    expect(checkStampAgainstCharge(meta, stamped, { premiumCents: 1299, piAmountCents: 8199 })).toMatchObject({ ok: true, cents: 500 });
+  });
+
+  it.each([
+    ["a zero discount (a code that gave none stamps nothing)", { discountCents: 0 }],
+    ["fractional cents", { discountCents: 4.5 }],
+    ["a discount above the online parking (out of the fee)", { discountCents: 6801 }],
+    ["online parking above the pre-discount total", { onlineParkingCents: 7500 }],
+    ["an unknown figure", { onlineParkingCents: Number.NaN }],
+  ])("throws rather than write a stamp the readers would refuse: %s", (_label, over) => {
+    expect(() => promoStampMetadata({ code: "JFK5", percent: null, ...figures, ...over })).toThrow(/promoStampMetadata/);
   });
 });

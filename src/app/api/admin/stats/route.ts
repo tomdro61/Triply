@@ -298,13 +298,11 @@ export async function GET(request: NextRequest) {
       if (page.length < PAGE) break;
     }
 
-    // `discount_amount` (a fixed code's value) is NOT selected yet: the column
-    // arrives with migration 049, and naming a missing column fails this whole
-    // query (42703) — the promo table would go blank. buildPromoReport already
-    // reads it when present; add it here once 049 is applied (promo plan PR 2).
+    // `discount_amount` is a fixed code's value ("$5 off", migration 049) —
+    // NOT bookings.discount_amount, which is what one booking got.
     const { data: promoRows, error: promoError } = await supabase
       .from("promo_codes")
-      .select("code, discount_percent, active, current_uses, max_uses, expires_at");
+      .select("code, discount_percent, discount_amount, active, current_uses, max_uses, expires_at");
     if (promoError) warn("promo_codes fetch failed", promoError);
 
     // Capture health over the last 7 days, independent of the date filter on

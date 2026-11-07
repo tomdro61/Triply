@@ -78,8 +78,8 @@ import {
   checkStampAgainstCharge,
   readCheckoutFigures,
   readStampedDiscount,
-  stampedDiscountRefusal,
   type CheckoutFigures,
+  type CheckoutFiguresPresent,
   type StampRefusalCause,
 } from "@/lib/promo/stamped-discount";
 import { fromReslab, fromSnapshot, type DirectFulfilledReservation, type ReslabFulfilledReservation } from "./fulfilled-reservation";
@@ -2293,8 +2293,6 @@ const STAMP_REFUSAL_WORDING: Record<StampRefusalCause, string> = {
   stamp_inconsistent: "The promo discount on your payment doesn't match the amount authorized.",
   stamp_exceeds_checkout_online_parking:
     "Your promo discount is more than the parking you'd pay online for this booking, so it can't be applied here.",
-  stamp_exceeds_online_parking:
-    "The price for this parking option changed while you were checking out, and your promo discount is now more than the parking you'd pay online.",
 };
 
 function stampBlocked(cause: StampRefusalCause, detail: string): Extract<RefreshResult, { blocked: true }> {
@@ -2351,17 +2349,17 @@ async function refreshCost(
   // A `discountCents` stamp (promo plan Part 1) is checked against the
   // PaymentIntent ALONE first — no ResLab needed, so an unusable stamp is
   // refused here even when ResLab is down, while refusing still costs the
-  // customer nothing. With checkout's own figures stamped beside it the check
-  // is exact (see checkStampAgainstCharge).
+  // customer nothing. Exact, on checkout's own figures, which must be stamped
+  // beside it (see checkStampAgainstCharge).
   const stamped = readStampedDiscount(pi.metadata);
-  let checkout: CheckoutFigures = { kind: "absent" };
+  let stamp: { cents: number; checkout: CheckoutFiguresPresent } | null = null;
   if (stamped.kind !== "absent") {
     const check = checkStampAgainstCharge(pi.metadata, stamped, {
       premiumCents: Math.round(protectionPremium * 100),
       piAmountCents: pi.amount,
     });
     if (!check.ok) return stampBlocked(check.cause, check.detail);
-    checkout = check.checkout;
+    stamp = { cents: check.cents, checkout: check.checkout };
   }
 
   try {
@@ -2399,7 +2397,7 @@ async function refreshCost(
     // code's percent does not reproduce it).
     let freshCents: number;
     let stampChecked = false;
-    if (stamped.kind === "cents") {
+    if (stamp !== null) {
       const grand = cost.reservation.grand_total;
       const due = cost.reservation.due_at_location;
       if (!Number.isFinite(grand) || !Number.isFinite(due)) {
@@ -2417,22 +2415,19 @@ async function refreshCost(
         return { blocked: false, stampChecked: false };
       }
       const freshOnlineParkingCents = Math.round((grand - due) * 100);
-      if (checkout.kind === "figures") {
-        // Checkout's figures already bound the stamp (checkStampAgainstCharge).
-        // A fresh online parking BELOW it is a price drop, not a refusal.
-        if (freshOnlineParkingCents < stamped.cents) {
-          reportStampPriceDrop(pi, payload, `fresh online parking ${freshOnlineParkingCents}, discountCents ${stamped.cents}, at checkout ${checkout.onlineParkingCents}`);
-        }
-      } else {
-        // No checkout figures: the fresh online parking is the only bound — a
-        // discount must never come out of the service fee.
-        const refusal = stampedDiscountRefusal(stamped, freshOnlineParkingCents);
-        if (refusal !== null) return stampBlocked("stamp_exceeds_online_parking", refusal);
+      // Checkout's figures already bound the stamp (checkStampAgainstCharge).
+      // A fresh online parking BELOW it is a price drop, not a refusal.
+      if (freshOnlineParkingCents < stamp.cents) {
+        reportStampPriceDrop(pi, payload, `fresh online parking ${freshOnlineParkingCents}, discountCents ${stamp.cents}, at checkout ${stamp.checkout.onlineParkingCents}`);
       }
-      freshCents =
-        Math.round((grand + (payload.triplyServiceFee || 0) - due + protectionPremium) * 100) - stamped.cents;
+      // The service fee the PaymentIntent was CHARGED (checkStampAgainstCharge
+      // proved preDiscountOnline − onlineParking = metadata.serviceFee), never
+      // the payload's page-load figure, which a price move between the page
+      // and the PaymentIntent leaves stale.
+      const chargedFeeCents = stamp.checkout.preDiscountOnlineCents - stamp.checkout.onlineParkingCents;
+      freshCents = freshOnlineParkingCents + chargedFeeCents + Math.round(protectionPremium * 100) - stamp.cents;
       stampChecked = true;
-    } else if (stamped.kind === "absent") {
+    } else {
       // No stamp: a PaymentIntent from before `discountCents` — the percent rule.
       const rawDiscount = pi.metadata?.discountPercent;
       let discountPercent = 0;
@@ -2467,9 +2462,6 @@ async function refreshCost(
         cost.reservation.due_at_location +
         protectionPremium;
       freshCents = Math.round(freshDueNow * 100);
-    } else {
-      // Unreachable: checkStampAgainstCharge refused an invalid stamp above.
-      return stampBlocked("stamp_invalid", `discountCents ${JSON.stringify(stamped.raw)} is not a positive whole number of cents`);
     }
 
     // One cent of tolerance for rounding. Anything above the authorized amount
@@ -2511,14 +2503,12 @@ async function refreshCost(
 /**
  * Step 9.5: a `discountCents` stamp that Step 8 did NOT check against a fresh
  * price — a resume (Step 8 is skipped), or ResLab unreachable / unreadable at
- * Step 8 — is checked here, against the reservation's own figures, BEFORE any
- * capture. Returns why it is refused, or null (no stamp, or it holds).
+ * Step 8 — is checked here, BEFORE any capture. Returns why it is refused, or
+ * null (no stamp, or it holds).
  *
- * With checkout figures, the PaymentIntent's own arithmetic is the authority
- * and a reservation priced below the stamp is a price drop (reported, not
- * refused). Without them the reservation's online parking (grand_total −
- * due_at_location) is the bound; an unreadable one cannot vouch for the stamp
- * and refuses.
+ * The PaymentIntent's own arithmetic on checkout's figures (required beside a
+ * stamp) is the authority; a reservation priced below the stamp is a price
+ * drop — reported, not refused.
  */
 function stampRefusedBeforeCapture(
   pi: Stripe.PaymentIntent,
@@ -2533,21 +2523,13 @@ function stampRefusedBeforeCapture(
     piAmountCents: pi.amount,
   });
   if (!check.ok) return { cause: check.cause, detail: check.detail };
-  if (stamped.kind !== "cents") {
-    // Unreachable: checkStampAgainstCharge refuses an invalid stamp.
-    return { cause: "stamp_invalid", detail: `discountCents ${JSON.stringify(stamped.raw)} is not a positive whole number of cents` };
-  }
   const { grandTotal, dueAtLocation } = fr.money;
   const onlineParkingCents =
     grandTotal === null || dueAtLocation === null ? Number.NaN : Math.round((grandTotal - dueAtLocation) * 100);
-  if (check.checkout.kind === "figures") {
-    if (Number.isSafeInteger(onlineParkingCents) && onlineParkingCents < stamped.cents) {
-      reportStampPriceDrop(pi, payload, `reservation ${fr.number} online parking ${onlineParkingCents}, discountCents ${stamped.cents}, at checkout ${check.checkout.onlineParkingCents}`);
-    }
-    return null;
+  if (Number.isSafeInteger(onlineParkingCents) && onlineParkingCents < check.cents) {
+    reportStampPriceDrop(pi, payload, `reservation ${fr.number} online parking ${onlineParkingCents}, discountCents ${check.cents}, at checkout ${check.checkout.onlineParkingCents}`);
   }
-  const refusal = stampedDiscountRefusal(stamped, onlineParkingCents);
-  return refusal === null ? null : { cause: "stamp_exceeds_online_parking", detail: `${refusal} (reservation ${fr.number})` };
+  return null;
 }
 
 /**

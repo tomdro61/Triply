@@ -22,6 +22,9 @@ import { VehicleDetailsStep } from "./vehicle-details-step";
 import { StripeProvider } from "./stripe-provider";
 import { StripePaymentForm } from "./stripe-payment-form";
 import { OrderSummary } from "./order-summary";
+import type { ApplyPromoResult } from "./promo-code";
+import { promoDiscountCents, promoRefusalMessage, type PromoRule } from "@/lib/promo/discount";
+import { cartFromCostData, createLatestGate, decideCheckoutPromo, ruleFromValidateResponse } from "@/lib/promo/checkout-promo";
 import { confirmationHandOff } from "@/lib/confirmation/guest-email";
 import {
   trackBeginCheckout,
@@ -171,8 +174,37 @@ export function CheckoutForm({
   // Dynamic extra fields from API
   const [extraFieldValues, setExtraFieldValues] = useState<Record<string, string>>({});
 
-  const [promoCode, setPromoCode] = useState<string | null>(null);
-  const [promoDiscountPercent, setPromoDiscountPercent] = useState<number>(0);
+  // --- Promo code (promo plan Part 2; /sketch-flow Nov 7) ---
+  // The applied code's rule (percent OR fixed amount, plus its minimum), from
+  // /api/promo/validate. The discount shown is that rule on the page's prices
+  // until a PaymentIntent exists; then the server's applied amount wins.
+  const [promoRule, setPromoRule] = useState<PromoRule | null>(null);
+  const promoCode = promoRule?.code ?? null;
+  // The same rule as of NOW: state lags a render behind, and Continue must
+  // send exactly the code the page will show. Written only by setAppliedPromo.
+  const promoRuleRef = useRef<PromoRule | null>(null);
+  const setAppliedPromo = (rule: PromoRule | null) => {
+    promoRuleRef.current = rule;
+    setPromoRule(rule);
+  };
+  // The discount the CURRENT PaymentIntent was created with, in cents (from
+  // the POST); null when there is no PaymentIntent or no code on it.
+  const [serverPromoCents, setServerPromoCents] = useState<number | null>(null);
+  // Why the code was dropped when the PaymentIntent was created (the server
+  // refused it). Its own slot, never submitError: it is not a payment error.
+  const [promoNotice, setPromoNotice] = useState<string | null>(null);
+  // Apply's validate request is overtaken by Remove and by Continue: a late
+  // answer must never add a discount the PaymentIntent doesn't carry.
+  const [promoGate] = useState(createLatestGate);
+  const pageCart = useMemo(() => cartFromCostData(costData), [costData]);
+  // A rule's discount on the page's prices. It was checked against pageCart
+  // at Apply and costData never changes after load, so a set rule always
+  // gives a discount here.
+  const promoCentsOnPage = (rule: PromoRule): number => {
+    const result = pageCart ? promoDiscountCents(rule, pageCart) : null;
+    return result && "cents" in result ? result.cents : 0;
+  };
+  const promoDiscountDollars = (serverPromoCents ?? (promoRule ? promoCentsOnPage(promoRule) : 0)) / 100;
   const [serverCostsToken, setServerCostsToken] = useState<string | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   // null = no decision yet. Nothing is pre-selected (2026-11-02, reverses the
@@ -310,8 +342,9 @@ export function CheckoutForm({
       const baseWithFees = costData.subtotal + costData.feesTotal;
       const dailyRate = baseWithFees / days;
 
-      // Apply promo discount using server-validated percentage
-      const discount = costData.subtotal * (promoDiscountPercent / 100);
+      // The promo rule's discount (the server's once a PaymentIntent exists),
+      // never more than the parking paid online — so never out of the fee.
+      const discount = promoDiscountDollars;
 
       const serviceFee = costData.serviceFee || 0;
 
@@ -336,8 +369,8 @@ export function CheckoutForm({
     const dailyRate = lot.pricing?.minPrice ?? 0;
     const subtotal = dailyRate * calculatedDays;
 
-    // Apply promo discount using server-validated percentage
-    const discount = subtotal * (promoDiscountPercent / 100);
+    // No page prices, so handleApplyPromo refuses every code: this is 0.
+    const discount = promoDiscountDollars;
 
     const afterDiscount = subtotal - discount;
     const taxes = Math.round(afterDiscount * 0.08 * 100) / 100; // 8% tax
@@ -356,7 +389,7 @@ export function CheckoutForm({
       dueNow: total,
       dueAtLocation: 0,
     };
-  }, [checkIn, checkOut, lot.pricing?.minPrice, promoDiscountPercent, costData, selectedPlan]);
+  }, [checkIn, checkOut, lot.pricing?.minPrice, promoDiscountDollars, costData, selectedPlan]);
 
   // Validation functions
   const validateCustomerDetails = (): boolean => {
@@ -431,6 +464,12 @@ export function CheckoutForm({
       setSubmitError(DIRECT_PRICE_STALE_MESSAGE);
       return;
     }
+    // An Apply still in flight must not land after this point: the
+    // PaymentIntent is created with the code applied NOW (or none).
+    promoGate.invalidate();
+    setPromoNotice(null);
+    const sentPromo = promoRuleRef.current;
+    const sentPromoPageCents = sentPromo ? promoCentsOnPage(sentPromo) : 0;
 
     // In dev mode, skip payment intent creation. The dev button has no
     // protection selector, so it books with "none" unless a choice exists
@@ -470,7 +509,7 @@ export function CheckoutForm({
           protectionPlanCode: protectionPlanCodeForPI,
           // The checkbox version this bundle renders (dispute evidence quotes it).
           termsVersion: TERMS_VERSION,
-          ...(promoCode && { promoCode }),
+          ...(sentPromo && { promoCode: sentPromo.code }),
         };
       } else {
         const parkingTypeId = costData?.parkingTypeId || lot.pricing?.parkingTypes?.[0]?.id;
@@ -489,7 +528,7 @@ export function CheckoutForm({
           protectionPlanCode: protectionPlanCodeForPI,
           // The checkbox version this bundle renders (dispute evidence quotes it).
           termsVersion: TERMS_VERSION,
-          ...(promoCode && { promoCode }),
+          ...(sentPromo && { promoCode: sentPromo.code }),
         };
       }
       const response = await fetch("/api/checkout/lot", {
@@ -505,10 +544,11 @@ export function CheckoutForm({
         throw new Error(data.error || "Failed to initialize payment");
       }
 
+      let terms: DirectCheckoutTerms | undefined;
       if (isDirect) {
         // The terms just stamped on the PaymentIntent are the ones the server
         // will compute the at-lot estimate from (R5) — show exactly those.
-        const terms: DirectCheckoutTerms | undefined = data.direct;
+        terms = data.direct;
         if (!terms || !costData) {
           captureAPIError(new Error("Direct checkout could not show the PaymentIntent's terms"), {
             endpoint: "/api/checkout/lot",
@@ -520,43 +560,63 @@ export function CheckoutForm({
         }
         // The summary and the Pay button show the checkout GET's prices; the
         // PaymentIntent was priced from a fresh lot read. If the lot's rate or
-        // tax changed in between — or the server did not apply the promo the
-        // summary shows — stop here, before the card is confirmed, rather than
-        // charge an amount the customer was never shown. Parking, tax and the
-        // service fee are computed before any discount, so a promo cannot move
-        // them; the discount is compared on its own.
+        // tax changed in between, stop here, before the card is confirmed,
+        // rather than charge an amount the customer was never shown. Parking,
+        // tax and the service fee are computed before any discount, so a
+        // promo cannot move them; the promo is checked below, for both paths.
         const toCents = (n: unknown): number => (typeof n === "number" ? Math.round(n * 100) : NaN);
-        const serverDiscountPercent = typeof data.discountPercent === "number" ? data.discountPercent : 0;
         const priceDrift =
           toCents(data.subtotal) !== toCents(costData.subtotal) ||
           toCents(data.taxTotal) !== toCents(costData.taxTotal) ||
           toCents(data.serviceFee) !== toCents(costData.serviceFee);
-        const promoDrift = serverDiscountPercent !== promoDiscountPercent;
-        if (priceDrift || promoDrift) {
+        if (priceDrift) {
           captureAPIError(new Error("Direct checkout PaymentIntent priced differently from the checkout page"), {
             endpoint: "/api/checkout/lot",
             method: "POST",
-            stage: priceDrift ? "direct_price_drift" : "direct_promo_drift",
+            stage: "direct_price_drift",
             extra: {
               lotId: lot.id,
               paymentIntentId: data.paymentIntentId,
-              page: { subtotal: costData.subtotal, taxTotal: costData.taxTotal, serviceFee: costData.serviceFee, discountPercent: promoDiscountPercent },
-              paymentIntent: { subtotal: data.subtotal, taxTotal: data.taxTotal, serviceFee: data.serviceFee, discountPercent: serverDiscountPercent },
+              page: { subtotal: costData.subtotal, taxTotal: costData.taxTotal, serviceFee: costData.serviceFee },
+              paymentIntent: { subtotal: data.subtotal, taxTotal: data.taxTotal, serviceFee: data.serviceFee },
             },
           });
-          if (priceDrift) {
-            // The page's prices are from load and never refresh: only a reload fixes it.
-            setDirectPriceStale(true);
-            throw new Error(DIRECT_PRICE_STALE_MESSAGE);
-          }
-          // Only the promo stopped applying (expired / used up since Apply). Drop
-          // it so the summary shows the real total; the next Continue creates a
-          // PaymentIntent that matches it.
-          handleRemovePromo();
-          throw new Error("Your promo code could no longer be applied, so your total has been updated. Please review it and continue — you have not been charged.");
+          // The page's prices are from load and never refresh: only a reload fixes it.
+          setDirectPriceStale(true);
+          throw new Error(DIRECT_PRICE_STALE_MESSAGE);
         }
-        setDirectTerms(terms);
-        setVehicleChoice((prev) => refreshVehicleChoice(prev, terms));
+      }
+
+      // The promo the PaymentIntent was created with (both paths). The server
+      // priced it, so its figure is the one shown. A code it refused is
+      // dropped and the customer stays here: the summary updates and the next
+      // Continue creates a PaymentIntent without it. This one is never
+      // confirmed, so nothing is charged. Not a payment error, so not
+      // submitError.
+      let appliedPromoCents: number | null = null;
+      if (sentPromo) {
+        const decision = decideCheckoutPromo(sentPromo, sentPromoPageCents, data.promo);
+        if (decision.report) {
+          captureAPIError(new Error(decision.report), {
+            endpoint: "/api/checkout/lot",
+            method: "POST",
+            stage: decision.action === "drop" ? "promo_verdict_unusable" : "promo_amount_differs",
+            extra: { lotId: lot.id, paymentIntentId: data.paymentIntentId },
+          });
+        }
+        if (decision.action === "drop") {
+          setAppliedPromo(null);
+          setServerPromoCents(null);
+          setPromoNotice(decision.notice);
+          return;
+        }
+        appliedPromoCents = decision.appliedCents;
+      }
+      setServerPromoCents(appliedPromoCents);
+      if (terms) {
+        const stampedTerms = terms;
+        setDirectTerms(stampedTerms);
+        setVehicleChoice((prev) => refreshVehicleChoice(prev, stampedTerms));
       }
       setClientSecret(data.clientSecret);
       setPaymentIntentId(data.paymentIntentId);
@@ -611,6 +671,9 @@ export function CheckoutForm({
     // A fresh PaymentIntent means a fresh Element that reads the amount on
     // mount; no catch-up sync is owed on re-entry.
     setPriceVersion(0);
+    // The promo stays applied; the next PaymentIntent's POST prices it again.
+    setServerPromoCents(null);
+    setPromoNotice(null);
     // The choice is deliberately KEPT: re-entering the payment step creates a
     // fresh PI from it, so the customer doesn't have to choose again. Stale-
     // toggle protection is the sequence-ID bump above, not a reset.
@@ -762,19 +825,23 @@ export function CheckoutForm({
     setProtectionPlanUpdating(false);
   };
 
-  // Promo code handlers — validates server-side. Returns a discriminated
-  // result so the PromoCode widget can show distinct messages for "invalid
-  // code" vs "couldn't reach server" — the latter is misleading if shown as
+  // Promo code handlers. Apply asks /api/promo/validate for the code's RULE,
+  // then applies it to the page's prices with the same function the server
+  // charges from (promoDiscountCents), so a refusal ("needs $25 of parking",
+  // "not for pay-at-the-lot") shows at Apply, not at Pay. Returns a
+  // discriminated result so the widget can tell "this code gives no discount"
+  // from "couldn't reach the server" — the latter is misleading if shown as
   // "invalid promo code".
-  const handleApplyPromo = async (
-    code: string
-  ): Promise<{ ok: true } | { ok: false; reason: "invalid" | "network" }> => {
+  const handleApplyPromo = async (code: string): Promise<ApplyPromoResult> => {
+    // Overtaken by Remove or Continue → the answer is ignored.
+    const isCurrent = promoGate.begin();
     try {
       const response = await fetch("/api/promo/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),
       });
+      if (!isCurrent()) return { ok: false, reason: "superseded" };
       if (!response.ok) {
         // 4xx — server rejected the code (validation, rate limit, auth).
         // Customer should see "invalid", not "retry".
@@ -793,25 +860,46 @@ export function CheckoutForm({
         return { ok: false, reason: "invalid" };
       }
       const data = await response.json();
-      if (data.valid) {
-        setPromoCode(code);
-        setPromoDiscountPercent(data.discountPercent);
-        return { ok: true };
+      if (!isCurrent()) return { ok: false, reason: "superseded" };
+      if (!data.valid) {
+        return { ok: false, reason: "invalid", message: typeof data.error === "string" ? data.error : undefined };
       }
-      return { ok: false, reason: "invalid" };
+      const rule = ruleFromValidateResponse(data);
+      if (!rule) {
+        captureAPIError(new Error("/api/promo/validate returned a valid code with an unreadable rule"), {
+          endpoint: "/api/promo/validate",
+          method: "POST",
+          stage: "rule_unreadable",
+          extra: { code },
+        });
+        return { ok: false, reason: "network", message: "We couldn't check that code right now. Please try again in a moment." };
+      }
+      if (!pageCart) {
+        return { ok: false, reason: "invalid", message: "We couldn't price this booking to check your code. Please reload the page and try again." };
+      }
+      const discount = promoDiscountCents(rule, pageCart);
+      if ("refused" in discount) {
+        return { ok: false, reason: "invalid", message: promoRefusalMessage(discount.refused, rule) };
+      }
+      setAppliedPromo(rule);
+      setServerPromoCents(null);
+      setPromoNotice(null);
+      return { ok: true };
     } catch (err) {
       // True fetch rejection — network failure, offline, CORS, abort.
       captureAPIError(err instanceof Error ? err : new Error(String(err)), {
         endpoint: "/api/promo/validate",
         method: "POST",
       });
-      return { ok: false, reason: "network" };
+      return { ok: false, reason: isCurrent() ? "network" : "superseded" };
     }
   };
 
   const handleRemovePromo = () => {
-    setPromoCode(null);
-    setPromoDiscountPercent(0);
+    promoGate.invalidate();
+    setAppliedPromo(null);
+    setServerPromoCents(null);
+    setPromoNotice(null);
   };
 
   /**
@@ -1289,6 +1377,11 @@ export function CheckoutForm({
                 }}
                 isLoading={isCreatingPaymentIntent}
               />
+              {promoNotice && (
+                <div role="status" className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-amber-800 text-sm">{promoNotice}</p>
+                </div>
+              )}
               {submitError && (
                 <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
                   <p className="text-red-700 text-sm">{submitError}</p>
@@ -1391,12 +1484,13 @@ export function CheckoutForm({
           checkOutTime={checkOutTime}
           priceBreakdown={priceBreakdown}
           promoCode={promoCode}
+          promoPercent={promoRule?.percent ?? null}
           onApplyPromo={handleApplyPromo}
           onRemovePromo={handleRemovePromo}
-          // Lock promo once the PaymentIntent exists. Promos applied on the
-          // payment step would update the displayed total but NOT the
-          // already-frozen PI amount, so Stripe would charge the wrong total.
-          promoLocked={clientSecret !== null}
+          // Lock promo while the PaymentIntent is being created and once it
+          // exists. A promo applied then would update the displayed total but
+          // NOT the PI amount, so Stripe would charge the wrong total.
+          promoLocked={clientSecret !== null ? "payment" : isCreatingPaymentIntent ? "creating" : null}
           vehicleEstimate={vehicleEstimate}
           showFreeCancellation={showFreeCancellation}
         />

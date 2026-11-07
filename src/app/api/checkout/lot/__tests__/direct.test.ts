@@ -44,7 +44,8 @@ vi.mock("@/lib/supabase/server", () => ({
       select: () => ({
         eq: (col: string, val: string) => {
           promoEq(col, val);
-          return { single: promoSingle };
+          const query = { abortSignal: () => query, maybeSingle: () => promoSingle(val) };
+          return query;
         },
       }),
     }),
@@ -59,6 +60,15 @@ import { directLotToUnified } from "@/lib/direct/adapter";
 import { getAirportByCode } from "@/config/airports";
 import { directLotRow } from "@/lib/direct/__tests__/fixtures";
 import { flagSwitch } from "@/lib/direct/__tests__/flag-switch";
+import { readDirectMetadataMoney } from "@/lib/direct/metadata-money";
+import { checkStampAgainstCharge, readStampedDiscount } from "@/lib/promo/stamped-discount";
+
+/** The stamp the POST wrote — the test fails if it wrote none. */
+const presentStamp = (meta: Record<string, string>) => {
+  const stamped = readStampedDiscount(meta);
+  if (stamped.kind === "absent") throw new Error("no discountCents stamped");
+  return stamped;
+};
 
 // Booking closed unless a test opens it (go-live behaviour is pinned explicitly).
 afterEach(() => {
@@ -102,10 +112,13 @@ beforeEach(() => {
   vi.stubEnv("DIRECT_CHECKOUT_PREVIEW", "true");
   lookup.mockResolvedValue({ status: "found", lot: lot() });
   createPI.mockResolvedValue({ id: "pi_direct", client_secret: "cs_direct" });
-  promoSingle.mockResolvedValue({ data: USABLE_PROMO, error: null });
+  // The row for whatever code is looked up: a usable 10 % code.
+  promoSingle.mockImplementation(async (code: string) => ({ data: { ...USABLE_PROMO, code }, error: null }));
 });
 
-const USABLE_PROMO = { id: 1, discount_percent: 10, active: true, expires_at: null, max_uses: null, current_uses: 0 };
+const USABLE_PROMO = { code: "TEN", discount_percent: 10, discount_amount: null, min_subtotal: null, active: true, expires_at: null, max_uses: null, current_uses: 0 };
+// A fixed $5 code with a $25 minimum, as migration 049 stores it (DECIMAL → string).
+const FIXED_PROMO = { ...USABLE_PROMO, code: "JFK5", discount_percent: null, discount_amount: "5.00", min_subtotal: "25.00" };
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllEnvs();
@@ -152,11 +165,21 @@ describe("POST /api/checkout/lot — direct", () => {
     expect(meta).toMatchObject({ protectionPlanCode: "A", parkingOnlyChargeAmountCents: "6366" });
   });
 
-  it("applies a usable promo to the subtotal", async () => {
-    await post(directBody({ promoCode: "TEN" }));
+  it("applies a usable promo to the subtotal and stamps the discount with checkout's figures — which the direct reader accepts", async () => {
+    const res = await post(directBody({ promoCode: "TEN" }));
     const [amount, meta] = createPI.mock.calls[0];
     expect(amount).toBe(58.68); // 63.66 − 4.98
-    expect(meta).toMatchObject({ promoCode: "TEN", discountPercent: "10", directDiscountCents: "498" });
+    expect(meta).toMatchObject({
+      promoCode: "TEN",
+      discountPercent: "10",
+      directDiscountCents: "498",
+      discountCents: "498",
+      onlineParkingCents: "5771", // the whole grand total is paid online
+      preDiscountOnlineCents: "6366",
+      parkingOnlyChargeAmountCents: "5868",
+    });
+    expect(await res.json()).toMatchObject({ chargeCents: 5868, promo: { code: "TEN", kind: "percent", appliedCents: 498 }, discountPercent: 10 });
+    expect(readDirectMetadataMoney(meta, 5868)).toMatchObject({ ok: true, money: { discountCents: 498, chargeCents: 5868 } });
   });
 
   it("stamps 'none' when the lot has no surcharges (never '', which Stripe drops) — same $63.66 charge", async () => {
@@ -404,29 +427,163 @@ describe("promo lookup (extracted helper) — both branches", () => {
     );
   });
 
-  it("ResLab: a usable 10 % code (sent lowercase) → 55.95, looked up uppercase", async () => {
-    await post(reslabBody({ promoCode: "ten" }));
+  /** The ResLab stamp must pass the reader the pending route and Step 8 run. */
+  const passesReader = (meta: Record<string, string>, amountCents: number) =>
+    checkStampAgainstCharge(meta, presentStamp(meta), { premiumCents: 0, piAmountCents: amountCents });
+
+  it("ResLab: a usable 10 % code (sent lowercase) → 55.95, looked up normalised; the stamp passes the reader", async () => {
+    const res = await post(reslabBody({ promoCode: " ten " }));
     expect(promoEq).toHaveBeenCalledWith("code", "TEN");
     const [amount, meta] = createPI.mock.calls[0];
     expect(amount).toBe(55.95);
-    expect(meta).toMatchObject({ discountPercent: "10" });
+    // Parking online 55.00 + fee 5.95 = 60.95 before the 5.00 off.
+    expect(meta).toMatchObject({
+      promoCode: "TEN",
+      discountPercent: "10",
+      discountCents: "500",
+      onlineParkingCents: "5500",
+      preDiscountOnlineCents: "6095",
+      parkingOnlyChargeAmountCents: "5595",
+      serviceFee: "5.95",
+    });
+    expect(await res.json()).toMatchObject({ chargeCents: 5595, verifiedDueNow: 55.95, promo: { code: "TEN", kind: "percent", appliedCents: 500 } });
+    expect(passesReader(meta, 5595)).toMatchObject({ ok: true, cents: 500 });
   });
 
   it.each([
-    ["no such code (PGRST116)", { data: null, error: { code: "PGRST116", message: "no rows" } }, false],
-    ["a Supabase error", { data: null, error: { code: "57014", message: "timeout" } }, true],
-    ["an inactive code", { data: { ...USABLE_PROMO, active: false }, error: null }, false],
-    ["an expired code", { data: { ...USABLE_PROMO, expires_at: "2020-01-01T00:00:00Z" }, error: null }, false],
-    ["a used-up code", { data: { ...USABLE_PROMO, max_uses: 1, current_uses: 1 }, error: null }, false],
-  ])("%s → full price on BOTH branches (captured only for a real error)", async (_n, result, captured) => {
+    ["no such code", { data: null, error: null }, "unknown"],
+    ["an inactive code", { data: { ...USABLE_PROMO, code: "X", active: false }, error: null }, "inactive"],
+    ["an expired code", { data: { ...USABLE_PROMO, code: "X", expires_at: "2020-01-01T00:00:00Z" }, error: null }, "expired"],
+    ["a used-up code", { data: { ...USABLE_PROMO, code: "X", max_uses: 1, current_uses: 1 }, error: null }, "used_up"],
+  ])("%s → full price on BOTH branches, NOTHING stamped (not even the code), the reason returned", async (_n, result, reason) => {
     promoSingle.mockResolvedValue(result);
-    await post(reslabBody({ promoCode: "X" }));
+    const reslabRes = await post(reslabBody({ promoCode: "X" }));
     expect(createPI.mock.calls[0][0]).toBe(60.95);
-    expect(createPI.mock.calls[0][1]).not.toHaveProperty("discountPercent");
+    for (const key of ["promoCode", "discountPercent", "discountCents", "onlineParkingCents", "preDiscountOnlineCents"]) {
+      expect(createPI.mock.calls[0][1]).not.toHaveProperty(key);
+    }
+    expect(await reslabRes.json()).toMatchObject({ promo: { code: "X", refused: reason, message: expect.any(String) }, discountPercent: 0 });
     await post(directBody({ promoCode: "X" }));
     expect(createPI.mock.calls[1][0]).toBe(63.66);
     expect(createPI.mock.calls[1][1]).toMatchObject({ directDiscountCents: "0" });
-    expect(vi.mocked(captureAPIError).mock.calls.length).toBe(captured ? 2 : 0);
+    expect(createPI.mock.calls[1][1]).not.toHaveProperty("promoCode");
+    expect(captureAPIError).not.toHaveBeenCalled();
+  });
+
+  it("a FAILED lookup → 503 on BOTH branches, NO PaymentIntent (it used to charge full price silently), reported", async () => {
+    promoSingle.mockResolvedValue({ data: null, error: { code: "57014", message: "timeout" } });
+    for (const body of [reslabBody({ promoCode: "TEN" }), directBody({ promoCode: "TEN" })]) {
+      const res = await post(body);
+      expect(res.status).toBe(503);
+      expect(await res.json()).toMatchObject({ code: "promo_lookup_unavailable" });
+    }
+    expect(createPI).not.toHaveBeenCalled();
+    // Looked up before the price: no ResLab call is spent either.
+    expect(getCost).not.toHaveBeenCalled();
+    expect(vi.mocked(captureAPIError).mock.calls.filter(([, ctx]) => ctx.stage === "promo_lookup")).toHaveLength(2);
+  });
+
+  it("a malformed promo row → refused as not available, full price, reported", async () => {
+    promoSingle.mockResolvedValue({ data: { ...FIXED_PROMO, discount_percent: 10 }, error: null }); // both kinds
+    vi.stubEnv("PROMO_FIXED_ENABLED", "true");
+    const res = await post(reslabBody({ promoCode: "JFK5" }));
+    expect(createPI.mock.calls[0][0]).toBe(60.95);
+    expect(await res.json()).toMatchObject({ promo: { refused: "not_available" } });
+    expect(vi.mocked(captureAPIError).mock.calls.filter(([, ctx]) => ctx.stage === "promo_row_malformed")).toHaveLength(1);
+  });
+
+  describe("a fixed $5 code (JFK5, $25 minimum)", () => {
+    beforeEach(() => {
+      promoSingle.mockResolvedValue({ data: FIXED_PROMO, error: null });
+    });
+
+    it("kill switch OFF (PROMO_FIXED_ENABLED unset): not available on BOTH branches — full price, nothing stamped", async () => {
+      const res = await post(reslabBody({ promoCode: "JFK5" }));
+      expect(createPI.mock.calls[0][0]).toBe(60.95);
+      expect(createPI.mock.calls[0][1]).not.toHaveProperty("discountCents");
+      expect(await res.json()).toMatchObject({ promo: { code: "JFK5", refused: "not_available" } });
+      await post(directBody({ promoCode: "JFK5" }));
+      expect(createPI.mock.calls[1][0]).toBe(63.66);
+    });
+
+    describe("kill switch ON", () => {
+      beforeEach(() => {
+        vi.stubEnv("PROMO_FIXED_ENABLED", "true");
+      });
+
+      it("ResLab: $5 off the parking, the fee untouched (60.95 → 55.95); stamped without a percent; passes the reader", async () => {
+        const res = await post(reslabBody({ promoCode: "jfk5" }));
+        const [amount, meta] = createPI.mock.calls[0];
+        expect(amount).toBe(55.95);
+        expect(meta).toMatchObject({ promoCode: "JFK5", discountCents: "500", onlineParkingCents: "5500", preDiscountOnlineCents: "6095" });
+        expect(meta).not.toHaveProperty("discountPercent");
+        expect(await res.json()).toMatchObject({ chargeCents: 5595, promo: { code: "JFK5", kind: "fixed", appliedCents: 500 }, discountPercent: 0 });
+        expect(passesReader(meta, 5595)).toMatchObject({ ok: true, cents: 500 });
+      });
+
+      it("direct: $5 off (63.66 → 58.66); the direct reader accepts it", async () => {
+        const res = await post(directBody({ promoCode: "JFK5" }));
+        const [amount, meta] = createPI.mock.calls[0];
+        expect(amount).toBe(58.66);
+        expect(meta).toMatchObject({ discountCents: "500", directDiscountCents: "500", onlineParkingCents: "5771", preDiscountOnlineCents: "6366" });
+        expect(await res.json()).toMatchObject({ chargeCents: 5866, promo: { kind: "fixed", appliedCents: 500 } });
+        expect(readDirectMetadataMoney(meta, 5866)).toMatchObject({ ok: true, money: { discountCents: 500 } });
+      });
+
+      it("+ Plan A: the premium adds on top of the discounted parking; chargeCents is the PaymentIntent amount", async () => {
+        const res = await post(reslabBody({ promoCode: "JFK5", protectionPlanCode: "A" }));
+        const [amount, meta] = createPI.mock.calls[0];
+        expect(amount).toBe(68.94); // 55.95 + 12.99
+        expect(meta).toMatchObject({ parkingOnlyChargeAmountCents: "5595", protectionPlanCode: "A" });
+        expect((await res.json()).chargeCents).toBe(6894);
+        expect(checkStampAgainstCharge(meta, presentStamp(meta), { premiumCents: 1299, piAmountCents: 6894 })).toMatchObject({ ok: true });
+      });
+
+      it("below the $25 minimum: refused with the reason, full price, nothing stamped", async () => {
+        getCost.mockResolvedValue({
+          costs_token: "tok",
+          reservation: { sold_out: false, sub_total: 20, fees_total: 4.99, tax_total: 2, grand_total: 26.99, due_at_location: 0 },
+        });
+        const res = await post(reslabBody({ promoCode: "JFK5" }));
+        expect(createPI.mock.calls[0][1]).not.toHaveProperty("discountCents");
+        expect(await res.json()).toMatchObject({
+          promo: { code: "JFK5", refused: "below_minimum", message: "This code needs at least $25 of parking." },
+        });
+      });
+
+      it("pay-at-the-lot (only $3.00 of parking online): refused — the $5 would come out of the service fee (D1)", async () => {
+        getCost.mockResolvedValue({
+          costs_token: "tok",
+          reservation: { sold_out: false, sub_total: 50, fees_total: 0, tax_total: 5, grand_total: 55, due_at_location: 52 },
+        });
+        const res = await post(reslabBody({ promoCode: "JFK5" }));
+        expect(createPI.mock.calls[0][0]).toBe(8.95); // 3.00 online + the 5.95 fee, whole
+        expect(await res.json()).toMatchObject({ promo: { refused: "not_applicable", message: "This code isn't valid for pay-at-the-lot bookings." } });
+      });
+    });
+  });
+
+  it("a percent code on a pay-at-the-lot booking is capped at the online parking — never out of the fee (bug 6)", async () => {
+    // 10 % of the 50.00 sub_total = 5.00, but only 3.00 of parking is paid online.
+    getCost.mockResolvedValue({
+      costs_token: "tok",
+      reservation: { sold_out: false, sub_total: 50, fees_total: 0, tax_total: 5, grand_total: 55, due_at_location: 52 },
+    });
+    await post(reslabBody({ promoCode: "TEN" }));
+    const [amount, meta] = createPI.mock.calls[0];
+    expect(amount).toBe(5.95); // the fee, whole
+    expect(meta).toMatchObject({ discountCents: "300", onlineParkingCents: "300", preDiscountOnlineCents: "895" });
+    expect(passesReader(meta, 595)).toMatchObject({ ok: true });
+  });
+
+  it("an unusable ResLab price (NaN) → 503, no PaymentIntent, reported", async () => {
+    getCost.mockResolvedValue({
+      costs_token: "tok",
+      reservation: { sold_out: false, sub_total: 50, fees_total: 0, tax_total: 5, grand_total: Number.NaN, due_at_location: 0 },
+    });
+    expect((await post(reslabBody())).status).toBe(503);
+    expect(createPI).not.toHaveBeenCalled();
+    expect(vi.mocked(captureAPIError).mock.calls.filter(([, ctx]) => ctx.stage === "cost_unusable")).toHaveLength(1);
   });
 });
 
@@ -447,7 +604,7 @@ describe("direct: Park Guard + promo combinations", () => {
   });
 
   it("a 100 % promo still charges tax + fee (13.91) — never a premium-only PaymentIntent", async () => {
-    promoSingle.mockResolvedValue({ data: { ...USABLE_PROMO, discount_percent: 100 }, error: null });
+    promoSingle.mockResolvedValue({ data: { ...USABLE_PROMO, code: "FREE", discount_percent: 100 }, error: null });
     await post(directBody({ promoCode: "FREE" }));
     expect(createPI.mock.calls[0][0]).toBe(13.91);
   });

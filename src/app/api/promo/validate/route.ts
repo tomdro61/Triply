@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/server";
 import { z } from "zod";
 import { captureAPIError } from "@/lib/sentry";
-import { isPromoCodeUsable } from "@/lib/promo/usable";
+import { lookupPromoRule } from "@/lib/promo/lookup";
 
 // A lookup fault is not a verdict on the code. Pass-4 review: this route used
 // to answer a connection reset with 200 "Invalid promo code" and report
@@ -16,6 +15,21 @@ const promoValidateSchema = z.object({
   code: z.string().min(1).max(50),
 });
 
+/**
+ * Whether a code is usable, and its RULE — not a discount: there is no cart
+ * here. The checkout applies the rule to its own prices (promoDiscountCents),
+ * and POST /api/checkout/lot applies it again to the server's fresh price,
+ * which is the one that is charged.
+ *
+ *   200 { valid: true, code, kind: "percent" | "fixed", discountPercent,
+ *         discountCents, minSubtotalCents }
+ *       discountPercent is null for a fixed code and discountCents null for a
+ *       percent one. discountPercent stays in the response for checkout tabs
+ *       loaded before fixed codes existed.
+ *   200 { valid: false, error, reason }   unknown / inactive / expired / used up /
+ *       not available (a fixed code while PROMO_FIXED_ENABLED is off)
+ *   503 the lookup failed — try again
+ */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -27,62 +41,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { code } = result.data;
-    const supabase = await createAdminClient();
-
-    const { data: promo, error } = await supabase
-      .from("promo_codes")
-      .select("id, code, discount_percent, active, expires_at, max_uses, current_uses")
-      .eq("code", code.toUpperCase())
-      .single();
-
-    // Same rule as /api/checkout/lot and /api/newsletter: only PGRST116 (no
-    // row) means "no such code". Anything else is a real fault and must
-    // surface as one.
-    if (error && error.code !== "PGRST116") {
-      console.error("Promo code lookup failed:", error.message);
-      captureAPIError(new Error(`Promo code lookup failed: ${error.message}`), {
-        endpoint: "/api/promo/validate",
-        method: "POST",
-        stage: "lookup",
-        code: error.code,
-      });
+    const lookup = await lookupPromoRule(result.data.code, { endpoint: "/api/promo/validate", method: "POST" });
+    if (lookup.kind === "unavailable") {
       return NextResponse.json(
         { valid: false, error: LOOKUP_UNAVAILABLE_MESSAGE },
         { status: 503 }
       );
     }
-
-    if (!promo) {
-      return NextResponse.json({ valid: false, error: "Invalid promo code" });
+    if (lookup.kind === "refused") {
+      return NextResponse.json({ valid: false, error: lookup.message, reason: lookup.reason });
     }
 
-    if (!promo.active) {
-      return NextResponse.json({ valid: false, error: "This promo code is no longer active" });
-    }
-
-    if (promo.expires_at && new Date(promo.expires_at) < new Date()) {
-      return NextResponse.json({ valid: false, error: "This promo code has expired" });
-    }
-
-    if (promo.max_uses !== null && promo.current_uses >= promo.max_uses) {
-      return NextResponse.json({ valid: false, error: "This promo code has reached its usage limit" });
-    }
-
-    // Defense in depth: the three checks above are drift-prone copies of this
-    // same logic — this route disagreed with checkout/newsletter about how to
-    // read a null max_uses/expires_at once already (see
-    // src/lib/promo/usable.ts). The shared predicate is the actual authority
-    // on pass/fail; a code that fails it despite clearing every check above
-    // (only possible if this route's copy has drifted from the shared one)
-    // must still be rejected, not treated as valid.
-    if (!isPromoCodeUsable(promo)) {
-      return NextResponse.json({ valid: false, error: "Invalid promo code" });
-    }
-
+    const { rule } = lookup;
     return NextResponse.json({
       valid: true,
-      discountPercent: promo.discount_percent,
+      code: rule.code,
+      kind: rule.amountCents !== null ? "fixed" : "percent",
+      discountPercent: rule.percent,
+      discountCents: rule.amountCents,
+      minSubtotalCents: rule.minSubtotalCents,
     });
   } catch (error) {
     console.error("Promo validation error:", error);

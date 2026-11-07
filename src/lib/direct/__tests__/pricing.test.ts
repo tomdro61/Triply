@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { directDays, computeDirectQuote, wallClockMinutes } from "../pricing";
 import { calculateServiceFee } from "@/lib/utils/service-fee";
+import type { PromoRule } from "@/lib/promo/discount";
+
+const percentCode = (percent: number): PromoRule => ({ code: "SAVE", percent, amountCents: null, minSubtotalCents: 0 });
 
 describe("directDays — 24-hour periods from drop-off to pickup", () => {
   it.each([
@@ -59,7 +62,7 @@ describe("computeDirectQuote — integer cents, ResLab column semantics", () => 
   });
 
   it("a promo discount is a percentage of the parking subtotal and comes off the charge, not the stored grand_total", () => {
-    const q = computeDirectQuote({ rateCents: 2000, days: 5, taxRatePercent: 10, discountPercent: 10 });
+    const q = computeDirectQuote({ rateCents: 2000, days: 5, taxRatePercent: 10, promo: percentCode(10) });
     expect(q.subtotalCents).toBe(10000);
     expect(q.taxTotalCents).toBe(1000);
     expect(q.grandTotalCents).toBe(11000);
@@ -68,14 +71,26 @@ describe("computeDirectQuote — integer cents, ResLab column semantics", () => 
   });
 
   it("a 100 % promo leaves tax + service fee on the charge", () => {
-    const q = computeDirectQuote({ rateCents: 2000, days: 2, taxRatePercent: 10, discountPercent: 100 });
+    const q = computeDirectQuote({ rateCents: 2000, days: 2, taxRatePercent: 10, promo: percentCode(100) });
     expect(q.discountCents).toBe(4000);
     expect(q.chargeCents).toBe(400 + q.serviceFeeCents);
   });
 
   it("rounding never produces fractional cents", () => {
-    const q = computeDirectQuote({ rateCents: 1999, days: 3, taxRatePercent: 8.875, discountPercent: 15 });
-    for (const v of Object.values(q)) expect(Number.isInteger(v)).toBe(true);
+    const { promo, ...cents } = computeDirectQuote({ rateCents: 1999, days: 3, taxRatePercent: 8.875, promo: percentCode(15) });
+    for (const v of Object.values(cents)) expect(Number.isInteger(v)).toBe(true);
+    expect(promo).toEqual({ cents: cents.discountCents });
+  });
+
+  it("a fixed code: its amount off, the minimum judged on the subtotal; refused → no discount and the verdict returned", () => {
+    const jfk5: PromoRule = { code: "JFK5", percent: null, amountCents: 500, minSubtotalCents: 2500 };
+    const applied = computeDirectQuote({ rateCents: 995, days: 3, taxRatePercent: 16, promo: jfk5 }); // 29.85 parking
+    expect(applied).toMatchObject({ discountCents: 500, promo: { cents: 500 } });
+    expect(applied.chargeCents).toBe(applied.grandTotalCents - 500 + applied.serviceFeeCents);
+    const below = computeDirectQuote({ rateCents: 995, days: 2, taxRatePercent: 16, promo: jfk5 }); // 19.90 parking
+    expect(below).toMatchObject({ discountCents: 0, promo: { refused: "below_minimum" } });
+    expect(below.chargeCents).toBe(below.grandTotalCents + below.serviceFeeCents);
+    expect(computeDirectQuote({ rateCents: 995, days: 2, taxRatePercent: 16 }).promo).toBeNull();
   });
 
   it("refuses nonsense inputs instead of quoting $0", () => {
@@ -83,6 +98,6 @@ describe("computeDirectQuote — integer cents, ResLab column semantics", () => 
     expect(() => computeDirectQuote({ rateCents: 1000, days: 0, taxRatePercent: 0 })).toThrow();
     expect(() => computeDirectQuote({ rateCents: 10.5, days: 1, taxRatePercent: 0 })).toThrow();
     expect(() => computeDirectQuote({ rateCents: 1000, days: 1, taxRatePercent: 101 })).toThrow();
-    expect(() => computeDirectQuote({ rateCents: 1000, days: 1, taxRatePercent: 0, discountPercent: -1 })).toThrow();
+    expect(() => computeDirectQuote({ rateCents: 1000, days: 1, taxRatePercent: 0, promo: percentCode(-1) })).toThrow();
   });
 });

@@ -1,6 +1,7 @@
 import { fetchDirectLot, isSellable, type DirectLot } from "./store";
 import { computeDirectQuote, directDays, wallClockMinutes, type DirectQuote } from "./pricing";
 import { zonedWallClock, SAME_DAY_LEAD_MINUTES } from "@/lib/utils/time";
+import type { PromoRule } from "@/lib/promo/discount";
 
 /**
  * The ONE place a direct-lot checkout is validated and priced (plan A-28), so
@@ -22,13 +23,14 @@ export interface DirectCheckoutQuoteInput {
   /** "YYYY-MM-DD HH:MM:SS" airport-local wall clock, as the route builds it. Never parsed as a Date. */
   fromDate: string;
   toDate: string;
-  discountPercent?: number;
+  /** The promo code's rule, applied by computeDirectQuote (POST only). */
+  promo?: PromoRule | null;
   endpoint: string;
   now?: Date;
 }
 
 export async function quoteDirectCheckout(input: DirectCheckoutQuoteInput): Promise<DirectCheckoutQuote> {
-  const { payloadId, fromDate, toDate, discountPercent = 0, endpoint, now = new Date() } = input;
+  const { payloadId, fromDate, toDate, promo = null, endpoint, now = new Date() } = input;
 
   // Retried once on a transient failure: checkout and payment must not fail on a cold start (TRIPLY-40).
   const lookup = await fetchDirectLot(payloadId, endpoint, { retryTransient: true });
@@ -78,7 +80,7 @@ export async function quoteDirectCheckout(input: DirectCheckoutQuoteInput): Prom
     rateCents: lot.rateCents,
     days: range.days,
     taxRatePercent: lot.taxRatePercent,
-    discountPercent,
+    promo,
   });
   return { ok: true, lot, days: range.days, quote };
 }

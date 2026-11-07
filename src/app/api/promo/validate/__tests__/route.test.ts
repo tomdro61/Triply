@@ -159,3 +159,55 @@ describe("POST /api/promo/validate", () => {
     expect(captureException).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("POST /api/promo/validate — the code's RULE (promo plan Part 2)", () => {
+  const usable = { active: true, expires_at: null, max_uses: 100, current_uses: 0 };
+
+  it("a percent code: kind percent, its percent, no amount, its minimum (0 when none)", async () => {
+    db.tables.promo_codes.push({ id: "p7", code: "THANKS10", discount_percent: 10, discount_amount: null, min_subtotal: null, ...usable });
+    expect(await (await POST(post({ code: " thanks10 " }))).json()).toEqual({
+      valid: true,
+      code: "THANKS10",
+      kind: "percent",
+      discountPercent: 10,
+      discountCents: null,
+      minSubtotalCents: 0,
+    });
+  });
+
+  it("a fixed code with PROMO_FIXED_ENABLED on: kind fixed, the amount and minimum in cents, discountPercent null (stale tabs)", async () => {
+    vi.stubEnv("PROMO_FIXED_ENABLED", "true");
+    db.tables.promo_codes.push({ id: "p8", code: "JFK5", discount_percent: null, discount_amount: "5.00", min_subtotal: "25.00", ...usable });
+    expect(await (await POST(post({ code: "jfk5" }))).json()).toEqual({
+      valid: true,
+      code: "JFK5",
+      kind: "fixed",
+      discountPercent: null,
+      discountCents: 500,
+      minSubtotalCents: 2500,
+    });
+    vi.unstubAllEnvs();
+  });
+
+  it("the kill switch: a fixed code with PROMO_FIXED_ENABLED unset is not available — percent codes unaffected", async () => {
+    db.tables.promo_codes.push(
+      { id: "p9", code: "JFK5", discount_percent: null, discount_amount: "5.00", min_subtotal: "25.00", ...usable },
+      { id: "p10", code: "THANKS10", discount_percent: 10, discount_amount: null, min_subtotal: null, ...usable }
+    );
+    expect(await (await POST(post({ code: "JFK5" }))).json()).toEqual({
+      valid: false,
+      error: "This promo code isn't available right now",
+      reason: "not_available",
+    });
+    expect((await (await POST(post({ code: "THANKS10" }))).json()).valid).toBe(true);
+    expect(captureException).not.toHaveBeenCalled();
+  });
+
+  it("a malformed row (both kinds) is not available, and reported", async () => {
+    vi.stubEnv("PROMO_FIXED_ENABLED", "true");
+    db.tables.promo_codes.push({ id: "p11", code: "BOTH", discount_percent: 10, discount_amount: "5.00", min_subtotal: null, ...usable });
+    expect(await (await POST(post({ code: "BOTH" }))).json()).toMatchObject({ valid: false, reason: "not_available" });
+    expect(captureException).toHaveBeenCalledTimes(1);
+    vi.unstubAllEnvs();
+  });
+});
