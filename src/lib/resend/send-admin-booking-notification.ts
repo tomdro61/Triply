@@ -5,6 +5,7 @@ import { escapeHtml } from "@/lib/validation/schemas";
 import { formatUsd, type CostBreakdown, type CostBreakdownResult } from "@/lib/booking/cost-breakdown";
 import type { AnchoredFallback } from "./anchored-fallback";
 import { isDiscordWebhookUrl, postToDiscord } from "@/lib/digest/discord";
+import { stripeKeyIsLive } from "@/lib/cancellation/source-guard";
 import type { Embed } from "@/lib/digest/render";
 
 interface AdminBookingNotificationParams {
@@ -179,8 +180,14 @@ export function bookingAlertEmbed(p: AdminBookingNotificationParams): Embed {
  * free plan caps sends at 100 a day, and these copies were a third of them).
  * When that post fails, or the variable is unset, the alert is emailed to
  * ALERT_EMAILS exactly as before — an alert is never dropped. Never throws.
+ *
+ * Except on a deployment with a TEST Stripe key (staging, previews, local):
+ * every booking it makes is a test payment, so nothing is sent — no post, no
+ * email. Staging walks were landing in #booking-alerts among real sales (Tom,
+ * Nov 7). Production holds the live key and is unchanged.
  */
 export async function sendAdminBookingNotification(params: AdminBookingNotificationParams) {
+  if (!stripeKeyIsLive()) return { success: true, channel: "skipped_test_mode" as const };
   const webhookUrl = (process.env.DISCORD_BOOKING_ALERTS_WEBHOOK_URL ?? "").trim();
   if (webhookUrl && !isDiscordWebhookUrl(webhookUrl)) {
     // Never fetched: a malformed value could carry the token where the Sentry
