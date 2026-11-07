@@ -234,7 +234,9 @@ export function MoneyBreakdown({
                 amount={slices.commission}
                 ratio={share(slices.commission, keptMix.total)}
                 color={SERIES.commission.color}
-                note={`${formatPrice(keptMix.parkingCommission)} commission less ResLab's ${formatPrice(keptMix.reslabFee)} channel fee`}
+                note={`${formatPrice(keptMix.parkingCommission)} commission less ResLab's ${formatPrice(keptMix.reslabFee)} channel fee${
+                  keptMix.promoDiscounts > 0.005 ? ` and ${formatPrice(keptMix.promoDiscounts)} of promo discounts` : ""
+                }`}
               />
               <Row
                 label={SERIES.serviceFee.label}

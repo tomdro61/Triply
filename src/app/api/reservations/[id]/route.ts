@@ -556,6 +556,10 @@ async function getReservation(
         // The booking's airport (e.g. "JFK") for the GA4 purchase event — the
         // lot id can't supply it ("reslab-<n>"). From Vin's PR #72.
         airportCode: bookingData?.airport_code || null,
+        // The promo discount and code, also for the GA4 purchase event (promo
+        // plan D3): from the row; null when the row couldn't be read.
+        promoDiscount: rowRead && Number.isFinite(Number(rowRead.discount_amount ?? 0)) ? Number(rowRead.discount_amount ?? 0) : null,
+        promoCode: rowRead?.promo_code || null,
         dueNow: (history?.grand_total || 0) + triplyServiceFee + protectionPlanPrice - (history?.due_at_location_total || 0),
         dueAtLocation: history?.due_at_location_total || 0,
         costBreakdown,

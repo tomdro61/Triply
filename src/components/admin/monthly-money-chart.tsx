@@ -336,6 +336,8 @@ export function MonthlyMoneyChart({
               ["Park Guard margin", money(s.pgMargin)],
               ["Stripe fees", m.kept.stripeFees !== null ? formatNegative(m.kept.stripeFees) : "unknown"],
             ];
+            // Already inside the parking commission (Triply funds them); listed so it adds up.
+            if (m.kept.promoDiscounts > 0.005) rows.splice(2, 0, ["of which promo discounts", formatNegative(m.kept.promoDiscounts)]);
             if (m.pgWholesaleMissing > 0) rows.push(["Overstated", `${m.pgWholesaleMissing} PG row(s) lack wholesale`]);
             return {
               segments: [

@@ -80,7 +80,8 @@ const monthNetFrom = ({ slice, mixSlice, mixError }: MonthSlices): MonthNet => (
 // re-runs them through the same schemas on read, so an entry from an older
 // shape is a miss, never misread. Storage can be unavailable (private mode);
 // every access is try/caught.
-const NET_CACHE_PREFIX = "admin-numbers:net:v4:";
+// v5: the kept breakdown gained promoDiscounts (promo plan D3).
+const NET_CACHE_PREFIX = "admin-numbers:net:v5:";
 function readCachedNet(key: string): MonthNet | null {
   try {
     const raw = sessionStorage.getItem(key);

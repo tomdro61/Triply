@@ -405,6 +405,9 @@ describe("direct booking", () => {
     expect(reservation.costBreakdown.totalCents).toBe(5058);
     expect(reservation.protectionPlan).toBe("Plan A");
     expect(reservation.protectionPlanPrice).toBe(12.99);
+    // For the GA4 purchase event (D3).
+    expect(reservation.promoDiscount).toBe(2.99);
+    expect(reservation.promoCode).toBe("FALL10");
     expect(h.captureBookingError).not.toHaveBeenCalled();
   });
 
@@ -723,6 +726,9 @@ describe("ResLab booking — unchanged", () => {
         pgIdentifier: "PG-9",
         pgSyncStatus: "synced",
         airportCode: "EWR",
+        // For GA4 (promo plan D3): the row's discount_amount (null → 0) and code.
+        promoDiscount: 0,
+        promoCode: null,
         dueNow: 70.82 + 5.95 + 12.99 - 20,
         dueAtLocation: 20,
         costBreakdown: {
@@ -787,6 +793,9 @@ describe("ResLab booking — unchanged", () => {
     const { reservation } = await res.json();
     expect(reservation.costBreakdown).toEqual({ ok: false, reason: "booking row read failed" });
     expect(reservation.cardPayment).toEqual({ status: "unknown" });
+    // GA4 (D3): an unknown discount is null, never 0.
+    expect(reservation.promoDiscount).toBeNull();
+    expect(reservation.promoCode).toBeNull();
     expect(h.retrievePi).not.toHaveBeenCalled();
     expect(h.sentryEvents).toHaveLength(1);
     expect(h.sentryEvents[0]).toMatchObject({ level: "error", fingerprint: ["cost-breakdown-fallback", "row_read_failed"] });
@@ -846,6 +855,9 @@ describe("ResLab booking — unchanged", () => {
     expect(reservation.costBreakdown.totalCents).toBe(8376);
     expect(reservation.costBreakdown.paidOnlineCents).toBe(6376);
     expect(reservation.cardPayment).toEqual({ status: "charged", chargedCents: 6376, refundedCents: 0, netPaidCents: null });
+    // For the GA4 purchase event (D3): the row's discount and code.
+    expect(reservation.promoDiscount).toBe(6);
+    expect(reservation.promoCode).toBe("SAVE10");
     expect(h.sentryEvents).toEqual([]);
   });
 

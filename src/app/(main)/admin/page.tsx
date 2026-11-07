@@ -44,7 +44,8 @@ type MonthMixState = MoneyMix | "loading" | { error: string };
 // entry from an older shape is a miss, never misread; only a definitive result
 // (profit known, no Park Guard rows overstating it) is kept. Storage can be
 // unavailable (private mode) — try/caught.
-const MONTH_MIX_CACHE_KEY = "admin-dashboard:month-mix:v2";
+// v3: the kept breakdown gained promoDiscounts (promo plan D3).
+const MONTH_MIX_CACHE_KEY = "admin-dashboard:month-mix:v3";
 const MONTH_MIX_TTL_MS = 10 * 60 * 1000;
 function readCachedMonthMix(monthKey: string): MoneyMix | null {
   try {

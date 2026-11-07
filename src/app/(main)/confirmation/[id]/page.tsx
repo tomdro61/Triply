@@ -18,6 +18,7 @@ import { UnifiedLot } from "@/types/lot";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { trackPurchase } from "@/lib/analytics/gtag";
+import { purchasePromo } from "@/lib/analytics/purchase-value";
 import { takePurchaseToTrack } from "@/lib/analytics/purchase-once";
 import { convertTo12Hour } from "@/lib/utils/time";
 import { captureBookingError } from "@/lib/sentry";
@@ -46,6 +47,13 @@ interface ReservationDataBase {
   /** What was charged online: grandTotal − dueAtLocation (− promo discount on a direct booking). */
   dueNow: number;
   dueAtLocation: number;
+  /**
+   * The promo discount the booking got (bookings.discount_amount) and its code
+   * — for the GA4 purchase event (promo plan D3). null when the API couldn't
+   * read the booking row (ResLab path); absent on responses from before D3.
+   */
+  promoDiscount?: number | null;
+  promoCode?: string | null;
   /**
    * The Payment summary, built and checked server-side (plan 2026-10-12).
    * The ONLY source of the money this page shows.
@@ -165,15 +173,18 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
       // to record as the airport (fix from Vin's PR #72). A direct lot id keeps
       // the "direct-" prefix so it can't collide with a ResLab location id.
       const isDirect = reservation.inventorySource === "direct";
+      // The total before the code (both kinds of lot report `grandTotal` that
+      // way), the discount and the code's family (promo plan D3).
+      const promo = purchasePromo(reservation);
       trackPurchase({
         confirmationNumber: confirmationId,
         lotId: isDirect
           ? `direct-${reservation.location.id}`
           : String(reservation.location.id),
         lotName: reservation.location.name,
-        // Direct: the amount actually charged (net of any promo discount).
-        // ResLab: unchanged.
-        grandTotal: isDirect ? reservation.dueNow : reservation.grandTotal,
+        grandTotal: promo.grossTotal,
+        promoDiscount: promo.discount,
+        coupon: promo.coupon,
         serviceFee: serviceFeeParam ? parseFloat(serviceFeeParam) : undefined,
         protectionPlanPrice: reservation.protectionPlanPrice || undefined,
         airportCode: reservation.airportCode || undefined,
