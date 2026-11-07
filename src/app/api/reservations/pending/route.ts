@@ -219,14 +219,9 @@ export async function POST(request: NextRequest) {
     // customer nothing; at fulfilment the card is already held. Metadata only,
     // no ResLab: the stamp's own form, and that checkout's figures (required
     // beside it) add up to the charge. The direct branch gets this from
-    // readDirectMetadataMoney. Absent → nothing changes.
-    //
-    // The service fee staged for fulfilment is the client's page-load figure,
-    // which a price move between the page and the PaymentIntent leaves stale.
-    // On a stamped payment it is the fee the PaymentIntent CHARGED instead
-    // (the stamp check proves preDiscountOnline − onlineParking = serviceFee),
-    // so the booking row and the backstop measure the stamp against the charge.
-    let stagedServiceFee = payload.triplyServiceFee ?? null;
+    // readDirectMetadataMoney. Absent → nothing changes. (The service fee the
+    // payment charged is applied at fulfilment, withChargedServiceFee — the
+    // browser's own finishing call does not read this row's payload.)
     const stamped = readStampedDiscount(meta);
     if (stamped.kind !== "absent") {
       const stampCheck = checkStampAgainstCharge(meta, stamped, {
@@ -248,7 +243,6 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-      stagedServiceFee = (stampCheck.checkout.preDiscountOnlineCents - stampCheck.checkout.onlineParkingCents) / 100;
     }
 
     // Marketing attribution from the first-party cookie — read AFTER the body
@@ -406,7 +400,7 @@ export async function POST(request: NextRequest) {
         tax_total: payload.taxTotal ?? null,
         fees_total: payload.feesTotal ?? null,
         grand_total: payload.grandTotal ?? null,
-        triply_service_fee: stagedServiceFee,
+        triply_service_fee: payload.triplyServiceFee ?? null,
         user_id: sessionUserId,
         // Written in lockstep: the boolean predates the tier column and is
         // still read by the legacy-row rule in create-booking.ts.

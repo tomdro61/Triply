@@ -56,11 +56,21 @@ const outcomeSchema = z.union([
   z.object({ code: z.string(), refused: z.string(), message: z.string() }),
 ]);
 
+/**
+ * Something for Sentry: `error` = the page and the server disagree in a way
+ * only a bug explains; `warning` = they priced the code on different figures
+ * (a price that moved since the page loaded, or the GET's fallback figures).
+ */
+export type PromoDecisionReport = { message: string; level: "error" | "warning" };
+
 export type CheckoutPromoDecision =
   /** The PaymentIntent carries the code: show `appliedCents` (the server's figure). */
-  | { action: "keep"; appliedCents: number; report: string | null }
+  | { action: "keep"; appliedCents: number; report: PromoDecisionReport | null }
   /** The PaymentIntent carries NO discount: drop the code, tell the customer, stay before payment. */
-  | { action: "drop"; notice: string; report: string | null };
+  | { action: "drop"; notice: string; report: PromoDecisionReport | null };
+
+/** The refusals that depend on the cart (PromoRefusal), not on the code itself. */
+const CART_REFUSALS = new Set(["below_minimum", "not_applicable", "currency"]);
 
 const NOT_CHARGED = "Your total has been updated — please review it and continue. You have not been charged.";
 
@@ -72,6 +82,10 @@ const NOT_CHARGED = "Your total has been updated — please review it and contin
  *                      code; for a fixed code it can only be a bug or a code
  *                      edited since Apply, so it is reported.
  *   refused            drop it; the notice says why (the customer's reason).
+ *                      A refusal by the CART is reported at warning: the page
+ *                      accepted the code on its own prices, so the two priced
+ *                      it on different figures. The code's own refusals
+ *                      (expired, used up since Apply…) are normal.
  *   missing/malformed, or another code
  *                      drop it and report: the page cannot tell what the
  *                      PaymentIntent carries, so it is not used (the next
@@ -83,7 +97,7 @@ export function decideCheckoutPromo(sent: PromoRule, pageCents: number, raw: unk
     return {
       action: "drop",
       notice: `Your promo code ${sent.code} couldn't be applied. ${NOT_CHARGED}`,
-      report: `checkout POST returned no usable promo verdict for ${sent.code}: ${JSON.stringify(raw)}`,
+      report: { message: `checkout POST returned no usable promo verdict for ${sent.code}: ${JSON.stringify(raw)}`, level: "error" },
     };
   }
   const outcome: CheckoutPromoOutcome = parsed.data;
@@ -91,17 +105,20 @@ export function decideCheckoutPromo(sent: PromoRule, pageCents: number, raw: unk
     return {
       action: "drop",
       notice: `Your promo code ${sent.code} couldn't be applied. ${NOT_CHARGED}`,
-      report: `checkout POST answered for promo code ${outcome.code}, not the ${sent.code} sent`,
+      report: { message: `checkout POST answered for promo code ${outcome.code}, not the ${sent.code} sent`, level: "error" },
     };
   }
   if ("refused" in outcome) {
     // The code's own refusals carry no full stop; the cart's do.
     const reason = /[.!?]$/.test(outcome.message) ? outcome.message : `${outcome.message}.`;
-    return { action: "drop", notice: `Your promo code ${sent.code} couldn't be applied: ${reason} ${NOT_CHARGED}`, report: null };
+    const report: PromoDecisionReport | null = CART_REFUSALS.has(outcome.refused)
+      ? { message: `promo code ${sent.code} gave ${pageCents} cents on the page but the PaymentIntent's cart refused it (${outcome.refused})`, level: "warning" }
+      : null;
+    return { action: "drop", notice: `Your promo code ${sent.code} couldn't be applied: ${reason} ${NOT_CHARGED}`, report };
   }
-  const report =
+  const report: PromoDecisionReport | null =
     sent.amountCents !== null && outcome.appliedCents !== pageCents
-      ? `fixed promo code ${sent.code} applied ${outcome.appliedCents} cents on the PaymentIntent, ${pageCents} on the page`
+      ? { message: `fixed promo code ${sent.code} applied ${outcome.appliedCents} cents on the PaymentIntent, ${pageCents} on the page`, level: "error" }
       : null;
   return { action: "keep", appliedCents: outcome.appliedCents, report };
 }

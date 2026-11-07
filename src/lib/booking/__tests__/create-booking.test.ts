@@ -2449,6 +2449,44 @@ describe("a stamped discountCents — ResLab (promo plan Part 1, readers)", () =
 
       expect((await createBooking({ source: "client", stripePaymentIntentId: PI })).kind).toBe("created");
       expect(blockAlerts()).toEqual([]);
+      // …and the row records the charged fee too (a webhook / sweep finish reads this row).
+      expect(db.tables.bookings[0]).toMatchObject({ triply_service_fee: 6, discount_amount: 5 });
+    });
+
+    it("the BROWSER's finishing call carries its own payload (page-load fee 9.00): the row, the response and the emails use the CHARGED 6.00", async () => {
+      // Server review, PR 2 round 1: the client body wins over the staged row,
+      // so the fee must be corrected in the engine, whichever path finishes.
+      db.seed("pending_bookings", [pendingRow()]);
+      stripeMock.paymentIntents.retrieve.mockResolvedValue(fixedPi());
+      const r = pendingRow();
+      const out = await createBooking({
+        source: "client",
+        stripePaymentIntentId: PI,
+        payload: {
+          locationId: r.location_id,
+          costsToken: r.costs_token,
+          fromDate: r.from_date,
+          toDate: r.to_date,
+          parkingTypeId: r.parking_type_id,
+          customer: r.customer,
+          vehicle: r.vehicle,
+          subtotal: 80,
+          taxTotal: 5,
+          feesTotal: 3,
+          grandTotal: 88,
+          triplyServiceFee: 9,
+          userId: null,
+          stripePaymentIntentId: PI,
+          protectionPlanCode: null,
+        },
+      });
+
+      expect(out.kind).toBe("created");
+      if (out.kind !== "created") return;
+      expect(db.tables.bookings[0]).toMatchObject({ triply_service_fee: 6, discount_amount: 5 });
+      expect(out.reservation?.dueNow).toBe(69); // = pi.amount
+      expect(vi.mocked(sendBookingConfirmation).mock.calls[0][0].breakdown).toMatchObject({ ok: true, paidOnlineCents: 6900 });
+      expect(stampAlerts()).toEqual([]);
     });
   });
 

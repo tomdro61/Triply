@@ -61,6 +61,15 @@ export interface Cart {
 
 export type PromoRefusal = "below_minimum" | "not_applicable" | "currency";
 
+/**
+ * The promo pricing the checkout page speaks, sent with every promo code.
+ * Pages loaded before PR 2 send none: they price a percent code themselves
+ * (uncapped, unrounded), know no fixed codes, and never read the server's
+ * verdict — so the POST refuses their code as a stale page (reload) rather
+ * than charge an amount their Pay button doesn't show (Codex, PR 2 round 1).
+ */
+export const PROMO_PRICING_VERSION = 2;
+
 export type PromoDiscountResult = { cents: number } | { refused: PromoRefusal };
 
 /**

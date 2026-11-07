@@ -21,6 +21,7 @@ import { protectionPlanCodeSchema } from "@/lib/validation/schemas";
 import { lookupPromoRule, type PromoLookup } from "@/lib/promo/lookup";
 import {
   normalisePromoCode,
+  PROMO_PRICING_VERSION,
   promoDiscountCents,
   promoRefusalMessage,
   type CheckoutPromoOutcome,
@@ -246,6 +247,8 @@ const checkoutPostSchema = z.object({
   parkingTypeId: z.number().int().positive(),
   customerEmail: z.string().email(),
   promoCode: z.string().optional(),
+  // Sent with a promoCode by pages that speak PR 2's promo pricing; see promoFromStalePage.
+  promoPricing: z.literal(PROMO_PRICING_VERSION).optional(),
   // Required key, nullable value — see validation/schemas.ts for rationale.
   // The checkout form sends the customer's kept choice after Back, or null on
   // first entry (nothing is pre-selected since 2026-11-02; Plan A was the
@@ -289,9 +292,13 @@ export async function POST(request: NextRequest) {
       parkingTypeId,
       customerEmail,
       promoCode,
+      promoPricing,
       protectionPlanCode,
       termsVersion,
     } = result.data;
+    if (promoFromStalePage(promoCode, promoPricing)) {
+      return NextResponse.json({ error: STALE_CHECKOUT_MESSAGE, code: "checkout_stale" }, { status: 400 });
+    }
 
     // A hidden lot (blocked list, or a ResLab test lot in production) never gets a PaymentIntent: the GET above already
     // 404s it, but a stale checkout or a hand-built POST would otherwise pay for it (Codex review, 2026-11-02).
@@ -468,8 +475,6 @@ export async function POST(request: NextRequest) {
       feesTotal: reservation.fees_total,
       serviceFee: postServiceFee,
       promo: applied.outcome,
-      // For checkout tabs loaded before `promo` existed (they compare it).
-      discountPercent: applied.rule?.percent ?? 0,
     });
   } catch (error) {
     console.error("Checkout POST error:", error);
@@ -509,6 +514,17 @@ async function reslabLotCurrency(locationId: number): Promise<"usd" | "not_usd" 
 }
 
 const PROMO_LOOKUP_CONTEXT = { endpoint: "/api/checkout/lot", method: "POST" };
+
+/**
+ * A promo code from a page loaded before PR 2 (no promoPricing). Such a page
+ * prices the code itself and never reads this route's verdict: a percent code
+ * capped at the online parking would be charged more than its Pay button
+ * shows, a fixed code less. Refused BEFORE any PaymentIntent — the customer
+ * reloads and applies the code again. A page with no code is unaffected.
+ */
+function promoFromStalePage(promoCode: string | undefined, promoPricing: number | undefined): boolean {
+  return promoCode !== undefined && promoPricing !== PROMO_PRICING_VERSION;
+}
 
 /** The promo lookup failed (already reported): no PaymentIntent, the customer retries. */
 function promoLookupUnavailable(): NextResponse {
@@ -584,6 +600,8 @@ const directCheckoutPostSchema = z
     checkoutTime: z.string().regex(/^\d{1,2}:\d{2}\s[AP]M$/, "Check-out time is required"),
     customerEmail: z.string().email(),
     promoCode: z.string().optional(),
+    // See checkoutPostSchema.
+    promoPricing: z.literal(PROMO_PRICING_VERSION).optional(),
     // Required key, nullable value (see checkoutPostSchema).
     protectionPlanCode: protectionPlanCodeSchema,
     // See checkoutPostSchema: the rendered terms-checkbox version, optional.
@@ -610,8 +628,11 @@ async function postDirect(body: unknown): Promise<NextResponse> {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
   }
-  const { lotId, checkin, checkout, checkinTime, checkoutTime, customerEmail, promoCode, protectionPlanCode, termsVersion } =
+  const { lotId, checkin, checkout, checkinTime, checkoutTime, customerEmail, promoCode, promoPricing, protectionPlanCode, termsVersion } =
     parsed.data;
+  if (promoFromStalePage(promoCode, promoPricing)) {
+    return NextResponse.json({ error: STALE_CHECKOUT_MESSAGE, code: "checkout_stale" }, { status: 400 });
+  }
   const payloadId = parseDirectLotUnifiedId(lotId);
   if (payloadId === null) {
     return NextResponse.json({ error: "Invalid lot" }, { status: 400 });
@@ -709,8 +730,6 @@ async function postDirect(body: unknown): Promise<NextResponse> {
     feesTotal: 0,
     serviceFee,
     promo: applied.outcome,
-    // For checkout tabs loaded before `promo` existed (they compare it).
-    discountPercent: applied.rule?.percent ?? 0,
     direct: terms,
   });
 }

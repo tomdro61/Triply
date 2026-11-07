@@ -102,16 +102,28 @@ export function PromoCode({
     );
   }
 
+  // A locked widget still shows the last Apply's error: a code overtaken by
+  // Continue was NOT applied, and the customer must not believe it was.
+  const errorLine = error && <p className="text-red-500 text-xs mt-1">{error}</p>;
+
   if (locked === "creating") {
-    return <p className="text-xs text-gray-500 italic">Preparing your payment…</p>;
+    return (
+      <div>
+        <p className="text-xs text-gray-500 italic">Preparing your payment…</p>
+        {errorLine}
+      </div>
+    );
   }
 
   if (locked === "payment") {
     return (
-      <p className="text-xs text-gray-500 italic">
-        Promo codes can&apos;t be added once payment is initialized. Click{" "}
-        <span className="font-semibold not-italic">Back</span> to edit your booking.
-      </p>
+      <div>
+        <p className="text-xs text-gray-500 italic">
+          Promo codes can&apos;t be added once payment is initialized. Click{" "}
+          <span className="font-semibold not-italic">Back</span> to edit your booking.
+        </p>
+        {errorLine}
+      </div>
     );
   }
 
@@ -149,7 +161,7 @@ export function PromoCode({
           )}
         </button>
       </div>
-      {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+      {errorLine}
       <p className="text-gray-500 text-xs mt-1">
         Have a promo code? Enter it above.
       </p>

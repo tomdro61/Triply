@@ -75,6 +75,7 @@ import {
   type ReservationResponse,
 } from "./fulfill";
 import {
+  chargedServiceFeeCents,
   checkStampAgainstCharge,
   readCheckoutFigures,
   readStampedDiscount,
@@ -1615,7 +1616,7 @@ async function createBookingInner(
     // DurableStateError nor otherwise self-healing, is marked terminal
     // needs_reconciliation (non-retryable) — the correct outcome for a row that
     // will never parse.
-    const payload = clientPayload ?? payloadFromPendingRow(claimed);
+    const payload = withChargedServiceFee(clientPayload ?? payloadFromPendingRow(claimed), pi);
     // Both ids are SERVER-derived (the routes overwrite the client's userId
     // from the session, and the row was staged from the session too). Prefer
     // whichever one actually saw a session: a lapse between staging and
@@ -2552,6 +2553,19 @@ function checkedCheckoutFigures(pi: Stripe.PaymentIntent, charged: ChargedProtec
     piAmountCents: pi.amount,
   });
   return check.ok ? figures : { kind: "invalid", detail: `${check.cause}: ${check.detail}` };
+}
+
+/**
+ * The booking payload with the service fee a STAMPED PaymentIntent charged
+ * (chargedServiceFeeCents), whichever path supplied it — the browser's body
+ * or the staged row both carry the checkout page's page-load fee. Everything
+ * downstream (Step 8, the backstop, the booking row, the emails, the
+ * response, and so a later standard cancel) then agrees with Stripe. An
+ * unstamped payment keeps today's fee unchanged.
+ */
+function withChargedServiceFee(payload: BookingPayload, pi: Stripe.PaymentIntent): BookingPayload {
+  const feeCents = chargedServiceFeeCents(pi.metadata);
+  return feeCents === null ? payload : { ...payload, triplyServiceFee: feeCents / 100 };
 }
 
 /** DEV_SKIP_PAYMENT path — no PaymentIntent, so no payment state machine. */

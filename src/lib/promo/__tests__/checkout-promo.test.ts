@@ -74,7 +74,11 @@ describe("decideCheckoutPromo — the server's verdict wins", () => {
 
   it("a fixed code at a different amount → keep the server's amount, and report it (a bug or an edited code)", () => {
     const d = decideCheckoutPromo(JFK5, 500, { code: "JFK5", kind: "fixed", appliedCents: 300 });
-    expect(d).toMatchObject({ action: "keep", appliedCents: 300, report: expect.stringContaining("300 cents on the PaymentIntent, 500 on the page") });
+    expect(d).toMatchObject({
+      action: "keep",
+      appliedCents: 300,
+      report: { message: expect.stringContaining("300 cents on the PaymentIntent, 500 on the page"), level: "error" },
+    });
   });
 
   it("refused → drop it; the notice carries the reason and says nothing was charged; not a bug, so not reported", () => {
@@ -88,6 +92,15 @@ describe("decideCheckoutPromo — the server's verdict wins", () => {
   });
 
   it.each([
+    ["below_minimum", "This code needs at least $25 of parking."],
+    ["not_applicable", "This code isn't valid for pay-at-the-lot bookings."],
+  ])("refused by the CART (%s) after the page accepted it → drop, and report at WARNING (the two priced it on different figures)", (refused, message) => {
+    const d = decideCheckoutPromo(JFK5, 500, { code: "JFK5", refused, message });
+    expect(d).toMatchObject({ action: "drop", report: { level: "warning", message: expect.stringContaining(`refused it (${refused})`) } });
+    if (d.action === "drop") expect(d.notice).toContain(message);
+  });
+
+  it.each([
     ["no verdict at all (an older server)", undefined],
     ["null", null],
     ["a malformed verdict", { code: "JFK5", appliedCents: "500" }],
@@ -95,7 +108,7 @@ describe("decideCheckoutPromo — the server's verdict wins", () => {
   ])("%s → drop and report: the page can't tell what the PaymentIntent carries", (_label, raw) => {
     const d = decideCheckoutPromo(JFK5, 500, raw);
     expect(d.action).toBe("drop");
-    expect(d.report).not.toBeNull();
+    expect(d.report).toMatchObject({ level: "error" });
     if (d.action === "drop") expect(d.notice).toMatch(/You have not been charged\.$/);
   });
 });

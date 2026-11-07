@@ -35,6 +35,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   db.tables = { promo_codes: [] };
   db.log = [];
+  db.clearFailures();
 });
 
 describe("POST /api/promo/validate", () => {
@@ -146,7 +147,8 @@ describe("POST /api/promo/validate", () => {
       max_uses: null,
       current_uses: 0,
     });
-    db.failOnce("promo_codes", "select", "connection reset", "08006");
+    // A sustained fault: the lookup retries once, so a single blip recovers (below).
+    db.failAlways("promo_codes", "select", "connection reset", "08006");
 
     const res = await POST(post({ code: "REALCODE" }));
     expect(res.status).toBe(503);
@@ -157,6 +159,16 @@ describe("POST /api/promo/validate", () => {
     // the checkout form shows retry copy rather than rejecting the code.
     expect(json.error).not.toMatch(/invalid promo code/i);
     expect(captureException).toHaveBeenCalledTimes(1);
+  });
+
+  it("a single blip on the lookup is retried — the code is valid, nothing reported (TRIPLY-40)", async () => {
+    db.tables.promo_codes.push({ id: "p6b", code: "REALCODE", discount_percent: 10, active: true, expires_at: null, max_uses: null, current_uses: 0 });
+    db.failOnce("promo_codes", "select", "connection reset", "08006");
+
+    const res = await POST(post({ code: "REALCODE" }));
+    expect(res.status).toBe(200);
+    expect((await res.json()).valid).toBe(true);
+    expect(captureException).not.toHaveBeenCalled();
   });
 });
 

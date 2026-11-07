@@ -62,6 +62,7 @@ import { directLotRow } from "@/lib/direct/__tests__/fixtures";
 import { flagSwitch } from "@/lib/direct/__tests__/flag-switch";
 import { readDirectMetadataMoney } from "@/lib/direct/metadata-money";
 import { checkStampAgainstCharge, readStampedDiscount } from "@/lib/promo/stamped-discount";
+import { PROMO_PRICING_VERSION } from "@/lib/promo/discount";
 
 /** The stamp the POST wrote — the test fails if it wrote none. */
 const presentStamp = (meta: Record<string, string>) => {
@@ -82,6 +83,10 @@ const lot = (over: Record<string, unknown> = {}): DirectLot => {
   return out.lot;
 };
 
+/** The current checkout page sends promoPricing with every promo code; pass `promoPricing: undefined` to act as an older page. */
+const withPromoPricing = (over: Record<string, unknown>) =>
+  over.promoCode !== undefined && !("promoPricing" in over) ? { ...over, promoPricing: PROMO_PRICING_VERSION } : over;
+
 function directBody(over: Record<string, unknown> = {}) {
   return {
     inventorySource: "direct",
@@ -94,7 +99,7 @@ function directBody(over: Record<string, unknown> = {}) {
     protectionPlanCode: null,
     // checkout-form always sends the version it rendered (#150).
     termsVersion: TERMS_VERSION,
-    ...over,
+    ...withPromoPricing(over),
   };
 }
 const post = (body: unknown) =>
@@ -178,7 +183,10 @@ describe("POST /api/checkout/lot — direct", () => {
       preDiscountOnlineCents: "6366",
       parkingOnlyChargeAmountCents: "5868",
     });
-    expect(await res.json()).toMatchObject({ chargeCents: 5868, promo: { code: "TEN", kind: "percent", appliedCents: 498 }, discountPercent: 10 });
+    const json = await res.json();
+    expect(json).toMatchObject({ chargeCents: 5868, promo: { code: "TEN", kind: "percent", appliedCents: 498 } });
+    // Older pages compared this; they can no longer reach a promo response (promoPricing).
+    expect(json).not.toHaveProperty("discountPercent");
     expect(readDirectMetadataMoney(meta, 5868)).toMatchObject({ ok: true, money: { discountCents: 498, chargeCents: 5868 } });
   });
 
@@ -395,7 +403,7 @@ describe("promo lookup (extracted helper) — both branches", () => {
     parkingTypeId: 7,
     customerEmail: "ada@example.com",
     protectionPlanCode: null,
-    ...over,
+    ...withPromoPricing(over),
   });
   beforeEach(() => {
     getCost.mockResolvedValue({
@@ -462,11 +470,35 @@ describe("promo lookup (extracted helper) — both branches", () => {
     for (const key of ["promoCode", "discountPercent", "discountCents", "onlineParkingCents", "preDiscountOnlineCents"]) {
       expect(createPI.mock.calls[0][1]).not.toHaveProperty(key);
     }
-    expect(await reslabRes.json()).toMatchObject({ promo: { code: "X", refused: reason, message: expect.any(String) }, discountPercent: 0 });
+    expect(await reslabRes.json()).toMatchObject({ promo: { code: "X", refused: reason, message: expect.any(String) } });
     await post(directBody({ promoCode: "X" }));
     expect(createPI.mock.calls[1][0]).toBe(63.66);
     expect(createPI.mock.calls[1][1]).toMatchObject({ directDiscountCents: "0" });
     expect(createPI.mock.calls[1][1]).not.toHaveProperty("promoCode");
+    expect(captureAPIError).not.toHaveBeenCalled();
+  });
+
+  it("a promo code from a page loaded before PR 2 (no promoPricing) → 400 stale page on BOTH branches, before any lookup or PaymentIntent (Codex)", async () => {
+    // Such a page prices the code itself: a percent code capped at the online
+    // parking would be charged more than its Pay button shows.
+    for (const body of [reslabBody({ promoCode: "TEN", promoPricing: undefined }), directBody({ promoCode: "TEN", promoPricing: undefined })]) {
+      const res = await post(body);
+      expect(res.status).toBe(400);
+      expect(await res.json()).toMatchObject({ code: "checkout_stale" });
+    }
+    expect(promoSingle).not.toHaveBeenCalled();
+    expect(getCost).not.toHaveBeenCalled();
+    expect(createPI).not.toHaveBeenCalled();
+    // The same old page with NO code is unaffected.
+    expect((await post(reslabBody())).status).toBe(200);
+    expect((await post(directBody())).status).toBe(200);
+  });
+
+  it("one lookup blip is retried: the second attempt answers, the code applies, nothing reported", async () => {
+    promoSingle.mockResolvedValueOnce({ data: null, error: { code: "08006", message: "connection reset" } });
+    await post(reslabBody({ promoCode: "TEN" }));
+    expect(promoSingle).toHaveBeenCalledTimes(2);
+    expect(createPI.mock.calls[0][0]).toBe(55.95);
     expect(captureAPIError).not.toHaveBeenCalled();
   });
 
@@ -517,7 +549,7 @@ describe("promo lookup (extracted helper) — both branches", () => {
         expect(amount).toBe(55.95);
         expect(meta).toMatchObject({ promoCode: "JFK5", discountCents: "500", onlineParkingCents: "5500", preDiscountOnlineCents: "6095" });
         expect(meta).not.toHaveProperty("discountPercent");
-        expect(await res.json()).toMatchObject({ chargeCents: 5595, promo: { code: "JFK5", kind: "fixed", appliedCents: 500 }, discountPercent: 0 });
+        expect(await res.json()).toMatchObject({ chargeCents: 5595, promo: { code: "JFK5", kind: "fixed", appliedCents: 500 } });
         expect(passesReader(meta, 5595)).toMatchObject({ ok: true, cents: 500 });
       });
 

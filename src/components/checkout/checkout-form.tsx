@@ -23,7 +23,7 @@ import { StripeProvider } from "./stripe-provider";
 import { StripePaymentForm } from "./stripe-payment-form";
 import { OrderSummary } from "./order-summary";
 import type { ApplyPromoResult } from "./promo-code";
-import { promoDiscountCents, promoRefusalMessage, type PromoRule } from "@/lib/promo/discount";
+import { PROMO_PRICING_VERSION, promoDiscountCents, promoRefusalMessage, type PromoRule } from "@/lib/promo/discount";
 import { cartFromCostData, createLatestGate, decideCheckoutPromo, ruleFromValidateResponse } from "@/lib/promo/checkout-promo";
 import { confirmationHandOff } from "@/lib/confirmation/guest-email";
 import {
@@ -468,6 +468,9 @@ export function CheckoutForm({
     // PaymentIntent is created with the code applied NOW (or none).
     promoGate.invalidate();
     setPromoNotice(null);
+    // A message from an earlier Continue (e.g. "couldn't check your promo
+    // code") must not outlive it: every failure below sets its own.
+    setSubmitError(null);
     const sentPromo = promoRuleRef.current;
     const sentPromoPageCents = sentPromo ? promoCentsOnPage(sentPromo) : 0;
 
@@ -509,7 +512,7 @@ export function CheckoutForm({
           protectionPlanCode: protectionPlanCodeForPI,
           // The checkbox version this bundle renders (dispute evidence quotes it).
           termsVersion: TERMS_VERSION,
-          ...(sentPromo && { promoCode: sentPromo.code }),
+          ...(sentPromo && { promoCode: sentPromo.code, promoPricing: PROMO_PRICING_VERSION }),
         };
       } else {
         const parkingTypeId = costData?.parkingTypeId || lot.pricing?.parkingTypes?.[0]?.id;
@@ -528,7 +531,7 @@ export function CheckoutForm({
           protectionPlanCode: protectionPlanCodeForPI,
           // The checkbox version this bundle renders (dispute evidence quotes it).
           termsVersion: TERMS_VERSION,
-          ...(sentPromo && { promoCode: sentPromo.code }),
+          ...(sentPromo && { promoCode: sentPromo.code, promoPricing: PROMO_PRICING_VERSION }),
         };
       }
       const response = await fetch("/api/checkout/lot", {
@@ -597,11 +600,12 @@ export function CheckoutForm({
       if (sentPromo) {
         const decision = decideCheckoutPromo(sentPromo, sentPromoPageCents, data.promo);
         if (decision.report) {
-          captureAPIError(new Error(decision.report), {
+          captureAPIError(new Error(decision.report.message), {
             endpoint: "/api/checkout/lot",
             method: "POST",
-            stage: decision.action === "drop" ? "promo_verdict_unusable" : "promo_amount_differs",
-            extra: { lotId: lot.id, paymentIntentId: data.paymentIntentId },
+            stage: decision.action === "keep" ? "promo_amount_differs" : decision.report.level === "warning" ? "promo_cart_refused" : "promo_verdict_unusable",
+            ...(decision.report.level === "warning" && { level: "warning" as const }),
+            extra: { lotId: lot.id, paymentIntentId: data.paymentIntentId, pageCart },
           });
         }
         if (decision.action === "drop") {

@@ -39,7 +39,8 @@ export const PROMO_REFUSAL_MESSAGES: Record<PromoCodeRefusal, string> = {
 };
 
 const PROMO_SELECT = "code, discount_percent, discount_amount, min_subtotal, active, expires_at, max_uses, current_uses";
-const PROMO_LOOKUP_TIMEOUT_MS = 5_000;
+/** Two attempts fit inside 5 s of the checkout POST's 60 s budget. */
+const PROMO_LOOKUP_ATTEMPT_MS = 2_500;
 
 /** The usability columns, checked: the Supabase client is untyped. */
 const usabilitySchema = z.object({
@@ -60,16 +61,20 @@ export async function lookupPromoRule(
 
   const supabase = await createAdminClient();
   // Bounded: on the checkout POST a hung read would otherwise hold the
-  // customer at Continue until the function's limit. A timeout is a failed
+  // customer at Continue until the function's limit. Retried once (a blip on
+  // a cold start must not block Continue — TRIPLY-40). A timeout is a failed
   // lookup (503, try again), never "no such code".
-  const { data, error } = await supabase
-    .from("promo_codes")
-    .select(PROMO_SELECT)
-    .eq("code", code)
-    .abortSignal(AbortSignal.timeout(PROMO_LOOKUP_TIMEOUT_MS))
-    .maybeSingle();
+  const read = () =>
+    supabase
+      .from("promo_codes")
+      .select(PROMO_SELECT)
+      .eq("code", code)
+      .abortSignal(AbortSignal.timeout(PROMO_LOOKUP_ATTEMPT_MS))
+      .maybeSingle();
+  let { data, error } = await read();
+  if (error) ({ data, error } = await read());
   if (error) {
-    captureAPIError(new Error(`Promo code lookup failed: ${error.message}`), {
+    captureAPIError(new Error(`Promo code lookup failed (2 attempts): ${error.message}`), {
       endpoint: context.endpoint,
       method: context.method,
       stage: "promo_lookup",

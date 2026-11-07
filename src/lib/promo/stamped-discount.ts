@@ -204,6 +204,24 @@ export function checkStampAgainstCharge(
 }
 
 /**
+ * The service fee a STAMPED PaymentIntent charged, in cents — checkout's
+ * preDiscountOnline − onlineParking, when it equals `metadata.serviceFee` — or
+ * null (no usable stamp, or figures that don't add up, which the stamp checks
+ * refuse anyway). The booking payload's own fee is the checkout page's
+ * page-load figure, which a price move before the PaymentIntent leaves stale;
+ * on a stamped payment the exact stamp no longer hides that difference.
+ */
+export function chargedServiceFeeCents(metadata: Readonly<Record<string, string | undefined>> | null | undefined): number | null {
+  if (readStampedDiscount(metadata).kind !== "cents") return null;
+  const figures = readCheckoutFigures(metadata);
+  if (figures.kind !== "figures") return null;
+  const feeRaw = metadata?.serviceFee;
+  if (feeRaw === undefined || !SERVICE_FEE_RE.test(feeRaw)) return null;
+  const feeCents = Math.round(Number(feeRaw) * 100);
+  return figures.preDiscountOnlineCents - figures.onlineParkingCents === feeCents ? feeCents : null;
+}
+
+/**
  * The writer's half — the keys POST /api/checkout/lot stamps on a PaymentIntent
  * whose promo code gave a discount: the code, `discountCents` and checkout's
  * two figures, ALWAYS together and in integer cents, plus `discountPercent`
