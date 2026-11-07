@@ -112,6 +112,8 @@ describe("appliedPromoDiscount — the backstop: a REFUSED stamp still proves a 
   it.each([
     ["no due_at_location", { dueAtLocation: null }, "due_at_location"],
     ["no grand_total", { grandTotal: null }, "grand_total"],
+    // ResLab's response is cast, not validated: a non-number is unknown too (never NaN in the row).
+    ["a non-numeric due_at_location", { dueAtLocation: Number.NaN }, "due_at_location"],
   ])(
     "no checkout figures and %s on the reservation: the stamp is recorded AS STAMPED (never derived with 'due 0') and reported unverified",
     (_label, money, field) => {
@@ -122,7 +124,7 @@ describe("appliedPromoDiscount — the backstop: a REFUSED stamp still proves a 
       expect(out.stampWarnings).toEqual([
         {
           kind: "unverified",
-          detail: `recorded discount_amount 5.00 as stamped: no checkout figures, and the reservation's ${field} is unknown, so it could not be bounded or derived`,
+          detail: `recorded discount_amount 5.00 as stamped: no checkout figures, and the reservation's ${field} is unknown, so it was not bounded against this reservation (Step 8 may have checked it against a fresh price)`,
         },
       ]);
     }

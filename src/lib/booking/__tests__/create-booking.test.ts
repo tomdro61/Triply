@@ -2547,7 +2547,8 @@ describe("a stamped discountCents — ResLab (promo plan Part 1, readers)", () =
       expect(db.tables.bookings[0].discount_amount).toBe(0);
       const refused = stampAlerts().filter(([e]) => /discountCents refused/.test(e.message));
       expect(refused).toHaveLength(1);
-      expect(refused[0][0].message).toMatch(/stamp_invalid/);
+      // The refusal keeps the bad stamp's raw value.
+      expect(refused[0][0].message).toMatch(/stamp_invalid: discountCents "5\.00" is not a positive whole number/);
     });
 
     it("Step 8 vouched for the stamp, then the created reservation omits due_at_location: books with the STAMP (5.00, not 25.00 from 'due 0'), reported unverified per PaymentIntent", async () => {

@@ -263,10 +263,13 @@ export function appliedPromoDiscount(
   // This reservation's own figures, only when ResLab returned both: a missing
   // one is UNKNOWN, never 0 — "due 0" would inflate both the bound and any
   // discount derived from it (RTL753241: a create response without its due).
-  const reservationOnlineCents =
-    fr.money.grandTotal !== null && fr.money.dueAtLocation !== null
-      ? Math.round((fr.money.grandTotal - fr.money.dueAtLocation) * 100)
-      : null;
+  // Known = a finite number: ResLab's response is cast, not validated, so a
+  // non-number takes the unknown path too.
+  const finite = (n: number | null): n is number => n !== null && Number.isFinite(n);
+  const grand = fr.money.grandTotal;
+  const due = fr.money.dueAtLocation;
+  const grandKnown = finite(grand);
+  const reservationOnlineCents = finite(grand) && finite(due) ? Math.round((grand - due) * 100) : null;
   const reservationPreDiscountCents = reservationOnlineCents === null ? null : preDiscountOnlineCents();
   // With checkout's figures (checked against the charge by the engine before
   // they get here), the charge is measured against checkout's own
@@ -290,8 +293,8 @@ export function appliedPromoDiscount(
     stampWarnings.push({
       kind: "unverified",
       detail: `recorded discount_amount ${dollars(stamped.cents)} as stamped: no checkout figures, and the reservation's ${
-        fr.money.grandTotal === null ? "grand_total" : "due_at_location"
-      } is unknown, so it could not be bounded or derived`,
+        grandKnown ? "due_at_location" : "grand_total"
+      } is unknown, so it was not bounded against this reservation (Step 8 may have checked it against a fresh price)`,
     });
   } else {
     const onlineParkingCents =
