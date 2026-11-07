@@ -18,10 +18,11 @@ vi.mock("@/lib/supabase/server", () => ({ createAdminClient: async () => db }));
 vi.mock("@sentry/nextjs", () => ({
   captureException,
   withScope: (fn: (scope: unknown) => void) =>
-    fn({ setFingerprint: vi.fn(), setTag: vi.fn(), setContext: vi.fn() }),
+    fn({ setFingerprint: vi.fn(), setTag: vi.fn(), setContext: vi.fn(), setLevel: vi.fn() }),
 }));
 
 import { POST } from "../route";
+import { __resetPromoRetryReportForTests } from "@/lib/promo/lookup";
 
 function post(body: unknown) {
   return new NextRequest("https://www.triplypro.com/api/promo/validate", {
@@ -35,6 +36,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   db.tables = { promo_codes: [] };
   db.log = [];
+  db.clearFailures();
+  __resetPromoRetryReportForTests();
 });
 
 describe("POST /api/promo/validate", () => {
@@ -146,7 +149,8 @@ describe("POST /api/promo/validate", () => {
       max_uses: null,
       current_uses: 0,
     });
-    db.failOnce("promo_codes", "select", "connection reset", "08006");
+    // A sustained fault: the lookup retries once, so a single blip recovers (below).
+    db.failAlways("promo_codes", "select", "connection reset", "08006");
 
     const res = await POST(post({ code: "REALCODE" }));
     expect(res.status).toBe(503);
@@ -157,5 +161,68 @@ describe("POST /api/promo/validate", () => {
     // the checkout form shows retry copy rather than rejecting the code.
     expect(json.error).not.toMatch(/invalid promo code/i);
     expect(captureException).toHaveBeenCalledTimes(1);
+  });
+
+  it("a single blip on the lookup is retried — the code is valid; the recovery is one warning, not an error (TRIPLY-40)", async () => {
+    db.tables.promo_codes.push({ id: "p6b", code: "REALCODE", discount_percent: 10, active: true, expires_at: null, max_uses: null, current_uses: 0 });
+    db.failOnce("promo_codes", "select", "connection reset", "08006");
+
+    const res = await POST(post({ code: "REALCODE" }));
+    expect(res.status).toBe(200);
+    expect((await res.json()).valid).toBe(true);
+    expect(captureException).toHaveBeenCalledTimes(1);
+    expect(String(captureException.mock.calls[0][0])).toMatch(/retry recovered/);
+  });
+});
+
+describe("POST /api/promo/validate — the code's RULE (promo plan Part 2)", () => {
+  const usable = { active: true, expires_at: null, max_uses: 100, current_uses: 0 };
+
+  it("a percent code: kind percent, its percent, no amount, its minimum (0 when none)", async () => {
+    db.tables.promo_codes.push({ id: "p7", code: "THANKS10", discount_percent: 10, discount_amount: null, min_subtotal: null, ...usable });
+    expect(await (await POST(post({ code: " thanks10 " }))).json()).toEqual({
+      valid: true,
+      code: "THANKS10",
+      kind: "percent",
+      discountPercent: 10,
+      discountCents: null,
+      minSubtotalCents: 0,
+    });
+  });
+
+  it("a fixed code with PROMO_FIXED_ENABLED on: kind fixed, the amount and minimum in cents, discountPercent null (stale tabs)", async () => {
+    vi.stubEnv("PROMO_FIXED_ENABLED", "true");
+    db.tables.promo_codes.push({ id: "p8", code: "JFK5", discount_percent: null, discount_amount: "5.00", min_subtotal: "25.00", ...usable });
+    expect(await (await POST(post({ code: "jfk5" }))).json()).toEqual({
+      valid: true,
+      code: "JFK5",
+      kind: "fixed",
+      discountPercent: null,
+      discountCents: 500,
+      minSubtotalCents: 2500,
+    });
+    vi.unstubAllEnvs();
+  });
+
+  it("the kill switch: a fixed code with PROMO_FIXED_ENABLED unset is not available — percent codes unaffected", async () => {
+    db.tables.promo_codes.push(
+      { id: "p9", code: "JFK5", discount_percent: null, discount_amount: "5.00", min_subtotal: "25.00", ...usable },
+      { id: "p10", code: "THANKS10", discount_percent: 10, discount_amount: null, min_subtotal: null, ...usable }
+    );
+    expect(await (await POST(post({ code: "JFK5" }))).json()).toEqual({
+      valid: false,
+      error: "This promo code isn't available right now",
+      reason: "not_available",
+    });
+    expect((await (await POST(post({ code: "THANKS10" }))).json()).valid).toBe(true);
+    expect(captureException).not.toHaveBeenCalled();
+  });
+
+  it("a malformed row (both kinds) is not available, and reported", async () => {
+    vi.stubEnv("PROMO_FIXED_ENABLED", "true");
+    db.tables.promo_codes.push({ id: "p11", code: "BOTH", discount_percent: 10, discount_amount: "5.00", min_subtotal: null, ...usable });
+    expect(await (await POST(post({ code: "BOTH" }))).json()).toMatchObject({ valid: false, reason: "not_available" });
+    expect(captureException).toHaveBeenCalledTimes(1);
+    vi.unstubAllEnvs();
   });
 });

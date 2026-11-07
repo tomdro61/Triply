@@ -4,7 +4,7 @@ import Image from "next/image";
 import { Calendar, MapPin, Star, Shield, Clock, Wallet } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
 import { PriceBreakdown } from "@/types/checkout";
-import { PromoCode, type ApplyPromoResult } from "./promo-code";
+import { PromoCode, type ApplyPromoResult, type PromoLock } from "./promo-code";
 import { formatDate } from "@/lib/utils";
 
 interface OrderSummaryProps {
@@ -16,15 +16,17 @@ interface OrderSummaryProps {
   checkOutTime: string;
   priceBreakdown: PriceBreakdown;
   promoCode: string | null;
+  /** The applied code's percent (shown beside the amount); null for a fixed code or none. */
+  promoPercent: number | null;
   onApplyPromo: (code: string) => Promise<ApplyPromoResult>;
   onRemovePromo: () => void;
   /**
-   * When true, the PromoCode widget is locked. Used on the payment step
-   * because the Stripe PaymentIntent amount is frozen at vehicle→payment
-   * transition; applying or removing a promo afterward would change the
-   * displayed total but NOT the amount Stripe charges.
+   * Locks the PromoCode widget while the PaymentIntent is being created and
+   * once it exists: its amount is fixed at the vehicle→payment transition, so
+   * applying or removing a promo then would change the displayed total but NOT
+   * the amount Stripe charges.
    */
-  promoLocked?: boolean;
+  promoLocked?: PromoLock;
   /**
    * DIRECT lots: the declared vehicle and the ESTIMATED amount due at the lot
    * (vehicle-surcharge plan R1/R10). Display only and never added to `Total`,
@@ -51,9 +53,10 @@ export function OrderSummary({
   checkOutTime,
   priceBreakdown,
   promoCode,
+  promoPercent,
   onApplyPromo,
   onRemovePromo,
-  promoLocked = false,
+  promoLocked = null,
   vehicleEstimate = null,
   showFreeCancellation,
 }: OrderSummaryProps) {
@@ -142,6 +145,7 @@ export function OrderSummary({
         <PromoCode
           appliedCode={promoCode}
           discount={priceBreakdown.discount}
+          percent={promoPercent}
           onApply={onApplyPromo}
           onRemove={onRemovePromo}
           locked={promoLocked}
@@ -163,7 +167,7 @@ export function OrderSummary({
           </div>
           {priceBreakdown.discount > 0 && (
             <div className="flex justify-between text-sm text-green-600">
-              <span>Promo Discount</span>
+              <span>Promo Discount{promoCode && ` (${promoCode})`}</span>
               <span>-${priceBreakdown.discount.toFixed(2)}</span>
             </div>
           )}

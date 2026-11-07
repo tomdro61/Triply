@@ -1,4 +1,5 @@
 import { calculateServiceFee } from "@/lib/utils/service-fee";
+import { promoDiscountCents, type PromoDiscountResult, type PromoRule } from "@/lib/promo/discount";
 
 /**
  * Pricing for DIRECT lots (Triply-owned inventory, no Reservations Lab).
@@ -10,7 +11,7 @@ import { calculateServiceFee } from "@/lib/utils/service-fee";
  *   taxTotal      = round(subtotal × taxRatePercent)  (on the pre-discount subtotal)
  *   feesTotal     = 0                                 (no lot facility fees)
  *   grandTotal    = subtotal + taxTotal               (EXCLUDES the service fee and Park Guard)
- *   discount      = round(subtotal × discountPercent) (same rule as /api/checkout/lot)
+ *   discount      = promoDiscountCents(rule)         (the one promo rule; at most grandTotal)
  *   serviceFee    = calculateServiceFee(subtotal)     (shared helper, dollars→cents)
  *   dueAtLocation = 0                                 (paid in full online, D4)
  * The PaymentIntent amount is grandTotal − discount + serviceFee (+ the Park
@@ -68,8 +69,12 @@ export interface DirectQuoteInput {
   days: number;
   /** Lot's tax rate, e.g. 18.375 for 18.375 %. */
   taxRatePercent: number;
-  /** Promo discount percentage of the subtotal, e.g. 10. */
-  discountPercent?: number;
+  /**
+   * The promo code's rule (lookupPromoRule), or none. Applied with
+   * promoDiscountCents to this quote's own figures: parking = percent base =
+   * the subtotal, online parking = the grand total (all paid online).
+   */
+  promo?: PromoRule | null;
 }
 
 export interface DirectQuote {
@@ -78,7 +83,10 @@ export interface DirectQuote {
   feesTotalCents: 0;
   /** subtotal + tax — the stored `grand_total`, excluding service fee / Park Guard. */
   grandTotalCents: number;
+  /** The promo discount applied — 0 when there is no code or it was refused. */
   discountCents: number;
+  /** promoDiscountCents' verdict on the code, or null with no code. */
+  promo: PromoDiscountResult | null;
   serviceFeeCents: number;
   dueAtLocationCents: 0;
   /** What the card is charged BEFORE any Park Guard premium. */
@@ -89,16 +97,19 @@ const isNonNegInt = (n: number) => Number.isInteger(n) && n >= 0;
 
 /** Pure, deterministic quote. Throws on malformed input — callers validate first. */
 export function computeDirectQuote(input: DirectQuoteInput): DirectQuote {
-  const { rateCents, days, taxRatePercent, discountPercent = 0 } = input;
+  const { rateCents, days, taxRatePercent, promo: rule = null } = input;
   if (!isNonNegInt(rateCents) || rateCents === 0) throw new Error(`direct quote: rateCents must be a positive integer (got ${rateCents})`);
   if (!Number.isInteger(days) || days < 1) throw new Error(`direct quote: days must be >= 1 (got ${days})`);
   if (!(taxRatePercent >= 0 && taxRatePercent <= 100)) throw new Error(`direct quote: taxRatePercent out of range (${taxRatePercent})`);
-  if (!(discountPercent >= 0 && discountPercent <= 100)) throw new Error(`direct quote: discountPercent out of range (${discountPercent})`);
 
   const subtotalCents = rateCents * days;
   const taxTotalCents = Math.round((subtotalCents * taxRatePercent) / 100);
   const grandTotalCents = subtotalCents + taxTotalCents;
-  const discountCents = Math.min(grandTotalCents, Math.round((subtotalCents * discountPercent) / 100));
+  // Direct lots are priced in USD by us; the whole grand total is paid online.
+  const promo = rule
+    ? promoDiscountCents(rule, { parkingCents: subtotalCents, percentBaseCents: subtotalCents, onlineParkingCents: grandTotalCents, currency: "USD" })
+    : null;
+  const discountCents = promo && "cents" in promo ? promo.cents : 0;
   // The shared helper works in dollars (max($5.95, 6 %) of the parking base).
   const serviceFeeCents = Math.round(calculateServiceFee(subtotalCents / 100) * 100);
   const chargeCents = grandTotalCents - discountCents + serviceFeeCents;
@@ -109,6 +120,7 @@ export function computeDirectQuote(input: DirectQuoteInput): DirectQuote {
     feesTotalCents: 0,
     grandTotalCents,
     discountCents,
+    promo,
     serviceFeeCents,
     dueAtLocationCents: 0,
     chargeCents,

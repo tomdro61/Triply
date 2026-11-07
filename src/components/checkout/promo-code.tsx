@@ -3,28 +3,42 @@
 import { useState } from "react";
 import { Tag, X, Check, Loader2 } from "lucide-react";
 
+/**
+ * invalid     the code gives no discount here; `message` says why (expired,
+ *             used up, needs $25 of parking, not for pay-at-the-lot…)
+ * network     the code could not be checked — try again
+ * superseded  Continue was pressed before the check came back; the code was
+ *             not applied (the payment was prepared without it)
+ */
 export type ApplyPromoResult =
   | { ok: true }
-  | { ok: false; reason: "invalid" | "network" };
+  | { ok: false; reason: "invalid" | "network" | "superseded"; message?: string };
+
+/**
+ * Why the widget is locked: "creating" while the payment is being prepared
+ * (a code applied now would not be on it), "payment" once it exists (the
+ * amount is frozen — Back to change it). null = unlocked.
+ */
+export type PromoLock = "creating" | "payment" | null;
 
 interface PromoCodeProps {
   appliedCode: string | null;
+  /** The discount shown, in dollars. */
   discount: number;
+  /** A percent code's percent, shown beside the amount; null for a fixed code. */
+  percent: number | null;
   onApply: (code: string) => Promise<ApplyPromoResult>;
   onRemove: () => void;
-  /**
-   * When true, both Apply and Remove are disabled (typically on the payment
-   * step, when the Stripe PaymentIntent amount is already locked in).
-   */
-  locked?: boolean;
+  locked?: PromoLock;
 }
 
 export function PromoCode({
   appliedCode,
   discount,
+  percent,
   onApply,
   onRemove,
-  locked = false,
+  locked = null,
 }: PromoCodeProps) {
   const [code, setCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -41,9 +55,11 @@ export function PromoCode({
       if (result.ok) {
         setCode("");
       } else if (result.reason === "network") {
-        setError("Couldn't reach the server — please try again");
+        setError(result.message ?? "Couldn't reach the server — please try again");
+      } else if (result.reason === "superseded") {
+        setError("Your code wasn't applied — please apply it again");
       } else {
-        setError("Invalid or expired promo code");
+        setError(result.message ?? "Invalid or expired promo code");
       }
     } catch {
       setError("Failed to apply promo code");
@@ -63,11 +79,11 @@ export function PromoCode({
             <div>
               <p className="font-medium text-green-800">{appliedCode}</p>
               <p className="text-sm text-green-600">
-                ${discount.toFixed(2)} discount applied
+                {percent !== null && `${percent}% off · `}${discount.toFixed(2)} discount applied
               </p>
             </div>
           </div>
-          {!locked && (
+          {locked === null && (
             <button
               onClick={onRemove}
               className="p-1 text-green-600 hover:text-green-800 transition-colors"
@@ -76,7 +92,7 @@ export function PromoCode({
             </button>
           )}
         </div>
-        {locked && (
+        {locked === "payment" && (
           <p className="text-xs text-green-700 mt-2">
             Promo locked once payment is initialized. Click{" "}
             <span className="font-semibold">Back</span> to edit.
@@ -86,12 +102,28 @@ export function PromoCode({
     );
   }
 
-  if (locked) {
+  // A locked widget still shows the last Apply's error: a code overtaken by
+  // Continue was NOT applied, and the customer must not believe it was.
+  const errorLine = error && <p className="text-red-500 text-xs mt-1">{error}</p>;
+
+  if (locked === "creating") {
     return (
-      <p className="text-xs text-gray-500 italic">
-        Promo codes can&apos;t be added once payment is initialized. Click{" "}
-        <span className="font-semibold not-italic">Back</span> to edit your booking.
-      </p>
+      <div>
+        <p className="text-xs text-gray-500 italic">Preparing your payment…</p>
+        {errorLine}
+      </div>
+    );
+  }
+
+  if (locked === "payment") {
+    return (
+      <div>
+        <p className="text-xs text-gray-500 italic">
+          Promo codes can&apos;t be added once payment is initialized. Click{" "}
+          <span className="font-semibold not-italic">Back</span> to edit your booking.
+        </p>
+        {errorLine}
+      </div>
     );
   }
 
@@ -129,7 +161,7 @@ export function PromoCode({
           )}
         </button>
       </div>
-      {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+      {errorLine}
       <p className="text-gray-500 text-xs mt-1">
         Have a promo code? Enter it above.
       </p>

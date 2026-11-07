@@ -163,6 +163,17 @@ a human.
 
 One entry per reviewed PR: what the review found, by lesson number. Newest first.
 
+- **Promo PR 2: fixed-amount codes at checkout (Nov 7):**
+  - Lesson 1 / 10: a checkout tab loaded before the deploy priced a capped percent code itself, so its Pay button could show less than the payment held (Codex). Pages now send a pricing version; a code without it is refused as a stale page before any payment.
+  - Lesson 7: the browser's finishing call carried the page-load service fee, and it wins over the staged row, so the booking row and a later cancel used a fee Stripe never charged. The engine now applies the charged fee whichever path finishes.
+  - Lesson 1: an old "couldn't check your code" error could show under "Payment Error" on a payment that was fine.
+  - Lesson 5: a code the page accepted but the server refused on price was not reported; "your code wasn't applied" was hidden once the widget locked.
+  - Lesson 4: one database blip blocked Continue.
+  - **Round 2 (lesson 15):**
+    - a rolled-back deploy would refuse the new body field (`.strict()`) and book from rows holding the page fee (Codex) — the version moved to a header, and the row carries the charged fee too;
+    - the retry's per-attempt bound was tighter than the cold-start precedent, a recovered retry was silent, and misconfigurations were retried.
+  - All fixed.
+
 - **Promo D3: promo discounts in the accounting (Nov 7):**
   - Plan review (lesson 16 / 7): v1 missed the readers of the P&L components (the /admin and /admin/numbers breakdowns would stop adding up), legacy rows where a percent code ate the fee, a second meaning of "gross", and that the GA4 page never received the discount.
   - Lesson 5: older promo rows derive their discount from the charge, so the two existing checks passed by construction and a wrong charge would have been booked as a "promo discount" — a new check #3 measures it against the code's percent.

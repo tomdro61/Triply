@@ -2203,16 +2203,25 @@ describe("a stamped discountCents — ResLab (promo plan Part 1, readers)", () =
   // Fixture money: grand 88, of which 20 is due at the location; fee 6.
   // Parking paid online before the promo = 88 − 20 = 68.00; the card before it
   // = 88 + 6 − 20 = 74.00. JFK5 ($5 off) → 69.00.
-  const fixedPi = (over: { amount?: number; status?: string; latest_charge?: unknown; metadata?: Record<string, string> } = {}) =>
+  // Checkout's own figures, which PR 2 makes REQUIRED beside a stamp: online
+  // parking 6800, pre-discount online 7400 (parking 68.00 + fee 6.00),
+  // parking-only charge 6900.
+  const CHECKOUT = { onlineParkingCents: "6800", preDiscountOnlineCents: "7400", parkingOnlyChargeAmountCents: "6900", serviceFee: "6" };
+  // A stamp WITHOUT its figures: refused before capture since PR 2; only a
+  // payment already captured (a resume) can still reach the backstop with one.
+  const NO_FIGURES = { onlineParkingCents: undefined, preDiscountOnlineCents: undefined };
+  // `undefined` in `metadata` removes a default key.
+  const fixedPi = (over: { amount?: number; status?: string; latest_charge?: unknown; metadata?: Record<string, string | undefined> } = {}) =>
     paymentIntent({
       amount: over.amount ?? 6900,
       ...(over.status && { status: over.status }),
       ...(over.latest_charge !== undefined && { latest_charge: over.latest_charge }),
-      metadata: { customerEmail: "a@b.com", discountCents: "500", promoCode: "jfk5", ...over.metadata },
+      metadata: Object.fromEntries(
+        Object.entries({ customerEmail: "a@b.com", discountCents: "500", promoCode: "jfk5", ...CHECKOUT, ...over.metadata }).filter(
+          (e): e is [string, string] => e[1] !== undefined
+        )
+      ),
     });
-  // Checkout's own figures (PR 2's writer): online parking 6800, pre-discount
-  // online 7400 (parking 68.00 + fee 6.00), parking-only charge 6900.
-  const CHECKOUT = { onlineParkingCents: "6800", preDiscountOnlineCents: "7400", parkingOnlyChargeAmountCents: "6900", serviceFee: "6" };
   const stampAlerts = () =>
     vi.mocked(capturePaymentError).mock.calls.filter(([e]) => e.message.startsWith("Promo discountCents"));
   const blockAlerts = () =>
@@ -2268,31 +2277,27 @@ describe("a stamped discountCents — ResLab (promo plan Part 1, readers)", () =
   });
 
   it.each([
-    ["not a whole number of cents", "5.00", 6900, "stamp_invalid", "We couldn't read the promo discount on your payment.", false],
-    ["zero", "0", 7400, "stamp_invalid", "We couldn't read the promo discount on your payment.", false],
-    [
-      "more than the fresh online parking (no checkout figures)",
-      "6801",
-      599,
-      "stamp_exceeds_online_parking",
-      "The price for this parking option changed while you were checking out, and your promo discount is now more than the parking you'd pay online.",
-      true,
-    ],
+    ["not a whole number of cents", { discountCents: "5.00" }, 6900],
+    ["zero", { discountCents: "0" }, 7400],
+    // PR 2: the figures are required beside a stamp (the old no-figures bound
+    // against a fresh price is gone).
+    ["stamped without its checkout figures", NO_FIGURES, 6900],
   ])(
-    "refreshCost: refuses a stamp that is %s — before capture, released, reported as its own class",
-    async (_label, raw, amount, cause, wording, needsResLab) => {
+    "refreshCost: refuses a stamp that is %s — before capture and before ResLab, released, reported as its own class",
+    async (_label, metadata, amount) => {
       db.seed("pending_bookings", [pendingRow()]);
-      stripeMock.paymentIntents.retrieve.mockResolvedValue(fixedPi({ amount, metadata: { discountCents: raw } }));
+      stripeMock.paymentIntents.retrieve.mockResolvedValue(fixedPi({ amount, metadata }));
 
       const out = await createBooking({ source: "client", stripePaymentIntentId: PI });
 
+      const cause = "stamp_invalid";
       expect(out).toEqual({
         kind: "failed",
         reason: expect.stringContaining(`promo discount stamp refused (${cause})`),
-        userMessage: `${wording} You have not been charged — please start your booking again.`,
+        userMessage: "We couldn't read the promo discount on your payment. You have not been charged — please start your booking again.",
       });
       // An unusable stamp is refused BEFORE asking ResLab for a price.
-      expect(reslabMock.getCost).toHaveBeenCalledTimes(needsResLab ? 1 : 0);
+      expect(reslabMock.getCost).not.toHaveBeenCalled();
       expect(reslabMock.createReservation).not.toHaveBeenCalled();
       expect(capturePaymentIntent).not.toHaveBeenCalled();
       expect(cancelPaymentIntent).toHaveBeenCalled();
@@ -2376,11 +2381,8 @@ describe("a stamped discountCents — ResLab (promo plan Part 1, readers)", () =
       ["only one of the pair", { preDiscountOnlineCents: undefined }, 6900, "stamp_invalid"],
       ["a figure that is not whole cents", { onlineParkingCents: "68.00" }, 6900, "stamp_invalid"],
     ])("refused before ResLab: %s", async (_label, over, amount, cause) => {
-      const metadata = Object.fromEntries(
-        Object.entries({ ...CHECKOUT, ...over }).filter((e): e is [string, string] => e[1] !== undefined)
-      );
       db.seed("pending_bookings", [pendingRow()]);
-      stripeMock.paymentIntents.retrieve.mockResolvedValue(fixedPi({ amount, metadata }));
+      stripeMock.paymentIntents.retrieve.mockResolvedValue(fixedPi({ amount, metadata: over }));
 
       expect(await createBooking({ source: "client", stripePaymentIntentId: PI })).toMatchObject({
         kind: "failed",
@@ -2438,29 +2440,65 @@ describe("a stamped discountCents — ResLab (promo plan Part 1, readers)", () =
       expect(db.tables.bookings[0]).toMatchObject({ discount_amount: 5, promo_code: "JFK5" });
     });
 
-    it("WITHOUT checkout figures the same fresh drop is still refused (today's bound)", async () => {
+    it("the fresh price is measured with the CHARGED service fee, never the payload's page-load figure", async () => {
+      // The page loaded at a price whose fee was 9.00; the PaymentIntent was
+      // created at the fresh price, fee 6.00 (metadata.serviceFee). Re-pricing
+      // with the page's 9.00 would expect 72.00 and block 69.00 as drift.
+      db.seed("pending_bookings", [pendingRow({ triply_service_fee: 9 })]);
+      stripeMock.paymentIntents.retrieve.mockResolvedValue(fixedPi());
+
+      expect((await createBooking({ source: "client", stripePaymentIntentId: PI })).kind).toBe("created");
+      expect(blockAlerts()).toEqual([]);
+      // …and the row records the charged fee too (a webhook / sweep finish reads this row).
+      expect(db.tables.bookings[0]).toMatchObject({ triply_service_fee: 6, discount_amount: 5 });
+    });
+
+    it("the BROWSER's finishing call carries its own payload (page-load fee 9.00): the row, the response and the emails use the CHARGED 6.00", async () => {
+      // Server review, PR 2 round 1: the client body wins over the staged row,
+      // so the fee must be corrected in the engine, whichever path finishes.
       db.seed("pending_bookings", [pendingRow()]);
       stripeMock.paymentIntents.retrieve.mockResolvedValue(fixedPi());
-      reslabMock.getCost.mockResolvedValue({
-        costs_token: "tok_2",
-        reservation: { sold_out: false, sub_total: 20, fees_total: 0, tax_total: 4, grand_total: 24, due_at_location: 20 },
+      const r = pendingRow();
+      const out = await createBooking({
+        source: "client",
+        stripePaymentIntentId: PI,
+        payload: {
+          locationId: r.location_id,
+          costsToken: r.costs_token,
+          fromDate: r.from_date,
+          toDate: r.to_date,
+          parkingTypeId: r.parking_type_id,
+          customer: r.customer,
+          vehicle: r.vehicle,
+          subtotal: 80,
+          taxTotal: 5,
+          feesTotal: 3,
+          grandTotal: 88,
+          triplyServiceFee: 9,
+          userId: null,
+          stripePaymentIntentId: PI,
+          protectionPlanCode: null,
+        },
       });
-      expect(await createBooking({ source: "client", stripePaymentIntentId: PI })).toMatchObject({
-        kind: "failed",
-        reason: expect.stringContaining("(stamp_exceeds_online_parking)"),
-      });
+
+      expect(out.kind).toBe("created");
+      if (out.kind !== "created") return;
+      expect(db.tables.bookings[0]).toMatchObject({ triply_service_fee: 6, discount_amount: 5 });
+      expect(out.reservation?.dueNow).toBe(69); // = pi.amount
+      expect(vi.mocked(sendBookingConfirmation).mock.calls[0][0].breakdown).toMatchObject({ ok: true, paidOnlineCents: 6900 });
+      expect(stampAlerts()).toEqual([]);
     });
   });
 
   describe("Step 9.5: a stamp Step 8 did not check is checked against the reservation BEFORE capture", () => {
-    it("RESUME with an out-of-range stamp → needs_reconciliation, never captured, never booked", async () => {
+    it("RESUME with a stamp WITHOUT its checkout figures → needs_reconciliation, never captured, never booked", async () => {
       const { scheduleReconciliationAlert } = await import("@/lib/booking/reconciliation-alert");
       db.seed("pending_bookings", [resumeRow()]);
-      stripeMock.paymentIntents.retrieve.mockResolvedValue(fixedPi({ amount: 599, metadata: { discountCents: "6801" } }));
+      stripeMock.paymentIntents.retrieve.mockResolvedValue(fixedPi({ metadata: NO_FIGURES }));
 
       const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
 
-      expect(out).toMatchObject({ kind: "needs_reconciliation", retryable: false, reason: expect.stringContaining("(stamp_exceeds_online_parking)") });
+      expect(out).toMatchObject({ kind: "needs_reconciliation", retryable: false, reason: expect.stringContaining("(stamp_invalid)") });
       expect(capturePaymentIntent).not.toHaveBeenCalled();
       expect(cancelPaymentIntent).not.toHaveBeenCalled();
       expect(reslabMock.createReservation).not.toHaveBeenCalled();
@@ -2469,15 +2507,16 @@ describe("a stamped discountCents — ResLab (promo plan Part 1, readers)", () =
       expect(scheduleReconciliationAlert).toHaveBeenCalledTimes(1);
       const alert = vi.mocked(capturePaymentError).mock.calls.find(([e]) => /refused before capture/.test(e.message));
       expect(alert?.[0].message).toMatch(/RTL777 is LIVE; payment NOT captured/);
-      expect(alert?.[1]).toMatchObject({ fingerprint: ["promo-discount-stamp", "before-capture", "stamp_exceeds_online_parking", PI] });
+      expect(alert?.[1]).toMatchObject({ fingerprint: ["promo-discount-stamp", "before-capture", "stamp_invalid", PI] });
     });
 
     it("RESUME of an ALREADY-CAPTURED payment with an out-of-range stamp still books (nothing left to protect; refused stamp reported)", async () => {
       // An earlier attempt captured, then the booking insert failed. Refusing
       // here would strand a paid customer with no booking row (Codex round 2).
+      // No figures: the backstop bounds the stamp against the reservation.
       db.seed("pending_bookings", [resumeRow()]);
       stripeMock.paymentIntents.retrieve.mockResolvedValue(
-        fixedPi({ status: "succeeded", amount: 599, latest_charge: { amount_refunded: 0 }, metadata: { discountCents: "6801" } })
+        fixedPi({ status: "succeeded", amount: 599, latest_charge: { amount_refunded: 0 }, metadata: { discountCents: "6801", ...NO_FIGURES } })
       );
 
       expect(await createBooking({ source: "webhook", stripePaymentIntentId: PI })).toMatchObject({ kind: "created", reservationNumber: "RTL777" });
@@ -2493,19 +2532,23 @@ describe("a stamped discountCents — ResLab (promo plan Part 1, readers)", () =
       expect(refused[0][1]).toMatchObject({ fingerprint: ["promo-discount-stamp", "refused", PI] });
     });
 
-    it("FIRST attempt of an auto-captured (Link) payment, ResLab down, an out-of-range stamp: books, the refusal recorded from the charge and reported per PaymentIntent", async () => {
+    it("FIRST attempt of an auto-captured (Link) payment, ResLab down, a stamp without figures: refused at Step 8 before any reservation, refunded", async () => {
+      // Before PR 2 this booked and the backstop derived the discount; with the
+      // figures required, Step 8 refuses it from the PaymentIntent alone.
       db.seed("pending_bookings", [pendingRow()]);
       stripeMock.paymentIntents.retrieve.mockResolvedValue(
-        fixedPi({ status: "succeeded", amount: 599, latest_charge: { amount_refunded: 0 }, metadata: { discountCents: "6801" } })
+        fixedPi({ status: "succeeded", amount: 599, latest_charge: { amount_refunded: 0 }, metadata: { discountCents: "6801", ...NO_FIGURES } })
       );
       reslabMock.getCost.mockRejectedValue(new ReslabError(502, "upstream"));
 
-      expect(await createBooking({ source: "client", stripePaymentIntentId: PI })).toMatchObject({ kind: "created" });
-      expect(createRefund).not.toHaveBeenCalled();
-      expect(db.tables.bookings[0]).toMatchObject({ discount_amount: 68.01, promo_code: "JFK5" });
-      const refused = stampAlerts().filter(([e]) => /discountCents refused/.test(e.message));
-      expect(refused).toHaveLength(1);
-      expect(refused[0][1]).toMatchObject({ fingerprint: ["promo-discount-stamp", "refused", PI] });
+      expect(await createBooking({ source: "client", stripePaymentIntentId: PI })).toMatchObject({
+        kind: "failed",
+        reason: expect.stringContaining("(stamp_invalid)"),
+      });
+      expect(reslabMock.getCost).not.toHaveBeenCalled();
+      expect(reslabMock.createReservation).not.toHaveBeenCalled();
+      expect(createRefund).toHaveBeenCalled();
+      expect(db.tables.bookings).toHaveLength(0);
     });
 
     it.each([
@@ -2551,7 +2594,7 @@ describe("a stamped discountCents — ResLab (promo plan Part 1, readers)", () =
       expect(refused[0][0].message).toMatch(/stamp_invalid: discountCents "5\.00" is not a positive whole number/);
     });
 
-    it("Step 8 vouched for the stamp, then the created reservation omits due_at_location: books with the STAMP (5.00, not 25.00 from 'due 0'), reported unverified per PaymentIntent", async () => {
+    it("the created reservation omits due_at_location: checkout's figures vouch for the stamp — booked with 5.00 (not 25.00 from 'due 0'), nothing reported", async () => {
       const r = reslabReservation();
       delete (r.history[0] as Record<string, unknown>).due_at_location_total;
       reslabMock.createReservation.mockResolvedValue(r);
@@ -2560,6 +2603,22 @@ describe("a stamped discountCents — ResLab (promo plan Part 1, readers)", () =
 
       expect((await createBooking({ source: "client", stripePaymentIntentId: PI })).kind).toBe("created");
       expect(capturePaymentIntent).toHaveBeenCalled();
+      expect(db.tables.bookings[0]).toMatchObject({ discount_amount: 5, promo_code: "JFK5" });
+      expect(stampAlerts()).toEqual([]);
+    });
+
+    it("a CAPTURED resume whose stamp has no figures and whose reservation omits due_at_location: books with the stamp, reported unverified per PaymentIntent", async () => {
+      // The one path left without figures (the backstop, on a payment already
+      // captured): the 'due 0' trap must still not record 25.00.
+      const r = reslabReservation("RTL777");
+      delete (r.history[0] as Record<string, unknown>).due_at_location_total;
+      reslabMock.getReservation.mockResolvedValue(r);
+      db.seed("pending_bookings", [resumeRow()]);
+      stripeMock.paymentIntents.retrieve.mockResolvedValue(
+        fixedPi({ status: "succeeded", latest_charge: { amount_refunded: 0 }, metadata: NO_FIGURES })
+      );
+
+      expect((await createBooking({ source: "webhook", stripePaymentIntentId: PI })).kind).toBe("created");
       expect(db.tables.bookings[0]).toMatchObject({ discount_amount: 5, promo_code: "JFK5" });
       const unverified = stampAlerts().filter(([e]) => /discountCents unverified/.test(e.message));
       expect(unverified).toHaveLength(1);
@@ -2596,36 +2655,36 @@ describe("a stamped discountCents — ResLab (promo plan Part 1, readers)", () =
       expect(capturePaymentIntent).toHaveBeenCalled();
     });
 
-    it("getCost THROWS, a stamp larger than the created reservation's online parking → needs_reconciliation, never captured", async () => {
-      db.seed("pending_bookings", [pendingRow()]);
-      stripeMock.paymentIntents.retrieve.mockResolvedValue(fixedPi({ amount: 599, metadata: { discountCents: "6801" } }));
-      reslabMock.getCost.mockRejectedValue(new ReslabError(502, "upstream"));
+    it.each([
+      ["getCost THROWS", () => reslabMock.getCost.mockRejectedValue(new ReslabError(502, "upstream"))],
+      [
+        "ResLab's price UNREADABLE (NaN)",
+        () =>
+          reslabMock.getCost.mockResolvedValue({
+            costs_token: "tok_2",
+            reservation: { sold_out: false, sub_total: 80, fees_total: 3, tax_total: 5, grand_total: Number.NaN, due_at_location: 20 },
+          }),
+      ],
+    ])(
+      "%s, then the created reservation is priced below the stamp: checkout's figures vouch for it — a price drop, captured and booked at warning",
+      async (_label, arrangeCost) => {
+        // Before PR 2 a stamp without figures was bounded against this
+        // reservation and refused (4.00 online < 5.00); the figures make it a drop.
+        arrangeCost();
+        const r = reslabReservation();
+        Object.assign(r.history[0], { due_at_location_total: 84 });
+        reslabMock.createReservation.mockResolvedValue(r);
+        db.seed("pending_bookings", [pendingRow()]);
+        stripeMock.paymentIntents.retrieve.mockResolvedValue(fixedPi());
 
-      const out = await createBooking({ source: "client", stripePaymentIntentId: PI });
-
-      expect(out).toMatchObject({ kind: "needs_reconciliation", retryable: false });
-      expect(reslabMock.createReservation).toHaveBeenCalledTimes(1);
-      expect(capturePaymentIntent).not.toHaveBeenCalled();
-      expect(db.tables.bookings).toHaveLength(0);
-      expect(db.tables.pending_bookings[0].status).toBe("needs_reconciliation");
-    });
-
-    it("ResLab's price UNREADABLE (NaN) with a stamp larger than the reservation's online parking → needs_reconciliation, never captured", async () => {
-      db.seed("pending_bookings", [pendingRow()]);
-      stripeMock.paymentIntents.retrieve.mockResolvedValue(fixedPi({ amount: 599, metadata: { discountCents: "6801" } }));
-      reslabMock.getCost.mockResolvedValue({
-        costs_token: "tok_2",
-        reservation: { sold_out: false, sub_total: 80, fees_total: 3, tax_total: 5, grand_total: Number.NaN, due_at_location: 20 },
-      });
-
-      expect(await createBooking({ source: "client", stripePaymentIntentId: PI })).toMatchObject({
-        kind: "needs_reconciliation",
-        reason: expect.stringContaining("(stamp_exceeds_online_parking)"),
-      });
-      expect(reslabMock.createReservation).toHaveBeenCalledTimes(1);
-      expect(capturePaymentIntent).not.toHaveBeenCalled();
-      expect(db.tables.bookings).toHaveLength(0);
-    });
+        expect((await createBooking({ source: "client", stripePaymentIntentId: PI })).kind).toBe("created");
+        expect(capturePaymentIntent).toHaveBeenCalled();
+        const drops = vi.mocked(captureBookingError).mock.calls.filter(([e]) => /a price drop/.test(e.message));
+        expect(drops).toHaveLength(1);
+        expect(drops[0][1]).toMatchObject({ level: "warning" });
+        expect(db.tables.bookings[0]).toMatchObject({ discount_amount: 5, promo_code: "JFK5" });
+      }
+    );
 
     it("ResLab's price UNREADABLE (NaN) is reported as that, not as a stamp problem — and the stamp is checked against the reservation", async () => {
       db.seed("pending_bookings", [pendingRow()]);
@@ -2642,15 +2701,16 @@ describe("a stamped discountCents — ResLab (promo plan Part 1, readers)", () =
       expect(blockAlerts()).toEqual([]);
     });
 
-    it("a reservation with no due_at_location cannot vouch for a stamp (no checkout figures) → needs_reconciliation", async () => {
+    it("RESUME, the reservation has no due_at_location: checkout's figures vouch for the stamp — captured and booked (PR 1 review M4)", async () => {
       const r = reslabReservation("RTL777");
       delete (r.history[0] as Record<string, unknown>).due_at_location_total;
       reslabMock.getReservation.mockResolvedValue(r);
       db.seed("pending_bookings", [resumeRow()]);
       stripeMock.paymentIntents.retrieve.mockResolvedValue(fixedPi());
 
-      expect(await createBooking({ source: "webhook", stripePaymentIntentId: PI })).toMatchObject({ kind: "needs_reconciliation" });
-      expect(capturePaymentIntent).not.toHaveBeenCalled();
+      expect(await createBooking({ source: "webhook", stripePaymentIntentId: PI })).toMatchObject({ kind: "created", reservationNumber: "RTL777" });
+      expect(capturePaymentIntent).toHaveBeenCalled();
+      expect(db.tables.bookings[0]).toMatchObject({ discount_amount: 5, promo_code: "JFK5" });
     });
 
     it("RESUME with checkout figures: a reservation priced below the stamp is a price drop — booked, reported at warning", async () => {
@@ -2681,12 +2741,18 @@ describe("a stamped discountCents — ResLab (promo plan Part 1, readers)", () =
     expect(stampAlerts()).toEqual([]);
   });
 
+  // A charge that disagrees with the stamp is refused before capture whenever
+  // checkout's figures are there (stamp_inconsistent). Only a payment already
+  // captured, with no figures, reaches the backstop's mismatch check.
+  const capturedNoFigures = (amount: number) =>
+    fixedPi({ status: "succeeded", amount, latest_charge: { amount_refunded: 0 }, metadata: NO_FIGURES });
+
   it("appliedPromoDiscount: a charge that implies a different discount (> 1¢) records the stamp and reports a mismatch once, naming recorded vs Stripe", async () => {
     // Charged 69.50: the charge implies 4.50 off, the stamp says 5.00.
-    db.seed("pending_bookings", [pendingRow()]);
-    stripeMock.paymentIntents.retrieve.mockResolvedValue(fixedPi({ amount: 6950 }));
+    db.seed("pending_bookings", [resumeRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(capturedNoFigures(6950));
 
-    expect((await createBooking({ source: "client", stripePaymentIntentId: PI })).kind).toBe("created");
+    expect((await createBooking({ source: "webhook", stripePaymentIntentId: PI })).kind).toBe("created");
 
     expect(db.tables.bookings[0]).toMatchObject({ discount_amount: 5, promo_code: "JFK5" });
     const alerts = stampAlerts();
@@ -2698,25 +2764,25 @@ describe("a stamped discountCents — ResLab (promo plan Part 1, readers)", () =
   });
 
   it("appliedPromoDiscount: a 1¢ difference is tolerated (no report)", async () => {
-    db.seed("pending_bookings", [pendingRow()]);
-    stripeMock.paymentIntents.retrieve.mockResolvedValue(fixedPi({ amount: 6901 }));
+    db.seed("pending_bookings", [resumeRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(capturedNoFigures(6901));
 
-    await createBooking({ source: "client", stripePaymentIntentId: PI });
+    await createBooking({ source: "webhook", stripePaymentIntentId: PI });
 
     expect(db.tables.bookings[0].discount_amount).toBe(5);
     expect(stampAlerts()).toEqual([]);
   });
 
-  it("the backstop: a reservation priced below a stamp Step 8 had checked → refused, recorded from the charge, one Sentry issue PER PaymentIntent", async () => {
-    // Fresh cost (68.00 online) passed the stamp; the reservation ResLab then
-    // created has only 4.00 online. Nothing can refuse the money any more.
-    const r = reslabReservation();
+  it("the backstop, a captured payment without figures: a reservation priced below the stamp → refused, recorded from the charge, one Sentry issue PER PaymentIntent", async () => {
+    // The adopted reservation has only 4.00 online. Nothing can refuse the
+    // money any more. (With figures it is a price drop: see above.)
+    const r = reslabReservation("RTL777");
     Object.assign(r.history[0], { due_at_location_total: 84 });
-    reslabMock.createReservation.mockResolvedValue(r);
-    db.seed("pending_bookings", [pendingRow()]);
-    stripeMock.paymentIntents.retrieve.mockResolvedValue(fixedPi());
+    reslabMock.getReservation.mockResolvedValue(r);
+    db.seed("pending_bookings", [resumeRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(capturedNoFigures(6900));
 
-    expect((await createBooking({ source: "client", stripePaymentIntentId: PI })).kind).toBe("created");
+    expect((await createBooking({ source: "webhook", stripePaymentIntentId: PI })).kind).toBe("created");
 
     const refused = stampAlerts().filter(([e]) => / refused /.test(e.message));
     expect(refused).toHaveLength(1);
@@ -2726,9 +2792,7 @@ describe("a stamped discountCents — ResLab (promo plan Part 1, readers)", () =
 
   it("a stamped discount recorded with NO promoCode is reported (the use would never be counted)", async () => {
     db.seed("pending_bookings", [pendingRow()]);
-    stripeMock.paymentIntents.retrieve.mockResolvedValue(
-      paymentIntent({ amount: 6900, metadata: { customerEmail: "a@b.com", discountCents: "500" } })
-    );
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(fixedPi({ metadata: { promoCode: undefined } }));
 
     expect((await createBooking({ source: "client", stripePaymentIntentId: PI })).kind).toBe("created");
 
@@ -2740,10 +2804,10 @@ describe("a stamped discountCents — ResLab (promo plan Part 1, readers)", () =
   });
 
   it("the stamp's warnings are reported BEFORE the booking is persisted (a death inside persistBooking cannot lose them)", async () => {
-    db.seed("pending_bookings", [pendingRow()]);
-    stripeMock.paymentIntents.retrieve.mockResolvedValue(fixedPi({ amount: 6950 }));
+    db.seed("pending_bookings", [resumeRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(capturedNoFigures(6950));
 
-    await createBooking({ source: "client", stripePaymentIntentId: PI });
+    await createBooking({ source: "webhook", stripePaymentIntentId: PI });
 
     const warnIndex = vi.mocked(capturePaymentError).mock.calls.findIndex(([e]) => e.message.startsWith("Promo discountCents mismatch"));
     expect(warnIndex).toBeGreaterThanOrEqual(0);

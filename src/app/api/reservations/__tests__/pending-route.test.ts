@@ -554,6 +554,8 @@ describe("POST /api/reservations/pending — a stamped promo discount (promo pla
     ["discountCents 0", { discountCents: "0" }, "stamp_invalid"],
     ["checkout figures that do not add up to the charge", { discountCents: "500", ...CHECKOUT, parkingOnlyChargeAmountCents: "9300" }, "stamp_inconsistent"],
     ["only one checkout figure", { discountCents: "500", onlineParkingCents: "9000" }, "stamp_invalid"],
+    // PR 2: the figures are required beside a stamp.
+    ["a stamp WITHOUT its checkout figures", { discountCents: "500" }, "stamp_invalid"],
   ])("REFUSES %s before the card is confirmed — nothing staged, no ResLab read, reported as its class", async (_label, metadata, cause) => {
     stripeMock.paymentIntents.retrieve.mockResolvedValue(stampedPi(metadata));
 
@@ -569,14 +571,22 @@ describe("POST /api/reservations/pending — a stamped promo discount (promo pla
     expect(vi.mocked(capturePaymentError).mock.calls[0][1]).toMatchObject({ stripePaymentIntentId: PI, fingerprint: ["promo-discount-stamp", "pending", cause] });
   });
 
-  it.each([
-    ["a usable stamp (no checkout figures)", { discountCents: "500" }],
-    ["a usable stamp with checkout figures that add up", { discountCents: "500", ...CHECKOUT }],
-  ])("stages %s", async (_label, metadata) => {
-    stripeMock.paymentIntents.retrieve.mockResolvedValue(stampedPi(metadata));
-    const res = await POST(req(body()));
+  it("stages a usable stamp with checkout figures that add up — and the fee the payment CHARGED, not the page's (rollback safety)", async () => {
+    // The page loaded at a price whose fee was 7.50; the PaymentIntent was
+    // priced fresh with a 9.00 fee. An engine from before withChargedServiceFee
+    // (a rolled-back deploy) would book from this row on a webhook / sweep.
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(stampedPi({ discountCents: "500", ...CHECKOUT }));
+    const res = await POST(req(body({ triplyServiceFee: 7.5 })));
     expect(res.status).toBe(200);
     expect(db.tables.pending_bookings).toHaveLength(1);
+    expect(db.tables.pending_bookings[0].triply_service_fee).toBe(9);
     expect(capturePaymentError).not.toHaveBeenCalled();
+  });
+
+  it("no stamp: the page's service fee is staged as before", async () => {
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(stampedPi({}));
+    const res = await POST(req(body({ triplyServiceFee: 7.5 })));
+    expect(res.status).toBe(200);
+    expect(db.tables.pending_bookings[0].triply_service_fee).toBe(7.5);
   });
 });

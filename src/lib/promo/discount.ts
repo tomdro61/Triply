@@ -13,8 +13,9 @@
  * percent code is capped at the online parking (fixes bug 6 — today a percent
  * code on a pay-at-lot lot eats the fee).
  *
- * No caller yet besides the tests: PR 2 wires it into the checkout POST,
- * /api/promo/validate and the checkout client.
+ * Callers: POST /api/checkout/lot (both paths, via computeDirectQuote for
+ * direct lots), /api/promo/validate (the rule only — it has no cart) and the
+ * checkout client (at Apply).
  */
 import { z } from "zod";
 import { toCents } from "@/lib/booking/cost-breakdown";
@@ -60,7 +61,50 @@ export interface Cart {
 
 export type PromoRefusal = "below_minimum" | "not_applicable" | "currency";
 
+/**
+ * The promo pricing the checkout page speaks, sent as a REQUEST HEADER on the
+ * checkout POST. Pages loaded before PR 2 send none: they price a percent code
+ * themselves (uncapped, unrounded), know no fixed codes, and never read the
+ * server's verdict — so the POST refuses their code as a stale page (reload)
+ * rather than charge an amount their Pay button doesn't show (Codex, PR 2
+ * round 1). A header, not a body field, because an older server ignores it:
+ * a rolled-back deploy's `.strict()` direct-lot schema would refuse an unknown
+ * body key (Codex, round 2).
+ */
+export const PROMO_PRICING_VERSION = 2;
+export const PROMO_PRICING_HEADER = "x-promo-pricing";
+
 export type PromoDiscountResult = { cents: number } | { refused: PromoRefusal };
+
+/**
+ * What POST /api/checkout/lot tells the checkout about the code it was sent
+ * (null: no code). `appliedCents` is the discount on the PaymentIntent — the
+ * server's figure wins over the page's. `refused` is the code's own verdict
+ * (lookup.ts) or the cart's (PromoRefusal); `message` is the customer's text.
+ */
+export type CheckoutPromoOutcome =
+  | { code: string; kind: "percent" | "fixed"; appliedCents: number }
+  | { code: string; refused: string; message: string };
+
+/** "$25" for whole dollars, "$24.50" otherwise. */
+const dollarsLabel = (cents: number): string => (cents % 100 === 0 ? `$${cents / 100}` : `$${(cents / 100).toFixed(2)}`);
+
+/** The code's offer as the customer reads it: "$5 off" / "10% off". */
+export function promoRuleLabel(rule: PromoRule): string {
+  return rule.amountCents !== null ? `${dollarsLabel(rule.amountCents)} off` : `${rule.percent}% off`;
+}
+
+/** Why a code gives no discount on this cart, in the customer's words — the same text in the widget and the checkout notice. */
+export function promoRefusalMessage(refusal: PromoRefusal, rule: Pick<PromoRule, "minSubtotalCents">): string {
+  switch (refusal) {
+    case "below_minimum":
+      return `This code needs at least ${dollarsLabel(rule.minSubtotalCents)} of parking.`;
+    case "not_applicable":
+      return "This code isn't valid for pay-at-the-lot bookings.";
+    case "currency":
+      return "This code can't be used at this lot.";
+  }
+}
 
 /** The ONE promo-code normaliser: what `promo_codes.code` holds (migration 049 pins it). */
 export function normalisePromoCode(raw: string): string {

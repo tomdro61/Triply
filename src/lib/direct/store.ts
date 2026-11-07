@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isMisconfiguredDbError } from "@/lib/supabase/error-codes";
 import { createAdminClient } from "@/lib/supabase/server";
 import { resolveCmsImageUrl } from "@/lib/cms";
 import { getAirportByCode } from "@/config/airports";
@@ -308,10 +309,8 @@ function droppedRowKey(raw: unknown): DroppedRowKey {
 // 42501 grant revoked · 42883/PGRST202/PGRST203 function missing or ambiguous ·
 // 42P01/3F000 table or schema missing · 42703 column renamed under the function ·
 // 42804 column type changed (RETURN QUERY shape mismatch) · PGRST301 JWT/role.
-const MISCONFIGURED_CODES = new Set(["42501", "42883", "42P01", "42703", "42804", "3F000", "PGRST202", "PGRST203", "PGRST301"]);
-
 function classifyFailure(code: string, message: string): DirectLotsFailureKind {
-  if (MISCONFIGURED_CODES.has(code)) return "misconfigured";
+  if (isMisconfiguredDbError(code)) return "misconfigured";
   if (!code && /AbortError|TimeoutError|aborted/i.test(message)) return "timeout";
   return "unavailable";
 }

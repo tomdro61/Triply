@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalisePromoCode, parsePromoRule, promoDiscountCents, type Cart, type PromoRule } from "../discount";
+import { normalisePromoCode, parsePromoRule, promoDiscountCents, promoRefusalMessage, promoRuleLabel, type Cart, type PromoRule } from "../discount";
 import { computeDirectQuote } from "@/lib/direct/pricing";
 
 /**
@@ -72,7 +72,7 @@ describe("promoDiscountCents — percent codes", () => {
     [1999, 3, 8.875, 15],
     [2000, 2, 10, 100],
   ])("direct: identical to computeDirectQuote (rate %i × %i days, %s%% tax, %s%% off)", (rateCents, days, taxRatePercent, pct) => {
-    const q = computeDirectQuote({ rateCents, days, taxRatePercent, discountPercent: pct });
+    const q = computeDirectQuote({ rateCents, days, taxRatePercent, promo: { ...SAVE10, percent: pct } });
     const r = promoDiscountCents(
       { ...SAVE10, percent: pct },
       cart({ parkingCents: q.subtotalCents, percentBaseCents: q.subtotalCents, onlineParkingCents: q.grandTotalCents })
@@ -207,5 +207,20 @@ describe("parsePromoRule — a promo_codes row → PromoRule", () => {
     const r = parsePromoRule({ code: "JFK5", discount_percent: null, discount_amount: "5.00", min_subtotal: "25.00" });
     if (!r.ok) throw new Error(r.reason);
     expect(promoDiscountCents(r.rule, cart())).toEqual({ cents: 500 });
+  });
+});
+
+describe("the customer's words", () => {
+  it("promoRuleLabel: '$5 off' / '10% off' / '$2.50 off'", () => {
+    expect(promoRuleLabel(JFK5)).toBe("$5 off");
+    expect(promoRuleLabel(SAVE10)).toBe("10% off");
+    expect(promoRuleLabel({ ...JFK5, amountCents: 250 })).toBe("$2.50 off");
+  });
+
+  it("promoRefusalMessage names the minimum and the pay-at-the-lot rule", () => {
+    expect(promoRefusalMessage("below_minimum", JFK5)).toBe("This code needs at least $25 of parking.");
+    expect(promoRefusalMessage("below_minimum", { minSubtotalCents: 2450 })).toBe("This code needs at least $24.50 of parking.");
+    expect(promoRefusalMessage("not_applicable", JFK5)).toBe("This code isn't valid for pay-at-the-lot bookings.");
+    expect(promoRefusalMessage("currency", JFK5)).toBe("This code can't be used at this lot.");
   });
 });

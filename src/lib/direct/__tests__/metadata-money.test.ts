@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { readDirectMetadataMoney } from "../metadata-money";
 import { computeDirectQuote } from "../pricing";
+import type { PromoRule } from "@/lib/promo/discount";
+
+const percentCode = (percent: number): PromoRule => ({ code: "SAVE", percent, amountCents: null, minSubtotalCents: 0 });
 
 /**
  * A direct PaymentIntent's metadata exactly as POST /api/checkout/lot stamps it
@@ -55,7 +58,7 @@ describe("readDirectMetadataMoney", () => {
   });
 
   it("agrees with computeDirectQuote for every stamped value (promo + no Park Guard)", () => {
-    const q = computeDirectQuote({ rateCents: 995, days: 5, taxRatePercent: 16, discountPercent: 10 });
+    const q = computeDirectQuote({ rateCents: 995, days: 5, taxRatePercent: 16, promo: percentCode(10) });
     const m = meta({
       protectionPlanCode: undefined,
       protectionPlanPrice: undefined,
@@ -179,7 +182,7 @@ describe("readDirectMetadataMoney — a stamped discountCents (promo plan Part 1
   });
 
   it("the old percent-only stamp still reads exactly as before (in-flight PaymentIntents)", () => {
-    const q = computeDirectQuote({ rateCents: 995, days: 5, taxRatePercent: 16, discountPercent: 10 });
+    const q = computeDirectQuote({ rateCents: 995, days: 5, taxRatePercent: 16, promo: percentCode(10) });
     const m = meta({
       discountPercent: "10",
       directDiscountCents: String(q.discountCents),

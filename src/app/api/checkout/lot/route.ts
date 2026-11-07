@@ -8,7 +8,6 @@ import {
 } from "@/lib/reslab/search";
 import { reslab, ReslabError } from "@/lib/reslab/client";
 import { createPaymentIntent } from "@/lib/stripe/client";
-import { createAdminClient } from "@/lib/supabase/server";
 import { z } from "zod";
 import { convertTo24Hour } from "@/lib/utils/time";
 import { captureAPIError } from "@/lib/sentry";
@@ -19,7 +18,18 @@ import {
   STALE_CHECKOUT_MESSAGE,
 } from "@/lib/parkguard/client";
 import { protectionPlanCodeSchema } from "@/lib/validation/schemas";
-import { isPromoCodeUsable } from "@/lib/promo/usable";
+import { lookupPromoRule, type PromoLookup } from "@/lib/promo/lookup";
+import {
+  normalisePromoCode,
+  PROMO_PRICING_HEADER,
+  PROMO_PRICING_VERSION,
+  promoDiscountCents,
+  promoRefusalMessage,
+  type CheckoutPromoOutcome,
+  type PromoDiscountResult,
+  type PromoRule,
+} from "@/lib/promo/discount";
+import { promoStampMetadata } from "@/lib/promo/stamped-discount";
 import { DirectInventoryUnavailableError } from "@/lib/direct/errors";
 import { isDirectCheckoutOpen } from "@/lib/direct/flag";
 import { quoteDirectCheckout, type DirectCheckoutQuote } from "@/lib/direct/checkout-quote";
@@ -253,6 +263,8 @@ const checkoutPostSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    // The promo pricing the page speaks (a header: see PROMO_PRICING_HEADER).
+    const promoPricing = request.headers.get(PROMO_PRICING_HEADER);
     // A checkout page loaded before the plan-tier deploy still posts the old
     // boolean. Refuse with an actionable message instead of a Zod issue.
     if (body && typeof body === "object" && "hasProtectionPlan" in body) {
@@ -261,7 +273,7 @@ export async function POST(request: NextRequest) {
     // A direct lot is chosen ONLY by an explicit inventorySource; every other
     // body takes the ResLab path exactly as before.
     if (body && typeof body === "object" && (body as Record<string, unknown>).inventorySource === "direct") {
-      return await postDirect(body);
+      return await postDirect(body, promoPricing);
     }
     const result = checkoutPostSchema.safeParse(body);
     if (!result.success) {
@@ -284,6 +296,9 @@ export async function POST(request: NextRequest) {
       protectionPlanCode,
       termsVersion,
     } = result.data;
+    if (promoFromStalePage(promoCode, promoPricing)) {
+      return NextResponse.json({ error: STALE_CHECKOUT_MESSAGE, code: "checkout_stale" }, { status: 400 });
+    }
 
     // A hidden lot (blocked list, or a ResLab test lot in production) never gets a PaymentIntent: the GET above already
     // 404s it, but a stale checkout or a hand-built POST would otherwise pay for it (Codex review, 2026-11-02).
@@ -303,6 +318,12 @@ export async function POST(request: NextRequest) {
         { status: 503, headers: { "Cache-Control": "no-store" } }
       );
     }
+
+    // The promo code BEFORE the price: a lookup that fails creates no
+    // PaymentIntent (it used to charge full price silently) and costs no
+    // ResLab call.
+    const promoLookup = promoCode ? await lookupPromoRule(promoCode, PROMO_LOOKUP_CONTEXT) : null;
+    if (promoLookup?.kind === "unavailable") return promoLookupUnavailable();
 
     // Build dates for ResLab API
     const checkinTime24 = convertTo24Hour(checkinTime);
@@ -329,42 +350,63 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const reservation = costResponse.reservation;
     // Calculate Triply service fee on the parking base (sub_total + fees_total)
-    const postServiceFee = calculateServiceFee(
-      costResponse.reservation.sub_total + costResponse.reservation.fees_total
-    );
+    const postServiceFee = calculateServiceFee(reservation.sub_total + reservation.fees_total);
+    const dueAtLocation = reservation.due_at_location;
 
-    let verifiedTotal = costResponse.reservation.grand_total + postServiceFee;
-    const dueAtLocation = costResponse.reservation.due_at_location;
-    let verifiedDueNow = verifiedTotal - dueAtLocation;
-    let discountPercent = 0;
-
-    // Validate and apply promo code server-side
-    if (promoCode) {
-      const usablePercent = await usablePromoDiscountPercent(promoCode);
-      if (usablePercent !== null) {
-        discountPercent = usablePercent;
-        const discount = costResponse.reservation.sub_total * (discountPercent / 100);
-        verifiedTotal = verifiedTotal - discount;
-        verifiedDueNow = verifiedTotal - dueAtLocation;
-      }
+    // Everything below is INTEGER CENTS: the discount stamp's readers check
+    // these figures with exact equality (checkStampAgainstCharge).
+    const serviceFeeCents = Math.round(postServiceFee * 100);
+    const grandTotalCents = Math.round(reservation.grand_total * 100);
+    // The parking paid online, before any discount — the most a discount may take.
+    const onlineParkingCents = grandTotalCents - Math.round(dueAtLocation * 100);
+    if (!Number.isSafeInteger(onlineParkingCents) || onlineParkingCents < 0 || !Number.isSafeInteger(serviceFeeCents)) {
+      captureAPIError(
+        new Error(`ResLab cost for location ${locationId} is unusable (grand_total ${reservation.grand_total}, due_at_location ${dueAtLocation}, service fee ${postServiceFee})`),
+        { endpoint: "/api/checkout/lot", method: "POST", stage: "cost_unusable" }
+      );
+      return NextResponse.json(
+        { error: "We couldn't load this lot's price right now. Please try again in a moment." },
+        { status: 503, headers: { "Cache-Control": "no-store" } }
+      );
     }
+    const preDiscountOnlineCents = onlineParkingCents + serviceFeeCents;
 
-    // Snapshot the parking-only charge BEFORE applying protection premium.
-    // Stamped into PI metadata (in CENTS — integer-safe, no float drift) so
-    // the /update-pi endpoint can re-compute the amount safely when the
-    // customer toggles protection on the payment step without re-calling
-    // ResLab. Also kept as dollars for backwards compat with PIs already
-    // in flight before the cents-storage rollout.
-    const parkingOnlyChargeAmount = Math.max(0, verifiedDueNow);
-    const parkingOnlyChargeAmountCents = Math.round(parkingOnlyChargeAmount * 100);
+    // The promo, applied by the one rule (promoDiscountCents) to the server's
+    // fresh price. A code that gives no discount here is reported back to the
+    // checkout and stamps nothing.
+    const applied =
+      promoLookup?.kind === "rule"
+        ? fromDiscount(
+            promoLookup.rule,
+            promoDiscountCents(promoLookup.rule, {
+              parkingCents: Math.round((reservation.sub_total + reservation.fees_total) * 100),
+              percentBaseCents: Math.round(reservation.sub_total * 100),
+              onlineParkingCents,
+              // reslabLotCurrency refused anything but USD above.
+              currency: "USD",
+            })
+          )
+        : unappliedPromo(promoLookup, promoCode);
+    const discountCents = applied.rule ? applied.discountCents : 0;
+
+    // The parking-only charge, BEFORE the protection premium. Stamped into PI
+    // metadata (in CENTS — integer-safe, no float drift) so the /update-pi
+    // endpoint can re-compute the amount safely when the customer toggles
+    // protection on the payment step without re-calling ResLab. Also kept as
+    // dollars for backwards compat with PIs already in flight before the
+    // cents-storage rollout.
+    const parkingOnlyChargeAmountCents = preDiscountOnlineCents - discountCents;
+    const parkingOnlyChargeAmount = parkingOnlyChargeAmountCents / 100;
 
     // Refuse a non-positive PARKING baseline before any premium is added. Since
     // a returning customer's tier is applied at creation, a heavy promo on a due-at-lot
     // booking could otherwise mint a $12.99-only PaymentIntent whose baseline
     // is 0 — /update-pi then rejects every change (422), so the customer could
     // not decline protection, and the Pay button would read $0.00 against a
-    // live hold. Previously unreachable (the POST was always parking-only).
+    // live hold. A discount can no longer exceed the online parking (the rule
+    // caps it), so this holds the service fee at least; kept as the guard.
     if (parkingOnlyChargeAmountCents <= 0) {
       return NextResponse.json(
         { error: "Invalid payment amount" },
@@ -373,21 +415,11 @@ export async function POST(request: NextRequest) {
     }
 
     const protectionPlan = getProtectionPlan(protectionPlanCode);
-    const protectionPremium = protectionPlan?.price ?? 0;
-    if (protectionPremium > 0) {
-      verifiedTotal = verifiedTotal + protectionPremium;
-      verifiedDueNow = verifiedDueNow + protectionPremium;
-    }
-
+    const protectionPremiumCents = Math.round((protectionPlan?.price ?? 0) * 100);
     // Amount to charge via Stripe (due now, not due at location)
-    const chargeAmount = Math.max(0, verifiedDueNow);
-
-    if (chargeAmount <= 0) {
-      return NextResponse.json(
-        { error: "Invalid payment amount" },
-        { status: 400 }
-      );
-    }
+    const chargeCents = parkingOnlyChargeAmountCents + protectionPremiumCents;
+    const chargeAmount = chargeCents / 100;
+    const verifiedTotal = (grandTotalCents + serviceFeeCents - discountCents + protectionPremiumCents) / 100;
 
     // Create PaymentIntent for the server-verified amount
     const paymentIntent = await createPaymentIntent(chargeAmount, {
@@ -409,8 +441,16 @@ export async function POST(request: NextRequest) {
       serviceFee: String(postServiceFee),
       parkingOnlyChargeAmount: String(parkingOnlyChargeAmount),
       parkingOnlyChargeAmountCents: String(parkingOnlyChargeAmountCents),
-      ...(promoCode && { promoCode }),
-      ...(discountPercent > 0 && { discountPercent: String(discountPercent) }),
+      // The discount stamp (code, discountCents and checkout's two figures,
+      // always together) — only when the code gave a discount.
+      ...(applied.rule &&
+        promoStampMetadata({
+          code: applied.rule.code,
+          percent: applied.rule.percent,
+          discountCents,
+          onlineParkingCents,
+          preDiscountOnlineCents,
+        })),
       // Tier code + its price are written as a PAIR (see
       // readProtectionMetadata): /api/reservations/pending stages the tier from
       // it, and fulfilment books, prices, and enrols exactly what it says — a
@@ -428,12 +468,13 @@ export async function POST(request: NextRequest) {
       costsToken: costResponse.costs_token,
       verifiedTotal,
       verifiedDueNow: chargeAmount,
+      chargeCents,
       dueAtLocation,
-      subtotal: costResponse.reservation.sub_total,
-      taxTotal: costResponse.reservation.tax_total,
-      feesTotal: costResponse.reservation.fees_total,
+      subtotal: reservation.sub_total,
+      taxTotal: reservation.tax_total,
+      feesTotal: reservation.fees_total,
       serviceFee: postServiceFee,
-      discountPercent,
+      promo: applied.outcome,
     });
   } catch (error) {
     console.error("Checkout POST error:", error);
@@ -472,30 +513,56 @@ async function reslabLotCurrency(locationId: number): Promise<"usd" | "not_usd" 
   }
 }
 
+const PROMO_LOOKUP_CONTEXT = { endpoint: "/api/checkout/lot", method: "POST" };
+
 /**
- * The promo's discount percentage if the code exists and is usable, else null.
- * A Supabase error other than "no such code" is captured (it would silently
- * charge full price) and treated as unusable, as before.
+ * A promo code from a page that does not speak this promo pricing (no or
+ * another PROMO_PRICING_HEADER) — one loaded before PR 2. Such a page prices
+ * the code itself and never reads this route's verdict: a percent code capped
+ * at the online parking would be charged more than its Pay button shows, a
+ * fixed code less. Refused BEFORE any PaymentIntent with the stale-page
+ * message — the customer reloads and applies the code again. A page with no
+ * code is unaffected.
  */
-async function usablePromoDiscountPercent(promoCode: string): Promise<number | null> {
-  const supabase = await createAdminClient();
-  const { data: promo, error: promoErr } = await supabase
-    .from("promo_codes")
-    .select("id, discount_percent, active, expires_at, max_uses, current_uses")
-    .eq("code", promoCode.toUpperCase())
-    .single();
+function promoFromStalePage(promoCode: string | undefined, promoPricing: string | null): boolean {
+  return promoCode !== undefined && promoPricing !== String(PROMO_PRICING_VERSION);
+}
 
-  // PGRST116 = no rows found (invalid code) — quiet ignore. Anything
-  // else is a real Supabase error that would silently charge the
-  // customer full price; surface it.
-  if (promoErr && promoErr.code !== "PGRST116") {
-    captureAPIError(
-      new Error(`Promo lookup failed for ${promoCode}: ${promoErr.message}`),
-      { endpoint: "/api/checkout/lot", method: "POST" }
-    );
+/** The promo lookup failed (already reported): no PaymentIntent, the customer retries. */
+function promoLookupUnavailable(): NextResponse {
+  return NextResponse.json(
+    { error: "We couldn't check your promo code right now. Please try again — you have not been charged.", code: "promo_lookup_unavailable" },
+    { status: 503, headers: { "Cache-Control": "no-store" } }
+  );
+}
+
+type AppliedPromoCode =
+  | { rule: PromoRule; discountCents: number; outcome: CheckoutPromoOutcome }
+  | { rule: null; outcome: CheckoutPromoOutcome | null };
+
+/**
+ * No code, or one its own row refused (unknown / inactive / expired / used up
+ * / not available): nothing is applied and nothing stamped; the checkout is
+ * told why. (A failed lookup never gets here — the route answers 503 first.)
+ */
+function unappliedPromo(lookup: Exclude<PromoLookup, { kind: "rule" }> | null, sentCode: string | undefined): AppliedPromoCode {
+  if (lookup?.kind !== "refused" || sentCode === undefined) return { rule: null, outcome: null };
+  return { rule: null, outcome: { code: normalisePromoCode(sentCode), refused: lookup.reason, message: lookup.message } };
+}
+
+/**
+ * A usable code's verdict on the cart (promoDiscountCents): applied, with its
+ * cents, or refused by the cart (below the minimum, pay-at-the-lot).
+ */
+function fromDiscount(rule: PromoRule, result: PromoDiscountResult): AppliedPromoCode {
+  if ("refused" in result) {
+    return { rule: null, outcome: { code: rule.code, refused: result.refused, message: promoRefusalMessage(result.refused, rule) } };
   }
-
-  return promo && isPromoCodeUsable(promo) ? promo.discount_percent : null;
+  return {
+    rule,
+    discountCents: result.cents,
+    outcome: { code: rule.code, kind: rule.amountCents !== null ? "fixed" : "percent", appliedCents: result.cents },
+  };
 }
 
 // =============================================================================
@@ -550,7 +617,7 @@ const directCheckoutPostSchema = z
  * shown (R5) — the at-lot estimate is computed from these, never from a later
  * CMS read or the client. The surcharge itself is never charged.
  */
-async function postDirect(body: unknown): Promise<NextResponse> {
+async function postDirect(body: unknown, promoPricing: string | null): Promise<NextResponse> {
   if (!isDirectCheckoutOpen()) {
     return NextResponse.json(
       { error: "Online booking for this lot is not open yet", code: "direct_not_bookable_yet" },
@@ -563,20 +630,40 @@ async function postDirect(body: unknown): Promise<NextResponse> {
   }
   const { lotId, checkin, checkout, checkinTime, checkoutTime, customerEmail, promoCode, protectionPlanCode, termsVersion } =
     parsed.data;
+  if (promoFromStalePage(promoCode, promoPricing)) {
+    return NextResponse.json({ error: STALE_CHECKOUT_MESSAGE, code: "checkout_stale" }, { status: 400 });
+  }
   const payloadId = parseDirectLotUnifiedId(lotId);
   if (payloadId === null) {
     return NextResponse.json({ error: "Invalid lot" }, { status: 400 });
   }
 
-  const discountPercent = promoCode ? ((await usablePromoDiscountPercent(promoCode)) ?? 0) : 0;
+  // As on the ResLab path: a failed lookup creates no PaymentIntent.
+  const promoLookup = promoCode ? await lookupPromoRule(promoCode, PROMO_LOOKUP_CONTEXT) : null;
+  if (promoLookup?.kind === "unavailable") return promoLookupUnavailable();
 
   const fromDate = `${checkin} ${convertTo24Hour(checkinTime)}:00`;
   const toDate = `${checkout} ${convertTo24Hour(checkoutTime)}:00`;
-  const direct = await quoteDirectCheckout({ payloadId, fromDate, toDate, discountPercent, endpoint: "/api/checkout/lot" });
+  const direct = await quoteDirectCheckout({
+    payloadId,
+    fromDate,
+    toDate,
+    promo: promoLookup?.kind === "rule" ? promoLookup.rule : null,
+    endpoint: "/api/checkout/lot",
+  });
   if (!direct.ok) {
     return NextResponse.json({ error: direct.error, code: direct.code }, { status: direct.status });
   }
   const { lot, quote, days } = direct;
+  // computeDirectQuote applied the same rule (promoDiscountCents) to its own
+  // figures; its verdict is non-null exactly when it was given a rule.
+  let applied: AppliedPromoCode;
+  if (promoLookup?.kind === "rule") {
+    if (quote.promo === null) throw new Error("computeDirectQuote returned no promo verdict for a promo rule");
+    applied = fromDiscount(promoLookup.rule, quote.promo);
+  } else {
+    applied = unappliedPromo(promoLookup, promoCode);
+  }
 
   // Same refusal as the ResLab branch: never a premium-only PaymentIntent.
   const parkingOnlyChargeAmountCents = quote.chargeCents;
@@ -587,7 +674,8 @@ async function postDirect(body: unknown): Promise<NextResponse> {
 
   const protectionPlan = getProtectionPlan(protectionPlanCode);
   const protectionPremiumCents = Math.round((protectionPlan?.price ?? 0) * 100);
-  const chargeAmount = (parkingOnlyChargeAmountCents + protectionPremiumCents) / 100;
+  const chargeCents = parkingOnlyChargeAmountCents + protectionPremiumCents;
+  const chargeAmount = chargeCents / 100;
   const serviceFee = quote.serviceFeeCents / 100;
   const terms = directCostData(direct).direct;
 
@@ -605,8 +693,16 @@ async function postDirect(body: unknown): Promise<NextResponse> {
     serviceFee: String(serviceFee),
     parkingOnlyChargeAmount: String(parkingOnlyChargeAmount),
     parkingOnlyChargeAmountCents: String(parkingOnlyChargeAmountCents),
-    ...(promoCode && { promoCode }),
-    ...(discountPercent > 0 && { discountPercent: String(discountPercent) }),
+    // The same discount stamp as a ResLab PaymentIntent; the whole grand total
+    // is paid online, so the online parking is the grand total.
+    ...(applied.rule &&
+      promoStampMetadata({
+        code: applied.rule.code,
+        percent: applied.rule.percent,
+        discountCents: quote.discountCents,
+        onlineParkingCents: quote.grandTotalCents,
+        preDiscountOnlineCents: quote.grandTotalCents + quote.serviceFeeCents,
+      })),
     ...(protectionPlan && protectionMetadataPatch(protectionPlan)),
     // B8: the money authority for a direct booking, in cents.
     directRateCents: String(lot.rateCents),
@@ -627,12 +723,13 @@ async function postDirect(body: unknown): Promise<NextResponse> {
     costsToken: null,
     verifiedTotal: chargeAmount,
     verifiedDueNow: chargeAmount,
+    chargeCents,
     dueAtLocation: 0,
     subtotal: quote.subtotalCents / 100,
     taxTotal: quote.taxTotalCents / 100,
     feesTotal: 0,
     serviceFee,
-    discountPercent,
+    promo: applied.outcome,
     direct: terms,
   });
 }

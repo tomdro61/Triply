@@ -72,9 +72,12 @@ export function stampedDiscountRefusal(
  *                           discount (ResLab grand_total − due_at_location)
  *   preDiscountOnlineCents  the online charge at checkout before the discount
  *                           and before Park Guard (online parking + service fee)
- * OPTIONAL and stamped as a PAIR: absent → readers bound the stamp against the
- * online parking they can see; one without the other, or either malformed, is
- * a writer bug and refuses the stamp.
+ * Stamped as a PAIR, and REQUIRED beside a stamp (PR 2): checkout writes all
+ * three keys together (promoStampMetadata), so a stamp without them, one
+ * without the other, or either malformed is a writer bug or tampering and
+ * refuses the stamp before the card is confirmed (checkStampAgainstCharge).
+ * Only the fulfilment backstop still copes with their absence, for a payment
+ * already captured.
  */
 export const ONLINE_PARKING_CENTS_METADATA_KEY = "onlineParkingCents";
 export const PRE_DISCOUNT_ONLINE_CENTS_METADATA_KEY = "preDiscountOnlineCents";
@@ -116,33 +119,30 @@ export function readCheckoutFigures(
 /**
  * Why a stamp is refused, as a Sentry class (and the customer's wording):
  *   stamp_invalid        discountCents is not a positive whole number, or the
- *                        checkout figures are partial / malformed
+ *                        checkout figures are missing, partial or malformed
  *   stamp_inconsistent   the checkout figures do not add up to the charge
  *   stamp_exceeds_checkout_online_parking   larger than the online parking at
  *                        checkout — the writer let it come out of the fee
- *   stamp_exceeds_online_parking   (no checkout figures) larger than the online
- *                        parking fulfilment can see now (fresh cost / the reservation)
- * The first three are writer bugs; the last can also be a price that moved.
+ * All three are writer bugs (or tampering): a price that moved after checkout
+ * is reported as a price drop, never refused.
  */
-export type StampRefusalCause =
-  | "stamp_invalid"
-  | "stamp_inconsistent"
-  | "stamp_exceeds_checkout_online_parking"
-  | "stamp_exceeds_online_parking";
+export type StampRefusalCause = "stamp_invalid" | "stamp_inconsistent" | "stamp_exceeds_checkout_online_parking";
+
+export type CheckoutFiguresPresent = Extract<CheckoutFigures, { kind: "figures" }>;
 
 export type StampChargeCheck =
-  | { ok: true; checkout: Exclude<CheckoutFigures, { kind: "invalid" }> }
-  | { ok: false; cause: Exclude<StampRefusalCause, "stamp_exceeds_online_parking">; detail: string };
+  | { ok: true; cents: number; checkout: CheckoutFiguresPresent }
+  | { ok: false; cause: StampRefusalCause; detail: string };
 
 /**
  * Everything a PRESENT stamp can be checked against from the PaymentIntent
  * ALONE — no ResLab, no reservation — so it runs before the card is confirmed
  * (the pending route) and before anything irreversible at fulfilment (also on
- * a resume, and when ResLab's price cannot be read). With checkout figures it
- * is exact: preDiscountOnlineCents − discountCents = parkingOnlyChargeAmountCents,
- * parkingOnlyChargeAmountCents + Park Guard premium = pi.amount, and
- * discountCents ≤ onlineParkingCents. Without them only the stamp's own form
- * is checked here; the caller bounds it against the online parking it sees.
+ * a resume, and when ResLab's price cannot be read). Exact, on checkout's own
+ * figures (required): preDiscountOnlineCents − onlineParkingCents = the
+ * service fee, preDiscountOnlineCents − discountCents =
+ * parkingOnlyChargeAmountCents, parkingOnlyChargeAmountCents + Park Guard
+ * premium = pi.amount, and discountCents ≤ onlineParkingCents.
  */
 export function checkStampAgainstCharge(
   metadata: Readonly<Record<string, string | undefined>> | null | undefined,
@@ -154,7 +154,9 @@ export function checkStampAgainstCharge(
   }
   const checkout = readCheckoutFigures(metadata);
   if (checkout.kind === "invalid") return { ok: false, cause: "stamp_invalid", detail: checkout.detail };
-  if (checkout.kind === "absent") return { ok: true, checkout };
+  if (checkout.kind === "absent") {
+    return { ok: false, cause: "stamp_invalid", detail: "discountCents is stamped without onlineParkingCents / preDiscountOnlineCents" };
+  }
 
   const parkingOnlyRaw = metadata?.parkingOnlyChargeAmountCents;
   if (parkingOnlyRaw === undefined || !CENTS_RE.test(parkingOnlyRaw)) {
@@ -198,5 +200,61 @@ export function checkStampAgainstCharge(
       detail: `discountCents ${stamped.cents} exceeds the online parking at checkout ${checkout.onlineParkingCents}`,
     };
   }
-  return { ok: true, checkout };
+  return { ok: true, cents: stamped.cents, checkout };
+}
+
+/**
+ * The service fee a STAMPED PaymentIntent charged, in cents — checkout's
+ * preDiscountOnline − onlineParking, when it equals `metadata.serviceFee` — or
+ * null (no usable stamp, or figures that don't add up, which the stamp checks
+ * refuse anyway). The booking payload's own fee is the checkout page's
+ * page-load figure, which a price move before the PaymentIntent leaves stale;
+ * on a stamped payment the exact stamp no longer hides that difference.
+ */
+export function chargedServiceFeeCents(metadata: Readonly<Record<string, string | undefined>> | null | undefined): number | null {
+  if (readStampedDiscount(metadata).kind !== "cents") return null;
+  const figures = readCheckoutFigures(metadata);
+  if (figures.kind !== "figures") return null;
+  const feeRaw = metadata?.serviceFee;
+  if (feeRaw === undefined || !SERVICE_FEE_RE.test(feeRaw)) return null;
+  const feeCents = Math.round(Number(feeRaw) * 100);
+  return figures.preDiscountOnlineCents - figures.onlineParkingCents === feeCents ? feeCents : null;
+}
+
+/**
+ * The writer's half — the keys POST /api/checkout/lot stamps on a PaymentIntent
+ * whose promo code gave a discount: the code, `discountCents` and checkout's
+ * two figures, ALWAYS together and in integer cents, plus `discountPercent`
+ * (display only) for a percent code. A code that gave no discount stamps
+ * nothing. Throws rather than write a stamp the readers would refuse: the
+ * figures come from the server's own price, so a bad one is a programming
+ * error, and no PaymentIntent is created.
+ */
+export function promoStampMetadata(input: {
+  code: string;
+  percent: number | null;
+  discountCents: number;
+  onlineParkingCents: number;
+  preDiscountOnlineCents: number;
+}): Record<string, string> {
+  const { code, percent, discountCents, onlineParkingCents, preDiscountOnlineCents } = input;
+  const cents = (n: number) => Number.isSafeInteger(n) && n >= 0;
+  if (
+    !POSITIVE_CENTS_RE.test(String(discountCents)) ||
+    !cents(onlineParkingCents) ||
+    !cents(preDiscountOnlineCents) ||
+    discountCents > onlineParkingCents ||
+    onlineParkingCents > preDiscountOnlineCents
+  ) {
+    throw new Error(
+      `promoStampMetadata: unusable figures for ${code} (discountCents ${discountCents}, onlineParkingCents ${onlineParkingCents}, preDiscountOnlineCents ${preDiscountOnlineCents})`
+    );
+  }
+  return {
+    promoCode: code,
+    [DISCOUNT_CENTS_METADATA_KEY]: String(discountCents),
+    [ONLINE_PARKING_CENTS_METADATA_KEY]: String(onlineParkingCents),
+    [PRE_DISCOUNT_ONLINE_CENTS_METADATA_KEY]: String(preDiscountOnlineCents),
+    ...(percent !== null && { discountPercent: String(percent) }),
+  };
 }
