@@ -122,3 +122,69 @@ describe("readDirectMetadataMoney", () => {
     expect(readDirectMetadataMoney(meta({ discountPercent: "0" }), 7665).ok).toBe(false);
   });
 });
+
+describe("readDirectMetadataMoney — a stamped discountCents (promo plan Part 1)", () => {
+  // $5 off (JFK5): parking-only = 5771 − 500 + 595 = 5866; + Plan A 1299 = 7165.
+  const fixed = (overrides: Record<string, string | undefined> = {}) =>
+    meta({
+      promoCode: "JFK5",
+      discountCents: "500",
+      directDiscountCents: "500",
+      parkingOnlyChargeAmountCents: "5866",
+      ...overrides,
+    });
+
+  it("accepts a fixed code: no percent, the stamp is the discount", () => {
+    const r = readDirectMetadataMoney(fixed(), 7165);
+    expect(r).toMatchObject({ ok: true, money: { discountCents: 500, discountPercent: 0, chargeCents: 7165 } });
+  });
+
+  it("both keys: discountCents is the authority — the percent beside it is display-only and NOT recomputed", () => {
+    // 10 % of 4975 would be 498; a capped / fixed stamp of 500 must still pass.
+    const r = readDirectMetadataMoney(fixed({ discountPercent: "10" }), 7165);
+    expect(r).toMatchObject({ ok: true, money: { discountCents: 500, discountPercent: 10 } });
+  });
+
+  it("refuses when the direct stamp disagrees with discountCents", () => {
+    // 498 is what the percent gives, but the stamp says 500.
+    const r = readDirectMetadataMoney(
+      fixed({ discountPercent: "10", directDiscountCents: "498", parkingOnlyChargeAmountCents: "5868" }),
+      7167
+    );
+    expect(r).toEqual({ ok: false, detail: "directDiscountCents 498 != discountCents 500" });
+  });
+
+  it("accepts a discount of the whole parking total (≤ grand); refuses one cent more", () => {
+    expect(
+      readDirectMetadataMoney(fixed({ discountCents: "5771", directDiscountCents: "5771", parkingOnlyChargeAmountCents: "595" }), 595 + 1299).ok
+    ).toBe(true);
+    const r = readDirectMetadataMoney(
+      fixed({ discountCents: "5772", directDiscountCents: "5772", parkingOnlyChargeAmountCents: "594" }),
+      594 + 1299
+    );
+    expect(r).toEqual({ ok: false, detail: "discountCents 5772 exceeds the online parking 5771" });
+  });
+
+  it.each(["0", "-500", "5.00", "", "abc"])("refuses an unusable discountCents %j", (raw) => {
+    const r = readDirectMetadataMoney(fixed({ discountCents: raw }), 7165);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.detail).toMatch(/not a positive whole number/);
+  });
+
+  it("refuses a discountCents with no discount on the direct stamp", () => {
+    expect(readDirectMetadataMoney(meta({ discountCents: "500" }), 7665)).toEqual({
+      ok: false,
+      detail: "directDiscountCents 0 != discountCents 500",
+    });
+  });
+
+  it("the old percent-only stamp still reads exactly as before (in-flight PaymentIntents)", () => {
+    const q = computeDirectQuote({ rateCents: 995, days: 5, taxRatePercent: 16, discountPercent: 10 });
+    const m = meta({
+      discountPercent: "10",
+      directDiscountCents: String(q.discountCents),
+      parkingOnlyChargeAmountCents: String(q.chargeCents),
+    });
+    expect(readDirectMetadataMoney(m, q.chargeCents + 1299)).toMatchObject({ ok: true, money: { discountCents: 498 } });
+  });
+});

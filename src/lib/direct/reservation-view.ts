@@ -358,6 +358,9 @@ export function buildDirectReservation(
       base: row.subtotal,
       cap: row.grand_total,
     }),
+    // The discount checkout stamped in cents (`discountCents`): when present
+    // it replaces the percent check above.
+    stampedPromo: common.payment.stampedDiscount,
     protection:
       row.protection_plan !== null
         ? { name: protectionPlanName(row.protection_plan_code, row.protection_plan), premium: protectionPlanPrice }

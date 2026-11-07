@@ -22,6 +22,8 @@
  * that does not add up, never a missing value shown as $0.00.
  */
 
+import type { StampedDiscount } from "@/lib/promo/stamped-discount";
+
 /** A money value as it arrives: a number, or a Postgres DECIMAL string. */
 export type MoneyInput = number | string | null | undefined;
 
@@ -68,6 +70,16 @@ interface CommonInput {
    * expectation with a $0 recorded discount also falls back.
    */
   expectedPromoCents: number | null;
+  /**
+   * The discount the PaymentIntent was STAMPED with (`metadata.discountCents`,
+   * @/lib/promo/stamped-discount). When present it is the authority and
+   * REPLACES the percent check above: the promo line must equal it to the
+   * cent (a fixed code has no percent, and a capped percent code's percent
+   * does not reproduce it), and it must fit inside the parking paid online.
+   * An unusable stamp → fallback. Omitted / absent → the percent check,
+   * exactly as before.
+   */
+  stampedPromo?: StampedDiscount;
   protection: ProtectionInput | null;
   /** What Stripe charged, in cents (`pi.amount` / `amount_received`). null = unknown → fallback. */
   anchorChargedCents: number | null;
@@ -159,12 +171,22 @@ export function buildCostBreakdown(input: CostBreakdownInput): CostBreakdownResu
   // recorded — a price that dropped after authorization can derive a $0
   // discount and silently drop the code from the receipt. ±1¢: the percent
   // base is itself a rounded sum on some paths.
-  if (input.expectedPromoCents !== null && (!Number.isSafeInteger(input.expectedPromoCents) || input.expectedPromoCents < 0)) {
-    return fail("promo percent unreadable");
+  const stamped: StampedDiscount = input.stampedPromo ?? { kind: "absent" };
+  if (stamped.kind === "absent") {
+    if (input.expectedPromoCents !== null && (!Number.isSafeInteger(input.expectedPromoCents) || input.expectedPromoCents < 0)) {
+      return fail("promo percent unreadable");
+    }
+    const expectedPromo = input.expectedPromoCents ?? 0;
+    if (promo > 0 && input.expectedPromoCents === null) return fail("promo discount cannot be checked against the code's percent");
+    if (Math.abs(promo - expectedPromo) > 1) return fail("promo discount does not match the code's percent");
+  } else {
+    // The stamp is what checkout applied, in cents, so the recorded discount
+    // equals it EXACTLY (no ±1¢: nothing was rounded after it was stamped).
+    // A stamp with no recorded discount falls back too — the same "either
+    // side says there is one" rule as the percent check.
+    if (stamped.kind === "invalid") return fail("stamped promo discount unreadable");
+    if (promo !== stamped.cents) return fail("promo discount does not match the stamped discount");
   }
-  const expectedPromo = input.expectedPromoCents ?? 0;
-  if (promo > 0 && input.expectedPromoCents === null) return fail("promo discount cannot be checked against the code's percent");
-  if (Math.abs(promo - expectedPromo) > 1) return fail("promo discount does not match the code's percent");
   let premium = 0;
   if (input.protection) {
     const p = toCents(input.protection.premium);
@@ -197,6 +219,8 @@ export function buildCostBreakdown(input: CostBreakdownInput): CostBreakdownResu
     const total = grand + serviceFee - promo + premium;
     const paidOnline = total - due;
     if (due > grand) return fail("due at location exceeds the parking total");
+    // A stamped discount never comes out of the service fee (Part 0 rule).
+    if (stamped.kind === "cents" && stamped.cents > grand - due) return fail("stamped promo discount exceeds the parking paid online");
     if (paidOnline !== input.anchorChargedCents) return fail("the parts do not add up to what the card was charged");
 
     // Fees roll into the parking line, as the checkout summary shows them
@@ -228,6 +252,9 @@ export function buildCostBreakdown(input: CostBreakdownInput): CostBreakdownResu
   }
 
   // Direct: every line is part of the card charge; the at-lot surcharge is not.
+  // A stamped discount fits inside the parking total (subtotal + tax), as
+  // readDirectMetadataMoney requires before the charge.
+  if (stamped.kind === "cents" && stamped.cents > subtotal + tax) return fail("stamped promo discount exceeds the parking paid online");
   const charged = subtotal + tax + serviceFee - promo + premium;
   if (charged !== input.anchorChargedCents) return fail("the parts do not add up to what the card was charged");
   push("parking", parkingLabel(input.days), subtotal);

@@ -538,3 +538,45 @@ describe("POST /api/reservations/pending — re-stage after a declined card (202
     expect(db.tables.pending_bookings[0]).toMatchObject({ protection_plan_code: "A", has_protection_plan: true });
   });
 });
+
+describe("POST /api/reservations/pending — a stamped promo discount (promo plan Part 1 review)", () => {
+  // 99.00 before the promo, 5.00 off → 94.00 = pi.amount (no Park Guard).
+  const stampedPi = (metadata: Record<string, string>) => ({
+    id: PI,
+    amount: 9400,
+    livemode: false,
+    metadata: { customerEmail: "ada@example.com", locationId: "42", promoCode: "JFK5", ...metadata },
+  });
+  const CHECKOUT = { onlineParkingCents: "9000", preDiscountOnlineCents: "9900", parkingOnlyChargeAmountCents: "9400", serviceFee: "9" };
+
+  it.each([
+    ["an unusable discountCents", { discountCents: "5.00" }, "stamp_invalid"],
+    ["discountCents 0", { discountCents: "0" }, "stamp_invalid"],
+    ["checkout figures that do not add up to the charge", { discountCents: "500", ...CHECKOUT, parkingOnlyChargeAmountCents: "9300" }, "stamp_inconsistent"],
+    ["only one checkout figure", { discountCents: "500", onlineParkingCents: "9000" }, "stamp_invalid"],
+  ])("REFUSES %s before the card is confirmed — nothing staged, no ResLab read, reported as its class", async (_label, metadata, cause) => {
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(stampedPi(metadata));
+
+    const res = await POST(req(body()));
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe(
+      "We couldn't verify the promo discount on this payment — please go back and start checkout again. You have not been charged."
+    );
+    expect(db.tables.pending_bookings).toHaveLength(0);
+    expect(reslabMock.getLocation).not.toHaveBeenCalled();
+    expect(capturePaymentError).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(capturePaymentError).mock.calls[0][1]).toMatchObject({ stripePaymentIntentId: PI, fingerprint: ["promo-discount-stamp", "pending", cause] });
+  });
+
+  it.each([
+    ["a usable stamp (no checkout figures)", { discountCents: "500" }],
+    ["a usable stamp with checkout figures that add up", { discountCents: "500", ...CHECKOUT }],
+  ])("stages %s", async (_label, metadata) => {
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(stampedPi(metadata));
+    const res = await POST(req(body()));
+    expect(res.status).toBe(200);
+    expect(db.tables.pending_bookings).toHaveLength(1);
+    expect(capturePaymentError).not.toHaveBeenCalled();
+  });
+});

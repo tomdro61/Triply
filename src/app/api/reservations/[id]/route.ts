@@ -479,6 +479,9 @@ async function getReservation(
             base: history?.subtotal,
           })
         : null,
+      // The discount checkout stamped in cents (`discountCents`): when
+      // present it replaces the percent check above.
+      stampedPromo: payment.stampedDiscount,
       protection: rowPlan
         ? { name: protectionPlanName(rowRead?.protection_plan_code, rowPlan), premium: rowRead?.protection_plan_price }
         : null,
