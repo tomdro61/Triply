@@ -17,6 +17,7 @@
  */
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/server";
+import { isMisconfiguredDbError } from "@/lib/supabase/error-codes";
 import { captureAPIError } from "@/lib/sentry";
 import { normalisePromoCode, parsePromoRule, type PromoRule } from "./discount";
 import { isFixedPromoEnabled } from "./flag";
@@ -39,8 +40,37 @@ export const PROMO_REFUSAL_MESSAGES: Record<PromoCodeRefusal, string> = {
 };
 
 const PROMO_SELECT = "code, discount_percent, discount_amount, min_subtotal, active, expires_at, max_uses, current_uses";
-/** Two attempts fit inside 5 s of the checkout POST's 60 s budget. */
-const PROMO_LOOKUP_ATTEMPT_MS = 2_500;
+/** The TRIPLY-40 cold-start bound; two attempts (8 s) fit the checkout POST's 60 s. */
+const PROMO_LOOKUP_ATTEMPT_MS = 4_000;
+
+// One recovered-retry warning per instance per 5 minutes; the suppressed
+// count rides along on the next one (the direct-lot store's rule).
+const RETRY_REPORT_INTERVAL_MS = 5 * 60 * 1000;
+let lastRetryReportAt = 0;
+let retriesSinceReport = 0;
+/** Tests only: a fresh instance between cases. */
+export function __resetPromoRetryReportForTests(): void {
+  lastRetryReportAt = 0;
+  retriesSinceReport = 0;
+}
+
+function reportRecoveredRetry(first: string, context: { endpoint: string; method: string }): void {
+  const now = Date.now();
+  if (now - lastRetryReportAt < RETRY_REPORT_INTERVAL_MS) {
+    retriesSinceReport += 1;
+    return;
+  }
+  lastRetryReportAt = now;
+  const suppressedSinceLastCapture = retriesSinceReport;
+  retriesSinceReport = 0;
+  captureAPIError(new Error(`Promo code lookup: first read failed, retry recovered — ${first}`), {
+    endpoint: context.endpoint,
+    method: context.method,
+    stage: "promo_lookup_retry",
+    level: "warning",
+    extra: { suppressedSinceLastCapture },
+  });
+}
 
 /** The usability columns, checked: the Supabase client is untyped. */
 const usabilitySchema = z.object({
@@ -61,9 +91,12 @@ export async function lookupPromoRule(
 
   const supabase = await createAdminClient();
   // Bounded: on the checkout POST a hung read would otherwise hold the
-  // customer at Continue until the function's limit. Retried once (a blip on
-  // a cold start must not block Continue — TRIPLY-40). A timeout is a failed
-  // lookup (503, try again), never "no such code".
+  // customer at Continue until the function's limit. The fetchDirectLot rule
+  // (TRIPLY-40): a cold instance's first read can run out of its bound, so a
+  // transient failure is retried once — a misconfiguration is not; a double
+  // failure is reported naming both errors; a recovered retry still leaves one
+  // throttled warning, so slow first reads can't go unseen. A timeout is a
+  // failed lookup (503, try again), never "no such code".
   const read = () =>
     supabase
       .from("promo_codes")
@@ -71,10 +104,15 @@ export async function lookupPromoRule(
       .eq("code", code)
       .abortSignal(AbortSignal.timeout(PROMO_LOOKUP_ATTEMPT_MS))
       .maybeSingle();
+  let first: string | null = null;
   let { data, error } = await read();
-  if (error) ({ data, error } = await read());
+  if (error && !isMisconfiguredDbError(error.code)) {
+    first = `${error.code || "no code"}: ${error.message}`;
+    ({ data, error } = await read());
+    if (!error) reportRecoveredRetry(first, context);
+  }
   if (error) {
-    captureAPIError(new Error(`Promo code lookup failed (2 attempts): ${error.message}`), {
+    captureAPIError(new Error(`Promo code lookup failed${first ? ` twice (first: ${first})` : ""}: ${error.message}`), {
       endpoint: context.endpoint,
       method: context.method,
       stage: "promo_lookup",

@@ -45,7 +45,7 @@ import {
   captureRequiredFieldCheck,
 } from "@/lib/sentry";
 import { readProtectionMetadata, STALE_CHECKOUT_MESSAGE } from "@/lib/parkguard/client";
-import { checkStampAgainstCharge, readStampedDiscount } from "@/lib/promo/stamped-discount";
+import { chargedServiceFeeCents, checkStampAgainstCharge, readStampedDiscount } from "@/lib/promo/stamped-discount";
 import { readAttributionFromRequest } from "@/lib/attribution/read-request";
 import { sessionIdentityFromRequest } from "@/lib/booking/customer-link";
 import { reslab, ReslabError } from "@/lib/reslab/client";
@@ -219,9 +219,7 @@ export async function POST(request: NextRequest) {
     // customer nothing; at fulfilment the card is already held. Metadata only,
     // no ResLab: the stamp's own form, and that checkout's figures (required
     // beside it) add up to the charge. The direct branch gets this from
-    // readDirectMetadataMoney. Absent → nothing changes. (The service fee the
-    // payment charged is applied at fulfilment, withChargedServiceFee — the
-    // browser's own finishing call does not read this row's payload.)
+    // readDirectMetadataMoney. Absent → nothing changes.
     const stamped = readStampedDiscount(meta);
     if (stamped.kind !== "absent") {
       const stampCheck = checkStampAgainstCharge(meta, stamped, {
@@ -400,7 +398,12 @@ export async function POST(request: NextRequest) {
         tax_total: payload.taxTotal ?? null,
         fees_total: payload.feesTotal ?? null,
         grand_total: payload.grandTotal ?? null,
-        triply_service_fee: payload.triplyServiceFee ?? null,
+        // On a stamped payment, the fee it CHARGED, not the page's. Fulfilment
+        // applies the same (withChargedServiceFee, whichever path finishes);
+        // the row carries it too so an engine from before that — a rolled-back
+        // deploy finishing this booking by webhook or sweep — records the
+        // right fee (Codex, PR 2 round 2).
+        triply_service_fee: stagedServiceFee(meta, payload.triplyServiceFee),
         user_id: sessionUserId,
         // Written in lockstep: the boolean predates the tier column and is
         // still read by the legacy-row rule in create-booking.ts.
@@ -952,4 +955,10 @@ async function stageDirect(body: unknown, request: NextRequest): Promise<NextRes
   }
 
   return NextResponse.json({ staged: true });
+}
+
+/** The service fee to stage: a stamped payment's CHARGED fee, else the page's (see the insert). */
+function stagedServiceFee(meta: Readonly<Record<string, string | undefined>>, pageFee: number | undefined): number | null {
+  const charged = chargedServiceFeeCents(meta);
+  return charged !== null ? charged / 100 : (pageFee ?? null);
 }

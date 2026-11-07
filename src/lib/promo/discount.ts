@@ -62,13 +62,17 @@ export interface Cart {
 export type PromoRefusal = "below_minimum" | "not_applicable" | "currency";
 
 /**
- * The promo pricing the checkout page speaks, sent with every promo code.
- * Pages loaded before PR 2 send none: they price a percent code themselves
- * (uncapped, unrounded), know no fixed codes, and never read the server's
- * verdict — so the POST refuses their code as a stale page (reload) rather
- * than charge an amount their Pay button doesn't show (Codex, PR 2 round 1).
+ * The promo pricing the checkout page speaks, sent as a REQUEST HEADER on the
+ * checkout POST. Pages loaded before PR 2 send none: they price a percent code
+ * themselves (uncapped, unrounded), know no fixed codes, and never read the
+ * server's verdict — so the POST refuses their code as a stale page (reload)
+ * rather than charge an amount their Pay button doesn't show (Codex, PR 2
+ * round 1). A header, not a body field, because an older server ignores it:
+ * a rolled-back deploy's `.strict()` direct-lot schema would refuse an unknown
+ * body key (Codex, round 2).
  */
 export const PROMO_PRICING_VERSION = 2;
+export const PROMO_PRICING_HEADER = "x-promo-pricing";
 
 export type PromoDiscountResult = { cents: number } | { refused: PromoRefusal };
 

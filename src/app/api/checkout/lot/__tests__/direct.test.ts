@@ -62,7 +62,8 @@ import { directLotRow } from "@/lib/direct/__tests__/fixtures";
 import { flagSwitch } from "@/lib/direct/__tests__/flag-switch";
 import { readDirectMetadataMoney } from "@/lib/direct/metadata-money";
 import { checkStampAgainstCharge, readStampedDiscount } from "@/lib/promo/stamped-discount";
-import { PROMO_PRICING_VERSION } from "@/lib/promo/discount";
+import { PROMO_PRICING_HEADER, PROMO_PRICING_VERSION } from "@/lib/promo/discount";
+import { __resetPromoRetryReportForTests } from "@/lib/promo/lookup";
 
 /** The stamp the POST wrote — the test fails if it wrote none. */
 const presentStamp = (meta: Record<string, string>) => {
@@ -83,10 +84,6 @@ const lot = (over: Record<string, unknown> = {}): DirectLot => {
   return out.lot;
 };
 
-/** The current checkout page sends promoPricing with every promo code; pass `promoPricing: undefined` to act as an older page. */
-const withPromoPricing = (over: Record<string, unknown>) =>
-  over.promoCode !== undefined && !("promoPricing" in over) ? { ...over, promoPricing: PROMO_PRICING_VERSION } : over;
-
 function directBody(over: Record<string, unknown> = {}) {
   return {
     inventorySource: "direct",
@@ -99,11 +96,19 @@ function directBody(over: Record<string, unknown> = {}) {
     protectionPlanCode: null,
     // checkout-form always sends the version it rendered (#150).
     termsVersion: TERMS_VERSION,
-    ...withPromoPricing(over),
+    ...over,
   };
 }
-const post = (body: unknown) =>
-  POST(new NextRequest("http://localhost/api/checkout/lot", { method: "POST", body: JSON.stringify(body), headers: { "content-type": "application/json" } }));
+/** The current checkout page sends the promo-pricing header on every POST; pass `{}` to act as an older page. */
+const CURRENT_PAGE = { [PROMO_PRICING_HEADER]: String(PROMO_PRICING_VERSION) };
+const post = (body: unknown, headers: Record<string, string> = CURRENT_PAGE) =>
+  POST(
+    new NextRequest("http://localhost/api/checkout/lot", {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: { "content-type": "application/json", ...headers },
+    })
+  );
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -403,7 +408,7 @@ describe("promo lookup (extracted helper) — both branches", () => {
     parkingTypeId: 7,
     customerEmail: "ada@example.com",
     protectionPlanCode: null,
-    ...withPromoPricing(over),
+    ...over,
   });
   beforeEach(() => {
     getCost.mockResolvedValue({
@@ -478,28 +483,46 @@ describe("promo lookup (extracted helper) — both branches", () => {
     expect(captureAPIError).not.toHaveBeenCalled();
   });
 
-  it("a promo code from a page loaded before PR 2 (no promoPricing) → 400 stale page on BOTH branches, before any lookup or PaymentIntent (Codex)", async () => {
+  it.each([
+    ["no promo-pricing header (a page loaded before PR 2)", {}],
+    ["another promo-pricing version", { [PROMO_PRICING_HEADER]: "1" }],
+  ])("a promo code with %s → 400 stale page (the refresh message) on BOTH branches, before any lookup or PaymentIntent (Codex)", async (_label, headers) => {
     // Such a page prices the code itself: a percent code capped at the online
     // parking would be charged more than its Pay button shows.
-    for (const body of [reslabBody({ promoCode: "TEN", promoPricing: undefined }), directBody({ promoCode: "TEN", promoPricing: undefined })]) {
-      const res = await post(body);
+    for (const body of [reslabBody({ promoCode: "TEN" }), directBody({ promoCode: "TEN" })]) {
+      const res = await post(body, headers);
       expect(res.status).toBe(400);
-      expect(await res.json()).toMatchObject({ code: "checkout_stale" });
+      expect(await res.json()).toEqual({ error: "This page is out of date — please refresh to continue. You have not been charged.", code: "checkout_stale" });
     }
     expect(promoSingle).not.toHaveBeenCalled();
     expect(getCost).not.toHaveBeenCalled();
     expect(createPI).not.toHaveBeenCalled();
     // The same old page with NO code is unaffected.
-    expect((await post(reslabBody())).status).toBe(200);
-    expect((await post(directBody())).status).toBe(200);
+    expect((await post(reslabBody(), headers)).status).toBe(200);
+    expect((await post(directBody(), headers)).status).toBe(200);
   });
 
-  it("one lookup blip is retried: the second attempt answers, the code applies, nothing reported", async () => {
+  it("one lookup blip is retried: the second attempt answers and the code applies; the recovery leaves one throttled warning naming the first error", async () => {
+    __resetPromoRetryReportForTests();
     promoSingle.mockResolvedValueOnce({ data: null, error: { code: "08006", message: "connection reset" } });
     await post(reslabBody({ promoCode: "TEN" }));
     expect(promoSingle).toHaveBeenCalledTimes(2);
     expect(createPI.mock.calls[0][0]).toBe(55.95);
-    expect(captureAPIError).not.toHaveBeenCalled();
+    const retryWarnings = () => vi.mocked(captureAPIError).mock.calls.filter(([, ctx]) => ctx.stage === "promo_lookup_retry");
+    expect(retryWarnings()).toHaveLength(1);
+    expect(retryWarnings()[0][0].message).toMatch(/retry recovered — 08006: connection reset/);
+    expect(retryWarnings()[0][1]).toMatchObject({ level: "warning" });
+    // A second recovery on the same instance within 5 minutes is counted, not sent.
+    promoSingle.mockResolvedValueOnce({ data: null, error: { code: "08006", message: "connection reset" } });
+    await post(reslabBody({ promoCode: "TEN" }));
+    expect(retryWarnings()).toHaveLength(1);
+  });
+
+  it("a MISCONFIGURED database (42703, a missing column) is not retried: one read, 503, reported", async () => {
+    promoSingle.mockResolvedValue({ data: null, error: { code: "42703", message: "column promo_codes.min_subtotal does not exist" } });
+    expect((await post(reslabBody({ promoCode: "TEN" }))).status).toBe(503);
+    expect(promoSingle).toHaveBeenCalledTimes(1);
+    expect(createPI).not.toHaveBeenCalled();
   });
 
   it("a FAILED lookup → 503 on BOTH branches, NO PaymentIntent (it used to charge full price silently), reported", async () => {

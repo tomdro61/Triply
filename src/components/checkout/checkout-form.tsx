@@ -23,7 +23,7 @@ import { StripeProvider } from "./stripe-provider";
 import { StripePaymentForm } from "./stripe-payment-form";
 import { OrderSummary } from "./order-summary";
 import type { ApplyPromoResult } from "./promo-code";
-import { PROMO_PRICING_VERSION, promoDiscountCents, promoRefusalMessage, type PromoRule } from "@/lib/promo/discount";
+import { PROMO_PRICING_HEADER, PROMO_PRICING_VERSION, promoDiscountCents, promoRefusalMessage, type PromoRule } from "@/lib/promo/discount";
 import { cartFromCostData, createLatestGate, decideCheckoutPromo, ruleFromValidateResponse } from "@/lib/promo/checkout-promo";
 import { confirmationHandOff } from "@/lib/confirmation/guest-email";
 import {
@@ -512,7 +512,7 @@ export function CheckoutForm({
           protectionPlanCode: protectionPlanCodeForPI,
           // The checkbox version this bundle renders (dispute evidence quotes it).
           termsVersion: TERMS_VERSION,
-          ...(sentPromo && { promoCode: sentPromo.code, promoPricing: PROMO_PRICING_VERSION }),
+          ...(sentPromo && { promoCode: sentPromo.code }),
         };
       } else {
         const parkingTypeId = costData?.parkingTypeId || lot.pricing?.parkingTypes?.[0]?.id;
@@ -531,12 +531,14 @@ export function CheckoutForm({
           protectionPlanCode: protectionPlanCodeForPI,
           // The checkbox version this bundle renders (dispute evidence quotes it).
           termsVersion: TERMS_VERSION,
-          ...(sentPromo && { promoCode: sentPromo.code, promoPricing: PROMO_PRICING_VERSION }),
+          ...(sentPromo && { promoCode: sentPromo.code }),
         };
       }
       const response = await fetch("/api/checkout/lot", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        // The promo pricing this page speaks: without it the server refuses
+        // a code as from a stale page (a header, which older servers ignore).
+        headers: { "Content-Type": "application/json", [PROMO_PRICING_HEADER]: String(PROMO_PRICING_VERSION) },
         body: JSON.stringify(requestBody),
       });
       initStatus = response.status;

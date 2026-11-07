@@ -21,6 +21,7 @@ import { protectionPlanCodeSchema } from "@/lib/validation/schemas";
 import { lookupPromoRule, type PromoLookup } from "@/lib/promo/lookup";
 import {
   normalisePromoCode,
+  PROMO_PRICING_HEADER,
   PROMO_PRICING_VERSION,
   promoDiscountCents,
   promoRefusalMessage,
@@ -247,8 +248,6 @@ const checkoutPostSchema = z.object({
   parkingTypeId: z.number().int().positive(),
   customerEmail: z.string().email(),
   promoCode: z.string().optional(),
-  // Sent with a promoCode by pages that speak PR 2's promo pricing; see promoFromStalePage.
-  promoPricing: z.literal(PROMO_PRICING_VERSION).optional(),
   // Required key, nullable value — see validation/schemas.ts for rationale.
   // The checkout form sends the customer's kept choice after Back, or null on
   // first entry (nothing is pre-selected since 2026-11-02; Plan A was the
@@ -264,6 +263,8 @@ const checkoutPostSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    // The promo pricing the page speaks (a header: see PROMO_PRICING_HEADER).
+    const promoPricing = request.headers.get(PROMO_PRICING_HEADER);
     // A checkout page loaded before the plan-tier deploy still posts the old
     // boolean. Refuse with an actionable message instead of a Zod issue.
     if (body && typeof body === "object" && "hasProtectionPlan" in body) {
@@ -272,7 +273,7 @@ export async function POST(request: NextRequest) {
     // A direct lot is chosen ONLY by an explicit inventorySource; every other
     // body takes the ResLab path exactly as before.
     if (body && typeof body === "object" && (body as Record<string, unknown>).inventorySource === "direct") {
-      return await postDirect(body);
+      return await postDirect(body, promoPricing);
     }
     const result = checkoutPostSchema.safeParse(body);
     if (!result.success) {
@@ -292,7 +293,6 @@ export async function POST(request: NextRequest) {
       parkingTypeId,
       customerEmail,
       promoCode,
-      promoPricing,
       protectionPlanCode,
       termsVersion,
     } = result.data;
@@ -516,14 +516,16 @@ async function reslabLotCurrency(locationId: number): Promise<"usd" | "not_usd" 
 const PROMO_LOOKUP_CONTEXT = { endpoint: "/api/checkout/lot", method: "POST" };
 
 /**
- * A promo code from a page loaded before PR 2 (no promoPricing). Such a page
- * prices the code itself and never reads this route's verdict: a percent code
- * capped at the online parking would be charged more than its Pay button
- * shows, a fixed code less. Refused BEFORE any PaymentIntent — the customer
- * reloads and applies the code again. A page with no code is unaffected.
+ * A promo code from a page that does not speak this promo pricing (no or
+ * another PROMO_PRICING_HEADER) — one loaded before PR 2. Such a page prices
+ * the code itself and never reads this route's verdict: a percent code capped
+ * at the online parking would be charged more than its Pay button shows, a
+ * fixed code less. Refused BEFORE any PaymentIntent with the stale-page
+ * message — the customer reloads and applies the code again. A page with no
+ * code is unaffected.
  */
-function promoFromStalePage(promoCode: string | undefined, promoPricing: number | undefined): boolean {
-  return promoCode !== undefined && promoPricing !== PROMO_PRICING_VERSION;
+function promoFromStalePage(promoCode: string | undefined, promoPricing: string | null): boolean {
+  return promoCode !== undefined && promoPricing !== String(PROMO_PRICING_VERSION);
 }
 
 /** The promo lookup failed (already reported): no PaymentIntent, the customer retries. */
@@ -600,8 +602,6 @@ const directCheckoutPostSchema = z
     checkoutTime: z.string().regex(/^\d{1,2}:\d{2}\s[AP]M$/, "Check-out time is required"),
     customerEmail: z.string().email(),
     promoCode: z.string().optional(),
-    // See checkoutPostSchema.
-    promoPricing: z.literal(PROMO_PRICING_VERSION).optional(),
     // Required key, nullable value (see checkoutPostSchema).
     protectionPlanCode: protectionPlanCodeSchema,
     // See checkoutPostSchema: the rendered terms-checkbox version, optional.
@@ -617,7 +617,7 @@ const directCheckoutPostSchema = z
  * shown (R5) — the at-lot estimate is computed from these, never from a later
  * CMS read or the client. The surcharge itself is never charged.
  */
-async function postDirect(body: unknown): Promise<NextResponse> {
+async function postDirect(body: unknown, promoPricing: string | null): Promise<NextResponse> {
   if (!isDirectCheckoutOpen()) {
     return NextResponse.json(
       { error: "Online booking for this lot is not open yet", code: "direct_not_bookable_yet" },
@@ -628,7 +628,7 @@ async function postDirect(body: unknown): Promise<NextResponse> {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
   }
-  const { lotId, checkin, checkout, checkinTime, checkoutTime, customerEmail, promoCode, promoPricing, protectionPlanCode, termsVersion } =
+  const { lotId, checkin, checkout, checkinTime, checkoutTime, customerEmail, promoCode, protectionPlanCode, termsVersion } =
     parsed.data;
   if (promoFromStalePage(promoCode, promoPricing)) {
     return NextResponse.json({ error: STALE_CHECKOUT_MESSAGE, code: "checkout_stale" }, { status: 400 });

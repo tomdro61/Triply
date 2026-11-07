@@ -18,10 +18,11 @@ vi.mock("@/lib/supabase/server", () => ({ createAdminClient: async () => db }));
 vi.mock("@sentry/nextjs", () => ({
   captureException,
   withScope: (fn: (scope: unknown) => void) =>
-    fn({ setFingerprint: vi.fn(), setTag: vi.fn(), setContext: vi.fn() }),
+    fn({ setFingerprint: vi.fn(), setTag: vi.fn(), setContext: vi.fn(), setLevel: vi.fn() }),
 }));
 
 import { POST } from "../route";
+import { __resetPromoRetryReportForTests } from "@/lib/promo/lookup";
 
 function post(body: unknown) {
   return new NextRequest("https://www.triplypro.com/api/promo/validate", {
@@ -36,6 +37,7 @@ beforeEach(() => {
   db.tables = { promo_codes: [] };
   db.log = [];
   db.clearFailures();
+  __resetPromoRetryReportForTests();
 });
 
 describe("POST /api/promo/validate", () => {
@@ -161,14 +163,15 @@ describe("POST /api/promo/validate", () => {
     expect(captureException).toHaveBeenCalledTimes(1);
   });
 
-  it("a single blip on the lookup is retried — the code is valid, nothing reported (TRIPLY-40)", async () => {
+  it("a single blip on the lookup is retried — the code is valid; the recovery is one warning, not an error (TRIPLY-40)", async () => {
     db.tables.promo_codes.push({ id: "p6b", code: "REALCODE", discount_percent: 10, active: true, expires_at: null, max_uses: null, current_uses: 0 });
     db.failOnce("promo_codes", "select", "connection reset", "08006");
 
     const res = await POST(post({ code: "REALCODE" }));
     expect(res.status).toBe(200);
     expect((await res.json()).valid).toBe(true);
-    expect(captureException).not.toHaveBeenCalled();
+    expect(captureException).toHaveBeenCalledTimes(1);
+    expect(String(captureException.mock.calls[0][0])).toMatch(/retry recovered/);
   });
 });
 
