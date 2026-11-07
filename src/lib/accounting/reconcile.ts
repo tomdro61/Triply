@@ -47,10 +47,13 @@ import { stripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/server";
 import { isAtTestLot, isTestBooking } from "@/config/admin";
 import { stripeKeyIsLive } from "@/lib/cancellation/source-guard";
+import { expectedPromoCents, parseDiscountPercent } from "@/lib/booking/confirmation-payment";
+import type { MoneyInput } from "@/lib/booking/cost-breakdown";
 import type {
   DateField,
   ReconcileOptions,
   BookingDetail,
+  PromoMismatchReason,
   ReconcileResult,
   TakeRates,
 } from "./types";
@@ -218,13 +221,6 @@ async function withConcurrency<T, R>(
   await Promise.all(workers);
   return out;
 }
-
-/** A PaymentIntent's `discountPercent` metadata (0 < p ≤ 100), or null. */
-const percentOf = (v: string | undefined): number | null => {
-  if (v === undefined || v === "") return null;
-  const n = Number(v);
-  return Number.isFinite(n) && n > 0 && n <= 100 ? n : null;
-};
 
 const num = (v: unknown): number => {
   if (v === null || v === undefined || v === "") return 0;
@@ -427,6 +423,9 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     commissionsTotal: number | null;
     grandTotal: number | null;
     subtotal: number | null;
+    // ResLab's subtotal as it came: check #3's base. Unknown stays unknown
+    // (expectedPromoCents → null), never the 0 that `subtotal` coerces it to.
+    subtotalRaw: MoneyInput;
     refundAmount: number | null;
     partialRefund: number | null;
     cancelled: boolean | null;
@@ -445,6 +444,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     commissionsTotal: null,
     grandTotal: null,
     subtotal: null,
+    subtotalRaw: null,
     refundAmount: null,
     partialRefund: null,
     cancelled: null,
@@ -517,6 +517,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
           commissionsTotal: num(h.commissions_total),
           grandTotal: num(h.grand_total),
           subtotal: num(h.subtotal),
+          subtotalRaw: h.subtotal,
           refundAmount: num(h.refund_amount),
           partialRefund: num(h.partial_refund),
           cancelled: !!data.cancelled,
@@ -569,7 +570,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
           status: pi.status,
           error: null,
           notFound: false,
-          discountPercent: percentOf(pi.metadata?.discountPercent),
+          discountPercent: parseDiscountPercent(pi.metadata?.discountPercent),
           discountStamped: pi.metadata?.discountCents !== undefined,
         };
       } catch (e) {
@@ -692,9 +693,6 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   const promoMismatches: ReconcileResult["integrity"]["promoMismatches"] = [];
   // Threshold below which source disagreements are treated as rounding noise.
   const INTEGRITY_TOLERANCE = 0.5;
-  // Check #3: the old checkout took an UNROUNDED sub_total × percent and Stripe
-  // rounded the charge, so a recorded discount is within a cent of it.
-  const PROMO_TOLERANCE = 0.015;
 
   const counts = { confirmed: 0, refunded: 0, cancelled: 0, other: 0 };
   let grossRevenue = 0; // SUM(grand_total) for confirmed (incl. due-at-lot) — parking only
@@ -959,15 +957,29 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       // otherwise be booked as a "promo discount". Also catches a percent with
       // no recorded discount (rows before migration 016, Jul 22 2026). A
       // stamped row was checked against its own figures at fulfilment.
-      if (opts.includeReslab && usedRealStripe && rl.subtotal !== null && !st.discountStamped && (discount > 0 || st.discountPercent !== null)) {
-        const expected = st.discountPercent !== null ? Math.round(rl.subtotal * st.discountPercent) / 100 : null;
-        if (expected === null || Math.abs(discount - expected) > PROMO_TOLERANCE) {
+      // The same check the confirmation page runs (expectedPromoCents — lesson 16).
+      if (opts.includeReslab && usedRealStripe && rl.locationTotal !== null && !st.discountStamped && (discount > 0 || st.discountPercent !== null)) {
+        const expectedCents = expectedPromoCents({ discountPercent: st.discountPercent, base: rl.subtotalRaw });
+        const recordedCents = Math.round(discount * 100);
+        // Within 1¢: the old checkout took an UNROUNDED sub_total × percent and Stripe rounded the charge.
+        const reason: PromoMismatchReason | null =
+          st.discountPercent === null
+            ? "no_percent"
+            : expectedCents === null
+            ? "subtotal_unknown"
+            : Math.abs(recordedCents - expectedCents) <= 1
+            ? null
+            : recordedCents === 0
+            ? "no_discount_recorded"
+            : "mismatch";
+        if (reason !== null) {
           promoMismatches.push({
             resNum: b.reslab_reservation_number,
+            reason,
             recorded: discount,
             percent: st.discountPercent,
-            expected,
-            diff: expected === null ? discount : discount - expected,
+            expected: expectedCents === null ? null : expectedCents / 100,
+            diff: expectedCents === null ? null : (recordedCents - expectedCents) / 100,
           });
         }
       }

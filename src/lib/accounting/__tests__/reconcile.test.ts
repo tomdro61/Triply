@@ -887,6 +887,8 @@ describe("reconcileRevenue — promo discounts on ResLab bookings (D3)", () => {
 
     expect(r.stripe.isDerived).toBe(true);
     expect(r.stripe.gross).toBeCloseTo(85, 10);
+    // Check #3 needs Stripe's metadata: not run (the page says so).
+    expect(r.integrity.promoMismatches).toEqual([]);
     expect(r.confirmed.stripeParkingCollected).toBeCloseTo(75, 10);
   });
 
@@ -960,7 +962,7 @@ describe("reconcileRevenue — promo discounts on ResLab bookings (D3)", () => {
       expect(r.integrity.chargeMismatches).toEqual([]);
       expect(r.integrity.parkingFlowMismatches).toEqual([]);
       // …check #3 doesn't.
-      expect(r.integrity.promoMismatches).toEqual([{ resNum: "RTL_BAD", recorded: 9, percent: 10, expected: 8, diff: 1 }]);
+      expect(r.integrity.promoMismatches).toEqual([{ resNum: "RTL_BAD", reason: "mismatch", recorded: 9, percent: 10, expected: 8, diff: 1 }]);
     });
 
     it("a code on the PaymentIntent with NO discount recorded (a booking before migration 016) is flagged", async () => {
@@ -968,7 +970,7 @@ describe("reconcileRevenue — promo discounts on ResLab bookings (D3)", () => {
       registerReslab("RTL_OLD");
       pushRow("RTL_OLD", "pi_old", { discount_amount: 0, created_at: "2026-07-01T12:00:00Z" });
       const r = await reconcileRevenue(OPTS);
-      expect(r.integrity.promoMismatches).toEqual([{ resNum: "RTL_OLD", recorded: 0, percent: 10, expected: 8, diff: -8 }]);
+      expect(r.integrity.promoMismatches).toEqual([{ resNum: "RTL_OLD", reason: "no_discount_recorded", recorded: 0, percent: 10, expected: 8, diff: -8 }]);
     });
 
     it("a discount with no percent on the PaymentIntent is flagged (nothing vouches for it)", async () => {
@@ -976,7 +978,27 @@ describe("reconcileRevenue — promo discounts on ResLab bookings (D3)", () => {
       registerReslab("RTL_NP");
       pushRow("RTL_NP", "pi_np", { discount_amount: 5 });
       const r = await reconcileRevenue(OPTS);
-      expect(r.integrity.promoMismatches).toEqual([{ resNum: "RTL_NP", recorded: 5, percent: null, expected: null, diff: 5 }]);
+      expect(r.integrity.promoMismatches).toEqual([{ resNum: "RTL_NP", reason: "no_percent", recorded: 5, percent: null, expected: null, diff: null }]);
+    });
+
+    it("ResLab with no usable subtotal: listed as NOT CHECKED — never an 'expected $0.00' built from an unknown", async () => {
+      registerPromoPI("pi_ns", 8200, { discountPercent: "10" });
+      registerReslab("RTL_NS", { subtotal: undefined });
+      pushRow("RTL_NS", "pi_ns", { discount_amount: 8 });
+      const r = await reconcileRevenue(OPTS);
+      expect(r.integrity.promoMismatches).toEqual([{ resNum: "RTL_NS", reason: "subtotal_unknown", recorded: 8, percent: 10, expected: null, diff: null }]);
+    });
+
+    it("within a cent of the percent passes (the old checkout's unrounded sub_total × pct, Stripe-rounded)", async () => {
+      // 10 % of $29.85 = 2.985: recorded 2.98 or 2.99 both pass, 2.97 does not.
+      registerReslab("RTL_C1", { subtotal: 29.85 });
+      registerPromoPI("pi_c1", 1000, { discountPercent: "10" });
+      pushRow("RTL_C1", "pi_c1", { discount_amount: 2.98 });
+      registerReslab("RTL_C2", { subtotal: 29.85 });
+      registerPromoPI("pi_c2", 1000, { discountPercent: "10" });
+      pushRow("RTL_C2", "pi_c2", { discount_amount: 2.97 });
+      const r = await reconcileRevenue(OPTS);
+      expect(r.integrity.promoMismatches.map((m) => m.resNum)).toEqual(["RTL_C2"]);
     });
 
     it("a STAMPED booking (discountCents) is skipped — fulfilment checked it against its own figures", async () => {

@@ -20,6 +20,7 @@ import { DirectPayoutsSection } from "@/components/admin/direct-payouts-section"
 import type {
   DateField,
   BookingDetail,
+  PromoMismatchReason,
   ReconcileResult,
 } from "@/lib/accounting/types";
 
@@ -50,14 +51,22 @@ function previousMonthDefaults(): { from: string; to: string } {
 // the bookings and partner exporters.
 
 /**
- * bookings.discount_amount exists from migration 016 (Jul 22, 2026): a promo
- * booking before it has none recorded, so a range reaching back that far shows
- * the promo line as a floor (promo plan D3).
+ * Bookings record their promo discount from the deploy of 31f029a / 0f0d937
+ * (migration 016), Jul 22, 2026 ~18:30 UTC — rounded UP to the next UTC
+ * midnight so the caveat errs toward showing. A promo booking before it has
+ * none recorded, so a range holding one shows the promo line as a floor
+ * (promo plan D3).
  */
-const PROMO_RECORDED_FROM = "2026-07-22";
+const PROMO_MISMATCH_WHY: Record<PromoMismatchReason, string> = {
+  mismatch: "not the code's percent",
+  no_discount_recorded: "code used, no discount recorded",
+  no_percent: "discount with no code percent",
+  subtotal_unknown: "ResLab subtotal unknown — not checked",
+};
+const PROMO_RECORDED_FROM_MS = Date.parse("2026-07-23T00:00:00Z");
 /** Whether the result holds a confirmed booking made before discounts were recorded (any date axis). */
 const hasUnrecordedPromoEra = (r: ReconcileResult): boolean =>
-  r.bookings.some((b) => b.status === "confirmed" && b.created_at < PROMO_RECORDED_FROM);
+  r.bookings.some((b) => b.status === "confirmed" && Date.parse(b.created_at) < PROMO_RECORDED_FROM_MS);
 
 function downloadCsv(bookings: BookingDetail[], filename: string) {
   const header = [
@@ -516,7 +525,7 @@ export default function AccountingPage() {
                       ? "ResLab cross-check disabled"
                       : `${result.triplyNet.promoDiscountCount} booking${result.triplyNet.promoDiscountCount === 1 ? "" : "s"} — ResLab bills the lot's full share, so Triply pays for the code${
                           hasUnrecordedPromoEra(result)
-                            ? ". A FLOOR for this range: bookings before Jul 22, 2026 have no recorded discount (Data integrity lists them when Stripe is live)"
+                            ? ". A FLOOR for this range: bookings before Jul 23, 2026 have no recorded discount (Data integrity lists them when Stripe is live)"
                             : ""
                         }`
                   }
@@ -587,7 +596,7 @@ export default function AccountingPage() {
                       booking-row composition because the live Stripe lookup is unavailable
                       (test-mode keys, or {result.stripeFetch.derivedFallbacks} per-booking fetches failed).
                       {hasUnrecordedPromoEra(result) &&
-                        " Promo bookings before Jul 22, 2026 have no recorded discount, so they are overstated."}{" "}
+                        " Promo bookings before Jul 23, 2026 have no recorded discount, so they are overstated."}{" "}
                       Production Vercel env uses live keys.
                     </p>
                   </div>
@@ -845,9 +854,9 @@ export default function AccountingPage() {
                   {result.stripe.isDerived && (
                     <div className="text-xs text-amber-700 flex items-start gap-1">
                       <AlertCircle size={14} className="mt-0.5 flex-shrink-0" />
-                      Live Stripe unavailable (test-mode keys) — the charge-drift and
-                      parking-identity checks are skipped here. Run on production for the full
-                      reconciliation.
+                      Live Stripe unavailable (test-mode keys) — the charge-drift,
+                      parking-identity and promo-percent checks are skipped here. Run on production for
+                      the full reconciliation.
                     </div>
                   )}
                   {result.reslab.dataIncomplete && (
@@ -932,8 +941,8 @@ export default function AccountingPage() {
                       </p>
                       <p className="text-xs text-gray-500 mb-2">
                         Bookings made before the discount stamp: their recorded discount was worked out from the charge,
-                        so a wrong charge would otherwise count as a promo discount. Also lists a code with no recorded
-                        discount (bookings before Jul 22, 2026).
+                        so a wrong charge — or a page-load fee that differed from the charged one — would otherwise count
+                        as a promo discount. Also lists a code with no recorded discount (bookings before Jul 23, 2026).
                       </p>
                       <div className="overflow-x-auto">
                         <table className="w-full text-xs">
@@ -943,7 +952,8 @@ export default function AccountingPage() {
                               <th className="py-1 pr-4 text-right">Recorded</th>
                               <th className="py-1 pr-4 text-right">Code %</th>
                               <th className="py-1 pr-4 text-right">Expected</th>
-                              <th className="py-1 text-right">Diff</th>
+                              <th className="py-1 pr-4 text-right">Diff</th>
+                              <th className="py-1">Why</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-100">
@@ -953,7 +963,8 @@ export default function AccountingPage() {
                                 <td className="py-1 pr-4 text-right font-mono text-gray-700">{usd(m.recorded)}</td>
                                 <td className="py-1 pr-4 text-right font-mono text-gray-700">{m.percent !== null ? `${m.percent}%` : "none"}</td>
                                 <td className="py-1 pr-4 text-right font-mono text-gray-700">{m.expected !== null ? usd(m.expected) : "—"}</td>
-                                <td className="py-1 text-right font-mono text-red-600">{usd(m.diff)}</td>
+                                <td className="py-1 pr-4 text-right font-mono text-red-600">{m.diff !== null ? usd(m.diff) : "—"}</td>
+                                <td className="py-1 text-gray-600">{PROMO_MISMATCH_WHY[m.reason]}</td>
                               </tr>
                             ))}
                           </tbody>

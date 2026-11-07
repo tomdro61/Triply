@@ -140,6 +140,16 @@ export interface TakeRates {
   netStripeTakeRate: number | null;
 }
 
+/**
+ * Why integrity check #3 lists a booking (its discount vs the code's percent):
+ *   mismatch              the recorded discount is more than 1¢ off the percent
+ *   no_discount_recorded  the PaymentIntent has a percent, the booking no
+ *                         discount (bookings before migration 016)
+ *   no_percent            a discount with no percent on the PaymentIntent
+ *   subtotal_unknown      ResLab gave no usable subtotal — NOT checked
+ */
+export type PromoMismatchReason = "mismatch" | "no_discount_recorded" | "no_percent" | "subtotal_unknown";
+
 export interface ReconcileResult {
   options: ReconcileOptions;
   counts: {
@@ -354,10 +364,11 @@ export interface ReconcileResult {
     // before migration 016). Confirmed bookings with live Stripe + ResLab.
     promoMismatches: Array<{
       resNum: string;
+      reason: PromoMismatchReason;
       recorded: number;
-      percent: number | null; // null: a discount with no percent on the PaymentIntent
-      expected: number | null;
-      diff: number; // recorded − expected (recorded when there is no percent)
+      percent: number | null; // null with reason "no_percent"
+      expected: number | null; // null: no percent, or ResLab's subtotal unknown
+      diff: number | null; // recorded − expected; null when expected is
     }>;
   };
   bookings: BookingDetail[];
