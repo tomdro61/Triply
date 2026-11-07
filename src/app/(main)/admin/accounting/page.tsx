@@ -934,15 +934,22 @@ export default function AccountingPage() {
                     </div>
                   )}
 
-                  {result.integrity.promoMismatches.length > 0 && (
+                  {result.integrity.promoMismatches.length > 0 && (() => {
+                    // "Not checked" rows are listed, never counted as mismatches.
+                    const promoNotChecked = result.integrity.promoMismatches.filter((m) => m.reason === "subtotal_unknown");
+                    const promoChecked = result.integrity.promoMismatches.filter((m) => m.reason !== "subtotal_unknown");
+                    return (
                     <div>
                       <p className="text-xs font-medium text-amber-700 mb-1">
-                        ⚠ Promo discount ≠ the code&apos;s percent of the subtotal ({result.integrity.promoMismatches.length})
+                        ⚠ Promo discount check — {promoChecked.length} not the code&apos;s percent of the subtotal
+                        {promoNotChecked.length > 0 && `, ${promoNotChecked.length} not checked (ResLab gave no usable subtotal)`}
                       </p>
                       <p className="text-xs text-gray-500 mb-2">
                         Bookings made before the discount stamp: their recorded discount was worked out from the charge,
                         so a wrong charge — or a page-load fee that differed from the charged one — would otherwise count
-                        as a promo discount. Also lists a code with no recorded discount (bookings before Jul 23, 2026).
+                        as a promo discount. &ldquo;No discount recorded&rdquo; is a booking from before Jul 23, 2026 (none
+                        recorded then), or a later one whose price fell after authorization (recorded as $0, so its code
+                        isn&apos;t in the promo total).
                       </p>
                       <div className="overflow-x-auto">
                         <table className="w-full text-xs">
@@ -971,7 +978,8 @@ export default function AccountingPage() {
                         </table>
                       </div>
                     </div>
-                  )}
+                    );
+                  })()}
                 </div>
               )}
             </div>

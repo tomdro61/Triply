@@ -144,7 +144,9 @@ export interface TakeRates {
  * Why integrity check #3 lists a booking (its discount vs the code's percent):
  *   mismatch              the recorded discount is more than 1¢ off the percent
  *   no_discount_recorded  the PaymentIntent has a percent, the booking no
- *                         discount (bookings before migration 016)
+ *                         discount: before migration 016 (Jul 23, 2026), or a
+ *                         later booking whose price fell after authorization,
+ *                         so the charge-derived discount came out $0
  *   no_percent            a discount with no percent on the PaymentIntent
  *   subtotal_unknown      ResLab gave no usable subtotal — NOT checked
  */
