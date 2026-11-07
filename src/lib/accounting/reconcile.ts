@@ -25,15 +25,21 @@
  *     migration 022) counts $0 owed and is called out in its note.
  *   - ResLab invoices by trip-completion month: sum location_total for
  *     bookings whose check_out falls within the invoice period.
+ *   - A promo discount on a ResLab booking is FUNDED BY TRIPLY: ResLab never
+ *     sees it and invoices the lot's full share, while the customer pays
+ *     Triply the parking less the discount. `bookings.discount_amount` is
+ *     subtracted from Triply's keep and from the expected charge; the gross
+ *     ("booking value") stays BEFORE discounts, with discounts as their own
+ *     line (promo plan D3, notes/2026-11-07-promo-d3-accounting-plan.md).
  *
  * Stripe fetch:
  *   Lib calls Stripe PaymentIntent (+ latest_charge) per booking in parallel
  *   (concurrency 5). Production Vercel env has live keys; local dev test
  *   keys will fail the lookups, in which case the lib falls back to the
- *   derived expectedStripe (parking_online + service_fee + pg_premium) and
- *   sets `stripe.isDerived = true` so the UI surfaces the caveat. With live
- *   keys, Stripe figures are authoritative — promo discounts, partial
- *   refunds, and dispute reversals all reflect correctly.
+ *   derived expectedStripe (parking_online + service_fee + pg_premium − promo
+ *   discount) and sets `stripe.isDerived = true` so the UI surfaces the caveat.
+ *   With live keys, Stripe figures are authoritative — partial refunds and
+ *   dispute reversals reflect correctly.
  */
 
 import type Stripe from "stripe";
@@ -41,10 +47,13 @@ import { stripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/server";
 import { isAtTestLot, isTestBooking } from "@/config/admin";
 import { stripeKeyIsLive } from "@/lib/cancellation/source-guard";
+import { expectedPromoCents, parseDiscountPercent } from "@/lib/booking/confirmation-payment";
+import type { MoneyInput } from "@/lib/booking/cost-breakdown";
 import type {
   DateField,
   ReconcileOptions,
   BookingDetail,
+  PromoMismatchReason,
   ReconcileResult,
   TakeRates,
 } from "./types";
@@ -270,7 +279,9 @@ interface SupabaseRow {
   // Stripe mode of the payment. false = TEST mode (staging writes to this same
   // database); NULL = a pre-015 row, which is live. See isTestBooking.
   livemode: boolean | null;
-  // Promo discount (migration 016). Only read for direct rows' derived charge.
+  // Promo discount the booking got (migration 016, NOT NULL DEFAULT 0). On a
+  // ResLab row Triply funds it (see the money model above); on a direct row it
+  // is part of the derived online charge.
   discount_amount: string | number | null;
   customers: CustomersJoin | CustomersJoin[];
 }
@@ -412,6 +423,9 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     commissionsTotal: number | null;
     grandTotal: number | null;
     subtotal: number | null;
+    // ResLab's subtotal as it came: check #3's base. Unknown stays unknown
+    // (expectedPromoCents → null), never the 0 that `subtotal` coerces it to.
+    subtotalRaw: MoneyInput;
     refundAmount: number | null;
     partialRefund: number | null;
     cancelled: boolean | null;
@@ -430,6 +444,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     commissionsTotal: null,
     grandTotal: null,
     subtotal: null,
+    subtotalRaw: null,
     refundAmount: null,
     partialRefund: null,
     cancelled: null,
@@ -447,6 +462,11 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     // this uniquely marks a staging/test booking in the shared prod DB — NOT a
     // transient failure. Used to exclude it from the totals + completeness gate.
     notFound: boolean;
+    // The promo the PaymentIntent was created with (check #3): checkout's
+    // `discountPercent`, and whether it carries the `discountCents` stamp
+    // (promo PR 1/2 — verified at fulfilment, so check #3 skips it).
+    discountPercent: number | null;
+    discountStamped: boolean;
   };
   const emptyStripe: StripeSlice = {
     amountReceived: null,
@@ -455,6 +475,8 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     status: null,
     error: null,
     notFound: false,
+    discountPercent: null,
+    discountStamped: false,
   };
 
   const reslabFetchErrors: ReconcileResult["reslab"]["fetchErrors"] = [];
@@ -495,6 +517,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
           commissionsTotal: num(h.commissions_total),
           grandTotal: num(h.grand_total),
           subtotal: num(h.subtotal),
+          subtotalRaw: h.subtotal,
           refundAmount: num(h.refund_amount),
           partialRefund: num(h.partial_refund),
           cancelled: !!data.cancelled,
@@ -547,6 +570,8 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
           status: pi.status,
           error: null,
           notFound: false,
+          discountPercent: parseDiscountPercent(pi.metadata?.discountPercent),
+          discountStamped: pi.metadata?.discountCents !== undefined,
         };
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
@@ -665,6 +690,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   const grandTotalMismatches: ReconcileResult["reslab"]["grandTotalMismatches"] = [];
   const chargeMismatches: ReconcileResult["integrity"]["chargeMismatches"] = [];
   const parkingFlowMismatches: ReconcileResult["integrity"]["parkingFlowMismatches"] = [];
+  const promoMismatches: ReconcileResult["integrity"]["promoMismatches"] = [];
   // Threshold below which source disagreements are treated as rounding noise.
   const INTEGRITY_TOLERANCE = 0.5;
 
@@ -690,6 +716,13 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   let confReslabDueAtLot = 0;
   let confReslabSubtotal = 0;
   let confReslabSeen = 0;
+  // Promo discounts on confirmed ResLab bookings — funded by Triply (D3), so
+  // deducted from Triply's keep; the gross stays before them.
+  let confPromoDiscount = 0;
+  let confPromoCount = 0;
+  // The part that came out of the parking (the money-flow panel's row); the
+  // rest came out of the fee (bug-6 rows only).
+  let confPromoDiscountParking = 0;
   // ---- Settlement accumulators: what ResLab's invoice actually bills ----
   // These deliberately do NOT gate on the Supabase `status === "confirmed"`
   // branch, because ResLab's invoice doesn't. Verified against the Aug 2026
@@ -746,6 +779,13 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     const subtotal = num(b.subtotal);
     const dueAtLot = num(b.due_at_location);
     const parkingOnline = Math.max(0, grandTotal - dueAtLot);
+    // The promo discount (D3), split by what it came out of. dPark: the parking
+    // paid online. dFee: Triply's service fee — only ever non-zero for a percent
+    // code on a pay-at-the-lot lot before promo PR 2 capped discounts at the
+    // online parking ("bug 6"; none in the data on Nov 7, 2026).
+    const discount = num(b.discount_amount);
+    const discountParking = Math.min(discount, parkingOnline);
+    const discountFee = discount - discountParking;
     const serviceFee = num(b.triply_service_fee);
     const pgPremium = num(b.protection_plan_price);
     const hasPG = !!b.protection_plan;
@@ -756,7 +796,12 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     if (pgWholesaleMissing) {
       pgWholesaleMissingResNums.push(b.reslab_reservation_number ?? b.id);
     }
-    const expectedStripe = parkingOnline + serviceFee + pgPremium;
+    // For an older promo booking whose discount_amount was DERIVED from the
+    // charge (fulfill.ts appliedPromoDiscount), this equals Stripe by
+    // construction, and so does check #2's parking — neither can catch a
+    // wrong charge on those rows. Check #3 does: it measures the recorded
+    // discount against the code's percent.
+    const expectedStripe = parkingOnline + serviceFee + pgPremium - discount;
 
     const stripeReceivedReal = st.amountReceived;
     const stripeRefundedRow = st.amountRefunded;
@@ -815,6 +860,9 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       confParkingSubtotal += subtotal;
       confDueAtLot += dueAtLot;
       confServiceFee += serviceFee;
+      confPromoDiscount += discount;
+      confPromoDiscountParking += discountParking;
+      if (discount > 0) confPromoCount++;
       if (hasPG) {
         confPGPremium += pgPremium;
         confPGOptIns += 1;
@@ -859,7 +907,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       if (usedRealStripe && stripeReceivedReal !== null) {
         stripeParkingRow = Math.max(0, stripeReceivedReal - serviceFee - pgPremium);
       } else {
-        stripeParkingRow = parkingOnline;
+        stripeParkingRow = Math.max(0, parkingOnline - discount);
         stripeParkingDerivedUsed = true;
       }
       confStripeParking += stripeParkingRow;
@@ -883,20 +931,55 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
         });
       }
       // Integrity check #2 — the parking identity: parking collected (Stripe)
-      // + at-gate (ResLab) should equal the booking grand_total. Gated on
+      // + the promo discount Triply funded out of it + at-gate (ResLab) should
+      // equal the booking grand_total. Gated on
       // usedRealStripe so "stripeParking" is genuinely the Stripe figure (in
       // derived mode it would be the Supabase fallback, turning this into a
       // murkier Supabase-vs-ResLab comparison the user can't tell apart — and
       // the UI flags the whole panel as skipped when Stripe is derived).
       if (opts.includeReslab && usedRealStripe && rl.locationTotal !== null) {
-        const identityDiff = stripeParkingRow + reslabAtGate - grandTotal;
+        const identityDiff = stripeParkingRow + discountParking + reslabAtGate - grandTotal;
         if (Math.abs(identityDiff) > INTEGRITY_TOLERANCE) {
           parkingFlowMismatches.push({
             resNum: b.reslab_reservation_number,
             stripeParking: stripeParkingRow,
+            promoDiscount: discountParking,
             reslabAtGate,
             grandTotal,
             diff: identityDiff,
+          });
+        }
+      }
+      // Integrity check #3 — the recorded promo discount vs the code's percent
+      // of ResLab's subtotal (what checkout took off before the discountCents
+      // stamp). Unstamped rows only: their discount_amount was derived from the
+      // charge, so checks #1 / #2 pass by construction and a wrong charge would
+      // otherwise be booked as a "promo discount". Also catches a percent with
+      // no recorded discount (rows before migration 016, Jul 22 2026). A
+      // stamped row was checked against its own figures at fulfilment.
+      // The same check the confirmation page runs (expectedPromoCents — lesson 16).
+      if (opts.includeReslab && usedRealStripe && rl.locationTotal !== null && !st.discountStamped && (discount > 0 || st.discountPercent !== null)) {
+        const expectedCents = expectedPromoCents({ discountPercent: st.discountPercent, base: rl.subtotalRaw });
+        const recordedCents = Math.round(discount * 100);
+        // Within 1¢: the old checkout took an UNROUNDED sub_total × percent and Stripe rounded the charge.
+        const reason: PromoMismatchReason | null =
+          st.discountPercent === null
+            ? "no_percent"
+            : expectedCents === null
+            ? "subtotal_unknown"
+            : Math.abs(recordedCents - expectedCents) <= 1
+            ? null
+            : recordedCents === 0
+            ? "no_discount_recorded"
+            : "mismatch";
+        if (reason !== null) {
+          promoMismatches.push({
+            resNum: b.reslab_reservation_number,
+            reason,
+            recorded: discount,
+            percent: st.discountPercent,
+            expected: expectedCents === null ? null : expectedCents / 100,
+            diff: expectedCents === null ? null : (recordedCents - expectedCents) / 100,
           });
         }
       }
@@ -904,8 +987,9 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       // Total keep = channel commission + on-top charges. Null when we
       // can't compute channel (no ResLab data for this row) — the UI/CSV
       // shows "—" in that case rather than an under-counted number.
+      // Less the promo discount Triply funded (D3).
       triplyTotal =
-        rl.channelTotal !== null ? rl.channelTotal + triplyKeeps : null;
+        rl.channelTotal !== null ? rl.channelTotal + triplyKeeps - discount : null;
       if (pgWholesaleMissing) {
         note =
           (note ? note + "; " : "") +
@@ -921,9 +1005,11 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       // the customer, so Triply keeps nothing from those rows; standard refunds
       // retain it. This is the one exception to the "refunded bookings retain
       // triply_service_fee" invariant — everything below flows from feeKept.
-      const feeKept = b.service_fee_refunded ? 0 : serviceFee;
+      // A standard refund keeps the fee the customer PAID: the fee less any part
+      // of the promo discount that came out of it (bug-6 rows only; 0 otherwise).
+      const feeKept = b.service_fee_refunded ? 0 : Math.max(0, serviceFee - discountFee);
       refServiceFee += feeKept;
-      refParkingRefunded += parkingOnline;
+      refParkingRefunded += parkingOnline - discountParking;
 
       // Actual cash Triply retained on this refund. Parking is fully refunded on
       // a cancel, so what stays is the fee + any retained PG wholesale. Ground
@@ -1017,6 +1103,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       subtotal,
       due_at_location: dueAtLot,
       parking_online: parkingOnline,
+      promo_discount: discount,
       triply_service_fee: serviceFee,
       protection_plan: b.protection_plan,
       protection_plan_price: pgPremium,
@@ -1092,9 +1179,10 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   // deducted from Triply's income here and in `triplyIncome` below. Leaving it
   // out would overstate the margin (and every take rate) by the fee — ~25% of
   // the channel commission at the Aug 2026 rate.
+  // So are the promo discounts Triply funded on confirmed ResLab bookings (D3).
   const triplyTotal =
     opts.includeReslab && !reslabDataIncomplete
-      ? netServiceFee + pgMargin + confChannelTotal - confChannelFee
+      ? netServiceFee + pgMargin + confChannelTotal - confChannelFee - confPromoDiscount
       : null;
 
   // Stripe processing fees aggregate: null when ANY contributing booking
@@ -1127,7 +1215,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   // from below; the net rate uses triplyCashTotal as a stand-in numerator
   // (cash margin) instead of triplyIncome.
   const triplyIncome =
-    netServiceFee + pgMargin + (opts.includeReslab ? confChannelTotal - confChannelFee : 0);
+    netServiceFee + pgMargin + (opts.includeReslab ? confChannelTotal - confChannelFee - confPromoDiscount : 0);
   // At-gate share uses ResLab's authoritative due_at_location_total when the
   // cross-check is on (Supabase due_at_location can drift — see RTL753241);
   // falls back to the Supabase figure only when ResLab is disabled, in which
@@ -1232,6 +1320,9 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       stripeParkingIsDerived: stripeParkingDerivedUsed,
       reslabDueAtLot: opts.includeReslab ? confReslabDueAtLot : null,
       reslabSubtotal: opts.includeReslab ? confReslabSubtotal : null,
+      promoDiscount: confPromoDiscount,
+      promoDiscountParking: confPromoDiscountParking,
+      promoDiscountCount: confPromoCount,
     },
     refunded: {
       serviceFeeKept: refServiceFee,
@@ -1252,6 +1343,10 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       // commission stays reported gross (that's the contract figure) while the
       // net reflects what ResLab actually leaves us.
       reslabChannelFee: opts.includeReslab ? confChannelFee : null,
+      // Promo discounts Triply funded on confirmed ResLab bookings — already
+      // deducted from `total` (with the channel fee), shown as their own line.
+      promoDiscounts: opts.includeReslab ? confPromoDiscount : null,
+      promoDiscountCount: confPromoCount,
       total: triplyTotal,
       cashTotal: triplyCashTotal,
       stripeProcessingFees,
@@ -1296,6 +1391,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     integrity: {
       chargeMismatches,
       parkingFlowMismatches,
+      promoMismatches,
     },
     bookings,
   };

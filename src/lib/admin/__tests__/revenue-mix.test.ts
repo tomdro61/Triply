@@ -30,6 +30,7 @@ const response = (
     total?: number | null;
     commission?: number | null;
     fee?: number | null;
+    promo?: number | null;
     cash?: number | null;
     fees?: number | null;
     pgMargin?: number;
@@ -45,6 +46,7 @@ const response = (
     pgMargin: over.pgMargin ?? 41.93,
     parkingChannelCommission: "commission" in over ? over.commission : 612.4,
     reslabChannelFee: "fee" in over ? over.fee : 151.1,
+    promoDiscounts: "promo" in over ? over.promo : 0,
     total: "total" in over ? over.total : 847.75,
     cashTotal: "cash" in over ? over.cash : 690.25,
     stripeProcessingFees: "fees" in over ? over.fees : 157.5,
@@ -70,6 +72,7 @@ describe("mixFromAccounting", () => {
     expect(m.kept).toEqual({
       parkingCommission: 612.4,
       reslabFee: 151.1,
+      promoDiscounts: 0,
       serviceFee: 344.52,
       pgMargin: 41.93,
       total: 847.75,
@@ -142,6 +145,18 @@ describe("mixFromAccounting", () => {
 });
 
 describe("kept slices", () => {
+  it("promo discounts Triply funded come off the commission slice — the three slices still add up to the reconciler's total (D3)", () => {
+    // The reconciler's total is already net of the $55.90 of discounts.
+    const k = mixOf({ promo: 55.9, total: 847.75 - 55.9, cash: 690.25 - 55.9 }).kept!;
+    expect(k.promoDiscounts).toBe(55.9);
+    expect(netCommission(k)).toBeCloseTo(612.4 - 151.1 - 55.9, 10);
+    const s = keptSlices(k);
+    expect(s.commission + s.serviceFee + s.pgMargin).toBeCloseTo(k.total, 10);
+  });
+  it("an unknown promo total (ResLab cross-check off) → no kept figures, like an unknown fee", () => {
+    expect(mixOf({ promo: null }).kept).toBeNull();
+  });
+
   it("commission after ResLab's fee; the three slices add up to the reconciler's total", () => {
     const k = mixOf().kept!;
     expect(netCommission(k)).toBeCloseTo(461.3, 10);

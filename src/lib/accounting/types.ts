@@ -61,13 +61,17 @@ export interface BookingDetail {
   subtotal: number;
   due_at_location: number;
   parking_online: number;
+  // The promo discount the booking got (bookings.discount_amount). On a ResLab
+  // row Triply funds it — it is deducted from triply_total (D3).
+  promo_discount: number;
   triply_service_fee: number;
   protection_plan: string | null;
   protection_plan_price: number;
   has_pg: boolean;
   pg_identifier: string | null;
-  // Derived expected charge (parking_online + service_fee + pg_premium).
-  // Used only as the fallback when Stripe fetch fails or is disabled.
+  // Derived expected charge (parking_online + service_fee + pg_premium −
+  // promo_discount). Used only as the fallback when Stripe fetch fails or is
+  // disabled.
   expected_stripe: number;
   // Real Stripe data (null when Stripe disabled or per-booking fetch failed).
   stripe_amount_received: number | null;
@@ -98,8 +102,8 @@ export interface BookingDetail {
   // Excludes channel commission. Was misleadingly named "triply_keeps"
   // before — the rename matches what's actually computed.
   triply_keeps: number;
-  // "Triply total" = channel commission + service fee + PG margin (the
-  // complete pile Triply kept per booking). Null for confirmed bookings
+  // "Triply total" = channel commission + service fee + PG margin − the promo
+  // discount Triply funded (the complete pile Triply kept per booking). Null for confirmed bookings
   // when ResLab data is unavailable (we can't compute channel commission
   // without it). For refunded bookings, equals service fee only (channel
   // refunded along with parking). For cancelled bookings, 0.
@@ -135,6 +139,18 @@ export interface TakeRates {
   // or any per-booking balance_transaction missing — surfaced inline).
   netStripeTakeRate: number | null;
 }
+
+/**
+ * Why integrity check #3 lists a booking (its discount vs the code's percent):
+ *   mismatch              the recorded discount is more than 1¢ off the percent
+ *   no_discount_recorded  the PaymentIntent has a percent, the booking no
+ *                         discount: before migration 016 (Jul 23, 2026), or a
+ *                         later booking whose price fell after authorization,
+ *                         so the charge-derived discount came out $0
+ *   no_percent            a discount with no percent on the PaymentIntent
+ *   subtotal_unknown      ResLab gave no usable subtotal — NOT checked
+ */
+export type PromoMismatchReason = "mismatch" | "no_discount_recorded" | "no_percent" | "subtotal_unknown";
 
 export interface ReconcileResult {
   options: ReconcileOptions;
@@ -193,13 +209,14 @@ export interface ReconcileResult {
   // used for the "Total parking customers paid" line in the parking money flow.
   grossRevenue: number;
   // Total customer spend (GMV) = SUM(grand_total + service_fee + pg_premium)
-  // for confirmed bookings. The true top-line "Gross revenue" headline. Matches
-  // the /admin dashboard's gross (stats route sums these same three fields).
+  // for confirmed bookings, BEFORE promo discounts (they are their own line,
+  // triplyNet.promoDiscounts). Matches the /admin dashboard's "Booking value"
+  // (stats route sums these same three fields).
   grossCustomerSpend: number;
   // Stripe figures are REAL when includeStripe=true (live `amount_received`
   // from per-booking PaymentIntent fetch). When includeStripe=false OR a
   // per-booking fetch failed, falls back to the derived `expected_stripe`
-  // (overstated for promo bookings — flagged via stripe.isDerived).
+  // (net of promo discounts) — flagged via stripe.isDerived.
   stripe: {
     gross: number;
     refunded: number;
@@ -233,6 +250,15 @@ export interface ReconcileResult {
     // Authoritative parking subtotal = SUM(ResLab subtotal) — denominator for
     // the channel commission rate. null when ResLab cross-check is disabled.
     reslabSubtotal: number | null;
+    // Σ bookings.discount_amount over confirmed ResLab bookings, and how many
+    // had one (counted by the discount, not promo_code: fulfilment can record a
+    // discount with no code). Funded by Triply (D3).
+    promoDiscount: number;
+    // The part of promoDiscount that came out of the parking paid online (the
+    // rest came out of the service fee: pre-PR 2 bug-6 rows only). The parking
+    // money flow's "promo discounts" row.
+    promoDiscountParking: number;
+    promoDiscountCount: number;
   };
   refunded: {
     serviceFeeKept: number;
@@ -253,6 +279,11 @@ export interface ReconcileResult {
     // ResLab's channel fee ("RL Fee") on confirmed bookings — already deducted
     // from `total`. Surfaced separately so the commission above stays gross.
     reslabChannelFee: number | null;
+    // Promo discounts Triply funded on confirmed ResLab bookings (ResLab
+    // invoices the lot's full share) — already deducted from `total`, like the
+    // channel fee. Null when the ResLab cross-check is off (as is `total`).
+    promoDiscounts: number | null;
+    promoDiscountCount: number;
     total: number | null;
     // Net cash to Triply (= total - Stripe processing fees). Null when
     // either `total` is null OR Stripe fees couldn't be measured.
@@ -306,8 +337,8 @@ export interface ReconcileResult {
   // disagree — the automatic detector for drifted/mis-stored records like
   // RTL753241 (Supabase due_at_location stored $0 vs ResLab's $98.24).
   integrity: {
-    // Supabase's expected charge (parking_online + service_fee + pg_premium)
-    // vs the ACTUAL Stripe amount_received. Confirmed bookings only, and only
+    // Supabase's expected charge (parking_online + service_fee + pg_premium −
+    // promo discount) vs the ACTUAL Stripe amount_received. Confirmed bookings only, and only
     // when live Stripe was available for the row. A non-trivial diff means the
     // Supabase booking record drifted from what the customer actually paid.
     chargeMismatches: Array<{
@@ -316,15 +347,30 @@ export interface ReconcileResult {
       stripeActual: number;
       diff: number; // expected − actual
     }>;
-    // The parking identity: Stripe parking collected + ResLab at-gate should
-    // equal the booking grand_total. A non-trivial diff means Stripe and ResLab
-    // don't reconcile against the booking value.
+    // The parking identity: Stripe parking collected + the promo discount
+    // Triply funded out of the parking + ResLab at-gate should equal the
+    // booking grand_total. A non-trivial diff means Stripe and ResLab don't
+    // reconcile against the booking value.
     parkingFlowMismatches: Array<{
       resNum: string;
       stripeParking: number;
+      promoDiscount: number;
       reslabAtGate: number;
       grandTotal: number;
-      diff: number; // (stripeParking + reslabAtGate) − grandTotal
+      diff: number; // (stripeParking + promoDiscount + reslabAtGate) − grandTotal
+    }>;
+    // The recorded promo discount vs the code's percent of ResLab's subtotal,
+    // for bookings WITHOUT the discountCents stamp (their discount was derived
+    // from the charge, so the two checks above pass by construction). Also
+    // lists a percent on the PaymentIntent with no discount recorded (rows
+    // before migration 016). Confirmed bookings with live Stripe + ResLab.
+    promoMismatches: Array<{
+      resNum: string;
+      reason: PromoMismatchReason;
+      recorded: number;
+      percent: number | null; // null with reason "no_percent"
+      expected: number | null; // null: no percent, or ResLab's subtotal unknown
+      diff: number | null; // recorded − expected; null when expected is
     }>;
   };
   bookings: BookingDetail[];

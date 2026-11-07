@@ -174,6 +174,14 @@ One entry per reviewed PR: what the review found, by lesson number. Newest first
     - the retry's per-attempt bound was tighter than the cold-start precedent, a recovered retry was silent, and misconfigurations were retried.
   - All fixed.
 
+- **Promo D3: promo discounts in the accounting (Nov 7):**
+  - Plan review (lesson 16 / 7): v1 missed the readers of the P&L components (the /admin and /admin/numbers breakdowns would stop adding up), legacy rows where a percent code ate the fee, a second meaning of "gross", and that the GA4 page never received the discount.
+  - Lesson 5: older promo rows derive their discount from the charge, so the two existing checks passed by construction and a wrong charge would have been booked as a "promo discount" — a new check #3 measures it against the code's percent.
+  - Lesson 2: check #3's first version built "expected $0.00" from a missing ResLab subtotal; it now reuses the confirmation page's helpers, which leave an unknown unknown.
+  - Lesson 1: copy that no longer matched the maths (profit formulas, "what customers paid", a skipped-checks notice naming two of three).
+  - **Rounds 2–3 (lesson 15):** the "recorded from" cutoff was the day, not the deploy; "not checked" rows were counted as mismatches.
+  - All fixed.
+
 - **#159 apply-edit replace mode (Nov 6):**
   - Lesson 2: replacing a post's last section deleted the trailing booking CTA (about 3,700 posts have it).
   - Lesson 2: a rival promo code in new text passed when the sentence didn't say "promo code".

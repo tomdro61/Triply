@@ -182,6 +182,9 @@ export interface DirectReservationView {
   cardPayment: CardSummary;
   /** What the fallback may say is due at the lot (core `fallbackDue`: amount / unconfirmed / none). */
   fallbackDue: FallbackDue;
+  /** The promo discount the booking got and its code — for the GA4 purchase event (promo plan D3). */
+  promoDiscount: number;
+  promoCode: string | null;
   airportCode: string;
   timezone: string;
   customer: { firstName: string; lastName: string; email: string; phone: string };
@@ -425,6 +428,8 @@ export function buildDirectReservation(
         refusal: costBreakdown.ok ? null : costBreakdown.reason,
         cancelled: status === "cancelled",
       }),
+      promoDiscount: fromCents(discountCents),
+      promoCode: row.promo_code,
       airportCode: snap.airportCode,
       timezone: snap.timezone,
       customer: trimmed(common.guest?.email)

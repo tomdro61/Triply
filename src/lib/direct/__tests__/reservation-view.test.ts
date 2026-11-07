@@ -87,6 +87,8 @@ describe("buildDirectReservation", () => {
       },
       cardPayment: { status: "charged", chargedCents: 4058, refundedCents: 0, netPaidCents: null },
       fallbackDue: { kind: "amount", cents: 3480 },
+      promoDiscount: 0,
+      promoCode: null,
       airportCode: "JFK",
       timezone: "America/New_York",
       customer: { firstName: "Dana", lastName: "Rivera", email: "dana@example.com", phone: "5551234567" },
