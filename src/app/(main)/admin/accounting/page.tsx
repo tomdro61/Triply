@@ -49,6 +49,16 @@ function previousMonthDefaults(): { from: string; to: string } {
 // csvEscape (formula-injection safe) now lives in @/lib/utils/csv, shared with
 // the bookings and partner exporters.
 
+/**
+ * bookings.discount_amount exists from migration 016 (Jul 22, 2026): a promo
+ * booking before it has none recorded, so a range reaching back that far shows
+ * the promo line as a floor (promo plan D3).
+ */
+const PROMO_RECORDED_FROM = "2026-07-22";
+/** Whether the result holds a confirmed booking made before discounts were recorded (any date axis). */
+const hasUnrecordedPromoEra = (r: ReconcileResult): boolean =>
+  r.bookings.some((b) => b.status === "confirmed" && b.created_at < PROMO_RECORDED_FROM);
+
 function downloadCsv(bookings: BookingDetail[], filename: string) {
   const header = [
     "booking_id", "reslab_res_num", "status", "created_at", "check_in", "check_out",
@@ -392,7 +402,7 @@ export default function AccountingPage() {
               <HeadlineCard
                 title="Gross revenue"
                 value={usd(result.grossCustomerSpend)}
-                sub="total customer spend — parking + service fee + Park Guard (incl. due-at-lot)"
+                sub="booking value before promo discounts — parking + service fee + Park Guard (incl. due-at-lot)"
                 icon={TrendingUp}
                 accent="purple"
               />
@@ -504,7 +514,11 @@ export default function AccountingPage() {
                   sub={
                     result.triplyNet.promoDiscounts === null
                       ? "ResLab cross-check disabled"
-                      : `${result.triplyNet.promoDiscountCount} booking${result.triplyNet.promoDiscountCount === 1 ? "" : "s"} — ResLab bills the lot's full share, so Triply pays for the code`
+                      : `${result.triplyNet.promoDiscountCount} booking${result.triplyNet.promoDiscountCount === 1 ? "" : "s"} — ResLab bills the lot's full share, so Triply pays for the code${
+                          hasUnrecordedPromoEra(result)
+                            ? ". A FLOOR for this range: bookings before Jul 22, 2026 have no recorded discount (Data integrity lists them when Stripe is live)"
+                            : ""
+                        }`
                   }
                 />
                 <Row
@@ -572,6 +586,8 @@ export default function AccountingPage() {
                       <strong>These are estimates, not Stripe-actual figures.</strong> Computed from
                       booking-row composition because the live Stripe lookup is unavailable
                       (test-mode keys, or {result.stripeFetch.derivedFallbacks} per-booking fetches failed).
+                      {hasUnrecordedPromoEra(result) &&
+                        " Promo bookings before Jul 22, 2026 have no recorded discount, so they are overstated."}{" "}
                       Production Vercel env uses live keys.
                     </p>
                   </div>
@@ -665,9 +681,9 @@ export default function AccountingPage() {
               {/* === How customers paid === */}
               <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mt-2 mb-1">How customers paid</p>
               <Row
-                label="Total parking customers paid"
+                label="Total parking value"
                 value={usd(result.grossRevenue)}
-                sub="confirmed bookings, sum of grand_total"
+                sub="confirmed bookings, sum of grand_total — before promo discounts"
                 emphasis
               />
               <Row
@@ -685,7 +701,7 @@ export default function AccountingPage() {
               />
               <Row
                 label="     of which → promo discounts (Triply-funded)"
-                value={usd(result.confirmed.promoDiscount)}
+                value={usd(result.confirmed.promoDiscountParking)}
                 sub={`${result.confirmed.promoDiscountCount} booking${result.confirmed.promoDiscountCount === 1 ? "" : "s"} — taken off the customer's charge; the lot is still paid in full`}
               />
               <Row
@@ -709,7 +725,7 @@ export default function AccountingPage() {
               <Row
                 label="Triply channel commission"
                 value={result.confirmed.channelTotal !== null ? usd(result.confirmed.channelTotal) : "—"}
-                sub="what Triply keeps from the parking side (before the RL Fee above)"
+                sub="what Triply keeps from the parking side (before the RL Fee above and promo discounts)"
               />
 
               {/* === Triply's net cash from parking === */}
@@ -809,6 +825,7 @@ export default function AccountingPage() {
 
               {result.integrity.chargeMismatches.length === 0 &&
               result.integrity.parkingFlowMismatches.length === 0 &&
+              result.integrity.promoMismatches.length === 0 &&
               !result.stripe.isDerived &&
               !result.reslab.dataIncomplete &&
               result.reslab.fetched > 0 ? (
@@ -907,6 +924,43 @@ export default function AccountingPage() {
                       </div>
                     </div>
                   )}
+
+                  {result.integrity.promoMismatches.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-amber-700 mb-1">
+                        ⚠ Promo discount ≠ the code&apos;s percent of the subtotal ({result.integrity.promoMismatches.length})
+                      </p>
+                      <p className="text-xs text-gray-500 mb-2">
+                        Bookings made before the discount stamp: their recorded discount was worked out from the charge,
+                        so a wrong charge would otherwise count as a promo discount. Also lists a code with no recorded
+                        discount (bookings before Jul 22, 2026).
+                      </p>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead className="text-left text-gray-500">
+                            <tr>
+                              <th className="py-1 pr-4">Res #</th>
+                              <th className="py-1 pr-4 text-right">Recorded</th>
+                              <th className="py-1 pr-4 text-right">Code %</th>
+                              <th className="py-1 pr-4 text-right">Expected</th>
+                              <th className="py-1 text-right">Diff</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {result.integrity.promoMismatches.map((m) => (
+                              <tr key={m.resNum}>
+                                <td className="py-1 pr-4 font-mono text-gray-700">{m.resNum}</td>
+                                <td className="py-1 pr-4 text-right font-mono text-gray-700">{usd(m.recorded)}</td>
+                                <td className="py-1 pr-4 text-right font-mono text-gray-700">{m.percent !== null ? `${m.percent}%` : "none"}</td>
+                                <td className="py-1 pr-4 text-right font-mono text-gray-700">{m.expected !== null ? usd(m.expected) : "—"}</td>
+                                <td className="py-1 text-right font-mono text-red-600">{usd(m.diff)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -946,7 +1000,7 @@ export default function AccountingPage() {
                       <th className="px-4 py-2 text-right">Owed (ResLab)</th>
                       <th className="px-4 py-2 text-right" title="Channel commission — Triply's parking-side cut from the ResLab split">Triply ch.</th>
                       <th className="px-4 py-2 text-right" title="Service fee + Park Guard margin — Triply's on-top charges">Triply fee</th>
-                      <th className="px-4 py-2 text-right" title="Channel commission + service fee + PG margin — the complete pile Triply kept on this booking">Triply total</th>
+                      <th className="px-4 py-2 text-right" title="Channel commission + service fee + PG margin − the promo discount Triply funded (CSV: promo_discount) — the complete pile Triply kept on this booking">Triply total</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">

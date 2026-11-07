@@ -930,6 +930,82 @@ describe("reconcileRevenue — promo discounts on ResLab bookings (D3)", () => {
     expect(r.bookings[0].note).not.toMatch(/over-retained/);
   });
 
+  /** A live PI carrying checkout's promo metadata. */
+  function registerPromoPI(pi: string, amountReceived: number, metadata: Record<string, string>) {
+    h.pis.set(pi, {
+      amount_received: amountReceived,
+      latest_charge: { amount_refunded: 0, balance_transaction: { fee: 300 } },
+      status: "succeeded",
+      metadata,
+    });
+  }
+
+  describe("check #3 — an unstamped booking's discount vs the code's percent of ResLab's subtotal", () => {
+    it("a 10 % code recorded as 10 % of the $80 subtotal ($8.00) passes", async () => {
+      registerPromoPI("pi_ok", 8200, { discountPercent: "10" });
+      registerReslab("RTL_OK");
+      pushRow("RTL_OK", "pi_ok", { discount_amount: 8 });
+      const r = await reconcileRevenue(OPTS);
+      expect(r.integrity.promoMismatches).toEqual([]);
+      expect(r.integrity.chargeMismatches).toEqual([]);
+    });
+
+    it("a recorded discount that isn't the code's percent (a wrong charge booked as a discount) is flagged", async () => {
+      // Charged $81 instead of $82: the derived "discount" is $9, not 10 % = $8.
+      registerPromoPI("pi_bad", 8100, { discountPercent: "10" });
+      registerReslab("RTL_BAD");
+      pushRow("RTL_BAD", "pi_bad", { discount_amount: 9 });
+      const r = await reconcileRevenue(OPTS);
+      // Checks #1 / #2 pass by construction on such a row…
+      expect(r.integrity.chargeMismatches).toEqual([]);
+      expect(r.integrity.parkingFlowMismatches).toEqual([]);
+      // …check #3 doesn't.
+      expect(r.integrity.promoMismatches).toEqual([{ resNum: "RTL_BAD", recorded: 9, percent: 10, expected: 8, diff: 1 }]);
+    });
+
+    it("a code on the PaymentIntent with NO discount recorded (a booking before migration 016) is flagged", async () => {
+      registerPromoPI("pi_old", 8200, { discountPercent: "10" });
+      registerReslab("RTL_OLD");
+      pushRow("RTL_OLD", "pi_old", { discount_amount: 0, created_at: "2026-07-01T12:00:00Z" });
+      const r = await reconcileRevenue(OPTS);
+      expect(r.integrity.promoMismatches).toEqual([{ resNum: "RTL_OLD", recorded: 0, percent: 10, expected: 8, diff: -8 }]);
+    });
+
+    it("a discount with no percent on the PaymentIntent is flagged (nothing vouches for it)", async () => {
+      registerPromoPI("pi_np", 8500, {});
+      registerReslab("RTL_NP");
+      pushRow("RTL_NP", "pi_np", { discount_amount: 5 });
+      const r = await reconcileRevenue(OPTS);
+      expect(r.integrity.promoMismatches).toEqual([{ resNum: "RTL_NP", recorded: 5, percent: null, expected: null, diff: 5 }]);
+    });
+
+    it("a STAMPED booking (discountCents) is skipped — fulfilment checked it against its own figures", async () => {
+      registerPromoPI("pi_st", 8500, { discountCents: "500" });
+      registerReslab("RTL_ST");
+      pushRow("RTL_ST", "pi_st", { discount_amount: 5 });
+      const r = await reconcileRevenue(OPTS);
+      expect(r.integrity.promoMismatches).toEqual([]);
+    });
+
+    it("a booking with no code at all is not checked", async () => {
+      registerLivePI("pi_none", 9000);
+      registerReslab("RTL_NONE");
+      pushRow("RTL_NONE", "pi_none");
+      expect((await reconcileRevenue(OPTS)).integrity.promoMismatches).toEqual([]);
+    });
+  });
+
+  it("the money flow's promo row is the PARKING part; the P&L takes the whole discount (a fee-eating code)", async () => {
+    registerLivePI("pi_mf", 600);
+    registerReslab("RTL_MF", { location_total: 100, due_at_location_total: 100 });
+    pushRow("RTL_MF", "pi_mf", { due_at_location: 100, discount_amount: 4 });
+    const r = await reconcileRevenue(OPTS);
+    expect(r.confirmed.promoDiscount).toBe(4);
+    expect(r.confirmed.promoDiscountParking).toBe(0);
+    // Parts of the parking total: Stripe parking 0 + promo (parking part) 0 + at the gate 100 = 100.
+    expect(r.confirmed.stripeParkingCollected + r.confirmed.promoDiscountParking + (r.confirmed.reslabDueAtLot ?? 0)).toBe(r.grossRevenue);
+  });
+
   it("the ResLab cross-check off: the discount line is null, like the total", async () => {
     registerLivePI("pi_off", 8500);
     pushRow("RTL_OFF", "pi_off", { discount_amount: 5 });

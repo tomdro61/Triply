@@ -177,7 +177,7 @@ export function MoneyBreakdown({
         {/* --- What customers paid --- */}
         <section>
           <h3 className="font-semibold text-gray-900">Where the money came from</h3>
-          <p className="text-xs text-gray-500 mb-4">What customers paid, confirmed bookings</p>
+          <p className="text-xs text-gray-500 mb-4">What customers paid, confirmed bookings — before promo discounts</p>
           {paid ? (
             <>
               <Row

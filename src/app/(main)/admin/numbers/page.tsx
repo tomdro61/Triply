@@ -5,8 +5,8 @@
  *
  * Bookings, repeat rate, sellable lots and searches come from
  * /api/admin/monthly-numbers. Net take comes from /api/admin/accounting (the
- * reconciler — channel commission − ResLab fee + service fee + Park Guard
- * margin − Stripe fees), one request per month, so this page never computes
+ * reconciler — channel commission − ResLab fee − promo discounts + service
+ * fee + Park Guard margin − Stripe fees), one request per month, so this page never computes
  * money itself. Those requests are slow (a ResLab + Stripe lookup per
  * booking), so the table renders first and net take fills in month by month.
  */
@@ -186,7 +186,7 @@ function Unavailable({ what }: { what: string }) {
 // Same figures, same names as /admin/accounting: "gross" is its headline tile
 // ("Triply revenue (gross)"), "cash" its "net cash … after Stripe fees".
 const NET_TITLES: Record<"gross" | "cash" | "perBooking", string> = {
-  gross: "Triply revenue (gross) — accounting's headline: channel commission − ResLab fee + service fee + Park Guard margin",
+  gross: "Triply revenue (gross) — accounting's headline: channel commission − ResLab fee − promo discounts + service fee + Park Guard margin",
   cash: "Net cash after Stripe processing fees — accounting's 'net cash' subtitle / P&L bottom line",
   perBooking: "Gross ÷ confirmed bookings",
 };
@@ -523,7 +523,7 @@ export default function MonthlyNumbersPage() {
 
       <Card
         title="What we keep"
-        note={`The same two figures as /admin/accounting with its Date field set to "${DATE_AXIS_LABELS[by]}". 'Triply revenue (gross)' = channel commission − ResLab fee + service fee + Park Guard margin (includes the service fee kept on refunded bookings); 'Net cash' = gross − Stripe processing fees. Per booking = gross ÷ confirmed bookings.`}
+        note={`The same two figures as /admin/accounting with its Date field set to "${DATE_AXIS_LABELS[by]}". 'Triply revenue (gross)' = channel commission − ResLab fee − promo discounts + service fee + Park Guard margin (includes the service fee kept on refunded bookings); 'Net cash' = gross − Stripe processing fees. Per booking = gross ÷ confirmed bookings.`}
       >
         {!historyRequested && (
           <p className="text-sm text-gray-600 mb-3">

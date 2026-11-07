@@ -242,6 +242,10 @@ export interface ReconcileResult {
     // had one (counted by the discount, not promo_code: fulfilment can record a
     // discount with no code). Funded by Triply (D3).
     promoDiscount: number;
+    // The part of promoDiscount that came out of the parking paid online (the
+    // rest came out of the service fee: pre-PR 2 bug-6 rows only). The parking
+    // money flow's "promo discounts" row.
+    promoDiscountParking: number;
     promoDiscountCount: number;
   };
   refunded: {
@@ -342,6 +346,18 @@ export interface ReconcileResult {
       reslabAtGate: number;
       grandTotal: number;
       diff: number; // (stripeParking + promoDiscount + reslabAtGate) − grandTotal
+    }>;
+    // The recorded promo discount vs the code's percent of ResLab's subtotal,
+    // for bookings WITHOUT the discountCents stamp (their discount was derived
+    // from the charge, so the two checks above pass by construction). Also
+    // lists a percent on the PaymentIntent with no discount recorded (rows
+    // before migration 016). Confirmed bookings with live Stripe + ResLab.
+    promoMismatches: Array<{
+      resNum: string;
+      recorded: number;
+      percent: number | null; // null: a discount with no percent on the PaymentIntent
+      expected: number | null;
+      diff: number; // recorded − expected (recorded when there is no percent)
     }>;
   };
   bookings: BookingDetail[];

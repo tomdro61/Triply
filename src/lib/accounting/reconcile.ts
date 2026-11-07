@@ -219,6 +219,13 @@ async function withConcurrency<T, R>(
   return out;
 }
 
+/** A PaymentIntent's `discountPercent` metadata (0 < p ≤ 100), or null. */
+const percentOf = (v: string | undefined): number | null => {
+  if (v === undefined || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 && n <= 100 ? n : null;
+};
+
 const num = (v: unknown): number => {
   if (v === null || v === undefined || v === "") return 0;
   const n = typeof v === "number" ? v : parseFloat(String(v));
@@ -455,6 +462,11 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     // this uniquely marks a staging/test booking in the shared prod DB — NOT a
     // transient failure. Used to exclude it from the totals + completeness gate.
     notFound: boolean;
+    // The promo the PaymentIntent was created with (check #3): checkout's
+    // `discountPercent`, and whether it carries the `discountCents` stamp
+    // (promo PR 1/2 — verified at fulfilment, so check #3 skips it).
+    discountPercent: number | null;
+    discountStamped: boolean;
   };
   const emptyStripe: StripeSlice = {
     amountReceived: null,
@@ -463,6 +475,8 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     status: null,
     error: null,
     notFound: false,
+    discountPercent: null,
+    discountStamped: false,
   };
 
   const reslabFetchErrors: ReconcileResult["reslab"]["fetchErrors"] = [];
@@ -555,6 +569,8 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
           status: pi.status,
           error: null,
           notFound: false,
+          discountPercent: percentOf(pi.metadata?.discountPercent),
+          discountStamped: pi.metadata?.discountCents !== undefined,
         };
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
@@ -673,8 +689,12 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   const grandTotalMismatches: ReconcileResult["reslab"]["grandTotalMismatches"] = [];
   const chargeMismatches: ReconcileResult["integrity"]["chargeMismatches"] = [];
   const parkingFlowMismatches: ReconcileResult["integrity"]["parkingFlowMismatches"] = [];
+  const promoMismatches: ReconcileResult["integrity"]["promoMismatches"] = [];
   // Threshold below which source disagreements are treated as rounding noise.
   const INTEGRITY_TOLERANCE = 0.5;
+  // Check #3: the old checkout took an UNROUNDED sub_total × percent and Stripe
+  // rounded the charge, so a recorded discount is within a cent of it.
+  const PROMO_TOLERANCE = 0.015;
 
   const counts = { confirmed: 0, refunded: 0, cancelled: 0, other: 0 };
   let grossRevenue = 0; // SUM(grand_total) for confirmed (incl. due-at-lot) — parking only
@@ -702,6 +722,9 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   // deducted from Triply's keep; the gross stays before them.
   let confPromoDiscount = 0;
   let confPromoCount = 0;
+  // The part that came out of the parking (the money-flow panel's row); the
+  // rest came out of the fee (bug-6 rows only).
+  let confPromoDiscountParking = 0;
   // ---- Settlement accumulators: what ResLab's invoice actually bills ----
   // These deliberately do NOT gate on the Supabase `status === "confirmed"`
   // branch, because ResLab's invoice doesn't. Verified against the Aug 2026
@@ -777,7 +800,9 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     }
     // For an older promo booking whose discount_amount was DERIVED from the
     // charge (fulfill.ts appliedPromoDiscount), this equals Stripe by
-    // construction — check #1 can't catch drift on those rows; check #2 can.
+    // construction, and so does check #2's parking — neither can catch a
+    // wrong charge on those rows. Check #3 does: it measures the recorded
+    // discount against the code's percent.
     const expectedStripe = parkingOnline + serviceFee + pgPremium - discount;
 
     const stripeReceivedReal = st.amountReceived;
@@ -838,6 +863,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       confDueAtLot += dueAtLot;
       confServiceFee += serviceFee;
       confPromoDiscount += discount;
+      confPromoDiscountParking += discountParking;
       if (discount > 0) confPromoCount++;
       if (hasPG) {
         confPGPremium += pgPremium;
@@ -923,6 +949,25 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
             reslabAtGate,
             grandTotal,
             diff: identityDiff,
+          });
+        }
+      }
+      // Integrity check #3 — the recorded promo discount vs the code's percent
+      // of ResLab's subtotal (what checkout took off before the discountCents
+      // stamp). Unstamped rows only: their discount_amount was derived from the
+      // charge, so checks #1 / #2 pass by construction and a wrong charge would
+      // otherwise be booked as a "promo discount". Also catches a percent with
+      // no recorded discount (rows before migration 016, Jul 22 2026). A
+      // stamped row was checked against its own figures at fulfilment.
+      if (opts.includeReslab && usedRealStripe && rl.subtotal !== null && !st.discountStamped && (discount > 0 || st.discountPercent !== null)) {
+        const expected = st.discountPercent !== null ? Math.round(rl.subtotal * st.discountPercent) / 100 : null;
+        if (expected === null || Math.abs(discount - expected) > PROMO_TOLERANCE) {
+          promoMismatches.push({
+            resNum: b.reslab_reservation_number,
+            recorded: discount,
+            percent: st.discountPercent,
+            expected,
+            diff: expected === null ? discount : discount - expected,
           });
         }
       }
@@ -1264,6 +1309,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       reslabDueAtLot: opts.includeReslab ? confReslabDueAtLot : null,
       reslabSubtotal: opts.includeReslab ? confReslabSubtotal : null,
       promoDiscount: confPromoDiscount,
+      promoDiscountParking: confPromoDiscountParking,
       promoDiscountCount: confPromoCount,
     },
     refunded: {
@@ -1333,6 +1379,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     integrity: {
       chargeMismatches,
       parkingFlowMismatches,
+      promoMismatches,
     },
     bookings,
   };
