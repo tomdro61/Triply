@@ -16,7 +16,12 @@
  *      else's email is fine — it just doesn't attach their record to you.
  *      Deliberate linking of past guest bookings goes through the verified
  *      claim flow (POST /api/user/link-bookings), which has its own gate.
- *      (`linkableUserIdForEmail`, used by persistBooking.)
+ *      (`accountHoldsEmail`, used by persistBooking.)
+ *   3. The same rule decides which row a booking is FILED under: a row found
+ *      by email that already belongs to an account is used only when that
+ *      account's verified email is the booking's address (the holder booking
+ *      signed out). Any other booking under that address goes to an unlinked
+ *      row, claimable only by an account verified for that address.
  *
  * Load-bearing assumption: `email_confirmed_at` means the address was really
  * confirmed. That is only true while "Confirm email" is ON in the Supabase
@@ -164,37 +169,53 @@ export function __setAuthUserLookupForTests(fn: AuthUserLookup | null): void {
 }
 
 /**
- * Returns `userId` when it is safe to attach a customer row for
- * `customerEmail` to that account — i.e. the account's VERIFIED email is the
- * same address — otherwise null. Never throws.
+ * Is `email` this account's VERIFIED auth email?
+ *   - "match": the account exists and its confirmed email is that address.
+ *   - "mismatch": the account exists, but its email is unconfirmed or a
+ *     different address.
+ *   - "unknown": no answer (the lookup failed, timed out, or found no user).
+ * Never throws; a failed lookup is reported here.
  *
  * Runs at fulfilment, which happens on the browser path, the Stripe webhook
  * and the sweep cron alike, so it looks the user up via the admin API rather
  * than relying on a request session that only one of those paths has.
+ */
+export async function accountHoldsEmail(
+  userId: string,
+  email: string
+): Promise<"match" | "mismatch" | "unknown"> {
+  const target = normalizeEmail(email);
+  if (!target) return "mismatch";
+  try {
+    // This runs AFTER the Stripe capture and the ResLab reservation and
+    // BEFORE the bookings INSERT. The admin client has no request timeout, so
+    // a hung GoTrue would otherwise hold the lambda until maxDuration kills it
+    // — money captured, no bookings row, nothing in Sentry (the yb3246 orphan
+    // class). Bound it: a slow auth service degrades to "unknown" (fulfilment
+    // then neither links nor files under an owned row; the customer can claim
+    // via /api/user/link-bookings), never a stalled booking.
+    const found = await withTimeout(lookup(userId), LOOKUP_TIMEOUT_MS, "auth user lookup");
+    if (!found) return "unknown";
+    return found.verifiedEmail === target ? "match" : "mismatch";
+  } catch (err) {
+    captureBookingError(err instanceof Error ? err : new Error(String(err)), {
+      step: "checkout",
+    });
+    return "unknown";
+  }
+}
+
+/**
+ * Returns `userId` when it is safe to attach a customer row for
+ * `customerEmail` to that account — i.e. the account's VERIFIED email is the
+ * same address — otherwise null. Never throws.
  */
 export async function linkableUserIdForEmail(
   userId: string | null | undefined,
   customerEmail: string
 ): Promise<string | null> {
   if (!userId) return null;
-  const target = normalizeEmail(customerEmail);
-  if (!target) return null;
-  try {
-    // This runs AFTER the Stripe capture and the ResLab reservation and
-    // BEFORE the bookings INSERT. The admin client has no request timeout, so
-    // a hung GoTrue would otherwise hold the lambda until maxDuration kills it
-    // — money captured, no bookings row, nothing in Sentry (the yb3246 orphan
-    // class). Bound it: a slow auth service degrades to "don't link" (the
-    // customer can claim via /api/user/link-bookings), never a stalled booking.
-    const found = await withTimeout(lookup(userId), LOOKUP_TIMEOUT_MS, "auth user lookup");
-    if (!found || !found.verifiedEmail) return null;
-    return found.verifiedEmail === target ? userId : null;
-  } catch (err) {
-    captureBookingError(err instanceof Error ? err : new Error(String(err)), {
-      step: "checkout",
-    });
-    return null;
-  }
+  return (await accountHoldsEmail(userId, customerEmail)) === "match" ? userId : null;
 }
 
 /** Case/space-insensitive email equality, shared with fulfilment. */

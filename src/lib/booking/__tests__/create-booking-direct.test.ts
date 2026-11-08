@@ -58,6 +58,7 @@ vi.mock("@/lib/direct/confirmation-number", async () => {
 });
 
 const { createBooking, redriveDirectBookingSends } = await import("../create-booking");
+const { __setAuthUserLookupForTests } = await import("../customer-link");
 const { capturePaymentError, captureBookingError, captureDirectLotNotice } = await import("@/lib/sentry");
 const { sendBookingConfirmation } = await import("@/lib/resend/send-booking-confirmation");
 const { sendAdminBookingNotification } = await import("@/lib/resend/send-admin-booking-notification");
@@ -337,6 +338,29 @@ describe("direct fulfilment — the happy path", () => {
   it("the checkout preview flag being off does not strand a staged booking (the engine never reads it)", async () => {
     vi.stubEnv("DIRECT_CHECKOUT_PREVIEW", "");
     expect((await createBooking({ source: "sweep", stripePaymentIntentId: PI })).kind).toBe("created");
+  });
+});
+
+describe("direct fulfilment — which customers row the booking is filed under", () => {
+  afterEach(() => __setAuthUserLookupForTests(null));
+
+  it("a guest booking is not filed under an email-matched row whose account's verified email is a different address", async () => {
+    db.tables.customers = [
+      { id: "owned", email: "ada@example.com", user_id: "other-uid", first_name: "Mal", phone: "000", created_at: "2026-02-20T00:00:00Z" },
+    ];
+    __setAuthUserLookupForTests(async (id) => (id === "other-uid" ? { verifiedEmail: "other@example.com" } : null));
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    const filedUnder = db.tables.customers.find((c) => c.id === db.tables.bookings[0].customer_id);
+    expect(filedUnder?.id).not.toBe("owned");
+    expect(filedUnder?.user_id ?? null).toBeNull();
+    expect(db.tables.customers.find((c) => c.id === "owned")).toMatchObject({ user_id: "other-uid", first_name: "Mal", phone: "000" });
+    expect(captureBookingError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringMatching(/customers row owned not used/) }),
+      expect.objectContaining({ fingerprint: ["customers-owned-row-skipped", "mismatch"] })
+    );
   });
 });
 

@@ -121,6 +121,13 @@ export default function AccountPage() {
         body: JSON.stringify({ firstName, lastName, phone }),
       });
 
+      if (response.status === 403) {
+        // The account's email isn't confirmed yet — retrying won't help, so
+        // show the server's reason instead of "try again".
+        const data: { error?: string } | null = await response.json().catch(() => null);
+        setErrorMessage(data?.error ?? "Please confirm your email address before saving your profile.");
+        return;
+      }
       if (!response.ok) {
         throw new Error("Failed to update profile");
       }
