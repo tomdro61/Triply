@@ -17,7 +17,7 @@ import { FakeSupabase } from "./supabase-fake";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { BookingConfirmationEmail } from "@/lib/resend/templates/booking-confirmation";
-import { __setAuthUserLookupForTests } from "../customer-link";
+import { __setAuthUserLookupForTests, LOOKUP_TIMEOUT_MS } from "../customer-link";
 
 // ---------------------------------------------------------------------------
 // Mocks. ReslabError is kept REAL — classification is instanceof-based, and a
@@ -1475,11 +1475,22 @@ describe("customer linking at fulfilment — the account-takeover fix (2026-09-2
   it("never overwrites a row that already belongs to a different account", async () => {
     db.seed("customers", [{ id: "ada", email: "Ada.Lovelace@Example.com", user_id: "someone-else" }]);
     db.seed("pending_bookings", [pendingRow({ user_id: "ada-uid" })]);
-    __setAuthUserLookupForTests(async () => ({ verifiedEmail: "ada.lovelace@example.com" }));
+    __setAuthUserLookupForTests(async (id) =>
+      id === "ada-uid"
+        ? { verifiedEmail: "ada.lovelace@example.com" }
+        : id === "someone-else"
+          ? { verifiedEmail: "someone@example.com" }
+          : null
+    );
 
     await createBooking({ source: "webhook", stripePaymentIntentId: PI });
 
     expect(db.tables.customers.find((c) => c.id === "ada")?.user_id).toBe("someone-else");
+    // The booker's verified email IS the address, so the booking goes to a
+    // new row linked to the booker, not the other account's row.
+    const filedUnder = db.tables.customers.find((c) => c.id === db.tables.bookings[0].customer_id);
+    expect(filedUnder?.id).not.toBe("ada");
+    expect(filedUnder?.user_id).toBe("ada-uid");
   });
 
   it("a signed-in booker using a different email gets a plain guest row for that address, not one attached to their account", async () => {
@@ -1585,6 +1596,391 @@ describe("customer linking at fulfilment — the account-takeover fix (2026-09-2
 
     expect(out.kind).toBe("created");
     expect(db.tables.bookings[0].customer_id).toBe("ada");
+  });
+
+  // A row found by EMAIL is the booker's record only when nobody owns it, or
+  // its owner's VERIFIED email is that address — the same rule linking uses.
+  it("a guest booking is not filed under an email-matched row owned by an account whose verified email is a different address", async () => {
+    db.seed("customers", [
+      { id: "owned", email: "Ada.Lovelace@Example.com", user_id: "other-uid", first_name: "Mal", last_name: "Lory", phone: "000", created_at: "2026-02-20T00:00:00Z" },
+    ]);
+    db.seed("pending_bookings", [pendingRow({ user_id: null })]);
+    __setAuthUserLookupForTests(async (id) => (id === "other-uid" ? { verifiedEmail: "other@example.com" } : null));
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    const owned = db.tables.customers.find((c) => c.id === "owned");
+    expect(owned).toMatchObject({ user_id: "other-uid", first_name: "Mal", last_name: "Lory", phone: "000" });
+    const filedUnder = db.tables.customers.find((c) => c.id === db.tables.bookings[0].customer_id);
+    expect(filedUnder?.id).not.toBe("owned");
+    expect(filedUnder?.user_id ?? null).toBeNull();
+    // The owned row was found by email and actively skipped (not missed by the query).
+    expect(captureBookingError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringMatching(/customers row owned not used/) }),
+      expect.objectContaining({ fingerprint: ["customers-owned-row-skipped", "mismatch"] })
+    );
+  });
+
+  it("skipping such a row falls through to a newer UNLINKED row for the same address, not a new one", async () => {
+    db.seed("customers", [
+      { id: "owned", email: "Ada.Lovelace@Example.com", user_id: "other-uid", created_at: "2026-02-20T00:00:00Z" },
+      { id: "guest", email: "Ada.Lovelace@Example.com", user_id: null, created_at: "2026-09-01T00:00:00Z" },
+    ]);
+    db.seed("pending_bookings", [pendingRow({ user_id: null })]);
+    __setAuthUserLookupForTests(async (id) => (id === "other-uid" ? { verifiedEmail: "other@example.com" } : null));
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(db.tables.bookings[0].customer_id).toBe("guest");
+    expect(db.tables.customers).toHaveLength(2);
+    expect(captureBookingError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringMatching(/customers row owned not used/) }),
+      expect.objectContaining({ fingerprint: ["customers-owned-row-skipped", "mismatch"] })
+    );
+    // The skipped row is not a duplicate to merge: only one row could take the booking.
+    expect(captureBookingError).not.toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringMatching(/dedupe needed/) }),
+      expect.anything()
+    );
+  });
+
+  it("a signed-out booking by an account holder under their own verified email is still filed under their row", async () => {
+    db.seed("customers", [
+      { id: "ada", email: "Ada.Lovelace@Example.com", user_id: "ada-uid", first_name: "Ada", last_name: "Byron", phone: "999" },
+    ]);
+    db.seed("pending_bookings", [pendingRow({ user_id: null })]);
+    const lookup = vi.fn(async (id: string) => (id === "ada-uid" ? { verifiedEmail: "ada.lovelace@example.com" } : null));
+    __setAuthUserLookupForTests(lookup);
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(db.tables.bookings[0].customer_id).toBe("ada");
+    expect(db.tables.customers).toHaveLength(1);
+    expect(lookup).toHaveBeenCalledWith("ada-uid");
+    // A signed-out booking leaves the account holder's details alone.
+    expect(db.tables.customers[0]).toMatchObject({ first_name: "Ada", last_name: "Byron", phone: "999" });
+    expect(captureBookingError).not.toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringMatching(/customers row .* not used/) }),
+      expect.anything()
+    );
+  });
+
+  it("an owned row whose account isn't found is skipped and reported under its own fingerprint — not as a mismatch", async () => {
+    db.seed("customers", [{ id: "owned", email: "Ada.Lovelace@Example.com", user_id: "gone-uid" }]);
+    db.seed("pending_bookings", [pendingRow({ user_id: null })]);
+    __setAuthUserLookupForTests(async () => null);
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(db.tables.bookings[0].customer_id).not.toBe("owned");
+    expect(captureBookingError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringMatching(/customers row owned not used .*could not be checked/) }),
+      { step: "checkout", fingerprint: ["customers-owned-row-skipped", "unknown"] }
+    );
+    expect(captureBookingError).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ fingerprint: ["customers-owned-row-skipped", "mismatch"] })
+    );
+  });
+
+  it("a mismatch is reported under its own fingerprint, and no email address reaches Sentry", async () => {
+    db.seed("customers", [{ id: "owned", email: "Ada.Lovelace@Example.com", user_id: "other-uid" }]);
+    db.seed("pending_bookings", [pendingRow({ user_id: null })]);
+    __setAuthUserLookupForTests(async (id) => (id === "other-uid" ? { verifiedEmail: "other@example.com" } : null));
+
+    await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    const call = vi.mocked(captureBookingError).mock.calls.find(
+      ([, ctx]) => JSON.stringify(ctx.fingerprint) === JSON.stringify(["customers-owned-row-skipped", "mismatch"])
+    );
+    expect(call).toBeDefined();
+    expect(call?.[0].message).toMatch(/customers row owned not used .*not this address/);
+    expect(call?.[1].level).toBeUndefined();
+    for (const [err, ctx] of vi.mocked(captureBookingError).mock.calls) {
+      expect(`${err.message} ${JSON.stringify(ctx)}`).not.toMatch(/@/);
+    }
+  });
+
+  it("makes no auth lookup when the oldest row for the address has no account (guest booker)", async () => {
+    db.seed("customers", [
+      { id: "guest", email: "Ada.Lovelace@Example.com", user_id: null, created_at: "2026-02-20T00:00:00Z" },
+      { id: "owned", email: "Ada.Lovelace@Example.com", user_id: "other-uid", created_at: "2026-09-01T00:00:00Z" },
+    ]);
+    db.seed("pending_bookings", [pendingRow({ user_id: null })]);
+    const lookup = vi.fn(async () => ({ verifiedEmail: "other@example.com" }));
+    __setAuthUserLookupForTests(lookup);
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(db.tables.bookings[0].customer_id).toBe("guest");
+    expect(lookup).not.toHaveBeenCalled();
+  });
+
+  it("a guest booking on a row with no account still refreshes that row's name and phone", async () => {
+    db.seed("customers", [
+      { id: "guest", email: "Ada.Lovelace@Example.com", user_id: null, first_name: "Old", last_name: "Name", phone: "000" },
+    ]);
+    db.seed("pending_bookings", [pendingRow({ user_id: null })]);
+
+    await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(db.tables.customers[0]).toMatchObject({ first_name: "Ada", phone: "555-0100" });
+  });
+
+  it("a signed-in booker's own row for the same address still refreshes their name and phone", async () => {
+    db.seed("customers", [
+      { id: "ada", email: "Ada.Lovelace@Example.com", user_id: "ada-uid", first_name: "Old", last_name: "Name", phone: "000" },
+    ]);
+    db.seed("pending_bookings", [pendingRow({ user_id: "ada-uid" })]);
+    const lookup = vi.fn(async () => ({ verifiedEmail: "ada.lovelace@example.com" }));
+    __setAuthUserLookupForTests(lookup);
+
+    await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(db.tables.bookings[0].customer_id).toBe("ada");
+    expect(db.tables.customers[0]).toMatchObject({ first_name: "Ada", phone: "555-0100" });
+    expect(lookup).not.toHaveBeenCalled();
+  });
+
+  it("when the owner can't be looked up, the booking is still created — under an unlinked row, never the owned one", async () => {
+    db.seed("customers", [{ id: "owned", email: "Ada.Lovelace@Example.com", user_id: "other-uid" }]);
+    db.seed("pending_bookings", [pendingRow({ user_id: null })]);
+    __setAuthUserLookupForTests(async () => {
+      throw new Error("GoTrue 503");
+    });
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(db.tables.bookings[0].customer_id).not.toBe("owned");
+    expect(captureBookingError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringMatching(/GoTrue 503/) }),
+      expect.objectContaining({ step: "checkout" })
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Which customers row a booking is filed under — the gaps.
+// ---------------------------------------------------------------------------
+describe("customer filing — multi-row, parallel, bounded, re-drive", () => {
+  const E = "Ada.Lovelace@Example.com";
+  beforeEach(() => {
+    db.tables = { pending_bookings: [], bookings: [], cart_claims: [], customers: [] };
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+  });
+  afterEach(() => {
+    __setAuthUserLookupForTests(null);
+    vi.useRealTimers();
+  });
+  const filedUnder = () => db.tables.customers.find((c) => c.id === db.tables.bookings[0]?.customer_id);
+  const skipReports = () =>
+    vi.mocked(captureBookingError).mock.calls.filter(([, ctx]) => ctx.fingerprint?.[0] === "customers-owned-row-skipped");
+
+  // P1 (Critical)
+  it.each<[string, (id: string) => Promise<{ verifiedEmail: string | null } | null>]>([
+    ["the lookup throws", async () => { throw new Error("GoTrue 503"); }],
+    ["the account is not found", async () => null],
+  ])("a signed-in booker whose own check is unknown (%s) is never linked — not the matched unlinked row, not a new row", async (_label, impl) => {
+    db.seed("customers", [{ id: "victim", email: E, user_id: null, created_at: "2026-02-20T00:00:00Z" }]);
+    db.seed("pending_bookings", [pendingRow({ user_id: "attacker-uid" })]);
+    __setAuthUserLookupForTests(impl);
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(db.tables.bookings[0].customer_id).toBe("victim");
+    expect(db.tables.customers.find((c) => c.id === "victim")?.user_id ?? null).toBeNull();
+
+    // Same rule on the new-row branch.
+    db.tables = { pending_bookings: [pendingRow({ user_id: "attacker-uid", stripe_payment_intent_id: "pi_2" })], bookings: [], cart_claims: [], customers: [] };
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent({ id: "pi_2" }));
+    const out2 = await createBooking({ source: "webhook", stripePaymentIntentId: "pi_2" });
+    expect(out2.kind).toBe("created");
+    expect(db.tables.customers).toHaveLength(1);
+    expect(db.tables.customers[0].user_id ?? null).toBeNull();
+  });
+
+  // P2 (High)
+  it("after a user_id lookup fault, the booker's own row found by email is used even when their verified email no longer matches it", async () => {
+    db.seed("customers", [{ id: "ada", email: E, user_id: "ada-uid", created_at: "2026-02-20T00:00:00Z" }]);
+    db.seed("pending_bookings", [pendingRow({ user_id: "ada-uid" })]);
+    db.failOnce("customers", "select", "connection reset", "08006");
+    const lookup = vi.fn(async () => ({ verifiedEmail: "ada.new@example.com" }));
+    __setAuthUserLookupForTests(lookup);
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(db.tables.bookings[0].customer_id).toBe("ada");
+    expect(db.tables.customers).toHaveLength(1);
+    expect(lookup).toHaveBeenCalledTimes(1); // the booker's own check — not again as an "owner"
+    expect(skipReports()).toHaveLength(0);
+  });
+
+  // P3 (High)
+  it("scans oldest-first by created_at: skips a mismatch and an unknown, files under the first owned row whose account holds the address — ahead of a newer unlinked row", async () => {
+    db.seed("customers", [ // seeded NEWEST first on purpose
+      { id: "d-guest", email: E, user_id: null, first_name: "Dee", created_at: "2026-04-01T00:00:00Z" },
+      { id: "c-holder", email: E, user_id: "uid-c", first_name: "Cee", phone: "333", created_at: "2026-03-01T00:00:00Z" },
+      { id: "b-unknown", email: E, user_id: "uid-b", created_at: "2026-02-01T00:00:00Z" },
+      { id: "a-other", email: E, user_id: "uid-a", created_at: "2026-01-01T00:00:00Z" },
+    ]);
+    db.seed("pending_bookings", [pendingRow({ user_id: null })]);
+    const lookup = vi.fn(async (id: string) =>
+      id === "uid-a" ? { verifiedEmail: "someone@example.com" } : id === "uid-c" ? { verifiedEmail: "ada.lovelace@example.com" } : null
+    );
+    __setAuthUserLookupForTests(lookup);
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(db.tables.bookings[0].customer_id).toBe("c-holder");
+    expect(db.tables.customers).toHaveLength(4);
+    expect(lookup.mock.calls.map(([id]) => id).sort()).toEqual(["uid-a", "uid-b", "uid-c"]);
+    expect(db.tables.customers.find((c) => c.id === "c-holder")).toMatchObject({ user_id: "uid-c", first_name: "Cee", phone: "333" });
+    expect(db.tables.customers.find((c) => c.id === "d-guest")).toMatchObject({ user_id: null, first_name: "Dee" });
+    // b-unknown is NOT reported: c-holder's account holds the address, and an
+    // auth email belongs to one account only, so b's owner can't — the booking
+    // is where it belongs and there is nothing to relink.
+    expect(skipReports().map(([e, ctx]) => [e.message.match(/customers row (\S+)/)?.[1], ctx.fingerprint?.[1]])).toEqual([
+      ["a-other", "mismatch"],
+    ]);
+    expect(captureBookingError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringMatching(/^2 customers rows share the same email and could each take this booking .*dedupe needed$/) }),
+      expect.anything()
+    );
+    for (const [err, ctx] of vi.mocked(captureBookingError).mock.calls) {
+      expect(`${err.message} ${JSON.stringify(ctx)}`).not.toMatch(/@/);
+    }
+  });
+
+  // P4 (Medium)
+  it("one account owning two rows is looked up once and reported once; with nothing usable the booking gets a new unlinked row and no dedupe report", async () => {
+    db.seed("customers", [
+      { id: "x2", email: E, user_id: "uid-x", created_at: "2026-02-01T00:00:00Z" },
+      { id: "x1", email: E, user_id: "uid-x", created_at: "2026-01-01T00:00:00Z" },
+    ]);
+    db.seed("pending_bookings", [pendingRow({ user_id: null })]);
+    const lookup = vi.fn(async () => ({ verifiedEmail: "x@example.com" }));
+    __setAuthUserLookupForTests(lookup);
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(lookup).toHaveBeenCalledTimes(1);
+    expect(skipReports()).toHaveLength(1);
+    expect(skipReports()[0][0].message).toMatch(/customers row x1 not used/);
+    expect(db.tables.customers).toHaveLength(3);
+    expect(["x1", "x2"]).not.toContain(filedUnder()?.id);
+    expect(filedUnder()?.user_id ?? null).toBeNull();
+    expect(captureBookingError).not.toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringMatching(/dedupe needed/) }),
+      expect.anything()
+    );
+  });
+
+  // P5 (High)
+  it("the booker's own check and the owner checks are all in flight before any answers; the unlinked row behind a skipped owned row is linked to the booker", async () => {
+    db.seed("customers", [
+      { id: "guest", email: E, user_id: null, created_at: "2026-09-01T00:00:00Z" },
+      { id: "owned", email: E, user_id: "uid-x", created_at: "2026-02-01T00:00:00Z" },
+    ]);
+    db.seed("pending_bookings", [pendingRow({ user_id: "ada-uid" })]);
+    const answers: Record<string, { verifiedEmail: string }> = {
+      "uid-x": { verifiedEmail: "x@example.com" },
+      "ada-uid": { verifiedEmail: "ada.lovelace@example.com" },
+    };
+    const release: Array<() => void> = [];
+    const lookup = vi.fn(
+      (id: string) => new Promise<{ verifiedEmail: string } | null>((resolve) => release.push(() => resolve(answers[id] ?? null)))
+    );
+    __setAuthUserLookupForTests(lookup);
+
+    const run = createBooking({ source: "webhook", stripePaymentIntentId: PI });
+    await vi.waitFor(() => expect(lookup).toHaveBeenCalledTimes(2)); // sequential checks stall at 1
+    release.forEach((r) => r());
+    const out = await run;
+
+    expect(out.kind).toBe("created");
+    expect(lookup.mock.calls.map(([id]) => id).sort()).toEqual(["ada-uid", "uid-x"]);
+    expect(db.tables.bookings[0].customer_id).toBe("guest");
+    expect(db.tables.customers.find((c) => c.id === "guest")?.user_id).toBe("ada-uid");
+    expect(db.tables.customers.find((c) => c.id === "owned")?.user_id).toBe("uid-x");
+    expect(db.tables.customers).toHaveLength(2);
+  });
+
+  // P6 (High)
+  it("owner lookups that never answer are cut off together at LOOKUP_TIMEOUT_MS; the booking is still created under an unlinked row", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    db.seed("customers", [
+      { id: "a", email: E, user_id: "uid-a", created_at: "2026-01-01T00:00:00Z" },
+      { id: "b", email: E, user_id: "uid-b", created_at: "2026-02-01T00:00:00Z" },
+      { id: "c", email: E, user_id: "uid-c", created_at: "2026-03-01T00:00:00Z" },
+    ]);
+    db.seed("pending_bookings", [pendingRow({ user_id: null })]);
+    const lookup = vi.fn(() => new Promise<never>(() => {}));
+    __setAuthUserLookupForTests(lookup);
+
+    let settled = false;
+    const run = createBooking({ source: "webhook", stripePaymentIntentId: PI }).finally(() => {
+      settled = true;
+    });
+    await vi.waitFor(() => expect(lookup).toHaveBeenCalled());
+    await vi.advanceTimersByTimeAsync(LOOKUP_TIMEOUT_MS + 1);
+    await vi.waitFor(() => expect(settled).toBe(true)); // sequential would need 3 × LOOKUP_TIMEOUT_MS
+    const out = await run;
+
+    expect(out.kind).toBe("created");
+    expect(["a", "b", "c"]).not.toContain(filedUnder()?.id);
+    expect(filedUnder()?.user_id ?? null).toBeNull();
+    expect(
+      vi.mocked(captureBookingError).mock.calls.filter(([e]) => /auth user lookup timed out after/.test(e.message))
+    ).toHaveLength(3);
+    expect(skipReports().map(([, ctx]) => ctx.fingerprint?.[1])).toEqual(["unknown", "unknown", "unknown"]);
+  });
+
+  // P7 (Medium)
+  it("a failed email lookup is reported and the booking still completes, with no auth lookups", async () => {
+    db.seed("customers", [{ id: "guest", email: E, user_id: null, created_at: "2026-02-20T00:00:00Z" }]);
+    db.seed("pending_bookings", [pendingRow({ user_id: null })]);
+    db.failOnce("customers", "select", "connection reset", "08006");
+    const lookup = vi.fn(async () => ({ verifiedEmail: "x@example.com" }));
+    __setAuthUserLookupForTests(lookup);
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(captureBookingError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringMatching(/customers lookup by email failed .*connection reset/) }),
+      expect.objectContaining({ step: "checkout" })
+    );
+    expect(lookup).not.toHaveBeenCalled();
+  });
+
+  // P8 (Medium)
+  it("a re-drive after a failed bookings insert reuses the unlinked row the first attempt created — one new row, not one per attempt", async () => {
+    db.seed("customers", [{ id: "owned", email: E, user_id: "uid-x", created_at: "2026-02-01T00:00:00Z" }]);
+    db.seed("pending_bookings", [pendingRow({ user_id: null })]);
+    __setAuthUserLookupForTests(async () => ({ verifiedEmail: "x@example.com" }));
+    db.failOnce("bookings", "insert", "connection reset");
+
+    const first = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+    expect(first).toMatchObject({ kind: "needs_reconciliation", retryable: true });
+    expect(db.tables.customers).toHaveLength(2);
+    const firstNew = db.tables.customers.find((c) => c.id !== "owned")?.id;
+
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent({ status: "succeeded", latest_charge: { amount_refunded: 0 } }));
+    const second = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(second.kind).toBe("created");
+    expect(db.tables.customers).toHaveLength(2);
+    expect(db.tables.bookings[0].customer_id).toBe(firstNew);
   });
 });
 

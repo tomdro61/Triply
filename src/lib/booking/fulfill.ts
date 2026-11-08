@@ -23,7 +23,7 @@ import type {
 import type { DirectBookingPayload } from "@/lib/direct/fulfilment";
 import { snapshotAddressLine } from "@/lib/direct/lot-snapshot";
 import { createAdminClient } from "@/lib/supabase/server";
-import { linkableUserIdForEmail, sameEmail } from "@/lib/booking/customer-link";
+import { accountHoldsEmail, sameEmail } from "@/lib/booking/customer-link";
 import { sendBookingConfirmation } from "@/lib/resend/send-booking-confirmation";
 import { sendAdminBookingNotification } from "@/lib/resend/send-admin-booking-notification";
 import {
@@ -684,22 +684,108 @@ async function upsertCustomer(
     existingCustomer = pickCustomer("user_id", data, error);
   }
 
+  // Rows found by EMAIL, oldest first. One with no account can take this
+  // booking. One that belongs to an account takes it only when it is the
+  // booker's own, or its account's VERIFIED email is this address (the holder
+  // booking signed out) — the rule customer-link.ts applies to linking.
+  // Anything else under that address goes to an unlinked row, never into
+  // another account's history.
+  let emailRows: CustomerRow[] = [];
   if (!existingCustomer) {
     const { data, error } = await supabase
       .from("customers")
       .select("id, email, user_id")
       .eq("email", customer.email)
       .order("created_at", { ascending: true });
-    existingCustomer = pickCustomer("email", data, error);
+    if (error) {
+      captureBookingError(
+        new Error(`customers lookup by email failed (pi=${stripePaymentIntentId ?? "none"}): ${error.message}`),
+        { step: "checkout" }
+      );
+    } else {
+      // A missing user_id must never read as "belongs to an account".
+      emailRows = (data ?? []).map((r) => ({ ...r, user_id: r.user_id ?? null }));
+    }
   }
 
-  // The verified-email check is an external auth call inside the
-  // post-capture critical section — only make it when it can change the
-  // outcome (an unlinked matched row, or a brand-new row).
-  const linkableUserId =
-    existingCustomer && existingCustomer.user_id !== null
-      ? null
-      : await linkableUserIdForEmail(userId, customer.email);
+  // Each verified-email check is an external auth call inside the
+  // post-capture critical section — make only the ones that can change the
+  // outcome, each account once, all at once (one LOOKUP_TIMEOUT_MS at most):
+  // the owners of rows older than the first unlinked row, and the booker
+  // (whether a new or unlinked row may be linked to them). None at all when
+  // the booker's own row was found by user_id.
+  const firstUnlinked = emailRows.findIndex((r) => r.user_id === null);
+  const toCheck = new Set<string>();
+  for (const r of firstUnlinked === -1 ? emailRows : emailRows.slice(0, firstUnlinked)) {
+    if (r.user_id !== null && r.user_id !== userId) toCheck.add(r.user_id);
+  }
+  if (userId && !existingCustomer) toCheck.add(userId);
+  const checks = new Map(
+    await Promise.all(
+      [...toCheck].map(async (id) => [id, await accountHoldsEmail(id, customer.email)] as const)
+    )
+  );
+
+  if (!existingCustomer) {
+    const chosen = emailRows.findIndex(
+      (r) => r.user_id === null || r.user_id === userId || checks.get(r.user_id) === "match"
+    );
+    // Every row before `chosen` (all of them when none qualifies) belongs to
+    // another account that failed the check. Reported without the address.
+    // An auth email belongs to one account only, so when any account checked
+    // "match", an owner that couldn't be checked can't hold this address and
+    // the booking is already where it belongs — nothing to relink.
+    const someoneHolds = [...checks.values()].includes("match");
+    const filedUnder =
+      chosen === -1
+        ? "a new unlinked row"
+        : emailRows[chosen].user_id === null
+          ? `unlinked row ${emailRows[chosen].id}`
+          : `row ${emailRows[chosen].id}`;
+    const reported = new Set<string>();
+    for (const r of chosen === -1 ? emailRows : emailRows.slice(0, chosen)) {
+      if (r.user_id === null || reported.has(r.user_id)) continue;
+      reported.add(r.user_id);
+      const result = checks.get(r.user_id);
+      if (result === "mismatch") {
+        captureBookingError(
+          new Error(
+            `customers row ${r.id} not used for this booking: its account's email is not this address, or is unconfirmed (pi=${stripePaymentIntentId ?? "none"})`
+          ),
+          { step: "checkout", fingerprint: ["customers-owned-row-skipped", "mismatch"] }
+        );
+      } else if (!someoneHolds) {
+        // An auth fault, not a verdict: if this row's owner holds the address
+        // (a signed-out account holder), the booking is missing from their
+        // account until it is relinked or claimed.
+        captureBookingError(
+          new Error(
+            `customers row ${r.id} not used for this booking: its account could not be checked, so the booking was filed under ${filedUnder}; if that account holds this address, relink the booking to row ${r.id} (pi=${stripePaymentIntentId ?? "none"})`
+          ),
+          { step: "checkout", fingerprint: ["customers-owned-row-skipped", "unknown"] }
+        );
+      }
+    }
+    // A duplicate is two rows that could BOTH take this booking. A row skipped
+    // above belongs to an account that doesn't hold this address: it is
+    // reported on its own and must stay a separate row — merging it with this
+    // address's other rows would put their bookings in that account.
+    const usable = emailRows.filter(
+      (r) => r.user_id === null || r.user_id === userId || checks.get(r.user_id) === "match"
+    ).length;
+    if (usable > 1) {
+      captureBookingError(
+        new Error(
+          `${usable} customers rows share the same email and could each take this booking (pi=${stripePaymentIntentId ?? "none"}) — using the oldest; dedupe needed`
+        ),
+        { step: "checkout" }
+      );
+    }
+    existingCustomer = chosen === -1 ? null : emailRows[chosen];
+  }
+
+  // Only ever applied to a new row or a row with no account (linkHere below).
+  const linkableUserId = userId && checks.get(userId) === "match" ? userId : null;
 
   if (existingCustomer) {
     customerId = existingCustomer.id;
@@ -713,10 +799,14 @@ async function upsertCustomer(
     // Refresh the contact details only when this booking is FOR that row's
     // address. A signed-in customer booking under someone else's email is
     // filed under their own row (found by user_id above) — the other
-    // person's name and phone must not overwrite the account holder's.
-    const contactHere = sameEmail(existingCustomer.email, customer.email)
-      ? { first_name: customer.firstName, last_name: customer.lastName, phone: customer.phone }
-      : {};
+    // person's name and phone must not overwrite the account holder's. And
+    // only on a row with no account or the booker's own: a signed-out
+    // booking filed under an account holder's row leaves their details alone.
+    const contactHere =
+      sameEmail(existingCustomer.email, customer.email) &&
+      (existingCustomer.user_id === null || existingCustomer.user_id === userId)
+        ? { first_name: customer.firstName, last_name: customer.lastName, phone: customer.phone }
+        : {};
     const patch = { ...contactHere, ...linkHere };
     if (Object.keys(patch).length > 0) {
       const { error: updateError } = await supabase
