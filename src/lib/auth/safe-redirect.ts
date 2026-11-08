@@ -10,7 +10,10 @@
  * - A refused value is not sent to Sentry: it is whatever the link's author
  *   typed, so it would only be noise.
  * - A caller that puts a query in the path must encode the inner values first
- *   (`/search?checkinTime=10%3A00%20AM`). A raw space is refused and lands on "/".
+ *   (`/search?checkinTime=10%3A00%20AM`). A raw space is refused and lands on
+ *   "/", and so is a raw `+` (the URL's query decodes it to a space).
+ * - Our own pages that forward elsewhere by design (`/claims` → Park Guard)
+ *   pass: we chose where they go.
  *
  * Returns the normalised path, so the value checked is the value used, and
  * running it twice gives the same result. Pure: browser and server.
@@ -19,9 +22,12 @@
 // Only compared against, never visited. `.invalid` can never resolve, so it
 // can't be mistaken for a real host.
 const PARSE_BASE = "https://triply.invalid";
+// Checked on the normalised path: normalising percent-encodes, so "é" grows to
+// "%C3%A9", and a cap on the raw input would let the callback's second pass
+// refuse what the login page accepted.
 const MAX_LENGTH = 2048;
 // Sending someone back into sign-in after they sign in loops. A loop guard,
-// not a security rule: exact paths, case-sensitive.
+// not a security rule: exact paths (one trailing slash ignored), case-sensitive.
 const SIGN_IN_PATHS = new Set(["/auth/login", "/auth/callback"]);
 
 // Control characters, whitespace and the backslash. Browsers strip or rewrite
@@ -36,8 +42,7 @@ function hasUnsafeChar(value: string): boolean {
 }
 
 export function safeRedirectPath(value: string | null | undefined): string {
-  if (typeof value !== "string" || value.length === 0 || value.length > MAX_LENGTH) return "/";
-  if (hasUnsafeChar(value)) return "/";
+  if (!value || hasUnsafeChar(value)) return "/";
   if (!value.startsWith("/") || value.startsWith("//")) return "/";
 
   let url: URL;
@@ -55,6 +60,7 @@ export function safeRedirectPath(value: string | null | undefined): string {
   // "/a/..//host" and "/%2e//host" all become the path "//host", which a
   // browser reads as another site. Check the result, not the input.
   if (path.startsWith("//")) return "/";
-  if (SIGN_IN_PATHS.has(url.pathname)) return "/";
+  if (path.length > MAX_LENGTH) return "/";
+  if (SIGN_IN_PATHS.has(url.pathname.replace(/\/$/, ""))) return "/";
   return path;
 }

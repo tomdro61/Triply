@@ -10,6 +10,8 @@ import { safeRedirectPath } from "../safe-redirect";
 
 const ORIGIN = "https://www.triplypro.com";
 const NUL = String.fromCharCode(0);
+const DEL = String.fromCharCode(0x7f);
+const E_ACUTE = "é"; // "é": 1 character raw, 6 once percent-encoded
 
 describe("safeRedirectPath keeps our own pages", () => {
   it.each([
@@ -43,6 +45,7 @@ describe("safeRedirectPath sends everything else to the homepage", () => {
     ["script, upper case", "JAVASCRIPT:alert(1)"],
     ["bare host", "evil.example"],
     ["the login page", "/auth/login"],
+    ["the login page, trailing slash", "/auth/login/"],
     ["the login page with a query", "/auth/login?redirect=/account"],
     ["the sign-in callback", "/auth/callback?next=/x"],
     ["too long", "/" + "a".repeat(3000)],
@@ -57,6 +60,7 @@ describe("safeRedirectPath sends everything else to the homepage", () => {
     ["space in the path", "/a b"],
     ["space in the query", "/x?q=a b"],
     ["NUL", `/a${NUL}b`],
+    ["DEL", `/a${DEL}b`],
     ["tab", "/a\tb"],
     ["newline", "/a\nb"],
     ["protocol-relative to the parse base", "//triply.invalid/admin"],
@@ -64,17 +68,51 @@ describe("safeRedirectPath sends everything else to the homepage", () => {
   ])("%s (one rule only)", (_label, value) => {
     expect(safeRedirectPath(value)).toBe("/");
   });
+
+  it("keeps a path of exactly 2048 characters and refuses 2049", () => {
+    const longest = "/" + "a".repeat(2047);
+    expect(safeRedirectPath(longest)).toBe(longest);
+    expect(safeRedirectPath(longest + "a")).toBe("/");
+  });
+
+  // The cap applies to the normalised path. Capping the raw input let a short
+  // path that grows when encoded pass the login page and fail the callback.
+  it("caps the encoded length, so the callback's second pass agrees", () => {
+    expect(safeRedirectPath("/" + E_ACUTE.repeat(400))).toBe("/"); // 401 raw, 2,401 encoded
+
+    const out = safeRedirectPath("/blog?q=" + E_ACUTE.repeat(300)); // 1,808 encoded
+    expect(out).toBe("/blog?q=" + "%C3%A9".repeat(300));
+    const callback = new URL(`${ORIGIN}/auth/callback?next=${encodeURIComponent(out)}`);
+    expect(safeRedirectPath(callback.searchParams.get("next"))).toBe(out);
+  });
+});
+
+/**
+ * The value checked is the value used: the helper returns the path it parsed,
+ * not the raw input, so a consumer never re-reads dot segments or raw
+ * characters in a form the checks didn't see.
+ */
+describe("safeRedirectPath returns the normalised path", () => {
+  it.each([
+    ["/a/../account", "/account"],
+    ["/./account", "/account"],
+    ["/%2e%2e/account", "/account"],
+    [`/caf${E_ACUTE}`, "/caf%C3%A9"],
+  ])("%s becomes %s", (value, expected) => {
+    expect(safeRedirectPath(value)).toBe(expected);
+  });
 });
 
 /**
  * Whatever the helper accepts must stay on our site wherever it is used:
- * pushed by the login page (resolved against the page's own URL), sent through
- * the callback as `next=` (encoded, decoded once), and redirected by the server.
+ * pushed by the login page (resolved against the page's own URL) and
+ * redirected by the server. And a second pass, which the callback makes after
+ * Google or the sign-up email, must not change it.
  */
 describe("safeRedirectPath output always stays on our site", () => {
   const PIECES = [
     "/", "\\", ".", "%", "2e", "2F", "5C", ":", "@", "?", "#",
-    "\t", "\n", " ", "／", "∕", "a", "evil.example",
+    "\t", "\n", " ", "／", "∕", E_ACUTE, "a", "evil.example",
   ];
 
   // Deterministic, so a failure reproduces.
@@ -129,20 +167,26 @@ describe("no unchecked sign-in destination", () => {
 
   it('every .get("redirect") and .get("next") is wrapped in safeRedirectPath', () => {
     const READ = /\.get\(\s*(["'`])(redirect|next)\1\s*\)/g;
-    const WRAPPED = /safeRedirectPath\(\s*[\w.]+$/;
+    // The cleaned value is used as is: `x = safeRedirectPath(params.get("next"))`.
+    // A call wrapped around it (decodeURIComponent, say) can undo the cleaning:
+    // "/%2F%2Fhost" is on our site, its decoded form "///host" is not.
+    const WRAPPED = /(?:=>?|return)\s*safeRedirectPath\(\s*[\w.]+$/;
     const offenders: string[] = [];
-    let reads = 0;
+    const readers = new Set<string>();
     for (const file of sourceFiles(SRC)) {
       const text = fs.readFileSync(file, "utf8");
       for (const match of text.matchAll(READ)) {
-        reads++;
+        readers.add(path.relative(SRC, file).split(path.sep).join("/"));
         if (!WRAPPED.test(text.slice(0, match.index))) {
           offenders.push(`${path.relative(SRC, file)}: ${match[0]}`);
         }
       }
     }
     expect(offenders).toEqual([]);
-    // The login page and the callback both read one.
-    expect(reads).toBeGreaterThanOrEqual(2);
+    // Pinned by file, not by count: a read moved behind a constant key must
+    // fail here even when a new read elsewhere keeps the count up.
+    expect([...readers]).toEqual(
+      expect.arrayContaining(["app/(main)/auth/login/page.tsx", "app/(main)/auth/callback/route.ts"])
+    );
   });
 });
