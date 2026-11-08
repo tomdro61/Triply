@@ -6,11 +6,13 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
 import { trackSignUp, trackLogin } from "@/lib/analytics/gtag";
+import { safeRedirectPath } from "@/lib/auth/safe-redirect";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirect") || "/";
+  // Only a page of our own site; anything else goes to the homepage.
+  const redirectTo = safeRedirectPath(searchParams.get("redirect"));
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
