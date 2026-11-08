@@ -46,6 +46,7 @@ describe("safeRedirectPath sends everything else to the homepage", () => {
     ["bare host", "evil.example"],
     ["the login page", "/auth/login"],
     ["the login page, trailing slash", "/auth/login/"],
+    ["the login page, repeated slashes", "/auth//login//"],
     ["the login page with a query", "/auth/login?redirect=/account"],
     ["the sign-in callback", "/auth/callback?next=/x"],
     ["too long", "/" + "a".repeat(3000)],

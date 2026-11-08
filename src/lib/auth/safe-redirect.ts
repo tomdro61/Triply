@@ -27,7 +27,7 @@ const PARSE_BASE = "https://triply.invalid";
 // refuse what the login page accepted.
 const MAX_LENGTH = 2048;
 // Sending someone back into sign-in after they sign in loops. A loop guard,
-// not a security rule: exact paths (one trailing slash ignored), case-sensitive.
+// not a security rule: exact paths, case-sensitive.
 const SIGN_IN_PATHS = new Set(["/auth/login", "/auth/callback"]);
 
 // Control characters, whitespace and the backslash. Browsers strip or rewrite
@@ -61,6 +61,8 @@ export function safeRedirectPath(value: string | null | undefined): string {
   // browser reads as another site. Check the result, not the input.
   if (path.startsWith("//")) return "/";
   if (path.length > MAX_LENGTH) return "/";
-  if (SIGN_IN_PATHS.has(url.pathname.replace(/\/$/, ""))) return "/";
+  // Next.js collapses repeated slashes and drops a trailing one, so
+  // "/auth//login/" still opens the login page.
+  if (SIGN_IN_PATHS.has(url.pathname.replace(/\/{2,}/g, "/").replace(/\/$/, ""))) return "/";
   return path;
 }
