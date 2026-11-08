@@ -163,6 +163,10 @@ a human.
 
 One entry per reviewed PR: what the review found, by lesson number. Newest first.
 
+- **Sign-in return paths (Nov 8):**
+  - Lesson 1: the helper's comment said "running it twice gives the same result", but its length cap was checked on the raw value. Percent-encoding grows a path, so the callback's second pass could refuse what the login page accepted (Codex, and a Claude reviewer). The cap now applies to the value returned.
+  - Lesson 13: a callback test with a raw tab in the URL could never fail, because the URL parser strips it (plan review). Bad values are built with `URLSearchParams`, and each test first asserts the route sees the raw value. The mutation check added rows for DEL, the length boundary and the normalised output, and pinned the source scan by file.
+
 - **Promo PR 2: fixed-amount codes at checkout (Nov 7):**
   - Lesson 1 / 10: a checkout tab loaded before the deploy priced a capped percent code itself, so its Pay button could show less than the payment held (Codex). Pages now send a pricing version; a code without it is refused as a stale page before any payment.
   - Lesson 7: the browser's finishing call carried the page-load service fee, and it wins over the staged row, so the booking row and a later cancel used a fee Stripe never charged. The engine now applies the charged fee whichever path finishes.
