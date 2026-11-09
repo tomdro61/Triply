@@ -118,23 +118,27 @@ export function stripSecretsFromAddressBar(params: readonly AddressBarSecret[]):
 }
 
 /**
- * Where to send a guest whose booking just finished, and how.
+ * Where to send a guest whose booking just finished, and how. The booking key
+ * (from the finishing route, when it could make one) and the email are both
+ * handed over.
  *
- * Stored → the URL without the email, by in-app navigation. Not stored →
- * the URL WITH ?email=, and the caller must do a FULL page load
- * (window.location), never router.push/replace: Clarity and Sentry are already
- * running on the current page and would record an in-app URL change, while a
- * full load runs the layout's guards first.
+ * All stored → the URL without them, by in-app navigation. Anything not
+ * stored → the URL WITH it (?booking_key= / ?email=), and the caller must do a
+ * FULL page load (window.location), never router.push/replace: Clarity and
+ * Sentry are already running on the current page and would record an in-app
+ * URL change, while a full load runs the layout's guards first.
  */
 export function confirmationHandOff(
   path: string,
   reservationNumber: string,
-  email: string
+  email: string,
+  bookingKey?: string
 ): { url: string; fullLoad: boolean } {
-  if (!email || rememberConfirmationEmail(reservationNumber, email)) {
-    return { url: path, fullLoad: false };
-  }
+  const keyStored = !bookingKey || rememberConfirmationKey(reservationNumber, bookingKey);
+  const emailStored = !email || rememberConfirmationEmail(reservationNumber, email);
+  if (keyStored && emailStored) return { url: path, fullLoad: false };
   const url = new URL(path, "https://hand-off.invalid");
-  url.searchParams.set("email", email);
+  if (bookingKey && !keyStored) url.searchParams.set("booking_key", bookingKey);
+  if (email && !emailStored) url.searchParams.set("email", email);
   return { url: url.pathname + url.search, fullLoad: true };
 }

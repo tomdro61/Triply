@@ -64,6 +64,29 @@ describe("guest email hand-off to /confirmation", () => {
     expect(confirmationHandOff("/confirmation/RTL1", "RTL1", "a@b.co").url).toBe("/confirmation/RTL1?email=a%40b.co");
   });
 
+  it("with a booking key: both stored → in-app, the URL carries neither; the page finds the key", () => {
+    stubStorage("ok");
+    expect(confirmationHandOff("/confirmation/RTL1?lot=reslab-2", "RTL1", "dana@example.com", "AbCdEfGhIjKlMnOpQrStUv")).toEqual({
+      url: "/confirmation/RTL1?lot=reslab-2",
+      fullLoad: false,
+    });
+    expect(recallConfirmationKey("RTL1")).toBe("AbCdEfGhIjKlMnOpQrStUv");
+    expect(recallConfirmationEmail("RTL1")).toBe("dana@example.com");
+  });
+
+  it("with a booking key and storage blocked → both ride in the URL, and a FULL page load", () => {
+    stubStorage("blocked");
+    expect(confirmationHandOff("/confirmation/RTL1?lot=reslab-2", "RTL1", "dana@example.com", "AbCdEfGhIjKlMnOpQrStUv")).toEqual({
+      url: "/confirmation/RTL1?lot=reslab-2&booking_key=AbCdEfGhIjKlMnOpQrStUv&email=dana%40example.com",
+      fullLoad: true,
+    });
+    // A key with no email still hands the key over.
+    expect(confirmationHandOff("/confirmation/RTL1", "RTL1", "", "AbCdEfGhIjKlMnOpQrStUv")).toEqual({
+      url: "/confirmation/RTL1?booking_key=AbCdEfGhIjKlMnOpQrStUv",
+      fullLoad: true,
+    });
+  });
+
   it("no email to hand over → the path as is, in-app", () => {
     stubStorage("blocked");
     expect(confirmationHandOff("/confirmation/RTL1", "RTL1", "")).toEqual({ url: "/confirmation/RTL1", fullLoad: false });

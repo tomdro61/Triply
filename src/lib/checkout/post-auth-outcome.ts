@@ -20,8 +20,12 @@
  */
 
 export type PostAuthAction =
-  /** The reservation exists. Go to its confirmation page. */
-  | { kind: "confirmed"; reservationNumber: string }
+  /**
+   * The reservation exists. Go to its confirmation page — with the signed
+   * booking key when the route sent one (it may not: an older server, or a
+   * client secret it couldn't check; the page then uses the email).
+   */
+  | { kind: "confirmed"; reservationNumber: string; bookingKey?: string }
   /** The booking is in flight or its state is unknown. Hand off to /checkout/complete. */
   | { kind: "handoff"; reason: string }
   /** The engine released the hold. Stay on checkout and show the message. */
@@ -53,6 +57,14 @@ function reservationNumberOf(body: unknown): string | null {
   return null;
 }
 
+function bookingKeyOf(body: unknown): string | undefined {
+  if (body && typeof body === "object" && "bookingKey" in body) {
+    const key = (body as { bookingKey: unknown }).bookingKey;
+    if (typeof key === "string" && key) return key;
+  }
+  return undefined;
+}
+
 export function postAuthActionFor(answer: ReservationAnswer): PostAuthAction {
   const { status, body } = answer;
 
@@ -61,9 +73,9 @@ export function postAuthActionFor(answer: ReservationAnswer): PostAuthAction {
     // A 200 without a usable reservation number is a contract drift, not a
     // failure: the booking was made. The complete page re-reads it by the
     // PaymentIntent (`already_exists`) and lands on the confirmation.
-    return reservationNumber
-      ? { kind: "confirmed", reservationNumber }
-      : { kind: "handoff", reason: "success_without_reservation_number" };
+    if (!reservationNumber) return { kind: "handoff", reason: "success_without_reservation_number" };
+    const bookingKey = bookingKeyOf(body);
+    return { kind: "confirmed", reservationNumber, ...(bookingKey && { bookingKey }) };
   }
 
   if (status === 202) return { kind: "handoff", reason: "pending" };

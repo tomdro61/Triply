@@ -19,7 +19,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { trackPurchase } from "@/lib/analytics/gtag";
 import { purchasePromo } from "@/lib/analytics/purchase-value";
-import { takePurchaseToTrack } from "@/lib/analytics/purchase-once";
+import { isPurchasePending, takePurchaseToTrack } from "@/lib/analytics/purchase-once";
 import { convertTo12Hour } from "@/lib/utils/time";
 import { captureBookingError } from "@/lib/sentry";
 import {
@@ -146,7 +146,9 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
 
   const [reservation, setReservation] = useState<ReservationData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [fetchStatus, setFetchStatus] = useState<"ok" | "auth-required" | "not-found" | "error" | null>(null);
+  const [fetchStatus, setFetchStatus] = useState<
+    "ok" | "auth-required" | "not-found" | "too-many-tries" | "unavailable" | "error" | null
+  >(null);
   // The email a guest typed on the "Open Your Confirmation Link" screen (a
   // copied, shared or bookmarked link has no email in it). A new object per
   // submit, so re-trying the same address fetches again.
@@ -242,6 +244,24 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
           setFetchStatus("auth-required");
         } else if (response.status === 404) {
           setFetchStatus("not-found");
+        } else if (response.status === 429) {
+          // The email path's try limit. Expected for a guesser; worth seeing
+          // only when it hits a customer who has just paid here (their
+          // hand-off should have carried the booking key).
+          setFetchStatus("too-many-tries");
+          if (isPurchasePending(confirmationId)) {
+            captureBookingError(
+              new Error(`Confirmation ${confirmationId}: too many tries right after checkout`),
+              { step: "confirmation", confirmationNumber: confirmationId, fingerprint: ["confirmation-429-after-checkout"], level: "warning" }
+            );
+          }
+        } else if (response.status === 503) {
+          // The server can't check a guest's proof (a configuration fault).
+          setFetchStatus("unavailable");
+          captureBookingError(
+            new Error(`Confirmation ${confirmationId} fetch failed with status 503`),
+            { step: "confirmation", confirmationNumber: confirmationId }
+          );
         } else {
           setFetchStatus("error");
           captureBookingError(
@@ -415,6 +435,12 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
     if (fetchStatus === "auth-required") {
       headline = "Open Your Confirmation Link";
       message = "To view this booking, please open the confirmation email we sent you and click the View Booking Details button. The link includes the verification we need to load your reservation.";
+    } else if (fetchStatus === "too-many-tries") {
+      headline = "Too Many Tries";
+      message = "If you just paid, your booking is confirmed: your confirmation email has a link that opens it. You can also sign in or create an account with the email you booked with, or try again later.";
+    } else if (fetchStatus === "unavailable") {
+      headline = "We Can't Open This Booking Right Now";
+      message = "If you just paid, your booking is confirmed: your confirmation email has the details. Please try again in a few minutes, or sign in with the email you booked with.";
     } else if (fetchStatus === "error") {
       headline = "Something Went Wrong";
       message = "We had trouble loading your booking. Please try again in a moment, or use the link in your confirmation email.";
@@ -430,6 +456,21 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
             <AlertCircle size={48} className="mx-auto text-amber-500 mb-4" />
             <h1 className="text-2xl font-bold text-gray-900 mb-4">{headline}</h1>
             <p className="text-gray-600 mb-8">{message}</p>
+            {(fetchStatus === "too-many-tries" || fetchStatus === "unavailable") && (
+              <div className="mb-8">
+                <p className="text-sm text-gray-500 mb-4">
+                  Confirmation number: <span className="font-mono font-semibold text-gray-900">{confirmationId}</span>
+                </p>
+                {!user && (
+                  <Link
+                    href={`/auth/login?next=${encodeURIComponent(`/confirmation/${confirmationId}`)}`}
+                    className="text-brand-orange font-semibold hover:underline"
+                  >
+                    Sign in
+                  </Link>
+                )}
+              </div>
+            )}
             {fetchStatus === "auth-required" && !user && (
               // A copied, shared or bookmarked link has no email in it; the
               // email typed here is the same proof the emailed link carries.

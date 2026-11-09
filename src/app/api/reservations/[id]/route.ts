@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { reslab } from "@/lib/reslab/client";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { captureBookingError } from "@/lib/sentry";
@@ -14,6 +14,19 @@ import {
 } from "@/lib/booking/confirmation-payment";
 import { readCardPayment, reportCostBreakdownFallback } from "@/lib/booking/read-card-payment";
 import { billedParkingDays } from "@/lib/reslab/billed-days";
+import { isOtherStripeMode } from "@/lib/cancellation/source-guard";
+import { isBookingLinkConfigError, verifyBookingKey } from "@/lib/confirmation/booking-key";
+import {
+  guestLookupBuckets,
+  ipBucketValue,
+  normalizeGuestEmail,
+  noteUnknownGuestIp,
+  releaseGuestLookup,
+  takeGuestLookup,
+  type GuestLookupBuckets,
+} from "@/lib/confirmation/guest-lookup-limit";
+import { checkGuestLookupRateLimit, GUEST_LOOKUP_BRAKE_WINDOW_SECONDS } from "@/lib/attribution/limiter";
+import { clientKey } from "@/lib/http/origin";
 
 /**
  * The guest as typed at checkout, for a direct booking's confirmation page: the
@@ -73,24 +86,47 @@ async function readStagedGuest(
   return r.guest;
 }
 
-const sameEmail = (a: string | null | undefined, b: string | null | undefined): boolean =>
-  !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
+/** Both sides normalised by the one helper the limiter's email bucket uses; two blanks never match. */
+const sameEmail = (a: string | null | undefined, b: string | null | undefined): boolean => {
+  const left = normalizeGuestEmail(a);
+  return left !== null && left === normalizeGuestEmail(b);
+};
 
 /**
- * Every answer varies by the guest's x-booking-email header. The service
- * worker caches these GETs (NetworkFirst, next.config.mjs) so a customer can
- * reopen their confirmation offline at the lot; with Vary a guest's cached
- * booking is reused only for a request carrying the same email. A signed-in
- * answer carries no header, so it can still match a later header-less request
- * on the same browser — the same as before the email moved into the header.
+ * Every answer varies by the guest's proof headers (x-booking-key,
+ * x-booking-email). The service worker caches these GETs (NetworkFirst,
+ * next.config.mjs) so a customer can reopen their confirmation offline at the
+ * lot; with Vary a guest's cached booking is reused only for a request
+ * carrying the same proof. A signed-in answer carries neither header, so it
+ * can still match a later header-less request on the same browser — the same
+ * as before the email moved into the header.
  */
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   const response = await getReservation(request, context);
-  response.headers.append("Vary", "x-booking-email");
+  response.headers.append("Vary", "x-booking-key, x-booking-email");
   return response;
+}
+
+const UNABLE_TO_VERIFY = "Unable to verify reservation. Please try again.";
+
+function tooManyTries(retryAfterSeconds: number): NextResponse {
+  return NextResponse.json(
+    { error: "Too many tries. Please use the link in your confirmation email, or sign in." },
+    { status: 429, headers: { "Retry-After": String(retryAfterSeconds) } }
+  );
+}
+
+/** BOOKING_LINK_SIGNING_SECRET is missing: a config fault, never "not your booking". */
+function signingSecretMissing(error: unknown, id: string): NextResponse {
+  captureBookingError(error instanceof Error ? error : new Error(String(error)), {
+    step: "confirmation",
+    confirmationNumber: id,
+    fingerprint: ["booking-link-secret-missing"],
+  });
+  return NextResponse.json({ error: "We can't open this booking right now. Please try again later." }, { status: 503 });
 }
 
 async function getReservation(
@@ -147,10 +183,11 @@ async function getReservation(
         | { user_id?: string | null; email?: string | null }
         | null;
       const ownsByUserId = !!customer?.user_id && customer.user_id === user.id;
-      // Email-based ownership is gated on the same kill-switch as the other
-      // email-fallback surfaces (/api/user/bookings, /api/user/link-bookings)
-      // so ENABLE_EMAIL_BOOKING_FALLBACK=false halts ALL email-based booking
-      // access — including this highest-PII detail surface — in one env flip.
+      // Email-based ownership for a SIGNED-IN customer is gated on the same
+      // kill-switch as the other email-fallback surfaces (/api/user/bookings,
+      // /api/user/link-bookings): ENABLE_EMAIL_BOOKING_FALLBACK=false stops a
+      // signed-in account from opening bookings by its verified email. It does
+      // not touch the guest branch below (the signed key or the capped email).
       const fallbackEnabled =
         process.env.ENABLE_EMAIL_BOOKING_FALLBACK !== "false";
       const verifiedEmail = fallbackEnabled && !!user.email_confirmed_at ? user.email : null;
@@ -183,64 +220,128 @@ async function getReservation(
         }
       }
     } else {
-      // Not logged in: require the checkout email for verification. The
-      // confirmation page sends it in the x-booking-email header, kept out of
-      // URLs (analytics, Sentry and logs record those; the server Sentry scrub
-      // redacts the header). ?email= is still accepted for older pages. When
-      // both are sent the header decides.
-      const email =
-        request.headers.get("x-booking-email") || request.nextUrl.searchParams.get("email");
-      if (!email) {
-        return NextResponse.json(
-          { error: "Authentication required" },
-          { status: 403 }
-        );
-      }
-
-      // Look up booking in Supabase to verify email matches
-      const adminClient = await createAdminClient();
-      const { data: booking, error: bookingLookupErr } = await adminClient
-        .from("bookings")
-        .select("customer_id, stripe_payment_intent_id, customers(email)")
-        .eq("reslab_reservation_number", id)
-        .maybeSingle();
-
-      if (bookingLookupErr) {
-        captureBookingError(
-          new Error(`booking email lookup failed: ${bookingLookupErr.message}`),
-          { step: "confirmation", confirmationNumber: id }
-        );
-        return NextResponse.json(
-          { error: "Unable to verify reservation. Please try again." },
-          { status: 500 }
-        );
-      }
-
-      const customerEmail = (
-        (booking?.customers ?? null) as { email?: string | null } | null
-      )?.email;
-      // The email's "View booking" link carries the address typed at checkout.
-      // When a signed-in customer booked for someone else, the booking is filed
-      // under the booker's customers row, so also accept the typed address — the
-      // one the confirmation number was emailed to (same proof: number + inbox).
-      let emailMatches = sameEmail(customerEmail, email);
-      if (booking && !emailMatches) {
-        const staged = await readStagedGuestResult(
-          adminClient,
-          (booking as { stripe_payment_intent_id?: string | null }).stripe_payment_intent_id,
-          id
-        );
-        if (!staged.ok) {
-          return NextResponse.json({ error: "Unable to verify reservation. Please try again." }, { status: 500 });
+      // Not signed in. Two proofs, sent by the confirmation page in headers
+      // (kept out of URLs; the server Sentry scrub redacts both):
+      //  1. x-booking-key: the signed key from the confirmation link
+      //     (lib/confirmation/booking-key.ts). It opens this booking on its
+      //     own and never touches the limiter.
+      //  2. the checkout email (x-booking-email, or ?email= from older pages;
+      //     the header decides when both are sent). Capped: one try is taken
+      //     BEFORE the lookup from the number, the email and the caller's
+      //     address (lib/confirmation/guest-lookup-limit.ts), so a 403 or a
+      //     429 never depends on whether the booking exists.
+      // An invalid key is not an error: the email path decides.
+      const keyHeader = request.headers.get("x-booking-key");
+      let keyOk = false;
+      if (keyHeader) {
+        try {
+          keyOk = verifyBookingKey(id, keyHeader);
+        } catch (err) {
+          if (isBookingLinkConfigError(err)) return signingSecretMissing(err, id);
+          throw err;
         }
-        emailMatches = sameEmail(staged.guest?.email, email);
-        if (emailMatches) guestViaStaged = staged.guest;
       }
-      if (!booking || !emailMatches) {
-        return NextResponse.json(
-          { error: "Not authorized to view this reservation" },
-          { status: 403 }
+
+      const adminClient = await createAdminClient();
+
+      if (keyOk) {
+        const { data: keyed, error: keyedErr } = await adminClient
+          .from("bookings")
+          .select("livemode")
+          .eq("reslab_reservation_number", id)
+          .maybeSingle();
+        if (keyedErr) {
+          captureBookingError(new Error(`booking key lookup failed: ${keyedErr.message}`), {
+            step: "confirmation",
+            confirmationNumber: id,
+          });
+          return NextResponse.json({ error: UNABLE_TO_VERIFY }, { status: 500 });
+        }
+        // The shared database holds both Stripe modes' rows, and staging's
+        // numbers can equal production's: a row from the other mode is not
+        // this deployment's booking (the cancel paths' rule).
+        if (!keyed || isOtherStripeMode((keyed as { livemode?: boolean | null }).livemode)) {
+          return NextResponse.json({ error: "Not authorized to view this reservation" }, { status: 403 });
+        }
+      } else {
+        const email = normalizeGuestEmail(
+          request.headers.get("x-booking-email") || request.nextUrl.searchParams.get("email")
         );
+        if (!email) {
+          return NextResponse.json(
+            { error: "Authentication required" },
+            { status: 403 }
+          );
+        }
+
+        const ip = ipBucketValue(clientKey(request));
+        if (ip === null) noteUnknownGuestIp(id);
+        else if (!checkGuestLookupRateLimit(ip)) return tooManyTries(GUEST_LOOKUP_BRAKE_WINDOW_SECONDS);
+
+        let buckets: GuestLookupBuckets;
+        try {
+          buckets = guestLookupBuckets({ ip, email, reservationNumber: id });
+        } catch (err) {
+          if (isBookingLinkConfigError(err)) return signingSecretMissing(err, id);
+          throw err;
+        }
+        const take = await takeGuestLookup(buckets, id);
+        if (take.kind === "error") {
+          captureBookingError(new Error(`guest booking lookup: limiter unavailable: ${take.detail}`), {
+            step: "confirmation",
+            confirmationNumber: id,
+            fingerprint: ["guest-lookup-limiter-unavailable"],
+          });
+          return NextResponse.json({ error: UNABLE_TO_VERIFY }, { status: 500 });
+        }
+        if (take.kind === "blocked") return tooManyTries(take.retryAfterSeconds);
+        // Given back after the response: on a match, and whenever the answer
+        // could not be decided (a failed read is not a wrong guess).
+        const giveBack = () => after(() => releaseGuestLookup(take.keys, id));
+
+        const { data: booking, error: bookingLookupErr } = await adminClient
+          .from("bookings")
+          .select("customer_id, stripe_payment_intent_id, customers(email)")
+          .eq("reslab_reservation_number", id)
+          .maybeSingle();
+
+        if (bookingLookupErr) {
+          captureBookingError(
+            new Error(`booking email lookup failed: ${bookingLookupErr.message}`),
+            { step: "confirmation", confirmationNumber: id }
+          );
+          giveBack();
+          return NextResponse.json({ error: UNABLE_TO_VERIFY }, { status: 500 });
+        }
+
+        const customerEmail = (
+          (booking?.customers ?? null) as { email?: string | null } | null
+        )?.email;
+        // The email's "View booking" link carries the address typed at checkout.
+        // When a signed-in customer booked for someone else, the booking is filed
+        // under the booker's customers row, so also accept the typed address — the
+        // one the confirmation number was emailed to.
+        let emailMatches = sameEmail(customerEmail, email);
+        if (booking && !emailMatches) {
+          const staged = await readStagedGuestResult(
+            adminClient,
+            (booking as { stripe_payment_intent_id?: string | null }).stripe_payment_intent_id,
+            id
+          );
+          if (!staged.ok) {
+            giveBack();
+            return NextResponse.json({ error: UNABLE_TO_VERIFY }, { status: 500 });
+          }
+          emailMatches = sameEmail(staged.guest?.email, email);
+          if (emailMatches) guestViaStaged = staged.guest;
+        }
+        if (!booking || !emailMatches) {
+          return NextResponse.json(
+            { error: "Not authorized to view this reservation" },
+            { status: 403 }
+          );
+        }
+        giveBack();
       }
     }
 

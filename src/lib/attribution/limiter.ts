@@ -198,3 +198,18 @@ export function checkParkStayHotelRateLimit(key: string, now = Date.now()): bool
 export function __resetParkStayHotelRateLimitForTests(): void {
   parkStayHotelLimiter.reset();
 }
+
+// Guest booking lookups by email (/api/reservations/[id]): a per-lambda brake
+// in front of the shared attempt table (migration 051), so a burst from one
+// address costs memory, not database writes. The table is the real limit.
+const guestLookupLimiter = createBoundedRateLimiter({ limit: 10, windowMs: 60_000, maxKeys: 5000 });
+
+export const GUEST_LOOKUP_BRAKE_WINDOW_SECONDS = 60;
+
+export function checkGuestLookupRateLimit(key: string, now = Date.now()): boolean {
+  return guestLookupLimiter.check(key, now);
+}
+
+export function __resetGuestLookupRateLimitForTests(): void {
+  guestLookupLimiter.reset();
+}

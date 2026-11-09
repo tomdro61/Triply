@@ -38,6 +38,19 @@ function readSent(): string[] {
 }
 
 /**
+ * Read-only: did checkout in this tab just mark this booking? Leaves the mark
+ * in place. For telling "a customer who has just paid" apart from any other
+ * visit (e.g. when the booking could not be opened).
+ */
+export function isPurchasePending(confirmationNumber: string): boolean {
+  try {
+    return sessionStorage.getItem(PENDING_KEY) === confirmationNumber;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Confirmation page: true exactly once for a booking checkout marked in this
  * tab. Clears the mark and remembers the id, so later loads return false.
  */

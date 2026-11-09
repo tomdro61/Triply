@@ -6,7 +6,7 @@ import { buildCostBreakdown, type DirectCostInput } from "@/lib/booking/cost-bre
 
 const base = {
   customerName: "Ada Lovelace",
-  customerEmail: "ada@example.com",
+  confirmationUrl: "https://www.triplypro.com/confirmation/TRP-TEST?email=ada%40example.com",
   confirmationNumber: "TRP-AAAA1111",
   lotName: "The Parking Point JFK",
   lotAddress: "150-57 183rd St, Springfield Gardens, NY 11413",

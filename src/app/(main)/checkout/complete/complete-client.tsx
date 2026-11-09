@@ -152,9 +152,10 @@ export default function CheckoutCompleteClient() {
               // Storage blocked → the URL carries it and the page is a FULL
               // load (replace, so Back never returns to this finishing page).
               const guestEmail = typeof data.guestEmail === "string" ? data.guestEmail : "";
+              const bookingKey = typeof data.bookingKey === "string" && data.bookingKey ? data.bookingKey : undefined;
               const { url, fullLoad } =
                 typeof data.reservationNumber === "string"
-                  ? confirmationHandOff(data.confirmationUrl, data.reservationNumber, guestEmail)
+                  ? confirmationHandOff(data.confirmationUrl, data.reservationNumber, guestEmail, bookingKey)
                   : { url: data.confirmationUrl, fullLoad: false };
               if (fullLoad) window.location.replace(url);
               else router.replace(url);

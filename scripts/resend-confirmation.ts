@@ -159,7 +159,6 @@ async function main() {
 
   const emailProps = {
     customerName: `${customer.first_name} ${customer.last_name}`,
-    customerEmail: customer.email,
     confirmationNumber: booking.reslab_reservation_number,
     lotName: booking.location_name,
     lotAddress: booking.location_address,
@@ -185,6 +184,9 @@ async function main() {
     `$${protectionPlanPrice.toFixed(2)}  (sync: ${emailProps.pgSyncStatus ?? "n/a"})`);
   console.log(`  Total:     $${totalAmount.toFixed(2)}${discountAmount > 0 ? `  (after $${discountAmount.toFixed(2)} promo discount)` : ""}`);
   console.log(`  Vehicle:   ${vehicleInfo ?? "(none)"}`);
+  // This script runs locally: a booking key here would be signed with the
+  // local secret and fail in production, so the link carries only the email.
+  console.log(`  Link:      the email only (no booking key from a local run)`);
 
   if (dryRun) {
     // Render the template to verify it compiles without sending
@@ -192,7 +194,13 @@ async function main() {
     const { BookingConfirmationEmail } = await import(
       "@/lib/resend/templates/booking-confirmation"
     );
-    const html = await render(BookingConfirmationEmail(emailProps));
+    const { confirmationLink } = await import("@/lib/confirmation/confirmation-link");
+    const html = await render(
+      BookingConfirmationEmail({
+        ...emailProps,
+        confirmationUrl: confirmationLink(emailProps.confirmationNumber, customer.email, { withKey: false }),
+      })
+    );
     console.log(`\n✅ Template rendered (${html.length} chars). Not sent.`);
     console.log(`Re-run without --dry-run to send.\n`);
     return;
@@ -205,6 +213,7 @@ async function main() {
     to: customer.email,
     ...emailProps,
     subject,
+    withBookingKey: false,
   });
 
   if (!result.success) {

@@ -3,6 +3,20 @@ import withPWAInit from "@ducanh2912/next-pwa";
 import blogRedirectMap from "./src/config/blog-redirects.json" with { type: "json" };
 import { buildBlogRedirects } from "./src/lib/blog/blog-redirects.mjs";
 
+// A Vercel build refuses to start without BOOKING_LINK_SIGNING_SECRET: every
+// guest view of a booking (the signed key and the capped email path) needs
+// it, so a forgotten variable would make all of them answer 503. Production
+// and Preview each need their own value. Local builds (no VERCEL_ENV) and
+// tests are unaffected.
+if (
+  (process.env.VERCEL_ENV === "production" || process.env.VERCEL_ENV === "preview") &&
+  !process.env.BOOKING_LINK_SIGNING_SECRET
+) {
+  throw new Error(
+    `BOOKING_LINK_SIGNING_SECRET is not set for this Vercel ${process.env.VERCEL_ENV} build. Add it in the project's Environment Variables (a different value per environment).`
+  );
+}
+
 const withPWA = withPWAInit({
   dest: "public",
   disable: process.env.NODE_ENV === "development",
@@ -40,8 +54,8 @@ const withPWA = withPWAInit({
       },
       // Booking answers stay cacheable (as with the default `apis` rule) so a
       // customer can reopen their confirmation with no signal at the lot. The
-      // route sends `Vary: x-booking-email`: a guest's cached booking is never
-      // served for another email or for none. (A signed-in answer has no
+      // route sends `Vary: x-booking-key, x-booking-email`: a guest's cached
+      // booking is never served for another proof or for none. (A signed-in answer has no
       // header, so a later header-less request on the same browser can still
       // get it offline — as on main.) Expiry must ignore Vary, or its
       // delete-by-URL never matches a guest entry and they are kept forever.

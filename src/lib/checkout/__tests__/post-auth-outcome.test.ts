@@ -14,6 +14,19 @@ describe("postAuthActionFor", () => {
     ).toEqual({ kind: "confirmed", reservationNumber: "RTL123" });
   });
 
+  it("200 with a booking key → confirmed with it; a non-string or empty key is dropped", () => {
+    const answer = (bookingKey: unknown) =>
+      postAuthActionFor({ status: 200, body: { success: true, reservation: { reservationNumber: "RTL123" }, bookingKey } });
+    expect(answer("AbCdEfGhIjKlMnOpQrStUv")).toStrictEqual({
+      kind: "confirmed",
+      reservationNumber: "RTL123",
+      bookingKey: "AbCdEfGhIjKlMnOpQrStUv",
+    });
+    for (const bad of ["", 42, null, { k: 1 }]) {
+      expect(answer(bad)).toStrictEqual({ kind: "confirmed", reservationNumber: "RTL123" });
+    }
+  });
+
   it("200 without a usable reservation number → hand-off (the booking exists; the complete page re-reads it)", () => {
     expect(postAuthActionFor({ status: 200, body: { success: true } })).toEqual({
       kind: "handoff",

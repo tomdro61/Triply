@@ -2284,7 +2284,7 @@ describe("the emails' cost breakdown (plan 2026-10-12)", () => {
   /** The customer email as it would render from the arguments fulfilment passed. */
   function renderCustomerEmail(): string {
     const args = vi.mocked(sendBookingConfirmation).mock.calls[0][0];
-    return renderToStaticMarkup(createElement(BookingConfirmationEmail, { ...args, customerEmail: args.to }));
+    return renderToStaticMarkup(createElement(BookingConfirmationEmail, { ...args, confirmationUrl: "https://x.test/confirmation" }));
   }
 
   // Fixture money: ResLab 80 + fees 3 + tax 5 = grand 88, of which 20 is due at
@@ -2624,7 +2624,7 @@ describe("a stamped discountCents — ResLab (promo plan Part 1, readers)", () =
     vi.mocked(capturePaymentError).mock.calls.filter(([e]) => e.message.startsWith("Fulfilment blocked before booking"));
   const renderEmail = () => {
     const args = vi.mocked(sendBookingConfirmation).mock.calls[0][0];
-    return renderToStaticMarkup(createElement(BookingConfirmationEmail, { ...args, customerEmail: args.to }));
+    return renderToStaticMarkup(createElement(BookingConfirmationEmail, { ...args, confirmationUrl: "https://x.test/confirmation" }));
   };
   const resumeRow = () =>
     pendingRow({
