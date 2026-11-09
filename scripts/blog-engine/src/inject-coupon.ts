@@ -73,7 +73,7 @@ async function main() {
   }
   const approved = loadApprovedCodes().map((c) => c.toUpperCase())
   if (!approved.includes(CODE)) {
-    console.error(`COUPON_CODE "${CODE}" is not in src/config/approved-promo-codes.json (${approved.join(', ') || 'empty'}) — add it there with its source first (W1.4).`)
+    console.error(`COUPON_CODE "${CODE}" is not an approved, unexpired code in src/config/approved-promo-codes.json (${approved.join(', ') || 'none'}) — add it there with its source first (W1.4).`)
     process.exit(1)
   }
   const offers = loadApprovedOffers()

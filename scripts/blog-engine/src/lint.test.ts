@@ -1,6 +1,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { lintArticle, isRatesPost, priceAllowList, collectDailyRates, collectMoneyFigures, collectRangeEnds } from './lint.js'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { lintArticle, isRatesPost, priceAllowList, collectDailyRates, collectMoneyFigures, collectRangeEnds, loadApprovedCodes, loadApprovedOfferFigures, loadApprovedOffers } from './lint.js'
 import { chartAlt, onAirportRows, type ChartInput } from './rate-chart.js'
 
 const NOW = new Date('2026-10-30T12:00:00Z')
@@ -220,4 +223,40 @@ test('W1.8 P3c: plural and "parking" per-day labels are per-day, in the body and
   for (const t of ['RIC Daily Parking Rates: From $20 (2026)', 'JFK Daily Parking Rates Starting at $20']) assert.ok(gateWith(k, '<p>Parking is cheap.</p>', t).includes('unsourced-price'), t)
   assert.ok(!gateWith(k, '<p>Two days cost $20.</p>').includes('unsourced-price'), 'a total that is not labelled per-day still passes')
   assert.ok(!gateWith(priceAllowList([245], []), '<p>A week of daily parking costs $245.</p>').includes('unsourced-price'), '"costs" is a total')
+})
+
+test('approved codes: every flat code is its own airport\'s, $5 off a $25 minimum, until the end of Jan 31 ET', () => {
+  const before = new Date('2026-12-01T00:00:00Z')
+  const offers = loadApprovedOfferFigures(undefined, before)
+  const codes = Object.keys(offers)
+  assert.equal(codes.length, 23, codes.join(', '))
+  for (const [code, o] of Object.entries(offers)) {
+    assert.equal(o.airport, code.slice(0, 3), code)
+    assert.deepEqual(o.figures, [5, 25], code)
+  }
+  assert.ok(loadApprovedCodes(undefined, before).includes('JFK5'))
+  // Checkout refuses them after 2027-02-01T04:59:59Z, so the blog stops quoting them too.
+  const after = new Date('2027-02-01T05:00:00Z')
+  assert.deepEqual(loadApprovedOfferFigures(undefined, after), {})
+  assert.ok(!loadApprovedCodes(undefined, after).some((c) => codes.includes(c)))
+})
+
+test('approved codes: a bad entry is skipped, never widened (fail closed)', () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'codes-')), 'codes.json')
+  const now = new Date('2026-12-01T00:00:00Z')
+  fs.writeFileSync(file, JSON.stringify({ codes: [
+    { code: '', airport: 'DFW', amountOff: 5 }, // an empty code would match every text
+    { code: 'X!', airport: 'DFW', amountOff: 5 },
+    { code: 'AAA5', airport: '', amountOff: 5 }, // no airport: no allowance
+    { code: 'old5', airport: 'old', amountOff: 5, expiresAt: 'not a date' }, // unreadable expiry counts as expired
+    { code: 'abc5', airport: 'abc', amountOff: '5', minSubtotal: 25 }, // a string figure is dropped
+    { code: 'TEN', percentOff: 10, expiresAt: '2026-11-30T00:00:00Z' },
+  ] }))
+  assert.deepEqual(loadApprovedOfferFigures(file, now), { ABC5: { airport: 'ABC', figures: [25] } })
+  assert.deepEqual(loadApprovedCodes(file, now), ['AAA5', 'ABC5'])
+  assert.deepEqual(loadApprovedOffers(file, now), {})
+  assert.deepEqual(loadApprovedOffers(file, new Date('2026-11-01T00:00:00Z')), { TEN: 10 })
+  fs.writeFileSync(file, '{ not json')
+  assert.deepEqual(loadApprovedOfferFigures(file, now), {})
+  assert.deepEqual(loadApprovedCodes(file, now), [])
 })

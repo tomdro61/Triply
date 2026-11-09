@@ -82,7 +82,7 @@ import { z } from 'zod'
 import { parse as parseHtml, NodeType, type HTMLElement, type TextNode } from 'node-html-parser'
 import { htmlToLexical } from './html-to-lexical.js'
 import { lexicalToHtml, countNodesOfType, readUploadValue } from './lexical-to-html.js'
-import { lintArticle, formatLint, stripTags, loadApprovedCodes, loadApprovedOffers, priceCheck, collectMoneyFigures, PROMO_WORD, type LintFinding } from './lint.js'
+import { lintArticle, formatLint, stripTags, loadApprovedCodes, loadApprovedOffers, loadApprovedOfferFigures, priceCheck, collectMoneyFigures, PROMO_WORD, type LintFinding, type ApprovedOffer } from './lint.js'
 // P3 price check + allow-list live in lint.ts (generate uses them too, W1.8 P3c); re-exported for callers and tests.
 export { priceCheck, collectMoneyFigures } from './lint.js'
 import { stampField, factsDiff, lexicalText, type FactsDiff } from './stamp.js'
@@ -829,7 +829,7 @@ const rawBlocks = (html: string): string[] => html.split(new RegExp(BLOCK_TAG.so
  * inside content a replace removed may go; nothing else may), the booking-link backstop, and the unsold-lot names.
  * `lots`: lotNamesFor(post.airportCode); null = no data file, and the unsold-name check reports NOT RUN.
  */
-export function checkEdit(post: PostLike, res: EditResult, edit: EditSpec, known: ReadonlySet<number> | null, lots: LotNames | null = { unsellable: [], sellable: [], airportWords: [] }): CheckResult {
+export function checkEdit(post: PostLike, res: EditResult, edit: EditSpec, known: ReadonlySet<number> | null, lots: LotNames | null = { unsellable: [], sellable: [], airportWords: [] }, codeOffers: Record<string, ApprovedOffer> = loadApprovedOfferFigures()): CheckResult {
   const lintOf = (p: PostLike) => lintArticle({
     title: p.title, metaTitle: p.seo?.metaTitle, metaDescription: p.seo?.metaDescription,
     html: lexicalToHtml(p.content as Parameters<typeof lexicalToHtml>[0]), excerpt: p.excerpt,
@@ -876,14 +876,32 @@ export function checkEdit(post: PostLike, res: EditResult, edit: EditSpec, known
   ].filter((e, i, arr) => arr.findIndex((x) => key(x) === key(e)) === i)
   const hasPrice = /(?:C\$|CA\$|US\$|\$)\s?\d/.test(`${newText}\n${res.fieldText}`)
   const unique = (xs: string[]) => [...new Set(xs)]
-  const badPrices = known ? unique([...blocks.flatMap((b) => priceCheck(b, '', known)), ...priceCheck('', res.fieldText, known)]) : []
+  // A flat-amount code's own terms ("EWR5: $5 off, $25 minimum") are sourced by the code, but only (review, Nov 2026):
+  // in the block or field that names it (one allowance per edit let a "$25 a day" elsewhere pass); in a post for the
+  // code's airport (the code tells us which airport's posts drove the booking); and never as a per-day price.
+  const airport = (post.airportCode || '').toUpperCase()
+  const names = (text: string, code: string) => new RegExp(`\\b${code}\\b`, 'i').test(text)
+  const allowFor = (html: string, k: ReadonlySet<number>): ReadonlySet<number> => {
+    const text = stripTags(html)
+    const figs = Object.entries(codeOffers).filter(([c, o]) => o.airport === airport && names(text, c))
+      .flatMap(([, o]) => o.figures.map((n) => Math.round(n * 100)))
+    return figs.length ? new Set([...k, ...figs]) : k
+  }
+  // perDayKnown / sourcedKnown = the data's own figures, so the allowance never covers "$25/day" or an old price.
+  const check = (html: string, field: string, k: ReadonlySet<number>) => priceCheck(html, field, allowFor(html || field, k), k, k)
+  const badPrices = known ? unique([...blocks.flatMap((b) => check(b, '', known)), ...res.fieldText.split('\n').flatMap((t) => check('', t, known))]) : []
   const loss = guardLoss(post.content, res.after.content, removedNodes(res.replaced))
   // The whole resulting body, so a stale figure the edit did NOT remove is still caught (reported, not blocking:
   // old posts carry computed totals the allow-list never holds, and this edit may be fixing one block of many).
   // Block by block (each root node), like the new material: one joined body let a quote borrow the next paragraph's link.
+  // Same code allowance, so a code's own terms aren't reported as stale on every later edit of the post.
   const remainingPrices = known && res.patch.content !== undefined
-    ? unique(res.after.content.root.children.flatMap((n) => priceCheck(toHtml([n]), '', known))).filter((x) => !badPrices.includes(x))
+    ? unique(res.after.content.root.children.flatMap((n) => check(toHtml([n]), '', known))).filter((x) => !badPrices.includes(x))
     : []
+  const ownCode = Object.entries(codeOffers).find(([, o]) => o.airport === airport)?.[0]
+  const codeWarnings: LintFinding[] = Object.entries(codeOffers)
+    .filter(([c, o]) => o.airport !== airport && names(`${newText}\n${res.fieldText}`, c))
+    .map(([c, o]) => ({ level: 'warn', rule: 'other-airport-code', message: `names ${c}, the ${o.airport} promo code, in a ${airport || 'no-airport'} post: a booking made with it is credited to ${o.airport}${ownCode ? ` (this post's code is ${ownCode})` : ''}, and its $ terms aren't allowed here` }))
   // Backstop for the booking CTA (sectionEnd keeps sections off it; a text op can still target it): the result must
   // still link the airport's booking page if the live post did, unless edit.json says the removal is meant.
   const booking = bookingTargetFor(post.airportCode)
@@ -907,7 +925,7 @@ export function checkEdit(post: PostLike, res: EditResult, edit: EditSpec, known
     ...(unsold.block.length ? [`names a lot we don't sell at ${post.airportCode}: ${unsold.block.join(', ')} — never name or price an unsold lot`] : []),
     ...(bookingLinkGone && !edit.allowBookingLinkRemoval ? [`would remove the link to the booking page (${booking?.path}) — keep the "Compare … parking rates" paragraph, or set "allowBookingLinkRemoval": true in edit.json if that is meant`] : []),
   ]
-  return { blockers, warnings: [...after.warnings, ...unsoldWarnings], preexisting, remainingPrices, removedRefs: removedRefsReport(res.replaced), bookingLinkRemoved: bookingLinkGone && !!edit.allowBookingLinkRemoval, notRun }
+  return { blockers, warnings: [...after.warnings, ...unsoldWarnings, ...codeWarnings], preexisting, remainingPrices, removedRefs: removedRefsReport(res.replaced), bookingLinkRemoved: bookingLinkGone && !!edit.allowBookingLinkRemoval, notRun }
 }
 
 /** Lint every block of the live post on its own (list items and table cells too), so each block's errors are known. */

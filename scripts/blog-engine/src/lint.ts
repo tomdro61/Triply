@@ -129,22 +129,53 @@ const SAVE_UP_TO = /\b(?:save|savings of|discounts? of)?\s?up to\s?\d{1,2}\s?%(?
 // A source for a savings claim is an outside page; a link to our own site is a CTA.
 const EXTERNAL_SOURCE_LINK = /<a\s[^>]*href=["']https?:\/\/(?!(?:www\.)?triplypro\.com)[^"']+["']/i
 
-export function loadApprovedCodes(file: string = APPROVED_CODES_PATH): string[] {
+interface CodeEntry { code?: unknown; airport?: unknown; expiresAt?: unknown; amountOff?: unknown; minSubtotal?: unknown; percentOff?: unknown }
+
+/** The entries that may be quoted now (fail closed): a code of 3+ letters/digits, and not past its `expiresAt` (an
+ *  unreadable date counts as expired). Checkout refuses an expired code, so the blog must stop quoting it too. */
+function liveEntries(file: string, now: Date): (CodeEntry & { code: string })[] {
+  const raw = JSON.parse(fs.readFileSync(file, 'utf-8')) as { codes?: CodeEntry[] } | unknown[]
+  const list: CodeEntry[] = Array.isArray(raw) ? raw.map((code) => ({ code })) : raw.codes || []
+  return list.flatMap((c) => {
+    const code = String(c.code ?? '').trim().toUpperCase()
+    if (!/^[A-Z0-9]{3,}$/.test(code)) return []
+    if (c.expiresAt !== undefined && !(Date.parse(String(c.expiresAt)) > now.getTime())) return []
+    return [{ ...c, code }]
+  })
+}
+
+export function loadApprovedCodes(file: string = APPROVED_CODES_PATH, now: Date = new Date()): string[] {
   try {
-    const raw = JSON.parse(fs.readFileSync(file, 'utf-8')) as { codes?: { code: string }[] } | string[]
-    if (Array.isArray(raw)) return raw.map(String)
-    return (raw.codes || []).map((c) => String(c.code))
+    return liveEntries(file, now).map((c) => c.code)
   } catch {
     return []
   }
 }
 
-/** Code → documented percent off, from the same file. A code with no `percentOff` sources no savings claim at all. */
-export function loadApprovedOffers(file: string = APPROVED_CODES_PATH): Record<string, number> {
+export interface ApprovedOffer { airport: string; figures: number[] }
+
+/** Code → its airport and the dollar figures its own terms state (`amountOff`, `minSubtotal`), e.g. DFW5 →
+ *  { airport: 'DFW', figures: [5, 25] }. A flat-amount code's "$5 off" and "$25 minimum" come from the code itself,
+ *  so apply-edit's price check accepts them beside that code in a post for its airport. No airport, no figures. */
+export function loadApprovedOfferFigures(file: string = APPROVED_CODES_PATH, now: Date = new Date()): Record<string, ApprovedOffer> {
   try {
-    const raw = JSON.parse(fs.readFileSync(file, 'utf-8')) as { codes?: { code: string; percentOff?: unknown }[] }
+    const out: Record<string, ApprovedOffer> = {}
+    for (const c of liveEntries(file, now)) {
+      const airport = typeof c.airport === 'string' ? c.airport.trim().toUpperCase() : ''
+      const figures = [c.amountOff, c.minSubtotal].filter((n): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0)
+      if (/^[A-Z]{3}$/.test(airport) && figures.length) out[c.code] = { airport, figures }
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
+/** Code → documented percent off, from the same file. A code with no `percentOff` sources no savings claim at all. */
+export function loadApprovedOffers(file: string = APPROVED_CODES_PATH, now: Date = new Date()): Record<string, number> {
+  try {
     const out: Record<string, number> = {}
-    for (const c of raw.codes || []) if (typeof c.percentOff === 'number') out[String(c.code).toUpperCase()] = c.percentOff
+    for (const c of liveEntries(file, now)) if (typeof c.percentOff === 'number') out[c.code] = c.percentOff
     return out
   } catch {
     return {}
@@ -196,8 +227,8 @@ export function lintArticle(input: LintInput): LintResult {
   const errors: LintFinding[] = []
   const warnings: LintFinding[] = []
   const now = input.now || new Date()
-  const approved = new Set((input.approvedCodes || loadApprovedCodes()).map((c) => c.toUpperCase()))
-  const offers = input.approvedOffers ?? (input.approvedCodes ? {} : loadApprovedOffers())
+  const approved = new Set((input.approvedCodes || loadApprovedCodes(undefined, now)).map((c) => c.toUpperCase()))
+  const offers = input.approvedOffers ?? (input.approvedCodes ? {} : loadApprovedOffers(undefined, now))
   const savingsClaims = (text: string) => [...text.matchAll(new RegExp(SAVE_UP_TO.source, 'gi'))].map((m) => m[0])
 
   const faqText = (input.faqItems || []).map((f) => `${f.question} ${f.answer}`).join(' ')
@@ -240,7 +271,7 @@ export function lintArticle(input: LintInput): LintResult {
       // Skip obvious non-codes: airport codes with digits don't exist; terminal labels, PNG sizes, model names
       if (/^(?:T\d|B\d|P\d{1,2}|LOT\d{1,2}|HWY\d+|I\d{2,3}|US\d{1,3}|SR\d{1,3}|A\d{1,2}|C\d{1,2}|D\d{1,2}|E\d{1,2}|F\d{1,2}|G\d{1,2}|H\d{1,2}|\d+X\d+|COVID19|SB\d{2,4}|HB\d{2,4})$/.test(code)) continue
       seen.add(code)
-      errors.push({ level: 'error', rule: 'unapproved-code', message: `promo code "${code}" is not in config/approved-promo-codes.json`, snippet: context(allText, index) })
+      errors.push({ level: 'error', rule: 'unapproved-code', message: `promo code "${code}" is not an approved, unexpired code in config/approved-promo-codes.json`, snippet: context(allText, index) })
     }
   }
 
