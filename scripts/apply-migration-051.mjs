@@ -93,6 +93,13 @@ show("after", after);
 // A random probe key no real bucket can have; its row is deleted afterwards.
 const probeKey = crypto.randomBytes(32).toString("base64url");
 const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+// PostgREST reloads its schema cache a moment AFTER the commit's NOTIFY: wait
+// (up to ~15 s) until it knows the function, rather than report a false failure.
+for (let i = 0; i < 15; i++) {
+  const { error } = await supabase.rpc("guest_lookup_release", { p_keys: [probeKey], p_window_seconds: 86400 });
+  if (!error || !/schema cache/i.test(error.message)) break;
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+}
 let rpc = "not run";
 try {
   const take = await supabase.rpc("guest_lookup_take", {
