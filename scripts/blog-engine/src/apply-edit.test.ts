@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { applyEdit, insertUnderHeading, priceCheck, guardLoss, textDiff, parseEdit, checkEdit, previewMismatch, applyWithSettle, sha256, editLive, collectMoneyFigures } from './apply-edit.js'
 import type { PostLike } from './apply-edit.js'
+import type { ApprovedOffer } from './lint.js'
 import { loadAirportData } from './airport-data.js'
 import { figureSource } from './prompts/write.js'
 
@@ -16,6 +17,13 @@ const post = (): PostLike => ({
   content: { root: { type: 'root', children: [p('Intro costs $18/day.'), h('h2', 'Rates'), p('Economy is $18/day.'), h('h3', 'Garages'), p('Garage is $40/day.'), h('h2', 'Shuttle'), link('See shuttle')] } } as PostLike['content'],
 })
 const ins = (underHeading: string, html: string, position: 'start' | 'end' = 'end') => ({ underHeading, html, position })
+const EWR5: Record<string, ApprovedOffer> = { EWR5: { airport: 'EWR', figures: [5, 25] } }
+const PROMO = '<p>Use EWR5 at checkout for $5 off a parking subtotal of $25 or more.</p>'
+const priceBlockers = (c: { blockers: string[] }) => c.blockers.filter((b) => b.startsWith('price check'))
+const checkInsert = (html: string, offers: Record<string, ApprovedOffer> = EWR5) =>
+  checkEdit(post(), applyEdit(post(), { insert: ins('Shuttle', html) }), { insert: ins('Shuttle', html) }, new Set([1800]), undefined, offers)
+const checkFields = (fields: NonNullable<Parameters<typeof applyEdit>[1]['fields']>, offers: Record<string, ApprovedOffer> = EWR5) =>
+  checkEdit(post(), applyEdit(post(), { fields }), { fields }, new Set([1800]), undefined, offers)
 
 test('parseEdit is strict: unknown keys, a bad position, an empty FAQ and an empty edit are refused', () => {
   assert.throws(() => parseEdit({ fields: { metaDescription: 'x' } }), /fields: Unrecognized key/)
@@ -159,31 +167,46 @@ test('applyWithSettle: a thrown PATCH is settled by re-reading — live = applie
 })
 
 test('checkEdit: a flat-amount code sources its own $ terms, only where the edit names the code', () => {
-  const figs = { DFW5: [5, 25] }
-  const named = '<p>Use DFW5 at checkout for $5 off a parking subtotal of $25 or more.</p>'
-  const rn = applyEdit(post(), { insert: ins('Shuttle', named) })
-  const cn = checkEdit(post(), rn, { insert: ins('Shuttle', named) }, new Set([1800]), undefined, figs)
-  assert.ok(!cn.blockers.some((b) => b.startsWith('price check')), cn.blockers.join(' | '))
   const unnamed = '<p>Save $5 on a parking subtotal of $25 or more.</p>'
-  const ru = applyEdit(post(), { insert: ins('Shuttle', unnamed) })
-  const cu = checkEdit(post(), ru, { insert: ins('Shuttle', unnamed) }, new Set([1800]), undefined, figs)
-  assert.ok(cu.blockers.some((b) => b.startsWith('price check: $5')))
-  const none = checkEdit(post(), rn, { insert: ins('Shuttle', named) }, new Set([1800]), undefined, {})
-  assert.ok(none.blockers.some((b) => b.startsWith('price check: $5')))
+  assert.deepEqual(priceBlockers(checkInsert(PROMO)), [])
+  assert.ok(priceBlockers(checkInsert(unnamed)).some((b) => b.startsWith('price check: $5')))
+  assert.ok(priceBlockers(checkInsert(PROMO, {})).some((b) => b.startsWith('price check: $5')), 'no approved figures, no allowance')
 })
 
 test('checkEdit: a code sources its $ terms only in its own block, and they are not reported as stale afterwards', () => {
-  const figs = { DFW5: [5, 25] }
-  // The code is named in one paragraph; a lot price that happens to equal a code figure sits in another.
-  const two = '<p>Use DFW5 at checkout for $5 off a parking subtotal of $25 or more.</p><p>Economy parking from $25/day.</p>'
-  const r2 = applyEdit(post(), { insert: ins('Shuttle', two) })
-  const c2 = checkEdit(post(), r2, { insert: ins('Shuttle', two) }, new Set([1800]), undefined, figs)
-  assert.ok(c2.blockers.some((b) => b.startsWith('price check: $25')), c2.blockers.join(' | '))
+  // The code is named in one paragraph; a figure that happens to equal a code figure sits in another.
+  const two = `${PROMO}<p>A garage weekend costs $25.</p>`
+  assert.ok(priceBlockers(checkInsert(two)).some((b) => b.startsWith('price check: $25')))
   // After an allowed edit, the whole-body report doesn't list the code's own $5 / $25 as stale figures.
-  const named = '<p>Use DFW5 at checkout for $5 off a parking subtotal of $25 or more.</p>'
-  const rn = applyEdit(post(), { insert: ins('Shuttle', named) })
-  const cn = checkEdit(post(), rn, { insert: ins('Shuttle', named) }, new Set([1800]), undefined, figs)
-  assert.deepEqual(cn.blockers.filter((b) => b.startsWith('price check')), [])
-  assert.ok(!cn.remainingPrices.some((x) => x === '$5' || x === '$25'), cn.remainingPrices.join(', '))
-  assert.ok(cn.remainingPrices.includes('$40'), 'the old $40 garage figure is still reported')
+  const c = checkInsert(PROMO)
+  assert.ok(!c.remainingPrices.some((x) => x === '$5' || x === '$25'), c.remainingPrices.join(', '))
+  assert.ok(c.remainingPrices.includes('$40'), 'the old $40 garage figure is still reported')
+})
+
+test('checkEdit: a code never sources a per-day price, even in its own block', () => {
+  assert.ok(priceBlockers(checkInsert('<p>Use EWR5 for $5 off; economy lots start at $25/day.</p>')).some((b) => b.startsWith('price check: $25')))
+})
+
+test('checkEdit: in the fields, a code sources its $ terms only in the field that names it', () => {
+  const excerpt = 'Use EWR5 for $5 off a parking subtotal of $25 or more.'
+  assert.deepEqual(priceBlockers(checkFields({ excerpt })), [])
+  assert.ok(priceBlockers(checkFields({ title: 'EWR Weekend Parking Under $25', excerpt })).some((b) => b.startsWith('price check: $25')))
+  const faqItems = [{ question: 'Is there a promo code?', answer: excerpt }, { question: 'Can I leave and come back?', answer: 'Re-entry costs $5.' }]
+  assert.ok(priceBlockers(checkFields({ faqItems })).some((b) => b.startsWith('price check: $5')))
+})
+
+test("checkEdit: another airport's code sources nothing and is a warning", () => {
+  const offers = { ...EWR5, DFW5: { airport: 'DFW', figures: [5, 25] } }
+  const c = checkInsert('<p>Use DFW5 at checkout for $5 off a parking subtotal of $25 or more.</p>', offers)
+  assert.ok(priceBlockers(c).some((b) => b.startsWith('price check: $5')))
+  const w = c.warnings.find((x) => x.rule === 'other-airport-code')
+  assert.ok(w && /DFW5/.test(w.message) && /this post's code is EWR5/.test(w.message), JSON.stringify(c.warnings))
+  assert.ok(!checkInsert(PROMO, offers).warnings.some((x) => x.rule === 'other-airport-code'), 'its own code is no warning')
+})
+
+test('checkEdit: the code is matched as a whole word, in any case', () => {
+  for (const near of ['EWR50', 'XEWR5', 'EWR5X']) {
+    assert.ok(priceBlockers(checkInsert(`<p>Use ${near} for $5 off a parking subtotal of $25 or more.</p>`)).some((b) => b.startsWith('price check: $5')), near)
+  }
+  assert.deepEqual(priceBlockers(checkInsert('<p>Use ewr5 for $5 off a parking subtotal of $25 or more.</p>')), [])
 })

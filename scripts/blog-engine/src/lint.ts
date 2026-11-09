@@ -129,25 +129,41 @@ const SAVE_UP_TO = /\b(?:save|savings of|discounts? of)?\s?up to\s?\d{1,2}\s?%(?
 // A source for a savings claim is an outside page; a link to our own site is a CTA.
 const EXTERNAL_SOURCE_LINK = /<a\s[^>]*href=["']https?:\/\/(?!(?:www\.)?triplypro\.com)[^"']+["']/i
 
-export function loadApprovedCodes(file: string = APPROVED_CODES_PATH): string[] {
+interface CodeEntry { code?: unknown; airport?: unknown; expiresAt?: unknown; amountOff?: unknown; minSubtotal?: unknown; percentOff?: unknown }
+
+/** The entries that may be quoted now (fail closed): a code of 3+ letters/digits, and not past its `expiresAt` (an
+ *  unreadable date counts as expired). Checkout refuses an expired code, so the blog must stop quoting it too. */
+function liveEntries(file: string, now: Date): (CodeEntry & { code: string })[] {
+  const raw = JSON.parse(fs.readFileSync(file, 'utf-8')) as { codes?: CodeEntry[] } | unknown[]
+  const list: CodeEntry[] = Array.isArray(raw) ? raw.map((code) => ({ code })) : raw.codes || []
+  return list.flatMap((c) => {
+    const code = String(c.code ?? '').trim().toUpperCase()
+    if (!/^[A-Z0-9]{3,}$/.test(code)) return []
+    if (c.expiresAt !== undefined && !(Date.parse(String(c.expiresAt)) > now.getTime())) return []
+    return [{ ...c, code }]
+  })
+}
+
+export function loadApprovedCodes(file: string = APPROVED_CODES_PATH, now: Date = new Date()): string[] {
   try {
-    const raw = JSON.parse(fs.readFileSync(file, 'utf-8')) as { codes?: { code: string }[] } | string[]
-    if (Array.isArray(raw)) return raw.map(String)
-    return (raw.codes || []).map((c) => String(c.code))
+    return liveEntries(file, now).map((c) => c.code)
   } catch {
     return []
   }
 }
 
-/** Code → the dollar figures its own terms state (`amountOff`, `minSubtotal`), e.g. DFW5 → [5, 25]. A flat-amount
- *  code's "$5 off" and "$25 minimum" come from the code itself, so the price check accepts them beside that code. */
-export function loadApprovedOfferFigures(file: string = APPROVED_CODES_PATH): Record<string, number[]> {
+export interface ApprovedOffer { airport: string; figures: number[] }
+
+/** Code → its airport and the dollar figures its own terms state (`amountOff`, `minSubtotal`), e.g. DFW5 →
+ *  { airport: 'DFW', figures: [5, 25] }. A flat-amount code's "$5 off" and "$25 minimum" come from the code itself,
+ *  so apply-edit's price check accepts them beside that code in a post for its airport. No airport, no figures. */
+export function loadApprovedOfferFigures(file: string = APPROVED_CODES_PATH, now: Date = new Date()): Record<string, ApprovedOffer> {
   try {
-    const raw = JSON.parse(fs.readFileSync(file, 'utf-8')) as { codes?: { code: string; amountOff?: unknown; minSubtotal?: unknown }[] }
-    const out: Record<string, number[]> = {}
-    for (const c of raw.codes || []) {
-      const figs = [c.amountOff, c.minSubtotal].filter((n): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0)
-      if (figs.length) out[String(c.code).toUpperCase()] = figs
+    const out: Record<string, ApprovedOffer> = {}
+    for (const c of liveEntries(file, now)) {
+      const airport = typeof c.airport === 'string' ? c.airport.trim().toUpperCase() : ''
+      const figures = [c.amountOff, c.minSubtotal].filter((n): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0)
+      if (/^[A-Z]{3}$/.test(airport) && figures.length) out[c.code] = { airport, figures }
     }
     return out
   } catch {
@@ -156,11 +172,10 @@ export function loadApprovedOfferFigures(file: string = APPROVED_CODES_PATH): Re
 }
 
 /** Code → documented percent off, from the same file. A code with no `percentOff` sources no savings claim at all. */
-export function loadApprovedOffers(file: string = APPROVED_CODES_PATH): Record<string, number> {
+export function loadApprovedOffers(file: string = APPROVED_CODES_PATH, now: Date = new Date()): Record<string, number> {
   try {
-    const raw = JSON.parse(fs.readFileSync(file, 'utf-8')) as { codes?: { code: string; percentOff?: unknown }[] }
     const out: Record<string, number> = {}
-    for (const c of raw.codes || []) if (typeof c.percentOff === 'number') out[String(c.code).toUpperCase()] = c.percentOff
+    for (const c of liveEntries(file, now)) if (typeof c.percentOff === 'number') out[c.code] = c.percentOff
     return out
   } catch {
     return {}
