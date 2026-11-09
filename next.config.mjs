@@ -17,6 +17,37 @@ if (
   );
 }
 
+// Minty Recover pilot (src/lib/analytics/minty.ts): its hosts join the CSP
+// only when NEXT_PUBLIC_MINTY_SITE_ID is a valid id, so with it unset the CSP
+// is unchanged. shop.pe serves the widget and 301s to the CloudFront host.
+// Minty's install doc may name more: after setting the id on a preview, check
+// the console for CSP violations and add them here.
+// Hosts seen loading on a local build, 2026-11-09: shop.pe, shopper.shop.pe,
+// app.shop.pe, the CloudFront widget host, manage.safeopt.com (consent) and an
+// iframe on nytrng.com.
+// Same pattern as isValidMintySiteId (src/lib/privacy/inline-analytics-scripts.ts);
+// keep the two in step.
+const MINTY_RAW = process.env.NEXT_PUBLIC_MINTY_SITE_ID?.trim() ?? "";
+const MINTY_ON = /^[a-f0-9]{24}$/.test(MINTY_RAW);
+const ON_VERCEL = process.env.VERCEL_ENV === "production" || process.env.VERCEL_ENV === "preview";
+// A Vercel build refuses a set-but-malformed id (the pilot would be silently
+// off), and refuses Minty on without PROMO_FIXED_ENABLED=true: Minty emails the
+// fixed $5 code TRIP5, which checkout refuses while fixed codes are switched off.
+if (ON_VERCEL && MINTY_RAW && !MINTY_ON) {
+  throw new Error(
+    `NEXT_PUBLIC_MINTY_SITE_ID is set but is not a 24-character lowercase hex id. Fix or remove it for this Vercel ${process.env.VERCEL_ENV} build.`
+  );
+}
+if (ON_VERCEL && MINTY_ON && (process.env.PROMO_FIXED_ENABLED ?? "").trim().toLowerCase() !== "true") {
+  throw new Error(
+    `NEXT_PUBLIC_MINTY_SITE_ID is set but PROMO_FIXED_ENABLED is not "true" for this Vercel ${process.env.VERCEL_ENV} build: Minty's TRIP5 ($5 fixed) code would be refused at checkout.`
+  );
+}
+const MINTY_CSP = MINTY_ON
+  ? " https://shop.pe https://*.shop.pe https://d2mjzob2nc713b.cloudfront.net https://*.safeopt.com"
+  : "";
+const MINTY_FRAME_CSP = MINTY_ON ? " https://nytrng.com" : "";
+
 const withPWA = withPWAInit({
   dest: "public",
   disable: process.env.NODE_ENV === "development",
@@ -192,14 +223,14 @@ const nextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' https://js.stripe.com https://www.googletagmanager.com https://*.clarity.ms https://api.mapbox.com",
+              `script-src 'self' 'unsafe-inline' https://js.stripe.com https://www.googletagmanager.com https://*.clarity.ms https://api.mapbox.com${MINTY_CSP}`,
               "style-src 'self' 'unsafe-inline' https://api.mapbox.com https://fonts.googleapis.com",
-              "img-src 'self' data: blob: https://*.supabase.co https://karaaj.s3.amazonaws.com https://*.amazonaws.com https://images.unsplash.com https://api.mapbox.com https://*.mapbox.com https://cms.triplypro.com https://*.public.blob.vercel-storage.com https://static.cupid.travel",
+              `img-src 'self' data: blob: https://*.supabase.co https://karaaj.s3.amazonaws.com https://*.amazonaws.com https://images.unsplash.com https://api.mapbox.com https://*.mapbox.com https://cms.triplypro.com https://*.public.blob.vercel-storage.com https://static.cupid.travel${MINTY_CSP}`,
               "font-src 'self' https://fonts.gstatic.com",
-              "connect-src 'self' https://*.supabase.co https://api.stripe.com https://api.mapbox.com https://*.mapbox.com https://events.mapbox.com https://www.google-analytics.com https://*.clarity.ms https://*.sentry.io",
+              `connect-src 'self' https://*.supabase.co https://api.stripe.com https://api.mapbox.com https://*.mapbox.com https://events.mapbox.com https://www.google-analytics.com https://*.clarity.ms https://*.sentry.io${MINTY_CSP}`,
               // *.js.stripe.com: Stripe's documented set for Stripe.js (it may start
               // frames on sibling origins); hooks.stripe.com for 3-D Secure.
-              "frame-src https://js.stripe.com https://*.js.stripe.com https://hooks.stripe.com",
+              `frame-src https://js.stripe.com https://*.js.stripe.com https://hooks.stripe.com${MINTY_FRAME_CSP}`,
               "worker-src 'self' blob:",
             ].join("; "),
           },

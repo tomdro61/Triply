@@ -8,6 +8,7 @@
  */
 
 import { enabledAirports } from "@/config/airports";
+import { MINTY_ENABLED } from "@/lib/analytics/minty";
 import {
   PG_TIER_SUMMARY,
   PG_LIMIT_SUMMARY,
@@ -136,7 +137,7 @@ A: Log into your account and go to My Reservations. You'll see all your upcoming
 
 == PRIVACY SUMMARY ==
 - Data collected: name, email, phone, payment info (processed by Stripe), booking details
-- Data shared with: Stripe (payments), Reservations Lab (passes the reservation to the lot), Park Guard (only if a protection plan is added), Supabase (database and sign-in), Resend (emails), Vercel (hosting), Google Analytics and Microsoft Clarity (analytics, subject to the visitor's cookie choices), Sentry (error monitoring), Mapbox (maps), Anthropic (this assistant), Discord (internal booking alerts) — full list at triplypro.com/privacy
+- Data shared with: Stripe (payments), Reservations Lab (passes the reservation to the lot), Park Guard (only if a protection plan is added), Supabase (database and sign-in), Resend (emails), Vercel (hosting), Google Analytics and Microsoft Clarity (analytics, subject to the visitor's cookie choices), ${MINTY_ENABLED ? "Minty (receives device identifiers and on-page activity, may email our offers to visitors who signed up to Minty's own shopper network; off if analytics cookies are off), " : ""}Sentry (error monitoring), Mapbox (maps), Anthropic (this assistant), Discord (internal booking alerts) — full list at triplypro.com/privacy
 - Data retention: 7 years for financial records
 - Users can request data deletion by contacting privacy@triplypro.com
 - Full policy at: triplypro.com/privacy

@@ -8,6 +8,7 @@ import {
 } from "@/lib/cookies/consent";
 import { revokeAnalyticsConsent, grantAnalyticsConsent } from "@/lib/analytics/gtag";
 import { grantClarityConsent, revokeClarityConsent } from "@/lib/analytics/clarity";
+import { MINTY_ENABLED, reloadToDropMinty } from "@/lib/analytics/minty";
 
 export function CookieSettings() {
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
@@ -36,6 +37,9 @@ export function CookieSettings() {
       optOutAnalytics();
       revokeAnalyticsConsent();
       revokeClarityConsent();
+      // A running Minty widget can't be stopped in place; the opt-out cookie
+      // is already written, so the reload comes back without it.
+      if (reloadToDropMinty(null, true)) return;
     }
 
     setSaved(true);
@@ -52,6 +56,8 @@ export function CookieSettings() {
           </p>
           <p className="text-sm text-gray-500">
             Google Analytics and Microsoft Clarity help us understand how you use the site.
+            {MINTY_ENABLED &&
+              " Minty may also recognise shoppers who signed up to its network and email them our offers; turning this off stops it."}
           </p>
         </div>
         <div className="flex items-center gap-3">

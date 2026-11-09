@@ -2,7 +2,8 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { Inter, Poppins } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
-import { clarityInitScript, gtagInitScript } from "@/lib/privacy/inline-analytics-scripts";
+import { clarityInitScript, gtagInitScript, mintyInitScript } from "@/lib/privacy/inline-analytics-scripts";
+import { MINTY_SITE_ID } from "@/lib/analytics/minty";
 // globals.css is now imported in (main)/layout.tsx to isolate from Payload CMS
 
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
@@ -127,6 +128,15 @@ export default function RootLayout({
           // the booking key or a Stripe client secret (see the module).
           <Script id="clarity-init" strategy="lazyOnload">
             {clarityInitScript(CLARITY_ID)}
+          </Script>
+        )}
+        {MINTY_SITE_ID && (
+          // Minty Recover pilot (off unless NEXT_PUBLIC_MINTY_SITE_ID is set).
+          // Same opt-out and secret-param rules as Clarity, and never started
+          // on a visit that lands on checkout / confirmation / account pages
+          // (see the module).
+          <Script id="minty-init" strategy="lazyOnload">
+            {mintyInitScript(MINTY_SITE_ID)}
           </Script>
         )}
       </head>
