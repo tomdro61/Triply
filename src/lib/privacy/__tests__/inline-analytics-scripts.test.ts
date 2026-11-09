@@ -40,6 +40,16 @@ describe("gtag-init", () => {
     expect(JSON.stringify(calls)).not.toContain("dana");
   });
 
+  it("a keyed confirmation link: neither the booking key nor the email reaches the page_view", () => {
+    const { calls } = run(gtagInitScript("G-TEST"), {
+      href: "https://www.triplypro.com/confirmation/RTL1?lot=reslab-2&booking_key=AbCdEfGhIjKlMnOpQrStUv&email=dana%40example.com",
+    });
+    expect(calls).toContainEqual(["config", "G-TEST", { send_page_view: false }]);
+    expect(calls).toContainEqual(["event", "page_view", { page_location: "https://www.triplypro.com/confirmation/RTL1?lot=reslab-2" }]);
+    expect(JSON.stringify(calls)).not.toContain("AbCdEf");
+    expect(JSON.stringify(calls)).not.toContain("dana");
+  });
+
   it("the 3-D Secure return: the client secret never reaches the page_view", () => {
     const { calls } = run(gtagInitScript("G-TEST"), {
       href: "https://www.triplypro.com/checkout/complete?payment_intent=pi_1&payment_intent_client_secret=pi_1_secret_x&redirect_status=succeeded",
@@ -73,6 +83,19 @@ describe("clarity-init", () => {
       run(clarityInitScript("abc123"), {
         href: "https://www.triplypro.com/help",
         referrer: "https://www.triplypro.com/confirmation/RTL1?email=a%40b.co",
+      }).clarityLoaded
+    ).toBe(false);
+  });
+
+  it("is not loaded while the URL or the referrer carries a booking key", () => {
+    expect(
+      run(clarityInitScript("abc123"), { href: "https://www.triplypro.com/confirmation/RTL1?booking_key=AbCdEfGhIjKlMnOpQrStUv" })
+        .clarityLoaded
+    ).toBe(false);
+    expect(
+      run(clarityInitScript("abc123"), {
+        href: "https://www.triplypro.com/help",
+        referrer: "https://www.triplypro.com/confirmation/RTL1?booking_key=AbCdEfGhIjKlMnOpQrStUv",
       }).clarityLoaded
     ).toBe(false);
   });

@@ -22,6 +22,8 @@ import { capturePaymentError, captureBookingError } from "@/lib/sentry";
 import { STALE_CHECKOUT_MESSAGE } from "@/lib/parkguard/client";
 import { readAttributionFromRequest } from "@/lib/attribution/read-request";
 import { sessionIdentityFromRequest } from "@/lib/booking/customer-link";
+import { paymentIntentSecretMatches } from "@/lib/stripe/client-secret";
+import { handOffBookingKey } from "@/lib/confirmation/confirmation-link";
 
 // ResLab's own call is allowed up to 30s, and Park Guard, Supabase, and two
 // emails run after it. The Vercel default (15s on Pro) could kill this
@@ -70,7 +72,7 @@ export async function POST(request: NextRequest) {
         stripePaymentIntentId,
         attribution: readAttributionFromRequest(request, { stripePaymentIntentId }),
       });
-      return outcomeResponse(directOutcome);
+      return outcomeResponse(directOutcome, await handOffKeyFor(request, directOutcome, stripePaymentIntentId));
     }
 
     const result = reservationSchema.safeParse(body);
@@ -128,7 +130,10 @@ export async function POST(request: NextRequest) {
       attribution,
     });
 
-    return outcomeResponse(outcome);
+    return outcomeResponse(
+      outcome,
+      DEV_SKIP_PAYMENT ? undefined : await handOffKeyFor(request, outcome, stripePaymentIntentId)
+    );
   } catch (error) {
     if (error instanceof PaymentNotConfirmedError) {
       capturePaymentError(error, {
@@ -152,13 +157,62 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/**
+ * The signed booking key for the confirmation page, so a customer who has just
+ * paid never lands on the capped email path. Only for a booking that exists,
+ * and only when the request carries this PaymentIntent's client secret in the
+ * x-payment-client-secret header (a header, not a body field, so a rolled-back
+ * .strict() schema can't refuse it): this route already names the reservation
+ * to anyone holding the bare pi_ id, so the id alone must never earn a key.
+ *
+ * No key is never an error: the booking answer is unchanged and the page opens
+ * on the email path, as before keys existed. Never throws.
+ */
+async function handOffKeyFor(
+  request: NextRequest,
+  outcome: CreateBookingResult,
+  stripePaymentIntentId: string | undefined
+): Promise<string | undefined> {
+  if (outcome.kind !== "created" && outcome.kind !== "already_exists") return undefined;
+  const given = request.headers.get("x-payment-client-secret");
+  // An older checkout page sends no header: no key, as before.
+  if (!given || !stripePaymentIntentId) return undefined;
+  try {
+    const check = await paymentIntentSecretMatches(stripePaymentIntentId, given);
+    if (check !== "match") {
+      captureBookingError(
+        new Error(
+          check === "mismatch"
+            ? `checkout hand-off without a booking key: the client secret did not match pi=${stripePaymentIntentId}`
+            : `checkout hand-off without a booking key: the client secret could not be checked (${check.unknown}) pi=${stripePaymentIntentId}`
+        ),
+        {
+          step: "checkout",
+          confirmationNumber: outcome.reservationNumber,
+          fingerprint: ["handoff-secret", check === "mismatch" ? "mismatch" : "unknown"],
+          level: "warning",
+        }
+      );
+      return undefined;
+    }
+    return handOffBookingKey(outcome.reservationNumber);
+  } catch (err) {
+    captureBookingError(
+      new Error(`checkout hand-off without a booking key: ${err instanceof Error ? err.message : String(err)} pi=${stripePaymentIntentId}`),
+      { step: "checkout", confirmationNumber: outcome.reservationNumber, fingerprint: ["handoff-secret", "threw"] }
+    );
+    return undefined;
+  }
+}
+
 /** The engine's outcome → the HTTP response the checkout client acts on. */
-function outcomeResponse(outcome: CreateBookingResult): NextResponse {
+function outcomeResponse(outcome: CreateBookingResult, bookingKey?: string): NextResponse {
   switch (outcome.kind) {
     case "created":
       return NextResponse.json({
         success: true,
         reservation: outcome.reservation,
+        ...(bookingKey && { bookingKey }),
       });
 
     case "already_exists":
@@ -167,6 +221,7 @@ function outcomeResponse(outcome: CreateBookingResult): NextResponse {
       return NextResponse.json({
         success: true,
         reservation: { reservationNumber: outcome.reservationNumber },
+        ...(bookingKey && { bookingKey }),
       });
 
     case "in_progress":

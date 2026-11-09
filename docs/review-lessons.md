@@ -163,6 +163,18 @@ a human.
 
 One entry per reviewed PR: what the review found, by lesson number. Newest first.
 
+- **Guest booking key + email-path limit (Nov 9):**
+  - Lesson 9: a wrong email on a real booking cost one more read than a number that isn't one, so response time showed which numbers are bookings (found while building). Refusals now answer no sooner than a fixed floor after the take, on the guest path and, in round 2, the signed-in path.
+  - Lesson 9: a failed staged read gave the try back after the main email had already been compared, a free guess during a database fault (round 1). It now costs the try.
+  - Lesson 1: a direct booking opened by key could show the account holder's contact details when the guest's own couldn't be read (Codex). It now answers 500.
+  - Lesson 5: giving back a take that timed out could refund a take the database had refused (round 2). A timeout keeps its try used.
+  - Lesson 13: the mutation check found 16 of 70 breaks passing, including a length-only secret comparison and a refund on every wrong guess. The test harness never ran `after()` work and every wrong secret had a different length. Tests were added and the breaks re-run.
+
+- **Booking-link privacy guards (Nov 8):**
+  - Lesson 9: Sentry matched the new link param only by its literal name, so `booking%5Fkey=`, which the page reads exactly like `booking_key=`, kept its value (Codex). Names are now compared as `URLSearchParams` decodes them.
+  - Lesson 15: that fix's regex consumed whole param values, so a secret nested unencoded inside another param (`?next=/confirmation/n?booking_key=…`) went unchecked, which the old literal regex had caught (pass 2). It became a scan that consumes only names.
+  - Lesson 13: the mutation check found tests missing for a `query_string` that starts with a secret, lowercase `%3f…%3d`, and storage that accepts a write but keeps nothing. The page's arrival and header logic moved into tested helpers.
+
 - **Sign-in return paths (Nov 8):**
   - Lesson 1: the helper's comment said "running it twice gives the same result", but its length cap was checked on the raw value. Percent-encoding grows a path, so the callback's second pass could refuse what the login page accepted (Codex, and a Claude reviewer). The cap now applies to the value returned.
   - Lesson 13: a callback test with a raw tab in the URL could never fail, because the URL parser strips it (plan review). Bad values are built with `URLSearchParams`, and each test first asserts the route sees the raw value. The mutation check added rows for DEL, the length boundary and the normalised output, and pinned the source scan by file.

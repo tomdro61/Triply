@@ -12,7 +12,7 @@ import { buildCostBreakdown, type ReslabCostInput } from "@/lib/booking/cost-bre
 
 const base = {
   customerName: "Ada Lovelace",
-  customerEmail: "ada@example.com",
+  confirmationUrl: "https://www.triplypro.com/confirmation/RTL-TEST?email=ada%40example.com",
   confirmationNumber: "RTL900",
   lotName: "ResLab Lot",
   lotAddress: "99 ResLab Avenue",

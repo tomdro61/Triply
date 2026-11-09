@@ -2,8 +2,8 @@
  * The inline GA4 and Clarity start-up scripts the root layout injects, as
  * strings, so a test can run them against a stubbed page (see
  * __tests__/inline-analytics-scripts.test.ts). Both keep the params in
- * RECORDED_URL_SECRET_PARAMS (the guest's email, the Stripe client secret) out
- * of what they record.
+ * RECORDED_URL_SECRET_PARAMS (the guest's email, the Stripe client secret, the
+ * booking key) out of what they record.
  */
 import { RECORDED_URL_SECRET_PARAMS } from "./recorded-url-params";
 
@@ -20,14 +20,15 @@ const READ_OPT_OUT = `
 
 /**
  * gtag consent defaults + config. Never sends a customer's address (GA's
- * terms forbid PII) or a Stripe client secret: an emailed confirmation link
- * lands with ?email= and Stripe's 3-D Secure return with
- * ?payment_intent_client_secret=, and this runs before the page strips them.
- * The first page_view goes out with them removed; page_location is set on that
- * event only, so later page views keep their own URLs. GA's other hits on that
- * page (engagement, scroll) still read the original location — GA4's "Redact
- * data" property setting covers those (email always; the client secret once
- * it is listed there).
+ * terms forbid PII), a booking key or a Stripe client secret: an emailed
+ * confirmation link lands with ?email= (and ?booking_key=) and Stripe's 3-D
+ * Secure return with ?payment_intent_client_secret=, and this runs before the
+ * page strips them. The first page_view goes out with them removed;
+ * page_location is set on that event only, so later page views keep their own
+ * URLs. GA's other hits on that page (engagement, scroll) still read the
+ * original location — GA4's "Redact data" property setting covers those
+ * (email, and the URL query parameters payment_intent_client_secret and
+ * booking_key; runbook § 38).
  */
 export function gtagInitScript(measurementId: string): string {
   return `

@@ -21,7 +21,8 @@ export interface DirectLotEmailDetails {
 
 interface BookingConfirmationEmailProps {
   customerName: string;
-  customerEmail: string;
+  /** The "View Booking Details" link, built by lib/confirmation/confirmation-link.ts — never here. */
+  confirmationUrl: string;
   confirmationNumber: string;
   lotName: string;
   lotAddress: string;
@@ -190,7 +191,7 @@ const PARKGUARD_TERMS_URL = "https://www.parkguard.com/terms-of-use-triplypro";
 
 export function BookingConfirmationEmail({
   customerName,
-  customerEmail,
+  confirmationUrl,
   confirmationNumber,
   lotName,
   lotAddress,
@@ -502,10 +503,10 @@ export function BookingConfirmationEmail({
           </table>
         </div>
 
-        {/* CTA Button — email param lets guest customers (not logged in) view their booking */}
+        {/* CTA Button — the link's key (or its email) lets a guest who is not signed in open the booking */}
         <div style={{ textAlign: "center", marginBottom: "28px" }}>
           <a
-            href={`${appUrl}/confirmation/${confirmationNumber}?email=${encodeURIComponent(customerEmail)}`}
+            href={confirmationUrl}
             style={{
               display: "inline-block",
               backgroundColor: "#f87356",
