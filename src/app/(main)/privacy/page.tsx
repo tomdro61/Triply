@@ -100,7 +100,7 @@ export default function PrivacyPage() {
               <li><strong>Vercel:</strong> Website hosting</li>
               <li><strong>Google Analytics and Microsoft Clarity:</strong> Website analytics and usage recordings, subject to your cookie choices</li>
               {MINTY_ENABLED && (
-                <li><strong>Minty (AddShoppers):</strong> If you have separately signed up to Minty&rsquo;s shopper network, its script on our site may recognise your visit and Minty may email you one of our offers. It receives the pages you visit and device identifiers, and is not started if you turn off analytics cookies</li>
+                <li><strong>Minty (AddShoppers):</strong> If you have separately signed up to Minty&rsquo;s shopper network, its script on our site may recognise your visit and Minty may email you one of our offers. It receives device identifiers and what you do on the pages where it runs, which can include details you type into forms there, and it is not started if you turn off analytics cookies</li>
               )}
               <li><strong>Sentry:</strong> Error monitoring (technical details of a failed page or request)</li>
               <li><strong>Mapbox:</strong> Maps on search and lot pages</li>

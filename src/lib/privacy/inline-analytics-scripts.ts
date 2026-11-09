@@ -71,11 +71,12 @@ export function gtagInitScript(measurementId: string): string {
  *    Stripe client secret);
  *  - the visit LANDS on a page where the guest has given us their details or
  *    holds a booking (checkout, confirmation, reservations, account, admin,
- *    auth, review). Those guests are ours to email for free (checkout-recovery
+ *    auth, review, contact, the partner portal). Those guests are ours to email for free (checkout-recovery
  *    cron), and a third-party widget has no business reading those forms.
- *    A script cannot be unloaded, so a visitor who lands on /search and then
- *    walks into checkout keeps the widget running: excluding them from
- *    Minty's emails is Minty-side config (call Q3), not something this can do.
+ *    A script cannot be unloaded, so when a visitor who landed on a browse page
+ *    navigates client-side into one of those pages, AnalyticsProvider forces a
+ *    full reload there and this loader then skips it. Excluding checkout
+ *    visitors from Minty's EMAILS is still Minty-side config (call Q3).
  *
  * The loader URL is AddShoppers' documented async widget; the site id rides in
  * the hash. Attribution is code-only on our side: a recovered booking is one
@@ -91,7 +92,14 @@ export const MINTY_SKIP_PATH_PREFIXES = [
   "/admin",
   "/auth",
   "/review",
+  "/contact",
+  "/partner",
 ] as const;
+
+/** True on a page Minty must never run on (exact prefix or a path below it). */
+export function isMintySkipPath(pathname: string): boolean {
+  return MINTY_SKIP_PATH_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
+}
 
 /** Minty site ids are 24 lowercase hex chars (a Mongo ObjectId). */
 export function isValidMintySiteId(id: string | undefined): id is string {

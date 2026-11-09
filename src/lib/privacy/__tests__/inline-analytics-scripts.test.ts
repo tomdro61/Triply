@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   clarityInitScript,
   gtagInitScript,
+  isMintySkipPath,
   isValidMintySiteId,
   mintyInitScript,
 } from "../inline-analytics-scripts";
@@ -126,9 +127,17 @@ describe("minty-init", () => {
   });
 
   it("is not loaded on a visit that lands on checkout, confirmation or account pages", () => {
-    for (const path of ["/checkout", "/checkout/complete", "/confirmation/RTL1", "/reservations", "/account", "/admin/bookings", "/auth/callback", "/review/abc"]) {
+    for (const path of ["/checkout", "/checkout/complete", "/confirmation/RTL1", "/reservations", "/account", "/admin/bookings", "/auth/callback", "/review/abc", "/contact", "/partner/bookings"]) {
       expect(at(`https://www.triplypro.com${path}`)).toBeNull();
     }
+  });
+
+  it("isMintySkipPath (the client-side reload guard) agrees with the loader", () => {
+    expect(isMintySkipPath("/checkout")).toBe(true);
+    expect(isMintySkipPath("/confirmation/RTL1")).toBe(true);
+    expect(isMintySkipPath("/account/settings")).toBe(true);
+    expect(isMintySkipPath("/checkout-guide")).toBe(false);
+    expect(isMintySkipPath("/search")).toBe(false);
   });
 
   it("a page that only shares a prefix is still a browse page", () => {
@@ -137,7 +146,17 @@ describe("minty-init", () => {
 
   it("is not loaded while the URL or the referrer carries the email or a client secret", () => {
     expect(at("https://www.triplypro.com/?email=a%40b.co")).toBeNull();
+    expect(at("https://www.triplypro.com/?booking_key=AbCdEfGhIjKlMnOpQrStUv")).toBeNull();
+    expect(at("https://www.triplypro.com/?payment_intent_client_secret=pi_1_secret_x")).toBeNull();
     expect(at("https://www.triplypro.com/", { referrer: "https://www.triplypro.com/confirmation/RTL1?email=a%40b.co" })).toBeNull();
+  });
+
+  it("fails closed: a URL it cannot parse means no widget", () => {
+    expect(at("not a url")).toBeNull();
+  });
+
+  it("the public partners page is still a browse page", () => {
+    expect(at("https://www.triplypro.com/partners")).not.toBeNull();
   });
 
   it("rejects a malformed site id instead of writing it into a script", () => {

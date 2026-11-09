@@ -25,7 +25,24 @@ if (
 // Hosts seen loading on a local build, 2026-11-09: shop.pe, shopper.shop.pe,
 // app.shop.pe, the CloudFront widget host, manage.safeopt.com (consent) and an
 // iframe on nytrng.com.
-const MINTY_ON = /^[a-f0-9]{24}$/.test(process.env.NEXT_PUBLIC_MINTY_SITE_ID?.trim() ?? "");
+// Same pattern as isValidMintySiteId (src/lib/privacy/inline-analytics-scripts.ts);
+// keep the two in step.
+const MINTY_RAW = process.env.NEXT_PUBLIC_MINTY_SITE_ID?.trim() ?? "";
+const MINTY_ON = /^[a-f0-9]{24}$/.test(MINTY_RAW);
+const ON_VERCEL = process.env.VERCEL_ENV === "production" || process.env.VERCEL_ENV === "preview";
+// A Vercel build refuses a set-but-malformed id (the pilot would be silently
+// off), and refuses Minty on without PROMO_FIXED_ENABLED=true: Minty emails the
+// fixed $5 code TRIP5, which checkout refuses while fixed codes are switched off.
+if (ON_VERCEL && MINTY_RAW && !MINTY_ON) {
+  throw new Error(
+    `NEXT_PUBLIC_MINTY_SITE_ID is set but is not a 24-character lowercase hex id. Fix or remove it for this Vercel ${process.env.VERCEL_ENV} build.`
+  );
+}
+if (ON_VERCEL && MINTY_ON && (process.env.PROMO_FIXED_ENABLED ?? "").trim().toLowerCase() !== "true") {
+  throw new Error(
+    `NEXT_PUBLIC_MINTY_SITE_ID is set but PROMO_FIXED_ENABLED is not "true" for this Vercel ${process.env.VERCEL_ENV} build: Minty's TRIP5 ($5 fixed) code would be refused at checkout.`
+  );
+}
 const MINTY_CSP = MINTY_ON
   ? " https://shop.pe https://*.shop.pe https://d2mjzob2nc713b.cloudfront.net https://*.safeopt.com"
   : "";

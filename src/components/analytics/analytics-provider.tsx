@@ -1,11 +1,12 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { getContentGroup, getAirportFromPath } from "@/lib/analytics/content-groups";
 import { hasAnalyticsOptOut } from "@/lib/cookies/consent";
 import { revokeAnalyticsConsent } from "@/lib/analytics/gtag";
 import { revokeClarityConsent } from "@/lib/analytics/clarity";
+import { reloadToDropMinty } from "@/lib/analytics/minty";
 
 /**
  * AnalyticsProvider
@@ -25,9 +26,20 @@ export function AnalyticsProvider() {
     }
   }, []);
 
+  // Minty pilot: a client-side move into checkout / confirmation / account
+  // pages would keep its widget running there; reload so it is dropped. A
+  // layout effect, so it runs (and mutes GA) before the new page's effects.
+  const mintyPath = useRef<string | null>(pathname);
+  useLayoutEffect(() => {
+    if (pathname === mintyPath.current) return;
+    mintyPath.current = pathname;
+    reloadToDropMinty(pathname);
+  }, [pathname]);
+
   useEffect(() => {
     if (pathname === previousPathname.current) return;
     previousPathname.current = pathname;
+
 
     const contentGroup = getContentGroup(pathname);
 
