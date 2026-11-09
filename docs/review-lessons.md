@@ -163,6 +163,11 @@ a human.
 
 One entry per reviewed PR: what the review found, by lesson number. Newest first.
 
+- **Booking-link privacy guards (Nov 8):**
+  - Lesson 9: Sentry matched the new link param only by its literal name, so `booking%5Fkey=`, which the page reads exactly like `booking_key=`, kept its value (Codex). Names are now compared as `URLSearchParams` decodes them.
+  - Lesson 15: that fix's regex consumed whole param values, so a secret nested unencoded inside another param (`?next=/confirmation/n?booking_key=…`) went unchecked, which the old literal regex had caught (pass 2). It became a scan that consumes only names.
+  - Lesson 13: the mutation check found tests missing for a `query_string` that starts with a secret, lowercase `%3f…%3d`, and storage that accepts a write but keeps nothing. The page's arrival and header logic moved into tested helpers.
+
 - **Sign-in return paths (Nov 8):**
   - Lesson 1: the helper's comment said "running it twice gives the same result", but its length cap was checked on the raw value. Percent-encoding grows a path, so the callback's second pass could refuse what the login page accepted (Codex, and a Claude reviewer). The cap now applies to the value returned.
   - Lesson 13: a callback test with a raw tab in the URL could never fail, because the URL parser strips it (plan review). Bad values are built with `URLSearchParams`, and each test first asserts the route sees the raw value. The mutation check added rows for DEL, the length boundary and the normalised output, and pinned the source scan by file.

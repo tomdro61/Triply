@@ -23,9 +23,10 @@ import { takePurchaseToTrack } from "@/lib/analytics/purchase-once";
 import { convertTo12Hour } from "@/lib/utils/time";
 import { captureBookingError } from "@/lib/sentry";
 import {
-  recallConfirmationEmail,
+  guestProofHeaders,
   rememberConfirmationEmail,
-  stripEmailFromAddressBar,
+  storeArrivalSecrets,
+  stripSecretsFromAddressBar,
 } from "@/lib/confirmation/guest-email";
 import type { AtLotEstimateView } from "@/lib/direct/reservation-view";
 import type { CostBreakdownResult, FallbackDue } from "@/lib/booking/cost-breakdown";
@@ -136,10 +137,12 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
   const checkOutParam = searchParams.get("checkout");
   const serviceFeeParam = searchParams.get("serviceFee");
   const emailParam = searchParams.get("email");
-  // An emailed ?email= link: kept from the first render, because the effect
-  // below strips it from the address bar (GA4, Clarity and Sentry record page
-  // URLs — see lib/confirmation/guest-email.ts).
+  const bookingKeyParam = searchParams.get("booking_key");
+  // An emailed link's ?email= and ?booking_key=: kept from the first render,
+  // because the effect below strips them from the address bar (GA4, Clarity
+  // and Sentry record page URLs — see lib/confirmation/guest-email.ts).
   const arrivalEmailRef = useRef(emailParam);
+  const arrivalKeyRef = useRef(bookingKeyParam);
 
   const [reservation, setReservation] = useState<ReservationData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -201,29 +204,32 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
     getUser();
   }, [supabase.auth]);
 
-  // Emailed ?email= arrival: remember the address for reloads, then take it
-  // out of the URL. Only once it is stored — if storage is blocked the URL
-  // keeps it (a reload still works) and the layout's guards keep it out of
-  // Clarity, GA4's page_view and Sentry.
+  // Emailed link arrival: remember the address and the booking key for
+  // reloads, then take each out of the URL. Only once it is stored — if
+  // storage is blocked the URL keeps it (a reload still works) and the
+  // layout's guards keep it out of Clarity, GA4's page_view and Sentry.
   useEffect(() => {
-    const arrivalEmail = arrivalEmailRef.current;
-    if (!arrivalEmail) return;
-    if (rememberConfirmationEmail(confirmationId, arrivalEmail)) stripEmailFromAddressBar();
+    stripSecretsFromAddressBar(
+      storeArrivalSecrets(confirmationId, { email: arrivalEmailRef.current, bookingKey: arrivalKeyRef.current })
+    );
   }, [confirmationId]);
 
   // Fetch reservation data from API. A guest (not signed in) proves ownership
-  // with the checkout email, sent in the x-booking-email header — never in the
-  // URL — via /api/reservations/[id]. Refetches when the guest types an email
-  // on the "Open Your Confirmation Link" screen.
+  // with the booking key from the emailed link (x-booking-key) or the checkout
+  // email (x-booking-email) — headers, never the URL — via
+  // /api/reservations/[id]. Both go when both are known: the key decides, the
+  // email is the fallback. Refetches when the guest types an email on the
+  // "Open Your Confirmation Link" screen.
   useEffect(() => {
     let active = true;
     const fetchReservation = async () => {
       try {
-        const guestEmail =
-          typedEmail?.email ?? arrivalEmailRef.current ?? recallConfirmationEmail(confirmationId);
-        const response = await fetch(`/api/reservations/${confirmationId}`, {
-          headers: guestEmail ? { "x-booking-email": guestEmail } : undefined,
+        const headers = guestProofHeaders(confirmationId, {
+          typedEmail: typedEmail?.email ?? null,
+          arrivalEmail: arrivalEmailRef.current,
+          arrivalKey: arrivalKeyRef.current,
         });
+        const response = await fetch(`/api/reservations/${confirmationId}`, { headers });
         if (!active) return;
         if (response.ok) {
           const data = await response.json();

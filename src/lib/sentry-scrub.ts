@@ -8,6 +8,8 @@
 // Sentry's fetch instrumentation records the full URL of every outgoing
 // request in breadcrumbs and spans, and that token lets anyone post as us.
 
+import { RECORDED_URL_SECRET_PARAMS } from "./privacy/recorded-url-params";
+
 const REVIEW_PATH = /\/review\/[0-9a-zA-Z._-]{20,}/g;
 // The token classes stop at quotes and backslashes: the text being scrubbed is
 // often JSON, and a swallowed escape would break it.
@@ -15,33 +17,81 @@ const REVIEW_PATH = /\/review\/[0-9a-zA-Z._-]{20,}/g;
 const TOKEN_QUERY = /((?:^|[?&"])token=)[^&#\s"'\\]+/g;
 // Any id segment, not just digits: a mistyped webhook URL still carries a real token.
 const DISCORD_WEBHOOK = /(\/api\/(?:v\d+\/)?webhooks\/(?!stripe\b)[^/\s?#"'\\]+\/)[^/\s?#"'\\]+/g;
-// The guest's email on an emailed confirmation link (/confirmation/{n}?email=)
-// and Stripe's 3-D Secure return (?payment_intent_client_secret=), which
-// /api/reservations/complete trades for that email — see
-// lib/privacy/recorded-url-params.ts. Matched by param NAME: `utm_medium=email`
-// is a value and is left alone.
-const SECRET_QUERY = /((?:^|[?&"])(?:email|payment_intent_client_secret)=)[^&#\s"'\\]+/g;
+// RECORDED_URL_SECRET_PARAMS (lib/privacy/recorded-url-params.ts): the guest's
+// email on an emailed confirmation link (/confirmation/{n}?email=), Stripe's
+// 3-D Secure return (?payment_intent_client_secret=), which
+// /api/reservations/complete trades for that email, and the signed booking key
+// (?booking_key=). Matched by param NAME: `utm_medium=email` is a value and is
+// left alone. Built from the list so the two can't drift.
+const SECRET_PARAM_NAMES = RECORDED_URL_SECRET_PARAMS.join("|");
+const SECRET_NAME_SET: ReadonlySet<string> = new Set(RECORDED_URL_SECRET_PARAMS);
+// The START of every query param (`?`, `&`, the string's start, or a JSON
+// quote, then a name and `=`). Only the name is consumed — never the value —
+// so a secret nested unencoded inside another param's value
+// (?next=/confirmation/n?booking_key=…) is still found. The name stops at `?`
+// and `/`, so it never spans a path.
+const PARAM_START = /(?:^|[?&"])([^=&#?/\s"'\\]+)=/g;
+// A value runs to the next `&`, `#`, whitespace, quote or backslash: the text
+// is often JSON, and a swallowed escape would break it.
+const PARAM_VALUE = /[^&#\s"'\\]+/y;
 // The same inside a URL that is itself encoded into another URL (…%3Femail%3D…).
-const SECRET_QUERY_ENCODED = /((?:%3F|%26)(?:email|payment_intent_client_secret)%3D)(?:(?!%26)[^&#\s"'\\])+/gi;
+const SECRET_QUERY_ENCODED = new RegExp(`((?:%3F|%26)(?:${SECRET_PARAM_NAMES})%3D)(?:(?!%26)[^&#\\s"'\\\\])+`, "gi");
 // A Stripe client secret anywhere (a message, an encoded URL — so no \b: after
 // "%3D" there is no word boundary): keep the PaymentIntent id, drop the secret.
 const CLIENT_SECRET = /(pi_[A-Za-z0-9]+)_secret_[A-Za-z0-9]+/g;
-// The confirmation page's guest proof travels in this request header. The
-// server SDK attaches request headers to events ("x-booking-email") AND copies
-// them onto the root span as "http.request.header.x_booking_email"; it only
-// filters header names containing words like auth/token/session itself. The
-// value may contain JSON escapes.
-const BOOKING_EMAIL_HEADER = /("(?:http\.request\.header\.)?x[-_]booking[-_]email"\s*:\s*")(?:[^"\\]|\\.)*(")/gi;
+// Request headers that carry a guest's proof: the confirmation page sends the
+// checkout email (x-booking-email) and the signed booking key (x-booking-key);
+// x-payment-client-secret is listed ahead of its first sender (checkout will
+// send the Stripe client secret in it to ask for the key). The
+// server SDK attaches request headers to events AND copies them onto the root
+// span as "http.request.header.x_booking_email" etc. The SDK filters only some
+// header names itself (words like auth, token, session; "key" on spans), so
+// this list is ours to keep. Names are matched in any case; the value may
+// contain JSON escapes.
+const SECRET_HEADER =
+  /("(?:http\.request\.header\.)?x[-_](?:booking[-_](?:email|key)|payment[-_]client[-_]secret)"\s*:\s*")(?:[^"\\]|\\.)*(")/gi;
+
+/** A query param's name as URLSearchParams reads it: percent-decoded, `+` as a space. */
+function decodedParamName(name: string): string {
+  try {
+    return decodeURIComponent(name.replace(/\+/g, " "));
+  } catch {
+    return name;
+  }
+}
+
+/**
+ * Redacts the value of every RECORDED_URL_SECRET_PARAMS param, the name
+ * compared as URLSearchParams reads it (`booking%5Fkey=` opens the page exactly
+ * like `booking_key=`). One left-to-right scan: linear, whatever the input.
+ */
+function scrubSecretParams(text: string): string {
+  let out = "";
+  let copied = 0;
+  PARAM_START.lastIndex = 0;
+  for (let m = PARAM_START.exec(text); m !== null; m = PARAM_START.exec(text)) {
+    if (!SECRET_NAME_SET.has(decodedParamName(m[1]))) continue;
+    const valueStart = m.index + m[0].length;
+    PARAM_VALUE.lastIndex = valueStart;
+    const value = PARAM_VALUE.exec(text);
+    if (!value) continue;
+    out += text.slice(copied, valueStart) + "[redacted]";
+    copied = valueStart + value[0].length;
+    PARAM_START.lastIndex = copied;
+  }
+  return out + text.slice(copied);
+}
 
 export function scrubUrlCredentials(text: string): string {
-  return text
-    .replace(REVIEW_PATH, "/review/[token]")
-    .replace(TOKEN_QUERY, "$1[redacted]")
-    .replace(DISCORD_WEBHOOK, "$1[token]")
-    .replace(SECRET_QUERY, "$1[redacted]")
+  return scrubSecretParams(
+    text
+      .replace(REVIEW_PATH, "/review/[token]")
+      .replace(TOKEN_QUERY, "$1[redacted]")
+      .replace(DISCORD_WEBHOOK, "$1[token]")
+  )
     .replace(SECRET_QUERY_ENCODED, "$1[redacted]")
     .replace(CLIENT_SECRET, "$1_secret_[redacted]")
-    .replace(BOOKING_EMAIL_HEADER, "$1[redacted]$2");
+    .replace(SECRET_HEADER, "$1[redacted]$2");
 }
 
 /**

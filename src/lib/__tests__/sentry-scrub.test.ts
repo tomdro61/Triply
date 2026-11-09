@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { scrubBreadcrumbUrls, scrubEventCredentials, scrubUrlCredentials } from "../sentry-scrub";
+import { RECORDED_URL_SECRET_PARAMS } from "../privacy/recorded-url-params";
 
 /** The scrubbed event, failing the test if it was dropped. */
 function scrub<T extends object>(event: T): T {
@@ -83,6 +84,97 @@ describe("sentry-scrub", () => {
     expect(scrubUrlCredentials("r=%2Fcheckout%2Fcomplete%3Fpayment_intent_client_secret%3Dpi_3Abc_secret_XyZ")).toBe(
       "r=%2Fcheckout%2Fcomplete%3Fpayment_intent_client_secret%3D[redacted]"
     );
+  });
+
+  it("removes the signed booking key from URLs, query strings and encoded URLs", () => {
+    const KEY = "AbCdEfGhIjKlMnOpQrStUv";
+    expect(scrubUrlCredentials(`https://www.triplypro.com/confirmation/RTL1?booking_key=${KEY}&email=dana%40example.com`)).toBe(
+      "https://www.triplypro.com/confirmation/RTL1?booking_key=[redacted]&email=[redacted]"
+    );
+    expect(scrubUrlCredentials(`booking_key=${KEY}&lot=x`)).toBe("booking_key=[redacted]&lot=x");
+    expect(scrubUrlCredentials(`/login?next=%2Fconfirmation%2FRTL1%3Fbooking_key%3D${KEY}%26email%3Dd%2540e.co`)).toBe(
+      "/login?next=%2Fconfirmation%2FRTL1%3Fbooking_key%3D[redacted]%26email%3D[redacted]"
+    );
+    expect(scrubUrlCredentials("/x?booking=1&key=2")).toBe("/x?booking=1&key=2");
+  });
+
+  it("every recorded-URL secret param is scrubbed (the list and the scrubber can't drift)", () => {
+    for (const name of RECORDED_URL_SECRET_PARAMS) {
+      expect(scrubUrlCredentials(`/p?a=1&${name}=s3cr3tvalue`)).toBe(`/p?a=1&${name}=[redacted]`);
+      expect(scrubUrlCredentials(`next=%2Fp%3F${name}%3Ds3cr3tvalue`)).toBe(`next=%2Fp%3F${name}%3D[redacted]`);
+      // Lowercase percent-encoding.
+      expect(scrubUrlCredentials(`next=%2fp%3f${name}%3ds3cr3tvalue`)).toBe(`next=%2fp%3f${name}%3d[redacted]`);
+      // Sentry's query_string has no leading "?", so a secret can come first:
+      // in the event's JSON it then follows the opening quote.
+      const event = scrub({ request: { query_string: `${name}=s3cr3tvalue&a=1` } });
+      expect(event.request.query_string).toBe(`${name}=[redacted]&a=1`);
+      // A quoted URL in a message: the value stops at the backslash of the
+      // JSON escape, so the text still parses and the event is kept.
+      const msg = scrub({ message: `failed: "/p?${name}=abc" then` });
+      expect(msg.message).toBe(`failed: "/p?${name}=[redacted]" then`);
+    }
+  });
+
+  it("[codex] a percent-encoded param NAME is read like the plain one, so it is scrubbed too", () => {
+    const KEY = "AbCdEfGhIjKlMnOpQrStUv";
+    expect(scrubUrlCredentials(`/confirmation/RTL1?booking%5Fkey=${KEY}&lot=x`)).toBe("/confirmation/RTL1?booking%5Fkey=[redacted]&lot=x");
+    expect(scrubUrlCredentials(`/confirmation/RTL1?lot=x&%62ooking_key=${KEY}`)).toBe("/confirmation/RTL1?lot=x&%62ooking_key=[redacted]");
+    expect(scrubUrlCredentials("/confirmation/RTL1?%65mail=dana%40example.com")).toBe("/confirmation/RTL1?%65mail=[redacted]");
+    const event = scrub({ request: { query_string: `booking%5Fkey=${KEY}` } });
+    expect(JSON.stringify(event)).not.toContain(KEY);
+    // A name that only looks like one, or a broken escape, is left alone.
+    expect(scrubUrlCredentials("/x?booking%5Fkeys=1&%E0%A4%A=2")).toBe("/x?booking%5Fkeys=1&%E0%A4%A=2");
+    // A secret nested UNENCODED inside another param's value is still found,
+    // plain or with an encoded name.
+    expect(scrubUrlCredentials(`/login?next=/confirmation/RTL1?booking_key=${KEY}&lot=1`)).toBe(
+      "/login?next=/confirmation/RTL1?booking_key=[redacted]&lot=1"
+    );
+    expect(scrubUrlCredentials(`/p?redirect_url=https://www.triplypro.com/confirmation/RTL1?booking_key=${KEY}`)).toBe(
+      "/p?redirect_url=https://www.triplypro.com/confirmation/RTL1?booking_key=[redacted]"
+    );
+    expect(scrubUrlCredentials(`/c?lot=x&utm_source=email?email=d`)).toBe("/c?lot=x&utm_source=email?email=[redacted]");
+    expect(scrubUrlCredentials(`/p?next=/c?booking%5Fkey=${KEY}`)).toBe("/p?next=/c?booking%5Fkey=[redacted]");
+    const nested = scrub({ request: { query_string: "redirect=/confirmation/RTL1?email=dana%40x.com" } });
+    expect(nested.request.query_string).toBe("redirect=/confirmation/RTL1?email=[redacted]");
+    // Repeated and empty values.
+    expect(scrubUrlCredentials("/p?email=a&email=b&email=&x=1")).toBe("/p?email=[redacted]&email=[redacted]&email=&x=1");
+    // A path never becomes a "name": the param after it is still found.
+    expect(scrubUrlCredentials("https://www.triplypro.com/confirmation/RTL1?lot=x&booking_key=K")).toBe(
+      "https://www.triplypro.com/confirmation/RTL1?lot=x&booking_key=[redacted]"
+    );
+  });
+
+  it("removes the x-booking-key and x-payment-client-secret request headers, in both forms", () => {
+    const event = scrub({
+      request: {
+        url: "https://www.triplypro.com/api/reservations/RTL1",
+        headers: {
+          "x-booking-key": "AbCdEfGhIjKlMnOpQrStUv",
+          "X-Booking-Key": "AbCdEfGhIjKlMnOpQrStUv",
+          "X-Payment-Client-Secret": "pi_3Abc_secret_XyZ123",
+          "user-agent": "x",
+        },
+      },
+      contexts: {
+        trace: {
+          data: {
+            "http.request.header.x_booking_key": "AbCdEfGhIjKlMnOpQrStUv",
+            "http.request.header.x_payment_client_secret": "pi_3Abc_secret_XyZ123",
+            "http.request.header.accept": "*/*",
+          },
+        },
+      },
+    });
+    expect(event.request.headers["x-booking-key"]).toBe("[redacted]");
+    expect(event.request.headers["X-Booking-Key"]).toBe("[redacted]");
+    expect(event.request.headers["X-Payment-Client-Secret"]).toBe("[redacted]");
+    expect(event.request.headers["user-agent"]).toBe("x");
+    expect(event.contexts.trace.data["http.request.header.x_booking_key"]).toBe("[redacted]");
+    expect(event.contexts.trace.data["http.request.header.x_payment_client_secret"]).toBe("[redacted]");
+    expect(event.contexts.trace.data["http.request.header.accept"]).toBe("*/*");
+    const text = JSON.stringify(event);
+    expect(text).not.toContain("AbCdEf");
+    expect(text).not.toContain("pi_3Abc");
   });
 
   it("breadcrumbs: only the URL strings are scrubbed; an Error in data is kept as is", () => {
