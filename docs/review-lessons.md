@@ -163,6 +163,14 @@ a human.
 
 One entry per reviewed PR: what the review found, by lesson number. Newest first.
 
+- **#165 promo codes in blog copy (Nov 9):**
+  - Lesson 2: all 23 code entries said "max 500 uses"; the rows allow 100. A source note is a source too: copy it from the record, not from the plan.
+  - Lesson 2: the $5 / $25 allowance first covered the whole edit, then all of the edit's fields together, so a code named in one place let a matching figure through anywhere else (another paragraph, the title, another FAQ answer), and as a per-day price. It is now per block and per field, and never per day.
+  - Lesson 1: nothing tied a code to its own airport's posts, so an EWR post could name DFW5 and the booking would be credited to DFW. Entries carry their airport; another airport's code sources nothing and is a warning.
+  - Lesson 1: the list had no expiry, so after Jan 31 the blog would keep quoting codes checkout refuses. Entries carry `expiresAt`, and an expired entry is ignored.
+  - Lesson 2: JFK5 and EWR5 were already Rightway Parking's 5%-off codes in our own airport data files. Check a new code's name against the data before approving it. Both are held out until that's decided.
+  - Lesson 13: removing the field allowance, the word boundary or the loader checks failed no test. Tests were added; each fix reverted fails one, and a real-list test shows the intended DFW5 copy clears every gate.
+
 - **Guest booking key + email-path limit (Nov 9):**
   - Lesson 9: a wrong email on a real booking cost one more read than a number that isn't one, so response time showed which numbers are bookings (found while building). Refusals now answer no sooner than a fixed floor after the take, on the guest path and, in round 2, the signed-in path.
   - Lesson 9: a failed staged read gave the try back after the main email had already been compared, a free guess during a database fault (round 1). It now costs the try.
