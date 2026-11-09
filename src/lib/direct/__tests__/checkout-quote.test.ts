@@ -14,14 +14,21 @@ vi.mock("../store", async (importOriginal) => ({
 import { quoteDirectCheckout } from "../checkout-quote";
 import { directLotFromRow, type DirectLot } from "../store";
 import { directLotRow } from "./fixtures";
+import type { PromoRule } from "@/lib/promo/discount";
 
 const lot = (over: Record<string, unknown> = {}): DirectLot => {
   const out = directLotFromRow(directLotRow({ tax_rate_percent: 16, ...over }));
   if (!out.lot) throw new Error(out.reason);
   return out.lot;
 };
-const quote = (fromDate: string, toDate: string, discountPercent = 0) =>
-  quoteDirectCheckout({ payloadId: 1, fromDate, toDate, discountPercent, endpoint: "test" });
+const quote = (fromDate: string, toDate: string, discountPercent?: number) =>
+  quoteDirectCheckout({
+    payloadId: 1,
+    fromDate,
+    toDate,
+    promo: discountPercent === undefined ? null : ({ code: "SAVE", percent: discountPercent, amountCents: null, minSubtotalCents: 0 } satisfies PromoRule),
+    endpoint: "test",
+  });
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });

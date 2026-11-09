@@ -163,7 +163,8 @@ export function blogTouchedIds(rows: readonly BlogBookingRow[], range: DateRange
 
 /**
  * What Triply kept on one booking, from the reconciler's per-booking detail:
- * its `triply_total` (channel commission + service fee + PG margin) less
+ * its `triply_total` (channel commission + service fee + PG margin − the
+ * promo discount Triply funded) less
  * ResLab's channel fee, exactly as the reconciler's headline total
  * (triplyNet.total) treats a confirmed row (reconcile.ts: the fee is
  * deducted unless ResLab cancelled the row). null when the reconciler could

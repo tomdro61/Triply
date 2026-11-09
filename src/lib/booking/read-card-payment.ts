@@ -5,7 +5,9 @@
  *   readCardPayment              the ANCHOR — Stripe `amount_received` on the
  *                                booking's PaymentIntent, the latest charge's
  *                                `amount_refunded`, and the promo percent
- *                                checkout stamped (`metadata.discountPercent`).
+ *                                checkout stamped (`metadata.discountPercent`),
+ *                                and the discount it stamped in cents
+ *                                (`metadata.discountCents`, the authority when present).
  *                                One bounded attempt; any doubt → not ok.
  *   reportCostBreakdownFallback  one Sentry issue per REASON CLASS (the
  *                                reservation number rides as context), and at
@@ -15,6 +17,7 @@
 import * as Sentry from "@sentry/nextjs";
 import { stripe } from "@/lib/stripe/client";
 import { parseDiscountPercent, type CardPayment, type FallbackReport } from "./confirmation-payment";
+import { readStampedDiscount, type StampedDiscount } from "@/lib/promo/stamped-discount";
 
 /** Same budget as the other request-path PaymentIntent reads. */
 export const CONFIRMATION_PI_TIMEOUT_MS = 4_000;
@@ -36,7 +39,7 @@ export async function readCardPayment(piId: string | null | undefined): Promise<
   const unknown = (
     reasonClass: Extract<CardPayment, { ok: false }>["reasonClass"],
     reason: string,
-    extra: { status?: string; amountReceived?: number; discountPercent?: number | null } = {}
+    extra: { status?: string; amountReceived?: number; discountPercent?: number | null; stampedDiscount?: StampedDiscount } = {}
   ): CardPayment => ({
     ok: false,
     reasonClass,
@@ -44,6 +47,8 @@ export async function readCardPayment(piId: string | null | undefined): Promise<
     status: extra.status ?? null,
     amountReceived: extra.amountReceived ?? null,
     discountPercent: extra.discountPercent ?? null,
+    // Stripe did not answer → nothing was stamped that we know of.
+    stampedDiscount: extra.stampedDiscount ?? { kind: "absent" },
   });
 
   if (!piId) return unknown("no_payment_intent", "booking has no PaymentIntent");
@@ -60,7 +65,10 @@ export async function readCardPayment(piId: string | null | undefined): Promise<
     return unknown("stripe_read_failed", `Stripe PaymentIntent read failed (${stripeErrorLabel(error)})`);
   }
   const discountPercent = parseDiscountPercent(pi.metadata?.discountPercent);
-  const seen = { status: pi.status, amountReceived: pi.amount_received, discountPercent };
+  // Carried as read — an unusable stamp is refused by buildCostBreakdown (a
+  // fallback, reported as its own reason class), never dropped here.
+  const stampedDiscount = readStampedDiscount(pi.metadata);
+  const seen = { status: pi.status, amountReceived: pi.amount_received, discountPercent, stampedDiscount };
   if (pi.status === "canceled") return unknown("released", "PaymentIntent is canceled (hold released)", seen);
   if (pi.status !== "succeeded") return unknown("not_settled", `PaymentIntent is ${pi.status}, not succeeded`, seen);
   if (!Number.isSafeInteger(pi.amount_received) || pi.amount_received <= 0) {
@@ -75,7 +83,7 @@ export async function readCardPayment(piId: string | null | undefined): Promise<
   if (!Number.isSafeInteger(charge.amount_refunded) || charge.amount_refunded < 0) {
     return unknown("charge_unreadable", "charge refund amount unreadable", seen);
   }
-  return { ok: true, chargedCents: pi.amount_received, refundedCents: charge.amount_refunded, discountPercent };
+  return { ok: true, chargedCents: pi.amount_received, refundedCents: charge.amount_refunded, discountPercent, stampedDiscount };
 }
 
 const REPORTED_LIMIT = 1_000;

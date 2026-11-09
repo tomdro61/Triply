@@ -34,11 +34,27 @@ beforeEach(() => {
   fetchMock.mockReset();
   vi.stubGlobal("fetch", fetchMock);
   vi.stubEnv("DISCORD_BOOKING_ALERTS_WEBHOOK_URL", HOOK);
+  // A production (live-key) deployment: a test-key one sends nothing (below).
+  vi.stubEnv("STRIPE_SECRET_KEY", "sk_live_fixture");
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
+});
+
+describe("New Booking alert — test-mode deployments send nothing", () => {
+  it.each([["a test key (staging, previews, local)", "sk_test_fixture"], ["no key", ""]])(
+    "%s: no Discord post and no email",
+    async (_label, key) => {
+      vi.stubEnv("STRIPE_SECRET_KEY", key);
+      const out = await sendAdminBookingNotification(base);
+      expect(out).toEqual({ success: true, channel: "skipped_test_mode" });
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(send).not.toHaveBeenCalled();
+      expect(captureBookingError).not.toHaveBeenCalled();
+    }
+  );
 });
 
 describe("New Booking alert → Discord, email as the fallback", () => {

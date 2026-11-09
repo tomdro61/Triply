@@ -23,7 +23,7 @@ import type {
 import type { DirectBookingPayload } from "@/lib/direct/fulfilment";
 import { snapshotAddressLine } from "@/lib/direct/lot-snapshot";
 import { createAdminClient } from "@/lib/supabase/server";
-import { linkableUserIdForEmail, sameEmail } from "@/lib/booking/customer-link";
+import { accountHoldsEmail, sameEmail } from "@/lib/booking/customer-link";
 import { sendBookingConfirmation } from "@/lib/resend/send-booking-confirmation";
 import { sendAdminBookingNotification } from "@/lib/resend/send-admin-booking-notification";
 import {
@@ -43,6 +43,7 @@ import {
 } from "@/lib/sentry";
 import { convertTo12Hour } from "@/lib/utils/time";
 import { reslabExtraFieldValues } from "@/lib/booking/required-extra-fields";
+import { stampedDiscountRefusal, type CheckoutFigures, type StampedDiscount } from "@/lib/promo/stamped-discount";
 // Attribution helpers are pure and import nothing from @/lib/reslab/search or
 // @/lib/reslab/get-lot — the shared location-list cache is per-lambda and cold
 // here, and a sweep after capture is the Aug-16 outage class. A static test
@@ -152,14 +153,49 @@ export async function createReslabReservation(
  */
 /** The promo the customer redeemed, derived from PI metadata by the caller.
  *  `code` is the redeemed code (uppercased); `discountPercent` is the applied
- *  percent (0 when none); `chargedCents` is `pi.amount` — the REAL amount Stripe
+ *  percent (0 when none); `stampedDiscount` is `metadata.discountCents` as read
+ *  (the authority when present) and `checkoutFigures` the checkout-time figures
+ *  stamped beside it; `chargedCents` is `pi.amount` — the REAL amount Stripe
  *  charged, used to derive the discount exactly. Absent on the DEV_SKIP_PAYMENT
  *  path (no PaymentIntent). */
 export interface AppliedPromo {
   code: string | null;
   discountPercent: number;
+  stampedDiscount: StampedDiscount;
+  checkoutFigures: CheckoutFigures;
   chargedCents: number;
 }
+
+export interface StampWarning {
+  /**
+   *   refused   unusable, or more than the parking paid online. A present
+   *             stamp still proves checkout applied a discount, so the
+   *             discount is DERIVED FROM THE CHARGE and the code recorded —
+   *             the row needs a repair, the detail says what was written
+   *   mismatch  used, but Stripe's charge implies a discount more than 1¢ away
+   *   price_moved  used (checkout's figures hold), but this reservation is
+   *             priced differently from checkout, so the row's totals minus
+   *             the discount no longer equal Stripe's charge — not a fault
+   *             (the customer pays what they authorized), reported at warning
+   *   unverified  no checkout figures and the reservation's grand / due is
+   *             unknown: the stamp is recorded as stamped, unbounded — look
+   *   no_code   a stamped discount was recorded but no promoCode came with it
+   *             — the booking will not count as a use of any code
+   */
+  kind: "refused" | "mismatch" | "price_moved" | "unverified" | "no_code";
+  detail: string;
+}
+
+export interface AppliedPromoDiscount {
+  discountAmount: number;
+  promoCode: string | null;
+  /** What to report about a `discountCents` stamp (empty without one).
+   *  Returned, not reported: this function is pure and runs twice per booking
+   *  (the row and the emails). The engine reports them once. */
+  stampWarnings: StampWarning[];
+}
+
+const dollars = (cents: number) => (cents / 100).toFixed(2);
 
 /**
  * The promo discount actually taken off a ResLab booking's online charge, in
@@ -169,7 +205,18 @@ export interface AppliedPromo {
  * than from persistence: a persistence failure must never zero the discount
  * in a permanent email (cost-breakdown plan v2 §3).
  *
- * Derived from the ACTUAL Stripe charge (`chargedCents`) rather than
+ * With a usable `discountCents` stamp: exactly that — it is what checkout
+ * applied, in cents, so nothing re-rounds it; a charge that implies something
+ * else by more than 1¢ is a `mismatch` to report, never a silent re-derive.
+ * The stamp's bound is checkout's own online parking when stamped (a later
+ * price drop does not make it wrong), else this reservation's.
+ *
+ * A REFUSED stamp (the backstop — Steps 8 and 9.5 refuse it before capture):
+ * the stamp still proves a discount was applied, so the discount is derived
+ * from the charge and the code recorded, and the warning says so.
+ *
+ * Without one (every PaymentIntent before the stamp): derived from the ACTUAL
+ * Stripe charge (`chargedCents`) when a percent was applied, rather than
  * re-computing percent × subtotal. Re-rounding the discount by itself drifted
  * 1¢ vs Stripe on ~19% of promos (half-cent-boundary subtotals like ".95" at
  * 10%): Stripe subtracts an UNROUNDED discount and rounds the whole total
@@ -181,25 +228,125 @@ export function appliedPromoDiscount(
   fr: ReslabFulfilledReservation,
   charged: ChargedProtection | null,
   promo?: AppliedPromo
-): { discountAmount: number; promoCode: string | null } {
+): AppliedPromoDiscount {
   const protectionPremium = charged?.premium ?? 0;
   const discountPercent = promo?.discountPercent ?? 0;
-  let discountAmount = 0;
-  if (discountPercent > 0 && promo) {
-    const preDiscountOnlineCents = Math.round(
-      ((fr.money.grandTotal ?? payload.grandTotal ?? 0) +
+  const parkingTotal = fr.money.grandTotal ?? payload.grandTotal ?? 0;
+  const preDiscountOnlineCents = () =>
+    Math.round(
+      (parkingTotal +
         (payload.triplyServiceFee || 0) +
         protectionPremium -
         (fr.money.dueAtLocation || 0)) *
         100
     );
-    discountAmount =
-      Math.max(0, preDiscountOnlineCents - promo.chargedCents) / 100;
+
+  const stamped: StampedDiscount = promo?.stampedDiscount ?? { kind: "absent" };
+  if (stamped.kind === "absent" || !promo) {
+    // No stamp: exactly the rule every booking before it was recorded with.
+    let discountAmount = 0;
+    if (discountPercent > 0 && promo) {
+      discountAmount =
+        Math.max(0, preDiscountOnlineCents() - promo.chargedCents) / 100;
+    }
+    // Only record the code when a discount was actually applied (an invalid code
+    // that was typed but not honored leaves no discount and isn't "used").
+    const promoCode = discountAmount > 0 ? promo?.code ?? null : null;
+    return { discountAmount, promoCode, stampWarnings: [] };
   }
-  // Only record the code when a discount was actually applied (an invalid code
-  // that was typed but not honored leaves no discount and isn't "used").
-  const promoCode = discountAmount > 0 ? promo?.code ?? null : null;
-  return { discountAmount, promoCode };
+
+  // A stamp is present: checkout applied a discount. Bound it against the
+  // parking paid online — checkout's figure when stamped, else this
+  // reservation's — so it never comes out of the service fee.
+  const stampWarnings: StampWarning[] = [];
+  const checkout = promo.checkoutFigures;
+  // This reservation's own figures, only when ResLab returned both: a missing
+  // one is UNKNOWN, never 0 — "due 0" would inflate both the bound and any
+  // discount derived from it (RTL753241: a create response without its due).
+  // Known = a finite number: ResLab's response is cast, not validated, so a
+  // non-number takes the unknown path too.
+  const finite = (n: number | null): n is number => n !== null && Number.isFinite(n);
+  const grand = fr.money.grandTotal;
+  const due = fr.money.dueAtLocation;
+  const grandKnown = finite(grand);
+  const reservationOnlineCents = finite(grand) && finite(due) ? Math.round((grand - due) * 100) : null;
+  const reservationPreDiscountCents = reservationOnlineCents === null ? null : preDiscountOnlineCents();
+  // With checkout's figures (checked against the charge by the engine before
+  // they get here), the charge is measured against checkout's own
+  // pre-discount price: a lot price that moved after checkout is not a
+  // mismatch but a `price_moved`, below. Without them, against this
+  // reservation's — or nothing, when it is unknown.
+  const preDiscountCents =
+    checkout.kind === "figures"
+      ? checkout.preDiscountOnlineCents + Math.round(protectionPremium * 100)
+      : reservationPreDiscountCents;
+  const derivedCents = preDiscountCents === null ? null : preDiscountCents - promo.chargedCents;
+  // A blank code (`redeemedPromoCode` trims to "") is no code.
+  const code = promo.code ? promo.code : null;
+
+  let discountCents: number;
+  if (checkout.kind === "absent" && reservationOnlineCents === null && stamped.kind === "cents") {
+    // Nothing to bound it by and nothing to derive from: the stamp is the
+    // only figure there is (Step 8 may well have vouched for it against a
+    // fresh price). Recorded as stamped, and each one is looked at.
+    discountCents = stamped.cents;
+    stampWarnings.push({
+      kind: "unverified",
+      detail: `recorded discount_amount ${dollars(stamped.cents)} as stamped: no checkout figures, and the reservation's ${
+        grandKnown ? "due_at_location" : "grand_total"
+      } is unknown, so it was not bounded against this reservation (Step 8 may have checked it against a fresh price)`,
+    });
+  } else {
+    const onlineParkingCents =
+      checkout.kind === "figures" ? checkout.onlineParkingCents : reservationOnlineCents ?? Number.NaN; // NaN refuses
+    const refusal =
+      checkout.kind === "invalid"
+        ? checkout.detail
+        : stampedDiscountRefusal(stamped, onlineParkingCents);
+    if (refusal === null && stamped.kind === "cents") {
+      discountCents = stamped.cents;
+      if (derivedCents !== null && Math.abs(derivedCents - stamped.cents) > 1) {
+        stampWarnings.push({
+          kind: "mismatch",
+          detail: `recorded discount_amount ${dollars(stamped.cents)} (discountCents ${stamped.cents}), but Stripe charged ${promo.chargedCents} of a pre-discount ${preDiscountCents}, i.e. ${derivedCents} off`,
+        });
+      } else if (
+        // Online parking only: the payload's fee comes from the page load and
+        // can differ from the fee checkout charged, which is not a price move.
+        checkout.kind === "figures" &&
+        reservationOnlineCents !== null &&
+        Math.abs(reservationOnlineCents - checkout.onlineParkingCents) > 1
+      ) {
+        stampWarnings.push({
+          kind: "price_moved",
+          detail: `recorded discount_amount ${dollars(stamped.cents)}; online parking at checkout ${checkout.onlineParkingCents}, on this reservation ${reservationOnlineCents}; Stripe charged ${promo.chargedCents}`,
+        });
+      }
+    } else if (derivedCents === null) {
+      // Refused, and the reservation's figures are unknown: nothing to derive
+      // from. 0 under-states rather than inflates; the row needs a repair.
+      discountCents = 0;
+      stampWarnings.push({
+        kind: "refused",
+        detail: `${refusal ?? "discountCents unusable"}; the reservation's figures are unknown, so recorded discount_amount 0.00 and promo_code none — repair from the charge`,
+      });
+    } else {
+      discountCents = Math.max(0, derivedCents);
+      const recordedCode = discountCents > 0 ? code : null;
+      stampWarnings.push({
+        kind: "refused",
+        detail: `${refusal ?? "discountCents unusable"}; recorded discount_amount ${dollars(discountCents)} derived from Stripe's charge (${preDiscountCents} − ${promo.chargedCents}) and promo_code ${recordedCode ?? "none"}`,
+      });
+    }
+  }
+  const discountAmount = discountCents / 100;
+  if (discountAmount > 0 && code === null) {
+    stampWarnings.push({
+      kind: "no_code",
+      detail: `discount_amount ${dollars(discountCents)} recorded with no promoCode stamped — the booking counts as a use of no code`,
+    });
+  }
+  return { discountAmount, promoCode: discountAmount > 0 ? code : null, stampWarnings };
 }
 
 export async function persistBooking(
@@ -537,22 +684,108 @@ async function upsertCustomer(
     existingCustomer = pickCustomer("user_id", data, error);
   }
 
+  // Rows found by EMAIL, oldest first. One with no account can take this
+  // booking. One that belongs to an account takes it only when it is the
+  // booker's own, or its account's VERIFIED email is this address (the holder
+  // booking signed out) — the rule customer-link.ts applies to linking.
+  // Anything else under that address goes to an unlinked row, never into
+  // another account's history.
+  let emailRows: CustomerRow[] = [];
   if (!existingCustomer) {
     const { data, error } = await supabase
       .from("customers")
       .select("id, email, user_id")
       .eq("email", customer.email)
       .order("created_at", { ascending: true });
-    existingCustomer = pickCustomer("email", data, error);
+    if (error) {
+      captureBookingError(
+        new Error(`customers lookup by email failed (pi=${stripePaymentIntentId ?? "none"}): ${error.message}`),
+        { step: "checkout" }
+      );
+    } else {
+      // A missing user_id must never read as "belongs to an account".
+      emailRows = (data ?? []).map((r) => ({ ...r, user_id: r.user_id ?? null }));
+    }
   }
 
-  // The verified-email check is an external auth call inside the
-  // post-capture critical section — only make it when it can change the
-  // outcome (an unlinked matched row, or a brand-new row).
-  const linkableUserId =
-    existingCustomer && existingCustomer.user_id !== null
-      ? null
-      : await linkableUserIdForEmail(userId, customer.email);
+  // Each verified-email check is an external auth call inside the
+  // post-capture critical section — make only the ones that can change the
+  // outcome, each account once, all at once (one LOOKUP_TIMEOUT_MS at most):
+  // the owners of rows older than the first unlinked row, and the booker
+  // (whether a new or unlinked row may be linked to them). None at all when
+  // the booker's own row was found by user_id.
+  const firstUnlinked = emailRows.findIndex((r) => r.user_id === null);
+  const toCheck = new Set<string>();
+  for (const r of firstUnlinked === -1 ? emailRows : emailRows.slice(0, firstUnlinked)) {
+    if (r.user_id !== null && r.user_id !== userId) toCheck.add(r.user_id);
+  }
+  if (userId && !existingCustomer) toCheck.add(userId);
+  const checks = new Map(
+    await Promise.all(
+      [...toCheck].map(async (id) => [id, await accountHoldsEmail(id, customer.email)] as const)
+    )
+  );
+
+  if (!existingCustomer) {
+    const chosen = emailRows.findIndex(
+      (r) => r.user_id === null || r.user_id === userId || checks.get(r.user_id) === "match"
+    );
+    // Every row before `chosen` (all of them when none qualifies) belongs to
+    // another account that failed the check. Reported without the address.
+    // An auth email belongs to one account only, so when any account checked
+    // "match", an owner that couldn't be checked can't hold this address and
+    // the booking is already where it belongs — nothing to relink.
+    const someoneHolds = [...checks.values()].includes("match");
+    const filedUnder =
+      chosen === -1
+        ? "a new unlinked row"
+        : emailRows[chosen].user_id === null
+          ? `unlinked row ${emailRows[chosen].id}`
+          : `row ${emailRows[chosen].id}`;
+    const reported = new Set<string>();
+    for (const r of chosen === -1 ? emailRows : emailRows.slice(0, chosen)) {
+      if (r.user_id === null || reported.has(r.user_id)) continue;
+      reported.add(r.user_id);
+      const result = checks.get(r.user_id);
+      if (result === "mismatch") {
+        captureBookingError(
+          new Error(
+            `customers row ${r.id} not used for this booking: its account's email is not this address, or is unconfirmed (pi=${stripePaymentIntentId ?? "none"})`
+          ),
+          { step: "checkout", fingerprint: ["customers-owned-row-skipped", "mismatch"] }
+        );
+      } else if (!someoneHolds) {
+        // An auth fault, not a verdict: if this row's owner holds the address
+        // (a signed-out account holder), the booking is missing from their
+        // account until it is relinked or claimed.
+        captureBookingError(
+          new Error(
+            `customers row ${r.id} not used for this booking: its account could not be checked, so the booking was filed under ${filedUnder}; if that account holds this address, relink the booking to row ${r.id} (pi=${stripePaymentIntentId ?? "none"})`
+          ),
+          { step: "checkout", fingerprint: ["customers-owned-row-skipped", "unknown"] }
+        );
+      }
+    }
+    // A duplicate is two rows that could BOTH take this booking. A row skipped
+    // above belongs to an account that doesn't hold this address: it is
+    // reported on its own and must stay a separate row — merging it with this
+    // address's other rows would put their bookings in that account.
+    const usable = emailRows.filter(
+      (r) => r.user_id === null || r.user_id === userId || checks.get(r.user_id) === "match"
+    ).length;
+    if (usable > 1) {
+      captureBookingError(
+        new Error(
+          `${usable} customers rows share the same email and could each take this booking (pi=${stripePaymentIntentId ?? "none"}) — using the oldest; dedupe needed`
+        ),
+        { step: "checkout" }
+      );
+    }
+    existingCustomer = chosen === -1 ? null : emailRows[chosen];
+  }
+
+  // Only ever applied to a new row or a row with no account (linkHere below).
+  const linkableUserId = userId && checks.get(userId) === "match" ? userId : null;
 
   if (existingCustomer) {
     customerId = existingCustomer.id;
@@ -566,10 +799,14 @@ async function upsertCustomer(
     // Refresh the contact details only when this booking is FOR that row's
     // address. A signed-in customer booking under someone else's email is
     // filed under their own row (found by user_id above) — the other
-    // person's name and phone must not overwrite the account holder's.
-    const contactHere = sameEmail(existingCustomer.email, customer.email)
-      ? { first_name: customer.firstName, last_name: customer.lastName, phone: customer.phone }
-      : {};
+    // person's name and phone must not overwrite the account holder's. And
+    // only on a row with no account or the booker's own: a signed-out
+    // booking filed under an account holder's row leaves their details alone.
+    const contactHere =
+      sameEmail(existingCustomer.email, customer.email) &&
+      (existingCustomer.user_id === null || existingCustomer.user_id === userId)
+        ? { first_name: customer.firstName, last_name: customer.lastName, phone: customer.phone }
+        : {};
     const patch = { ...contactHere, ...linkHere };
     if (Object.keys(patch).length > 0) {
       const { error: updateError } = await supabase
@@ -820,14 +1057,20 @@ export interface ReslabEmailMoney {
   /** The redeemed code; set only when promoDiscount > 0. */
   promoCode: string | null;
   /** The applied percent stamped on the PaymentIntent (`discountPercent`, 0 = none) —
-   *  the independent check on promoDiscount (expectedPromoCents). */
+   *  the independent check on promoDiscount (expectedPromoCents) when there is no
+   *  `discountCents` stamp. */
   discountPercent: number;
+  /** `metadata.discountCents` as read — when present, the promo line is checked
+   *  against it instead of the percent (buildCostBreakdown `stampedPromo`). */
+  stampedDiscount: StampedDiscount;
 }
 
-/** The promo on a DIRECT booking's PaymentIntent: the redeemed code and the applied percent (0 = none). */
+/** The promo on a DIRECT booking's PaymentIntent: the redeemed code, the applied
+ *  percent (0 = none) and `metadata.discountCents` as read (the authority when present). */
 export interface DirectEmailPromo {
   code: string | null;
   percent: number;
+  stampedDiscount: StampedDiscount;
 }
 
 /**
@@ -840,6 +1083,8 @@ export interface DirectEmailPromo {
  *   ResLab  /api/checkout/lot: discount = reservation.sub_total × pct / 100
  *           (unrounded; Stripe rounds the whole charge) — ResLab's subtotal.
  *   Direct  readDirectMetadataMoney: min(grand, round(subtotal × pct / 100)).
+ * Unused when the PaymentIntent carries `discountCents`: the breakdown then
+ * checks the promo line against that stamp (`stampedPromo`) instead.
  */
 export function expectedPromoCents(
   percent: number,
@@ -884,6 +1129,7 @@ export function reslabEmailBreakdown(
     promoDiscount: money.promoDiscount,
     promoCode: money.promoDiscount > 0 ? money.promoCode : null,
     expectedPromoCents: expectedPromoCents(money.discountPercent, fr.money.subtotal),
+    stampedPromo: money.stampedDiscount,
     protection: protectionInput(charged),
     anchorChargedCents: money.anchorChargedCents,
     refundedCents: 0,
@@ -942,6 +1188,7 @@ export function directEmailBreakdown(
     promoDiscount: fr.money.discount,
     promoCode: fr.money.discount > 0 ? promo.code : null,
     expectedPromoCents: expectedPromoCents(promo.percent, fr.money.subtotal, toCents(fr.money.grandTotal)),
+    stampedPromo: promo.stampedDiscount,
     protection: protectionInput(charged),
     anchorChargedCents: directAnchorCents(fr),
     refundedCents: 0,

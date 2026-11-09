@@ -145,12 +145,21 @@ export async function PUT(request: NextRequest) {
         );
       }
     } else {
+      // A new row is linked to this account under its auth email, so the
+      // email must be confirmed — the rule every other link follows
+      // (customer-link.ts, the claim flow).
+      if (!user.email_confirmed_at || !user.email) {
+        return NextResponse.json(
+          { error: "Please confirm your email address before saving your profile." },
+          { status: 403 }
+        );
+      }
       // Create new customer record
       const { error: insertError } = await adminSupabase
         .from("customers")
         .insert({
           user_id: user.id,
-          email: user.email!,
+          email: user.email,
           first_name: firstName,
           last_name: lastName,
           phone: phone,

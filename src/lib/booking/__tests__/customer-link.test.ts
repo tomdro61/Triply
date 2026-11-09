@@ -8,6 +8,7 @@ const sentry = vi.hoisted(() => ({ captureBookingError: vi.fn() }));
 vi.mock("@/lib/sentry", () => ({ captureBookingError: sentry.captureBookingError }));
 
 import {
+  accountHoldsEmail,
   linkableUserIdForEmail,
   sessionIdentityFromRequest,
   __setAuthUserLookupForTests,
@@ -46,6 +47,32 @@ describe("linkableUserIdForEmail — the rule that closes the account-takeover h
       throw new Error("auth admin down");
     });
     expect(await linkableUserIdForEmail("u1", "ada@example.com")).toBeNull();
+    expect(sentry.captureBookingError).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("accountHoldsEmail — three answers, so a caller can tell 'no' from 'couldn't tell'", () => {
+  it("match: the account's verified email is the address (case/space-insensitive)", async () => {
+    __setAuthUserLookupForTests(async () => ({ verifiedEmail: "ada@example.com" }));
+    expect(await accountHoldsEmail("u1", " Ada@Example.com ")).toBe("match");
+  });
+
+  it("mismatch: a different verified address, or an unconfirmed one", async () => {
+    __setAuthUserLookupForTests(async () => ({ verifiedEmail: "other@example.com" }));
+    expect(await accountHoldsEmail("u1", "ada@example.com")).toBe("mismatch");
+    __setAuthUserLookupForTests(async () => ({ verifiedEmail: null }));
+    expect(await accountHoldsEmail("u1", "ada@example.com")).toBe("mismatch");
+    expect(sentry.captureBookingError).not.toHaveBeenCalled();
+  });
+
+  it("unknown: no such user, or the lookup failed (reported)", async () => {
+    __setAuthUserLookupForTests(async () => null);
+    expect(await accountHoldsEmail("ghost", "ada@example.com")).toBe("unknown");
+    expect(sentry.captureBookingError).not.toHaveBeenCalled();
+    __setAuthUserLookupForTests(async () => {
+      throw new Error("auth admin down");
+    });
+    expect(await accountHoldsEmail("u1", "ada@example.com")).toBe("unknown");
     expect(sentry.captureBookingError).toHaveBeenCalledTimes(1);
   });
 });
@@ -191,5 +218,35 @@ describe("the real admin lookup (no test seam) — getUserById resolves { error 
       },
     } as never);
     expect(await linkableUserIdForEmail("u1", "ada@example.com")).toBe("u1");
+  });
+});
+
+describe("accountHoldsEmail is bounded and maps the real admin lookup — the call fulfilment makes", () => {
+  it("a hung lookup is cut off at LOOKUP_TIMEOUT_MS, reported once, and answers 'unknown' — never 'mismatch'", async () => {
+    vi.useFakeTimers();
+    try {
+      __setAuthUserLookupForTests(() => new Promise(() => {}));
+      const pending = accountHoldsEmail("u1", "ada@example.com");
+      await vi.advanceTimersByTimeAsync(LOOKUP_TIMEOUT_MS + 1);
+      expect(await pending).toBe("unknown");
+      expect(sentry.captureBookingError).toHaveBeenCalledTimes(1);
+      expect(String(sentry.captureBookingError.mock.calls[0][0])).toMatch(/timed out after/);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("real admin lookup: 404 → 'unknown' quietly; 503 → 'unknown' reported once; unconfirmed → 'mismatch'; confirmed same address → 'match'", async () => {
+    const admin = (r: unknown) => vi.mocked(createAdminClient).mockResolvedValue({ auth: { admin: { getUserById: async () => r } } } as never);
+    admin({ data: { user: null }, error: { message: "User not found", status: 404 } });
+    expect(await accountHoldsEmail("u1", "ada@example.com")).toBe("unknown");
+    expect(sentry.captureBookingError).not.toHaveBeenCalled();
+    admin({ data: { user: null }, error: { message: "upstream", status: 503 } });
+    expect(await accountHoldsEmail("u1", "ada@example.com")).toBe("unknown");
+    expect(sentry.captureBookingError).toHaveBeenCalledTimes(1);
+    admin({ data: { user: { id: "u1", email: "ada@example.com", email_confirmed_at: null } }, error: null });
+    expect(await accountHoldsEmail("u1", "ada@example.com")).toBe("mismatch");
+    admin({ data: { user: { id: "u1", email: "Ada@Example.com", email_confirmed_at: "2026-01-01" } }, error: null });
+    expect(await accountHoldsEmail("u1", " ada@example.com ")).toBe("match");
   });
 });

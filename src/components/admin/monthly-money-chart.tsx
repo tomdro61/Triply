@@ -300,7 +300,7 @@ export function MonthlyMoneyChart({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <Panel
           title="Revenue"
-          note="What customers paid"
+          note="What customers paid, before promo discounts"
           months={months}
           selectedKey={selectedKey}
           onSelect={onSelect}
@@ -336,6 +336,8 @@ export function MonthlyMoneyChart({
               ["Park Guard margin", money(s.pgMargin)],
               ["Stripe fees", m.kept.stripeFees !== null ? formatNegative(m.kept.stripeFees) : "unknown"],
             ];
+            // Already deducted from the parking commission above (Triply funds them) — listed for reference, not to add.
+            if (m.kept.promoDiscounts > 0.005) rows.splice(2, 0, ["Promo discounts (already deducted)", formatNegative(m.kept.promoDiscounts)]);
             if (m.pgWholesaleMissing > 0) rows.push(["Overstated", `${m.pgWholesaleMissing} PG row(s) lack wholesale`]);
             return {
               segments: [

@@ -812,6 +812,234 @@ describe("reconcileRevenue — direct lots + recorded livemode", () => {
   });
 });
 
+/**
+ * Promo discounts (promo plan D3). On a ResLab booking Triply funds the
+ * discount: ResLab invoices the lot's full share, the customer pays the parking
+ * less the discount. Fixture: grand 100, due at the lot 20 (online parking 80),
+ * fee 10, channel commission 12 → no discount: Stripe 90, Triply 22.
+ */
+describe("reconcileRevenue — promo discounts on ResLab bookings (D3)", () => {
+  /** A ResLab reservation whose history is the default one, overridden. */
+  function registerReslab(resNum: string, over: Record<string, unknown> = {}) {
+    h.reservations.set(resNum, {
+      cancelled: 0,
+      history: [
+        { location_total: 80, due_at_location_total: 20, channel_total: 12, commissions_total: 0, grand_total: 100, subtotal: 80, refund_amount: 0, partial_refund: 0, ...over },
+      ],
+    });
+  }
+
+  it("a $5 promo: no integrity flags; Triply's keep is $5 lower; gross unchanged; the line and CSV column carry it", async () => {
+    registerLivePI("pi_promo", 8500); // 80 − 5 + 10
+    registerReslab("RTL_PROMO");
+    pushRow("RTL_PROMO", "pi_promo", { discount_amount: "5.00" });
+    registerLivePI("pi_plain", 9000);
+    registerReslab("RTL_PLAIN");
+    pushRow("RTL_PLAIN", "pi_plain", { discount_amount: "0.00" });
+
+    const r = await reconcileRevenue(OPTS);
+
+    expect(r.integrity.chargeMismatches).toEqual([]);
+    expect(r.integrity.parkingFlowMismatches).toEqual([]);
+    const promo = r.bookings.find((b) => b.reslab_reservation_number === "RTL_PROMO")!;
+    const plain = r.bookings.find((b) => b.reslab_reservation_number === "RTL_PLAIN")!;
+    expect(promo.promo_discount).toBe(5);
+    expect(promo.expected_stripe).toBe(85);
+    expect(plain.triply_total! - promo.triply_total!).toBeCloseTo(5, 10);
+    // The P&L: 2 × (fee 10 + commission 12) − the $5 Triply funded.
+    expect(r.triplyNet.total).toBeCloseTo(44 - 5, 10);
+    expect(r.triplyNet.promoDiscounts).toBe(5);
+    expect(r.triplyNet.promoDiscountCount).toBe(1);
+    expect(r.confirmed.promoDiscount).toBe(5);
+    expect(r.takeRates.stripeTakeRate).toBeCloseTo((44 - 5) / (85 + 90), 10);
+    // Gross ("booking value") stays BEFORE discounts; the commission stays gross.
+    expect(r.grossCustomerSpend).toBe(220);
+    expect(r.triplyNet.parkingChannelCommission).toBe(24);
+    // Parking cash from Stripe is net; with the discount and the gate it reproduces the total.
+    expect(r.confirmed.stripeParkingCollected).toBeCloseTo(75 + 80, 10);
+  });
+
+  it("with Park Guard, and on a lot with part due at the gate, the identities still hold", async () => {
+    registerLivePI("pi_pg", 8500 + 1299);
+    registerReslab("RTL_PG", { location_total: 60, due_at_location_total: 40, grand_total: 100 });
+    pushRow("RTL_PG", "pi_pg", {
+      discount_amount: 5,
+      due_at_location: 40,
+      protection_plan: "$1,000 Protection",
+      protection_plan_price: 12.99,
+      protection_plan_wholesale: 6,
+    });
+    // online parking 60 − 5 + fee 10 + 12.99 = 77.99 — re-register at that amount.
+    registerLivePI("pi_pg", 7799);
+
+    const r = await reconcileRevenue(OPTS);
+
+    expect(r.integrity.chargeMismatches).toEqual([]);
+    expect(r.integrity.parkingFlowMismatches).toEqual([]);
+    expect(r.triplyNet.total).toBeCloseTo(10 + (12.99 - 6) + 12 - 5, 10);
+  });
+
+  it("derived mode (Stripe off): the derived gross and parking cash are net of the discount", async () => {
+    registerReslab("RTL_D");
+    pushRow("RTL_D", "pi_d", { discount_amount: 5 });
+
+    const r = await reconcileRevenue({ ...OPTS, includeStripe: false });
+
+    expect(r.stripe.isDerived).toBe(true);
+    expect(r.stripe.gross).toBeCloseTo(85, 10);
+    // Check #3 needs Stripe's metadata: not run (the page says so).
+    expect(r.integrity.promoMismatches).toEqual([]);
+    expect(r.confirmed.stripeParkingCollected).toBeCloseTo(75, 10);
+  });
+
+  it("a code that ate part of the fee (pre-PR 2 percent code, all parking paid at the lot): not flagged, and the keep is net of it", async () => {
+    // Online parking 0; a 10 % code took $4 out of the $10 fee: Stripe got $6.
+    registerLivePI("pi_b6", 600);
+    registerReslab("RTL_B6", { location_total: 100, due_at_location_total: 100 });
+    pushRow("RTL_B6", "pi_b6", { due_at_location: 100, discount_amount: 4 });
+
+    const r = await reconcileRevenue(OPTS);
+
+    expect(r.integrity.chargeMismatches).toEqual([]);
+    // Stripe parking 0 (clamped) + the 0 that came out of parking + 100 at the gate = 100.
+    expect(r.integrity.parkingFlowMismatches).toEqual([]);
+    expect(r.bookings[0].triply_total).toBeCloseTo(12 + 10 - 4, 10);
+  });
+
+  it("a refunded promo booking: parking refunded net of the discount; no discount cost; the fee kept as before", async () => {
+    // Paid 85; a standard cancel refunded all but the $10 fee.
+    registerLivePI("pi_rp", 8500, 7500);
+    registerReslab("RTL_RP");
+    pushRow("RTL_RP", "pi_rp", { status: "refunded", discount_amount: 5 });
+
+    const r = await reconcileRevenue(OPTS);
+
+    expect(r.refunded.parkingRefunded).toBeCloseTo(75, 10);
+    expect(r.refunded.serviceFeeKept).toBe(10);
+    expect(r.triplyNet.promoDiscounts).toBe(0);
+  });
+
+  it("a standard-refunded booking whose code ate $4 of the fee keeps only the $6 the customer paid", async () => {
+    // Stripe got $6; the cancel route refunded max(0, 6 − 10) = $0.
+    registerLivePI("pi_rb6", 600, 0);
+    registerReslab("RTL_RB6", { location_total: 100, due_at_location_total: 100 });
+    pushRow("RTL_RB6", "pi_rb6", { status: "refunded", due_at_location: 100, discount_amount: 4 });
+
+    const r = await reconcileRevenue(OPTS);
+
+    expect(r.refunded.serviceFeeKept).toBeCloseTo(6, 10);
+    expect(r.refunded.parkingRefunded).toBe(0);
+    expect(r.bookings[0].note).not.toMatch(/over-retained/);
+  });
+
+  /** A live PI carrying checkout's promo metadata. */
+  function registerPromoPI(pi: string, amountReceived: number, metadata: Record<string, string>) {
+    h.pis.set(pi, {
+      amount_received: amountReceived,
+      latest_charge: { amount_refunded: 0, balance_transaction: { fee: 300 } },
+      status: "succeeded",
+      metadata,
+    });
+  }
+
+  describe("check #3 — an unstamped booking's discount vs the code's percent of ResLab's subtotal", () => {
+    it("a 10 % code recorded as 10 % of the $80 subtotal ($8.00) passes", async () => {
+      registerPromoPI("pi_ok", 8200, { discountPercent: "10" });
+      registerReslab("RTL_OK");
+      pushRow("RTL_OK", "pi_ok", { discount_amount: 8 });
+      const r = await reconcileRevenue(OPTS);
+      expect(r.integrity.promoMismatches).toEqual([]);
+      expect(r.integrity.chargeMismatches).toEqual([]);
+    });
+
+    it("a recorded discount that isn't the code's percent (a wrong charge booked as a discount) is flagged", async () => {
+      // Charged $81 instead of $82: the derived "discount" is $9, not 10 % = $8.
+      registerPromoPI("pi_bad", 8100, { discountPercent: "10" });
+      registerReslab("RTL_BAD");
+      pushRow("RTL_BAD", "pi_bad", { discount_amount: 9 });
+      const r = await reconcileRevenue(OPTS);
+      // Checks #1 / #2 pass by construction on such a row…
+      expect(r.integrity.chargeMismatches).toEqual([]);
+      expect(r.integrity.parkingFlowMismatches).toEqual([]);
+      // …check #3 doesn't.
+      expect(r.integrity.promoMismatches).toEqual([{ resNum: "RTL_BAD", reason: "mismatch", recorded: 9, percent: 10, expected: 8, diff: 1 }]);
+    });
+
+    it("a code on the PaymentIntent with NO discount recorded (a booking before migration 016) is flagged", async () => {
+      registerPromoPI("pi_old", 8200, { discountPercent: "10" });
+      registerReslab("RTL_OLD");
+      pushRow("RTL_OLD", "pi_old", { discount_amount: 0, created_at: "2026-07-01T12:00:00Z" });
+      const r = await reconcileRevenue(OPTS);
+      expect(r.integrity.promoMismatches).toEqual([{ resNum: "RTL_OLD", reason: "no_discount_recorded", recorded: 0, percent: 10, expected: 8, diff: -8 }]);
+    });
+
+    it("a discount with no percent on the PaymentIntent is flagged (nothing vouches for it)", async () => {
+      registerPromoPI("pi_np", 8500, {});
+      registerReslab("RTL_NP");
+      pushRow("RTL_NP", "pi_np", { discount_amount: 5 });
+      const r = await reconcileRevenue(OPTS);
+      expect(r.integrity.promoMismatches).toEqual([{ resNum: "RTL_NP", reason: "no_percent", recorded: 5, percent: null, expected: null, diff: null }]);
+    });
+
+    it("ResLab with no usable subtotal: listed as NOT CHECKED — never an 'expected $0.00' built from an unknown", async () => {
+      registerPromoPI("pi_ns", 8200, { discountPercent: "10" });
+      registerReslab("RTL_NS", { subtotal: undefined });
+      pushRow("RTL_NS", "pi_ns", { discount_amount: 8 });
+      const r = await reconcileRevenue(OPTS);
+      expect(r.integrity.promoMismatches).toEqual([{ resNum: "RTL_NS", reason: "subtotal_unknown", recorded: 8, percent: 10, expected: null, diff: null }]);
+    });
+
+    it("within a cent of the percent passes (the old checkout's unrounded sub_total × pct, Stripe-rounded)", async () => {
+      // 10 % of $29.85 = 2.985: recorded 2.98 or 2.99 both pass, 2.97 does not.
+      registerReslab("RTL_C1", { subtotal: 29.85 });
+      registerPromoPI("pi_c1", 1000, { discountPercent: "10" });
+      pushRow("RTL_C1", "pi_c1", { discount_amount: 2.98 });
+      registerReslab("RTL_C2", { subtotal: 29.85 });
+      registerPromoPI("pi_c2", 1000, { discountPercent: "10" });
+      pushRow("RTL_C2", "pi_c2", { discount_amount: 2.97 });
+      const r = await reconcileRevenue(OPTS);
+      expect(r.integrity.promoMismatches.map((m) => m.resNum)).toEqual(["RTL_C2"]);
+    });
+
+    it("a STAMPED booking (discountCents) is skipped — fulfilment checked it against its own figures", async () => {
+      registerPromoPI("pi_st", 8500, { discountCents: "500" });
+      registerReslab("RTL_ST");
+      pushRow("RTL_ST", "pi_st", { discount_amount: 5 });
+      const r = await reconcileRevenue(OPTS);
+      expect(r.integrity.promoMismatches).toEqual([]);
+    });
+
+    it("a booking with no code at all is not checked", async () => {
+      registerLivePI("pi_none", 9000);
+      registerReslab("RTL_NONE");
+      pushRow("RTL_NONE", "pi_none");
+      expect((await reconcileRevenue(OPTS)).integrity.promoMismatches).toEqual([]);
+    });
+  });
+
+  it("the money flow's promo row is the PARKING part; the P&L takes the whole discount (a fee-eating code)", async () => {
+    registerLivePI("pi_mf", 600);
+    registerReslab("RTL_MF", { location_total: 100, due_at_location_total: 100 });
+    pushRow("RTL_MF", "pi_mf", { due_at_location: 100, discount_amount: 4 });
+    const r = await reconcileRevenue(OPTS);
+    expect(r.confirmed.promoDiscount).toBe(4);
+    expect(r.confirmed.promoDiscountParking).toBe(0);
+    // Parts of the parking total: Stripe parking 0 + promo (parking part) 0 + at the gate 100 = 100.
+    expect(r.confirmed.stripeParkingCollected + r.confirmed.promoDiscountParking + (r.confirmed.reslabDueAtLot ?? 0)).toBe(r.grossRevenue);
+  });
+
+  it("the ResLab cross-check off: the discount line is null, like the total", async () => {
+    registerLivePI("pi_off", 8500);
+    pushRow("RTL_OFF", "pi_off", { discount_amount: 5 });
+
+    const r = await reconcileRevenue({ ...OPTS, includeReslab: false });
+
+    expect(r.triplyNet.total).toBeNull();
+    expect(r.triplyNet.promoDiscounts).toBeNull();
+    expect(r.confirmed.promoDiscount).toBe(5);
+  });
+});
+
 describe("Stripe 429 rate-limit retry (Oct 2026: 14 of 187 live PIs refused in one run)", () => {
   const rateLimit = () => {
     const err = new Error("Request rate limit exceeded.") as Error & {

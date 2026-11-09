@@ -20,6 +20,7 @@ import { DirectPayoutsSection } from "@/components/admin/direct-payouts-section"
 import type {
   DateField,
   BookingDetail,
+  PromoMismatchReason,
   ReconcileResult,
 } from "@/lib/accounting/types";
 
@@ -49,11 +50,29 @@ function previousMonthDefaults(): { from: string; to: string } {
 // csvEscape (formula-injection safe) now lives in @/lib/utils/csv, shared with
 // the bookings and partner exporters.
 
+/**
+ * Bookings record their promo discount from the deploy of 31f029a / 0f0d937
+ * (migration 016), Jul 22, 2026 ~18:30 UTC — rounded UP to the next UTC
+ * midnight so the caveat errs toward showing. A promo booking before it has
+ * none recorded, so a range holding one shows the promo line as a floor
+ * (promo plan D3).
+ */
+const PROMO_MISMATCH_WHY: Record<PromoMismatchReason, string> = {
+  mismatch: "not the code's percent",
+  no_discount_recorded: "code used, no discount recorded",
+  no_percent: "discount with no code percent",
+  subtotal_unknown: "ResLab subtotal unknown — not checked",
+};
+const PROMO_RECORDED_FROM_MS = Date.parse("2026-07-23T00:00:00Z");
+/** Whether the result holds a confirmed booking made before discounts were recorded (any date axis). */
+const hasUnrecordedPromoEra = (r: ReconcileResult): boolean =>
+  r.bookings.some((b) => b.status === "confirmed" && Date.parse(b.created_at) < PROMO_RECORDED_FROM_MS);
+
 function downloadCsv(bookings: BookingDetail[], filename: string) {
   const header = [
     "booking_id", "reslab_res_num", "status", "created_at", "check_in", "check_out",
     "customer_email", "airport_code", "reslab_location_id", "location_name",
-    "grand_total", "subtotal", "due_at_location", "parking_online", "triply_service_fee",
+    "grand_total", "subtotal", "due_at_location", "parking_online", "promo_discount", "triply_service_fee",
     "protection_plan", "protection_plan_price", "pg_identifier",
     "expected_stripe_estimated", "stripe_amount_received", "stripe_amount_refunded",
     "stripe_fee", "stripe_status", "stripe_error",
@@ -68,7 +87,7 @@ function downloadCsv(bookings: BookingDetail[], filename: string) {
       b.id, b.reslab_reservation_number, b.status,
       b.created_at, b.check_in, b.check_out,
       b.customer_email, b.airport_code, b.reslab_location_id ?? "", b.location_name,
-      b.grand_total, b.subtotal, b.due_at_location, b.parking_online, b.triply_service_fee,
+      b.grand_total, b.subtotal, b.due_at_location, b.parking_online, b.promo_discount, b.triply_service_fee,
       b.protection_plan ?? "", b.protection_plan_price, b.pg_identifier ?? "",
       b.expected_stripe,
       b.stripe_amount_received ?? "", b.stripe_amount_refunded ?? "",
@@ -392,7 +411,7 @@ export default function AccountingPage() {
               <HeadlineCard
                 title="Gross revenue"
                 value={usd(result.grossCustomerSpend)}
-                sub="total customer spend — parking + service fee + Park Guard (incl. due-at-lot)"
+                sub="booking value before promo discounts — parking + service fee + Park Guard (incl. due-at-lot)"
                 icon={TrendingUp}
                 accent="purple"
               />
@@ -406,7 +425,7 @@ export default function AccountingPage() {
                     ? `net cash ≈ ${usd(result.triplyNet.cashTotal)} after Stripe fees`
                     : // M3: gross is known, cash isn't — signal this in the headline
                       // so admins don't over-quote the gross number to stakeholders.
-                      "service fee + channel commission + PG margin · net cash unavailable (Stripe data missing)"
+                      "service fee + channel commission − ResLab fee − promo discounts + PG margin · net cash unavailable (Stripe data missing)"
                 }
                 icon={Calculator}
                 accent="coral"
@@ -425,14 +444,15 @@ export default function AccountingPage() {
               </p>
               <p className="text-xs text-gray-500 mb-4">
                 <strong>Triply income</strong> (the numerator on the first two) ={" "}
-                service fee + channel commission (parking-side) + Park Guard margin. See each row
-                for the exact components and when each rate matters.
+                service fee + channel commission (parking-side) − ResLab channel fee − promo
+                discounts + Park Guard margin. See each row for the exact components and when each
+                rate matters.
               </p>
               <div className="space-y-1">
                 <RateRow
                   label="Effective Stripe take rate"
                   question="Of every dollar customers paid Triply through Stripe, what % did Triply keep?"
-                  numerator="service fee + channel commission + Park Guard margin"
+                  numerator="service fee + channel commission − ResLab fee − promo discounts + Park Guard margin"
                   denominator="Stripe gross collected (sum of amount_received across all bookings)"
                   useWhen="Quoting effective margin on customer payments — investor/board pitch."
                   value={pct(result.takeRates.stripeTakeRate)}
@@ -440,7 +460,7 @@ export default function AccountingPage() {
                 <RateRow
                   label="Total take rate"
                   question="Of every dollar that moved through the booking (incl. due-at-lot), what % did Triply touch?"
-                  numerator="service fee + channel commission + Park Guard margin"
+                  numerator="service fee + channel commission − ResLab fee − promo discounts + Park Guard margin"
                   denominator="Stripe gross + due-at-lot (the portion customers paid the lot directly at the gate)"
                   useWhen="Conservative view — share of all transaction value, including money Triply never touched."
                   value={pct(result.takeRates.totalTakeRate)}
@@ -488,6 +508,26 @@ export default function AccountingPage() {
                     result.triplyNet.reslabChannelFee === null
                       ? "ResLab cross-check disabled"
                       : "ResLab's cut of the channel commission — billed on the settlement invoice"
+                  }
+                />
+                <Row
+                  label="Promo discounts (Triply-funded)"
+                  value={
+                    // Like the Stripe-fee line: no figure against an unknown total.
+                    result.triplyNet.promoDiscounts === null || result.triplyNet.total === null
+                      ? "—"
+                      : result.triplyNet.promoDiscounts > 0
+                      ? `−${usd(result.triplyNet.promoDiscounts)}`
+                      : usd(0)
+                  }
+                  sub={
+                    result.triplyNet.promoDiscounts === null
+                      ? "ResLab cross-check disabled"
+                      : `${result.triplyNet.promoDiscountCount} booking${result.triplyNet.promoDiscountCount === 1 ? "" : "s"} — ResLab bills the lot's full share, so Triply pays for the code${
+                          hasUnrecordedPromoEra(result)
+                            ? ". A FLOOR for this range: bookings before Jul 23, 2026 have no recorded discount (Data integrity lists them when Stripe is live)"
+                            : ""
+                        }`
                   }
                 />
                 <Row
@@ -555,7 +595,9 @@ export default function AccountingPage() {
                       <strong>These are estimates, not Stripe-actual figures.</strong> Computed from
                       booking-row composition because the live Stripe lookup is unavailable
                       (test-mode keys, or {result.stripeFetch.derivedFallbacks} per-booking fetches failed).
-                      Promo-discounted bookings will be overstated. Production Vercel env uses live keys.
+                      {hasUnrecordedPromoEra(result) &&
+                        " Promo bookings before Jul 23, 2026 have no recorded discount, so they are overstated."}{" "}
+                      Production Vercel env uses live keys.
                     </p>
                   </div>
                 ) : undefined}
@@ -648,9 +690,9 @@ export default function AccountingPage() {
               {/* === How customers paid === */}
               <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mt-2 mb-1">How customers paid</p>
               <Row
-                label="Total parking customers paid"
+                label="Total parking value"
                 value={usd(result.grossRevenue)}
-                sub="confirmed bookings, sum of grand_total"
+                sub="confirmed bookings, sum of grand_total — before promo discounts"
                 emphasis
               />
               <Row
@@ -665,6 +707,11 @@ export default function AccountingPage() {
                     ? "estimated — live Stripe unavailable (test keys); authoritative on production"
                     : "actual Stripe amount_received − service fee − Park Guard"
                 }
+              />
+              <Row
+                label="     of which → promo discounts (Triply-funded)"
+                value={usd(result.confirmed.promoDiscountParking)}
+                sub={`${result.confirmed.promoDiscountCount} booking${result.confirmed.promoDiscountCount === 1 ? "" : "s"} — taken off the customer's charge; the lot is still paid in full`}
               />
               <Row
                 label="     of which → paid at the gate to lots"
@@ -687,7 +734,7 @@ export default function AccountingPage() {
               <Row
                 label="Triply channel commission"
                 value={result.confirmed.channelTotal !== null ? usd(result.confirmed.channelTotal) : "—"}
-                sub="what Triply keeps from the parking side (before the RL Fee above)"
+                sub="what Triply keeps from the parking side (before the RL Fee above and promo discounts)"
               />
 
               {/* === Triply's net cash from parking === */}
@@ -787,6 +834,7 @@ export default function AccountingPage() {
 
               {result.integrity.chargeMismatches.length === 0 &&
               result.integrity.parkingFlowMismatches.length === 0 &&
+              result.integrity.promoMismatches.length === 0 &&
               !result.stripe.isDerived &&
               !result.reslab.dataIncomplete &&
               result.reslab.fetched > 0 ? (
@@ -806,9 +854,9 @@ export default function AccountingPage() {
                   {result.stripe.isDerived && (
                     <div className="text-xs text-amber-700 flex items-start gap-1">
                       <AlertCircle size={14} className="mt-0.5 flex-shrink-0" />
-                      Live Stripe unavailable (test-mode keys) — the charge-drift and
-                      parking-identity checks are skipped here. Run on production for the full
-                      reconciliation.
+                      Live Stripe unavailable (test-mode keys) — the charge-drift,
+                      parking-identity and promo-percent checks are skipped here. Run on production for
+                      the full reconciliation.
                     </div>
                   )}
                   {result.reslab.dataIncomplete && (
@@ -854,7 +902,7 @@ export default function AccountingPage() {
                   {result.integrity.parkingFlowMismatches.length > 0 && (
                     <div>
                       <p className="text-xs font-medium text-amber-700 mb-2">
-                        ⚠ Parking identity — Stripe parking + ResLab at-gate ≠ grand_total (
+                        ⚠ Parking identity — Stripe parking + promo discount + ResLab at-gate ≠ grand_total (
                         {result.integrity.parkingFlowMismatches.length})
                       </p>
                       <div className="overflow-x-auto">
@@ -863,6 +911,7 @@ export default function AccountingPage() {
                             <tr>
                               <th className="py-1 pr-4">Res #</th>
                               <th className="py-1 pr-4 text-right">Stripe parking</th>
+                              <th className="py-1 pr-4 text-right">Promo</th>
                               <th className="py-1 pr-4 text-right">ResLab at-gate</th>
                               <th className="py-1 pr-4 text-right">Grand total</th>
                               <th className="py-1 text-right">Diff</th>
@@ -873,6 +922,7 @@ export default function AccountingPage() {
                               <tr key={m.resNum}>
                                 <td className="py-1 pr-4 font-mono text-gray-700">{m.resNum}</td>
                                 <td className="py-1 pr-4 text-right font-mono text-gray-700">{usd(m.stripeParking)}</td>
+                                <td className="py-1 pr-4 text-right font-mono text-gray-700">{usd(m.promoDiscount)}</td>
                                 <td className="py-1 pr-4 text-right font-mono text-gray-700">{usd(m.reslabAtGate)}</td>
                                 <td className="py-1 pr-4 text-right font-mono text-gray-700">{usd(m.grandTotal)}</td>
                                 <td className="py-1 text-right font-mono text-red-600">{usd(m.diff)}</td>
@@ -883,6 +933,53 @@ export default function AccountingPage() {
                       </div>
                     </div>
                   )}
+
+                  {result.integrity.promoMismatches.length > 0 && (() => {
+                    // "Not checked" rows are listed, never counted as mismatches.
+                    const promoNotChecked = result.integrity.promoMismatches.filter((m) => m.reason === "subtotal_unknown");
+                    const promoChecked = result.integrity.promoMismatches.filter((m) => m.reason !== "subtotal_unknown");
+                    return (
+                    <div>
+                      <p className="text-xs font-medium text-amber-700 mb-1">
+                        ⚠ Promo discount check — {promoChecked.length} not the code&apos;s percent of the subtotal
+                        {promoNotChecked.length > 0 && `, ${promoNotChecked.length} not checked (ResLab gave no usable subtotal)`}
+                      </p>
+                      <p className="text-xs text-gray-500 mb-2">
+                        Bookings made before the discount stamp: their recorded discount was worked out from the charge,
+                        so a wrong charge — or a page-load fee that differed from the charged one — would otherwise count
+                        as a promo discount. &ldquo;No discount recorded&rdquo; is a booking from before Jul 23, 2026 (none
+                        recorded then), or a later one whose price fell after authorization (recorded as $0, so its code
+                        isn&apos;t in the promo total).
+                      </p>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead className="text-left text-gray-500">
+                            <tr>
+                              <th className="py-1 pr-4">Res #</th>
+                              <th className="py-1 pr-4 text-right">Recorded</th>
+                              <th className="py-1 pr-4 text-right">Code %</th>
+                              <th className="py-1 pr-4 text-right">Expected</th>
+                              <th className="py-1 pr-4 text-right">Diff</th>
+                              <th className="py-1">Why</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {result.integrity.promoMismatches.map((m) => (
+                              <tr key={m.resNum}>
+                                <td className="py-1 pr-4 font-mono text-gray-700">{m.resNum}</td>
+                                <td className="py-1 pr-4 text-right font-mono text-gray-700">{usd(m.recorded)}</td>
+                                <td className="py-1 pr-4 text-right font-mono text-gray-700">{m.percent !== null ? `${m.percent}%` : "none"}</td>
+                                <td className="py-1 pr-4 text-right font-mono text-gray-700">{m.expected !== null ? usd(m.expected) : "—"}</td>
+                                <td className="py-1 pr-4 text-right font-mono text-red-600">{m.diff !== null ? usd(m.diff) : "—"}</td>
+                                <td className="py-1 text-gray-600">{PROMO_MISMATCH_WHY[m.reason]}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>
@@ -922,7 +1019,7 @@ export default function AccountingPage() {
                       <th className="px-4 py-2 text-right">Owed (ResLab)</th>
                       <th className="px-4 py-2 text-right" title="Channel commission — Triply's parking-side cut from the ResLab split">Triply ch.</th>
                       <th className="px-4 py-2 text-right" title="Service fee + Park Guard margin — Triply's on-top charges">Triply fee</th>
-                      <th className="px-4 py-2 text-right" title="Channel commission + service fee + PG margin — the complete pile Triply kept on this booking">Triply total</th>
+                      <th className="px-4 py-2 text-right" title="Channel commission + service fee + PG margin − the promo discount Triply funded (CSV: promo_discount) — the complete pile Triply kept on this booking">Triply total</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">

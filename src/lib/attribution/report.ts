@@ -84,6 +84,12 @@ export function byAirport(rows: ReportRow[], top = 12): { rows: Agg[]; total: nu
 export interface PromoMeta {
   code: string;
   discount_percent: number | null;
+  /**
+   * A fixed code's value in dollars (migration 049; DECIMAL may arrive as a
+   * string). OPTIONAL because the stats route cannot select the column until
+   * 049 is applied — naming a missing column fails the whole query (42703).
+   */
+  discount_amount?: string | number | null;
   active: boolean | null;
   current_uses: number | null;
   max_uses: number | null;
@@ -100,7 +106,30 @@ export interface PromoReportRow {
   maxUses: number | null;
   active: boolean | null;
   discountPercent: number | null;
+  /** A fixed code's value in dollars; null for a percent code (or before migration 049). */
+  discountAmount: number | null;
   expired: boolean;
+}
+
+/** A fixed code's dollar value, or null (a percent code, no column yet, or unreadable). */
+function fixedAmountOf(m: PromoMeta): number | null {
+  if (m.discount_amount === null || m.discount_amount === undefined) return null;
+  const n = parseFloat(String(m.discount_amount));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/**
+ * The code's value as the admin promo table shows it: "$5 off" for a fixed
+ * code, "10%" for a percent one, null when neither is known. A fixed amount
+ * wins: after migration 049 a row has exactly one kind.
+ */
+export function promoValueLabel(p: { discountPercent: number | null; discountAmount?: number | null }): string | null {
+  if (p.discountAmount !== null && p.discountAmount !== undefined && p.discountAmount > 0) {
+    const cents = Math.round(p.discountAmount * 100);
+    const dollars = cents % 100 === 0 ? String(cents / 100) : (cents / 100).toFixed(2);
+    return `$${dollars} off`;
+  }
+  return p.discountPercent !== null ? `${p.discountPercent}%` : null;
 }
 
 /** Derived booking count + discount per code, next to the DB counter so
@@ -131,6 +160,7 @@ export function buildPromoReport(rows: ReportRow[], meta: PromoMeta[], now = Dat
       maxUses: m?.max_uses ?? null,
       active: m?.active ?? null,
       discountPercent: m?.discount_percent ?? null,
+      discountAmount: m ? fixedAmountOf(m) : null,
       expired: !!m?.expires_at && new Date(m.expires_at).getTime() < now,
     });
   }
@@ -146,6 +176,7 @@ export function buildPromoReport(rows: ReportRow[], meta: PromoMeta[], now = Dat
       maxUses: m.max_uses,
       active: m.active,
       discountPercent: m.discount_percent,
+      discountAmount: fixedAmountOf(m),
       expired: !!m.expires_at && new Date(m.expires_at).getTime() < now,
     });
   }

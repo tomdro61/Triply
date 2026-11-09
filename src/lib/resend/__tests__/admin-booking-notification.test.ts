@@ -30,6 +30,8 @@ beforeEach(() => {
   send.mockResolvedValue({ data: { id: "em_admin" }, error: null });
   // These pin the EMAIL; never post to a webhook a developer's shell happens to export.
   vi.stubEnv("DISCORD_BOOKING_ALERTS_WEBHOOK_URL", "");
+  // A production (live-key) deployment: a test-key one sends no alert at all.
+  vi.stubEnv("STRIPE_SECRET_KEY", "sk_live_fixture");
 });
 
 describe("admin booking notification — the cost breakdown (plan 2026-10-12)", () => {

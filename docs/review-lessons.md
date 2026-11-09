@@ -163,6 +163,29 @@ a human.
 
 One entry per reviewed PR: what the review found, by lesson number. Newest first.
 
+- **Sign-in return paths (Nov 8):**
+  - Lesson 1: the helper's comment said "running it twice gives the same result", but its length cap was checked on the raw value. Percent-encoding grows a path, so the callback's second pass could refuse what the login page accepted (Codex, and a Claude reviewer). The cap now applies to the value returned.
+  - Lesson 13: a callback test with a raw tab in the URL could never fail, because the URL parser strips it (plan review). Bad values are built with `URLSearchParams`, and each test first asserts the route sees the raw value. The mutation check added rows for DEL, the length boundary and the normalised output, and pinned the source scan by file.
+
+- **Promo PR 2: fixed-amount codes at checkout (Nov 7):**
+  - Lesson 1 / 10: a checkout tab loaded before the deploy priced a capped percent code itself, so its Pay button could show less than the payment held (Codex). Pages now send a pricing version; a code without it is refused as a stale page before any payment.
+  - Lesson 7: the browser's finishing call carried the page-load service fee, and it wins over the staged row, so the booking row and a later cancel used a fee Stripe never charged. The engine now applies the charged fee whichever path finishes.
+  - Lesson 1: an old "couldn't check your code" error could show under "Payment Error" on a payment that was fine.
+  - Lesson 5: a code the page accepted but the server refused on price was not reported; "your code wasn't applied" was hidden once the widget locked.
+  - Lesson 4: one database blip blocked Continue.
+  - **Round 2 (lesson 15):**
+    - a rolled-back deploy would refuse the new body field (`.strict()`) and book from rows holding the page fee (Codex) — the version moved to a header, and the row carries the charged fee too;
+    - the retry's per-attempt bound was tighter than the cold-start precedent, a recovered retry was silent, and misconfigurations were retried.
+  - All fixed.
+
+- **Promo D3: promo discounts in the accounting (Nov 7):**
+  - Plan review (lesson 16 / 7): v1 missed the readers of the P&L components (the /admin and /admin/numbers breakdowns would stop adding up), legacy rows where a percent code ate the fee, a second meaning of "gross", and that the GA4 page never received the discount.
+  - Lesson 5: older promo rows derive their discount from the charge, so the two existing checks passed by construction and a wrong charge would have been booked as a "promo discount" — a new check #3 measures it against the code's percent.
+  - Lesson 2: check #3's first version built "expected $0.00" from a missing ResLab subtotal; it now reuses the confirmation page's helpers, which leave an unknown unknown.
+  - Lesson 1: copy that no longer matched the maths (profit formulas, "what customers paid", a skipped-checks notice naming two of three).
+  - **Rounds 2–3 (lesson 15):** the "recorded from" cutoff was the day, not the deploy; "not checked" rows were counted as mismatches.
+  - All fixed.
+
 - **#159 apply-edit replace mode (Nov 6):**
   - Lesson 2: replacing a post's last section deleted the trailing booking CTA (about 3,700 posts have it).
   - Lesson 2: a rival promo code in new text passed when the sentence didn't say "promo code".

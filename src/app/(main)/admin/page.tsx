@@ -20,6 +20,7 @@ import type { CancellationReport } from "@/lib/cancellation/report";
 import { PROTECTION_PLANS, PROTECTION_PLAN_CODES } from "@/lib/parkguard/plans";
 import { readStatsResponse } from "@/lib/admin/stats-response";
 import { bookingSourceLabelForKey } from "@/lib/attribution/source";
+import { promoValueLabel } from "@/lib/attribution/report";
 import {
   accountingMixSchema,
   isDefinitive,
@@ -43,7 +44,8 @@ type MonthMixState = MoneyMix | "loading" | { error: string };
 // entry from an older shape is a miss, never misread; only a definitive result
 // (profit known, no Park Guard rows overstating it) is kept. Storage can be
 // unavailable (private mode) — try/caught.
-const MONTH_MIX_CACHE_KEY = "admin-dashboard:month-mix:v2";
+// v3: the kept breakdown gained promoDiscounts (promo plan D3).
+const MONTH_MIX_CACHE_KEY = "admin-dashboard:month-mix:v3";
 const MONTH_MIX_TTL_MS = 10 * 60 * 1000;
 function readCachedMonthMix(monthKey: string): MoneyMix | null {
   try {
@@ -124,6 +126,8 @@ interface Stats {
       maxUses: number | null;
       active: boolean | null;
       discountPercent: number | null;
+      /** A fixed code's value in dollars. Optional on the wire: a server from before it does not send it. */
+      discountAmount?: number | null;
       expired: boolean;
     }> | null;
     presentRate7d: number | null;
@@ -664,8 +668,8 @@ export default function AdminDashboard() {
                     <tr key={p.code} className="border-t border-gray-100">
                       <td className="py-1.5 font-mono">
                         {p.code}
-                        {p.discountPercent !== null && (
-                          <span className="ml-1 text-xs text-gray-400">{p.discountPercent}%</span>
+                        {promoValueLabel(p) !== null && (
+                          <span className="ml-1 text-xs text-gray-400">{promoValueLabel(p)}</span>
                         )}
                         {p.active === false && (
                           <span className="ml-1 text-xs text-red-500">inactive</span>
