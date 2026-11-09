@@ -30,6 +30,7 @@ vi.mock("@/lib/supabase/server", () => ({
 vi.mock("@/lib/sentry", () => ({ capturePaymentError: vi.fn(), captureBookingError: vi.fn() }));
 
 import { POST } from "../route";
+import { bookingKey } from "@/lib/confirmation/booking-key";
 
 const SECRET = "pi_abc_secret_xyz";
 const post = (body: unknown) =>
@@ -148,5 +149,30 @@ describe("POST /api/reservations/complete — needs_support answer", () => {
     expect(body.confirmationUrl).toBe("/confirmation/RTL2?lot=reslab-275&checkin=2026-11-20");
     expect(body.confirmationUrl).not.toContain("email");
     expect(body.guestEmail).toBe("ada@example.com");
+  });
+
+  it("booked: the signed booking key comes back too, and never in the URL", async () => {
+    vi.stubEnv("BOOKING_LINK_SIGNING_SECRET", "test-secret-one");
+    createBooking.mockResolvedValue({ kind: "created", reservationNumber: "RTL2" });
+    const body = await (await post({ paymentIntentId: "pi_abc", clientSecret: SECRET })).json();
+    expect(body.bookingKey).toBe(bookingKey("RTL2"));
+    expect(body.confirmationUrl).not.toContain("booking_key");
+    vi.unstubAllEnvs();
+  });
+
+  it("a wrong client secret never gets a key (404 before any booking work)", async () => {
+    vi.stubEnv("BOOKING_LINK_SIGNING_SECRET", "test-secret-one");
+    const res = await post({ paymentIntentId: "pi_abc", clientSecret: "pi_abc_secret_WRONG" });
+    expect(await res.json()).toEqual({ error: "Not found" });
+    vi.unstubAllEnvs();
+  });
+
+  it("booked with the signing secret missing: no key (the page uses the email), and the booking answer stands", async () => {
+    vi.stubEnv("BOOKING_LINK_SIGNING_SECRET", "");
+    createBooking.mockResolvedValue({ kind: "already_exists", reservationNumber: "RTL3" });
+    const body = await (await post({ paymentIntentId: "pi_abc", clientSecret: SECRET })).json();
+    expect(body).toMatchObject({ state: "booked", reservationNumber: "RTL3", guestEmail: "ada@example.com" });
+    expect(body.bookingKey).toBeUndefined();
+    vi.unstubAllEnvs();
   });
 });

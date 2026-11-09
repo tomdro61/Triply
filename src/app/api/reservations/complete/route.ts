@@ -14,8 +14,9 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { timingSafeEqual } from "node:crypto";
 import { stripe } from "@/lib/stripe/client";
+import { secretsMatch } from "@/lib/stripe/client-secret";
+import { handOffBookingKey } from "@/lib/confirmation/confirmation-link";
 import { createAdminClient } from "@/lib/supabase/server";
 import {
   createBooking,
@@ -25,14 +26,6 @@ import { capturePaymentError } from "@/lib/sentry";
 import { moneyOnCard } from "@/lib/stripe/money-on-card";
 
 export const maxDuration = 60;
-
-function secretsMatch(a: string, b: string): boolean {
-  const bufA = Buffer.from(a);
-  const bufB = Buffer.from(b);
-  // timingSafeEqual throws on length mismatch, which would itself leak length.
-  if (bufA.length !== bufB.length) return false;
-  return timingSafeEqual(bufA, bufB);
-}
 
 /** Rebuild the customer's confirmation URL — WITHOUT the guest's email, which
  *  analytics and Sentry would record. The email goes back as `guestEmail`
@@ -140,10 +133,12 @@ export async function POST(request: NextRequest) {
           state: "booked",
           reservationNumber,
           confirmationUrl: await buildConfirmationUrl(reservationNumber, piId),
-          // The guest's proof for /confirmation, derived server-side from the
-          // PaymentIntent (never taken from the request). The caller already
-          // proved it holds this PaymentIntent's client secret.
+          // The guest's proofs for /confirmation, derived server-side (never
+          // taken from the request). The caller already proved it holds this
+          // PaymentIntent's client secret, so it gets the signed key too: a
+          // customer who has just paid never lands on the capped email path.
           guestEmail: derivedEmail,
+          bookingKey: handOffBookingKey(reservationNumber),
         });
       }
 

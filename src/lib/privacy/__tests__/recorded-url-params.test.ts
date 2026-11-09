@@ -30,10 +30,11 @@ describe("hasRecordedUrlSecret", () => {
  */
 describe("no in-app ?email= / ?booking_key= links", () => {
   const SRC = path.resolve(__dirname, "../../..");
-  // The confirmation email's link, and the storage-blocked fallback (which
-  // always goes through a FULL page load — see confirmationHandOff).
+  // The confirmation email's link (built in one place; the template only
+  // renders it), and the storage-blocked fallback (which always goes through
+  // a FULL page load — see confirmationHandOff).
   const ALLOWED = new Set([
-    path.join("lib", "resend", "templates", "booking-confirmation.tsx"),
+    path.join("lib", "confirmation", "confirmation-link.ts"),
     path.join("lib", "confirmation", "guest-email.ts"),
   ]);
 

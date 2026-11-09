@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { markPurchaseToTrack, takePurchaseToTrack } from "../purchase-once";
+import { isPurchasePending, markPurchaseToTrack, takePurchaseToTrack } from "../purchase-once";
 
 function memoryStorage(): Storage {
   const m = new Map<string, string>();
@@ -33,6 +33,17 @@ describe("purchase-once", () => {
     vi.stubGlobal("localStorage", local);
   });
   afterEach(() => vi.unstubAllGlobals());
+
+  it("isPurchasePending peeks without using the mark up; blocked storage → false", () => {
+    expect(isPurchasePending("RTL123")).toBe(false);
+    markPurchaseToTrack("RTL123");
+    expect(isPurchasePending("RTL123")).toBe(true);
+    expect(isPurchasePending("RTL999")).toBe(false);
+    expect(takePurchaseToTrack("RTL123")).toBe(true);
+    expect(isPurchasePending("RTL123")).toBe(false);
+    vi.stubGlobal("sessionStorage", throwingStorage());
+    expect(isPurchasePending("RTL123")).toBe(false);
+  });
 
   it("fires once for the booking checkout just marked", () => {
     markPurchaseToTrack("RTL123");

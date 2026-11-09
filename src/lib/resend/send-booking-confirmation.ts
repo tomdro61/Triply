@@ -5,6 +5,7 @@ import type { CostBreakdownResult } from "@/lib/booking/cost-breakdown";
 import type { AnchoredFallback } from "./anchored-fallback";
 import { captureBookingError } from "@/lib/sentry";
 import { bounded, BoundedTimeoutError } from "@/lib/utils/bounded";
+import { confirmationLink } from "@/lib/confirmation/confirmation-link";
 
 interface SendBookingConfirmationParams {
   to: string;
@@ -45,6 +46,13 @@ interface SendBookingConfirmationParams {
   idempotencyKey?: string;
   /** Bound the Resend call. A timeout is reported `uncertain`, not failed. */
   timeoutMs?: number;
+  /**
+   * Put the signed booking key in the "View Booking Details" link (default).
+   * False only for scripts/resend-confirmation.ts: it runs locally, where a
+   * key would be signed with the wrong environment's secret and fail in
+   * production without any error.
+   */
+  withBookingKey?: boolean;
 }
 
 export type SendBookingConfirmationResult =
@@ -75,13 +83,14 @@ export async function sendBookingConfirmation({
   anchoredFallback,
   idempotencyKey,
   timeoutMs,
+  withBookingKey = true,
 }: SendBookingConfirmationParams): Promise<SendBookingConfirmationResult> {
   try {
     // Render React component to HTML
     const emailHtml = await render(
       BookingConfirmationEmail({
         customerName,
-        customerEmail: to,
+        confirmationUrl: confirmationLink(confirmationNumber, to, { withKey: withBookingKey }),
         confirmationNumber,
         lotName,
         lotAddress,

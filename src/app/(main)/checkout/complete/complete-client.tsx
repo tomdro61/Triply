@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { markPurchaseToTrack } from "@/lib/analytics/purchase-once";
 import { confirmationHandOff } from "@/lib/confirmation/guest-email";
+import { bookingKeyFromAnswer } from "@/lib/checkout/post-auth-outcome";
 import { captureBookingError, capturePaymentError } from "@/lib/sentry";
 import {
   clearRecoveryMarker,
@@ -152,9 +153,10 @@ export default function CheckoutCompleteClient() {
               // Storage blocked → the URL carries it and the page is a FULL
               // load (replace, so Back never returns to this finishing page).
               const guestEmail = typeof data.guestEmail === "string" ? data.guestEmail : "";
+              const bookingKey = bookingKeyFromAnswer(data);
               const { url, fullLoad } =
                 typeof data.reservationNumber === "string"
-                  ? confirmationHandOff(data.confirmationUrl, data.reservationNumber, guestEmail)
+                  ? confirmationHandOff(data.confirmationUrl, data.reservationNumber, guestEmail, bookingKey)
                   : { url: data.confirmationUrl, fullLoad: false };
               if (fullLoad) window.location.replace(url);
               else router.replace(url);

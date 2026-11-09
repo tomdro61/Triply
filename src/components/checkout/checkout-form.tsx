@@ -37,7 +37,7 @@ import {
 } from "@/lib/analytics/gtag";
 import { bucketCheckoutFailure, deviceToday, fieldList, leadDays } from "@/lib/analytics/checkout-funnel";
 import { markPurchaseToTrack } from "@/lib/analytics/purchase-once";
-import { postAuthActionFor } from "@/lib/checkout/post-auth-outcome";
+import { postAuthActionFor, reservationRequestHeaders } from "@/lib/checkout/post-auth-outcome";
 import { saveRecoveryMarker } from "@/lib/checkout/recovery-marker";
 import { StageUnreachableError } from "@/lib/checkout/submit-report";
 import {
@@ -930,15 +930,16 @@ export function CheckoutForm({
   };
 
   /**
-   * Go to the confirmation page for a finished booking. The guest's email is
-   * handed over in sessionStorage, not the URL — GA4, Clarity and Sentry
-   * record page URLs (see lib/confirmation/guest-email.ts). Only when storage
-   * is unavailable does it ride in ?email=, and then by a FULL page load so
-   * the layout's guards run before anything records the URL.
+   * Go to the confirmation page for a finished booking. The signed booking key
+   * (when the route sent one) and the guest's email are handed over in
+   * sessionStorage, not the URL — GA4, Clarity and Sentry record page URLs
+   * (see lib/confirmation/guest-email.ts). Only when storage is unavailable do
+   * they ride in the URL, and then by a FULL page load so the layout's guards
+   * run before anything records it.
    */
-  const goToConfirmation = (reservationNumber: string) => {
+  const goToConfirmation = (reservationNumber: string, bookingKey?: string) => {
     const path = `/confirmation/${reservationNumber}?lot=${lot.id}&checkin=${checkIn}&checkout=${checkOut}&checkinTime=${encodeURIComponent(checkInTime)}&checkoutTime=${encodeURIComponent(checkOutTime)}&serviceFee=${priceBreakdown.serviceFee}`;
-    const { url, fullLoad } = confirmationHandOff(path, reservationNumber, customerDetails.email);
+    const { url, fullLoad } = confirmationHandOff(path, reservationNumber, customerDetails.email, bookingKey);
     if (fullLoad) window.location.assign(url);
     else router.push(url);
   };
@@ -1175,7 +1176,8 @@ export function CheckoutForm({
     try {
       const response = await fetch("/api/reservations", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        // With the client secret, so the answer can carry the booking key.
+        headers: reservationRequestHeaders(clientSecret),
         body: JSON.stringify(
           isDirect
             ? buildDirectBookingBody(stripePaymentIntentId, requireProtectionChoice(stripePaymentIntentId))
@@ -1202,7 +1204,7 @@ export function CheckoutForm({
         markPurchaseToTrack(action.reservationNumber);
 
         // Redirect to confirmation page
-        goToConfirmation(action.reservationNumber);
+        goToConfirmation(action.reservationNumber, action.bookingKey);
         return;
       }
       case "handoff":
