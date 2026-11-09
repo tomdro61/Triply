@@ -229,14 +229,12 @@ test('approved codes: every flat code is its own airport\'s, $5 off a $25 minimu
   const before = new Date('2026-12-01T00:00:00Z')
   const offers = loadApprovedOfferFigures(undefined, before)
   const codes = Object.keys(offers)
-  assert.ok(codes.length >= 21, codes.join(', '))
+  assert.equal(codes.length, 23, codes.join(', '))
   for (const [code, o] of Object.entries(offers)) {
     assert.equal(o.airport, code.slice(0, 3), code)
     assert.deepEqual(o.figures, [5, 25], code)
   }
-  // Held out until the clash with Rightway Parking's codes of the same name is decided.
-  assert.ok(!codes.includes('JFK5') && !codes.includes('EWR5'))
-  assert.ok(!loadApprovedCodes(undefined, before).includes('JFK5'))
+  assert.ok(loadApprovedCodes(undefined, before).includes('JFK5'))
   // Checkout refuses them after 2027-02-01T04:59:59Z, so the blog stops quoting them too.
   const after = new Date('2027-02-01T05:00:00Z')
   assert.deepEqual(loadApprovedOfferFigures(undefined, after), {})
