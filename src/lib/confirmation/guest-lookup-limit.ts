@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { isIPv4, isIPv6 } from "net";
 import { captureBookingError } from "@/lib/sentry";
 import { createAdminClient } from "@/lib/supabase/server";
-import { bounded, BoundedTimeoutError } from "@/lib/utils/bounded";
+import { bounded } from "@/lib/utils/bounded";
 import { requireBookingLinkSecret } from "./booking-key";
 
 /**
@@ -162,8 +162,8 @@ export function shouldReportRefusal(refused: number): boolean {
 export type GuestLookupTake =
   | { kind: "allowed"; keys: string[] }
   | { kind: "blocked"; retryAfterSeconds: number }
-  /** `maybeCharged`: no answer in time — the take may still have committed, so the caller gives it back. */
-  | { kind: "error"; detail: string; maybeCharged: boolean };
+  /** No usable answer. A take that timed out may still have committed; its try stays used. */
+  | { kind: "error"; detail: string };
 
 /**
  * The least time a refusal on the email path takes, counted from the take. A
@@ -244,23 +244,11 @@ export async function takeGuestLookup(
       "guest_lookup_take"
     );
   } catch (err) {
-    // Our timeout, or the request aborted: the database may still commit it.
-    const maybeCharged = err instanceof BoundedTimeoutError || (err instanceof Error && err.name === "AbortError");
-    return { kind: "error", detail: err instanceof Error ? err.message : String(err), maybeCharged };
+    return { kind: "error", detail: err instanceof Error ? err.message : String(err) };
   }
-  if (result.error) {
-    // supabase-js turns a fetch that failed or was aborted (our AbortSignal
-    // timeout) into an error result with an EMPTY code: the request may have
-    // reached the database. A database error carries a code, and its
-    // statement was rolled back.
-    return {
-      kind: "error",
-      detail: `rpc failed (${result.error.code || "no code"}): ${result.error.message}`,
-      maybeCharged: !result.error.code,
-    };
-  }
+  if (result.error) return { kind: "error", detail: `rpc failed (${result.error.code || "no code"}): ${result.error.message}` };
   const row = parseTakeRow(result.data);
-  if (!row) return { kind: "error", detail: `unexpected rpc result: ${JSON.stringify(result.data)?.slice(0, 200)}`, maybeCharged: false };
+  if (!row) return { kind: "error", detail: `unexpected rpc result: ${JSON.stringify(result.data)?.slice(0, 200)}` };
   if (row.allowed) return { kind: "allowed", keys: buckets.keys };
 
   if (shouldReportRefusal(row.refused)) {

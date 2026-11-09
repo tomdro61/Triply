@@ -237,6 +237,7 @@ async function getReservation(
       // email (same trust model as the guest branch below). Without this
       // fallthrough a signed-in customer 403s on their own booking whenever the
       // user_id link was never set (guest checkout, later signup, etc.).
+      const startedAt = Date.now();
       const adminClient = await createAdminClient();
       const { data: booking, error: bookingLookupErr } = await adminClient
         .from("bookings")
@@ -276,34 +277,39 @@ async function getReservation(
       // Admins see every booking: work that out first, so an admin never waits on
       // (or is failed by) a staged read whose answer can't change the outcome.
       const isAdmin = isAdminEmail(user.email);
-      if (booking && !ownsByUserId && !ownsByEmail && verifiedEmail && !isAdmin) {
-        const staged = await readStagedGuestResult(
-          adminClient,
-          (booking as { stripe_payment_intent_id?: string | null }).stripe_payment_intent_id,
-          id
-        );
-        if (!staged.ok) {
-          return NextResponse.json({ error: "Unable to verify reservation. Please try again." }, { status: 500 });
-        }
-        ownsByEmail = sameEmail(staged.guest?.email, verifiedEmail);
-        if (ownsByEmail) guestViaStaged = staged.guest;
-      }
-
-      if (!booking || (!ownsByUserId && !ownsByEmail)) {
-        if (!isAdmin) {
-          // The booking's key opens it whoever is signed in: the guest may be
-          // signed in to another account, or opening a forwarded email.
-          const key = checkBookingKeyHeader(request, id);
-          if (key.kind === "answer") return key.response;
-          if (key.kind === "none") {
+      if (!isAdmin && !ownsByUserId && !ownsByEmail) {
+        // The booking's key opens it whoever is signed in (the guest may be
+        // signed in to another account, or opening a forwarded email). It is
+        // checked first, so a key holder never waits on the staged read.
+        const key = checkBookingKeyHeader(request, id);
+        if (key.kind === "answer") return key.response;
+        if (key.kind === "valid") {
+          const refusal = await keyedRowRefusal(adminClient, id);
+          if (refusal) return refusal;
+          viaKey = true;
+        } else {
+          if (booking && verifiedEmail) {
+            const staged = await readStagedGuestResult(
+              adminClient,
+              (booking as { stripe_payment_intent_id?: string | null }).stripe_payment_intent_id,
+              id
+            );
+            if (!staged.ok) {
+              await holdGuestDenial(startedAt);
+              return NextResponse.json({ error: "Unable to verify reservation. Please try again." }, { status: 500 });
+            }
+            ownsByEmail = sameEmail(staged.guest?.email, verifiedEmail);
+            if (ownsByEmail) guestViaStaged = staged.guest;
+          }
+          if (!ownsByEmail) {
+            // As on the guest path: the staged read runs only for a real
+            // booking, so a refusal answers no sooner than a fixed time.
+            await holdGuestDenial(startedAt);
             return NextResponse.json(
               { error: "Not authorized to view this reservation" },
               { status: 403 }
             );
           }
-          const refusal = await keyedRowRefusal(adminClient, id);
-          if (refusal) return refusal;
-          viaKey = true;
         }
       }
     } else {
@@ -356,8 +362,9 @@ async function getReservation(
             confirmationNumber: id,
             fingerprint: ["guest-lookup-limiter-unavailable"],
           });
-          // A take that timed out may still have committed: give it back.
-          if (take.maybeCharged) after(() => releaseGuestLookup(buckets.keys, id));
+          // A take that timed out may still have committed; its try stays
+          // used (the safe side). Releasing it could refund a take that was
+          // refused or never ran.
           return NextResponse.json({ error: UNABLE_TO_VERIFY }, { status: 500 });
         }
         if (take.kind === "blocked") return tooManyTries(take.retryAfterSeconds);

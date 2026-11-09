@@ -203,23 +203,11 @@ describe("takeGuestLookup", () => {
     expect((await pending).kind).toBe("error");
   });
 
-  it("maybeCharged: only when the take may have committed unseen (our timeout, or a fetch with no database answer)", async () => {
-    const outcome = async (answer: Answer | (() => Promise<Answer>)) => {
-      const r = await takeGuestLookup(buckets(), "RTL900001", rpcAnswering(answer).rpc);
-      return r.kind === "error" ? r.maybeCharged : "not an error";
-    };
-    // A database error has a code: its statement rolled back.
-    expect(await outcome({ data: null, error: { message: "boom", code: "XX000" } })).toBe(false);
-    // supabase-js: a failed or aborted fetch comes back with an empty code.
-    expect(await outcome({ data: null, error: { message: "TimeoutError: signal timed out", code: "" } })).toBe(true);
-    expect(await outcome({ data: null, error: { message: "FetchError: fetch failed" } })).toBe(true);
-    // A malformed answer came from the database: not charged.
-    expect(await outcome({ data: [], error: null })).toBe(false);
-    vi.useFakeTimers();
-    const pending = takeGuestLookup(buckets(), "RTL900001", rpcAnswering(() => new Promise<Answer>(() => {})).rpc);
-    await vi.advanceTimersByTimeAsync(GUEST_LOOKUP_RPC_TIMEOUT_MS + 1);
-    const r = await pending;
-    expect(r.kind === "error" && r.maybeCharged).toBe(true);
+  it("an error answer carries what went wrong (with the database code when there is one)", async () => {
+    const r = await takeGuestLookup(buckets(), "RTL900001", rpcAnswering({ data: null, error: { message: "boom", code: "XX000" } }).rpc);
+    expect(r).toEqual({ kind: "error", detail: "rpc failed (XX000): boom" });
+    const noCode = await takeGuestLookup(buckets(), "RTL900001", rpcAnswering({ data: null, error: { message: "TimeoutError: signal timed out", code: "" } }).rpc);
+    expect(noCode).toEqual({ kind: "error", detail: "rpc failed (no code): TimeoutError: signal timed out" });
   });
 });
 

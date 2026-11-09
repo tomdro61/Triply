@@ -160,7 +160,7 @@ const limit = vi.hoisted(() => {
   return {
     attempts,
     /** "fake" = the rules above; otherwise answer this for every take. */
-    mode: "fake" as "fake" | { kind: "error"; detail: string; maybeCharged: boolean },
+    mode: "fake" as "fake" | { kind: "error"; detail: string },
     takes: [] as Array<{ keys: string[]; kinds: string[]; limits: number[] }>,
     releases: [] as string[][],
     unknownIp: [] as string[],
@@ -710,7 +710,7 @@ describe("direct booking", () => {
       });
 
       it("fails closed: the limiter erroring → 500 'try again', nothing looked up", async () => {
-        limit.mode = { kind: "error", detail: "rpc failed (XX000)", maybeCharged: false };
+        limit.mode = { kind: "error", detail: "rpc failed (XX000)" };
         h.state.detailRow = { data: row(), error: null };
         const res = await guestCall(TRP, { email: EMAIL });
         expect(res.status).toBe(500);
@@ -739,11 +739,10 @@ describe("direct booking", () => {
         expect((await guestCall(TRP, { email: "guess6@example.com" })).status).toBe(429);
       });
 
-      it("a take that timed out may have committed → 500, and the try is given back", async () => {
-        limit.mode = { kind: "error", detail: "guest_lookup_take did not answer within 3000 ms", maybeCharged: true };
+      it("a take that timed out → 500, and its try stays used (a release could refund a take that was refused or never ran)", async () => {
+        limit.mode = { kind: "error", detail: "guest_lookup_take did not answer within 3000 ms" };
         expect((await guestCall(TRP, { email: EMAIL })).status).toBe(500);
-        await flushAfter();
-        expect(limit.releases).toHaveLength(1);
+        expect(limit.releases).toEqual([]);
         expect(h.state.authLookups).toBe(0);
       });
 
@@ -767,6 +766,35 @@ describe("direct booking", () => {
         expect(res.status).toBe(503);
         expect(limit.takes).toEqual([]);
         expect(h.captureBookingError).toHaveBeenCalled();
+      });
+
+      it("signed in, not the owner: refusals (403, and the staged-read 500) are held to the timing floor too", async () => {
+        h.state.user = { id: "u-other", email: "other@example.com", email_confirmed_at: "2026-01-01" };
+        h.state.authRow = { data: { customer_id: "c1", stripe_payment_intent_id: "pi_direct", customers: { user_id: "u1", email: EMAIL } }, error: null };
+        h.state.pendingRow = { data: { customer: { email: "guest@example.com" } }, error: null };
+        expect((await guestCall(TRP, {})).status).toBe(403);
+        expect(limit.holds).toBe(1);
+        h.state.authRow = { data: null, error: null };
+        expect((await guestCall("RTL404", {})).status).toBe(403);
+        expect(limit.holds).toBe(2);
+        h.state.authRow = { data: { customer_id: "c1", stripe_payment_intent_id: "pi_direct", customers: { user_id: "u1", email: EMAIL } }, error: null };
+        h.state.pendingRow = { data: null, error: { message: "timeout" } };
+        expect((await guestCall(TRP, {})).status).toBe(500);
+        expect(limit.holds).toBe(3);
+        expect(limit.takes).toEqual([]);
+      });
+
+      it("signed in with a valid key: the staged read is never needed (a failed one can't block the key)", async () => {
+        h.state.user = { id: "u-other", email: "other@example.com", email_confirmed_at: "2026-01-01" };
+        h.state.authRow = { data: { customer_id: "c1", stripe_payment_intent_id: "pi_direct", customers: { user_id: "u1", email: EMAIL }, livemode: false }, error: null };
+        h.state.detailRow = { data: row(), error: null };
+        // Only the direct view's own staged read (the guest shown) succeeds.
+        h.state.pendingRow = { data: { customer: { email: EMAIL, firstName: "Dana" } }, error: null };
+        const pendingBefore = h.state.pendingEq.length;
+        expect((await guestCall(TRP, { key: bookingKey(TRP) })).status).toBe(200);
+        // One staged read: the direct view's, not an ownership check.
+        expect(h.state.pendingEq.length - pendingBefore).toBe(1);
+        expect(limit.holds).toBe(0);
       });
 
       it("a signed-in customer never touches the limiter", async () => {
