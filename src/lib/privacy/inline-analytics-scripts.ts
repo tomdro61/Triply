@@ -60,6 +60,75 @@ export function gtagInitScript(measurementId: string): string {
 }
 
 /**
+ * Minty Recover (formerly AddShoppers / SafeOpt) loader: the abandoned-visitor
+ * pilot (Command Center task 7346cabe). Minty matches an anonymous visitor to
+ * its opted-in shopper network and emails them our TRIP5 offer. Ships dark:
+ * the layout renders it only when NEXT_PUBLIC_MINTY_SITE_ID is set.
+ *
+ * Not started at all when:
+ *  - the visitor opted out of analytics (same cookie as GA / Clarity);
+ *  - the URL or the referrer carries a secret param (email, booking key,
+ *    Stripe client secret);
+ *  - the visit LANDS on a page where the guest has given us their details or
+ *    holds a booking (checkout, confirmation, reservations, account, admin,
+ *    auth, review). Those guests are ours to email for free (checkout-recovery
+ *    cron), and a third-party widget has no business reading those forms.
+ *    A script cannot be unloaded, so a visitor who lands on /search and then
+ *    walks into checkout keeps the widget running: excluding them from
+ *    Minty's emails is Minty-side config (call Q3), not something this can do.
+ *
+ * The loader URL is AddShoppers' documented async widget; the site id rides in
+ * the hash. Attribution is code-only on our side: a recovered booking is one
+ * with promo_code = 'TRIP5' (bookings table), no conversion pixel needed for
+ * our read-out. If Minty requires a conversion call for billing, add it to the
+ * confirmation page's once-per-booking purchase hook.
+ */
+export const MINTY_SKIP_PATH_PREFIXES = [
+  "/checkout",
+  "/confirmation",
+  "/reservations",
+  "/account",
+  "/admin",
+  "/auth",
+  "/review",
+] as const;
+
+/** Minty site ids are 24 lowercase hex chars (a Mongo ObjectId). */
+export function isValidMintySiteId(id: string | undefined): id is string {
+  return typeof id === "string" && /^[a-f0-9]{24}$/.test(id);
+}
+
+export function mintyInitScript(siteId: string): string {
+  if (!isValidMintySiteId(siteId)) throw new Error("mintyInitScript: invalid site id");
+  return `
+    ${READ_OPT_OUT}
+    var _skipMinty = _optOut;
+    try {
+      var _secretM = ${SECRET_PARAMS_JS};
+      var _hasM = function(href) {
+        if (!href) return false;
+        var q = new URL(href, location.href).searchParams;
+        return _secretM.some(function(p) { return q.has(p); });
+      };
+      if (_hasM(location.href) || _hasM(document.referrer)) _skipMinty = true;
+      var _path = new URL(location.href).pathname;
+      ${JSON.stringify(MINTY_SKIP_PATH_PREFIXES)}.forEach(function(p) {
+        if (_path === p || _path.indexOf(p + "/") === 0) _skipMinty = true;
+      });
+    } catch(e) { _skipMinty = true; }
+    if (!_skipMinty) {
+      var _js = document.createElement("script");
+      _js.type = "text/javascript";
+      _js.async = true;
+      _js.id = "AddShoppers";
+      _js.src = "https://shop.pe/widget/widget_async.js#" + ${JSON.stringify(siteId)};
+      var _first = document.getElementsByTagName("script")[0];
+      _first.parentNode.insertBefore(_js, _first);
+    }
+  `;
+}
+
+/**
  * Clarity loader. Clarity waits for load + idle, so the confirmation page has
  * normally stripped ?email= (and /checkout/complete its client secret) by the
  * time this runs. Clarity records the page URL and document.referrer, so it is
