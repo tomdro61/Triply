@@ -16,6 +16,8 @@ interface CustomerDetailsStepProps {
    * the 24 h gate itself is enforced server-side in lib/cancellation.)
    */
   showFreeCancellation: boolean;
+  /** Shown instead when the badge is hidden: the dated cutoff, or "Not cancellable online". */
+  shortNoticeCancelText: string;
 }
 
 export function CustomerDetailsStep({
@@ -24,6 +26,7 @@ export function CustomerDetailsStep({
   onNext,
   errors,
   showFreeCancellation,
+  shortNoticeCancelText,
 }: CustomerDetailsStepProps) {
   const handleChange = (field: keyof CustomerDetails, value: string) => {
     onChange({ ...data, [field]: value });
@@ -187,6 +190,12 @@ export function CustomerDetailsStep({
                 </Link>
               </span>
             </span>
+          </li>
+        )}
+        {!showFreeCancellation && (
+          <li className="flex items-start gap-2">
+            <CalendarX className="w-4 h-4 mt-0.5 text-gray-400 shrink-0" aria-hidden="true" />
+            <span>{shortNoticeCancelText}</span>
           </li>
         )}
         <li className="flex items-start gap-2">

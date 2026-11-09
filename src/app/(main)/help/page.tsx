@@ -122,7 +122,7 @@ const faqCategories: FAQCategory[] = [
       {
         question: "How does the shuttle service work?",
         answer:
-          "Most of our partner facilities offer free shuttle service to and from the airport terminal. Shuttles typically run every 10-15 minutes. Check your specific facility's details for shuttle schedule and pickup locations.",
+          "Many of our partner facilities run a shuttle to and from the airport terminal; some are a short walk, and a few have no shuttle (you take a taxi or rideshare). Hours, frequency and any fee vary by lot, so check your facility's shuttle details before you book and in your confirmation.",
       },
       {
         question: "What if I arrive earlier or later than my reservation?",

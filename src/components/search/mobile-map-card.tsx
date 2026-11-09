@@ -2,10 +2,13 @@
 
 import Image from "next/image";
 import type { ReactNode } from "react";
-import { MapPin, Bus, Shield, Warehouse, Sun } from "lucide-react";
+import { MapPin, Bus, Shield, Warehouse, Sun, Wallet } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
 import { customerPerDayFromPricing, customerTotalFromPricing } from "@/lib/utils/service-fee";
 import { TaxesAndFeesIncluded } from "@/components/shared/taxes-fees-included";
+import { ShuttleChip } from "@/components/shared/shuttle-chip";
+import { unmetMinimumStay } from "@/lib/lots/min-stay";
+import { amenitiesBesideShuttle, shuttleLabel, shuttleStatus } from "@/lib/lots/shuttle-status";
 import { LotBadges } from "./lot-badges";
 
 interface MobileMapCardProps {
@@ -35,7 +38,9 @@ export function MobileMapCard({ lot, onSelect, extraBadge }: MobileMapCardProps)
   // included, before optional protection or a promo (see lot-card.tsx).
   const grandTotal = customerTotalFromPricing(lot.pricing);
   const perDay = customerPerDayFromPricing(lot.pricing);
-  const topAmenities = lot.amenities.slice(0, 3);
+  const topAmenities = amenitiesBesideShuttle(lot.amenities, lot.shuttleInfo?.summary).slice(0, 3);
+  const minStay = unmetMinimumStay(lot);
+  const showsShuttle = shuttleLabel(shuttleStatus(lot.shuttleInfo?.summary)) !== null;
 
   return (
     <div
@@ -94,12 +99,26 @@ export function MobileMapCard({ lot, onSelect, extraBadge }: MobileMapCardProps)
               <span className="text-xs text-gray-500">/day</span>
             </div>
           )}
+          {/* Same small notes as the list card (lot-card.tsx). */}
+          {lot.dueAtLocation && (
+            <div className="flex items-center gap-1 text-[10px] text-amber-700 font-medium mt-0.5">
+              <Wallet size={10} aria-hidden />
+              Pay at Location
+            </div>
+          )}
+          {minStay !== null && (
+            <div className="text-[10px] text-red-600 font-medium mt-0.5">Minimum {minStay} days</div>
+          )}
         </div>
       </div>
 
-      {/* Amenity tags */}
-      {topAmenities.length > 0 && (
+      {/* Amenity tags, shuttle first (same chip style) */}
+      {(topAmenities.length > 0 || showsShuttle) && (
         <div className="flex gap-1.5 flex-wrap px-3">
+          <ShuttleChip
+            shuttleInfo={lot.shuttleInfo}
+            className="inline-flex items-center gap-1 text-[11px] text-gray-600 bg-gray-100 px-2 py-1 rounded-full"
+          />
           {topAmenities.map((a) => {
             const icon = getTopAmenityIcon(a.displayName);
             return (

@@ -2,7 +2,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { Airport } from "@/config/airports";
 import { UnifiedLot } from "@/types/lot";
-import { MapPin, Bus, ArrowRight, Star } from "lucide-react";
+import { MapPin, ArrowRight, Star } from "lucide-react";
+import { ShuttleChip } from "@/components/shared/shuttle-chip";
 
 interface LotGridProps {
   airport: Airport;
@@ -55,12 +56,8 @@ function LotCard({ lot, airportSlug }: { lot: UnifiedLot; airportSlug: string })
               {distance.toFixed(1)} mi
             </span>
           )}
-          {lot.shuttleInfo && (
-            <span className="flex items-center gap-1">
-              <Bus className="w-3 h-3" />
-              Shuttle
-            </span>
-          )}
+          {/* Read from the shuttle summary: a lot with no shuttle says so. */}
+          <ShuttleChip shuttleInfo={lot.shuttleInfo} className="flex items-center gap-1" />
         </div>
 
         {topAmenities.length > 0 && (

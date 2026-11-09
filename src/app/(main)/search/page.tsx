@@ -17,7 +17,8 @@ import { useMediaQuery } from "@/hooks/use-media-query";
 import { UnifiedLot, SortOption } from "@/types/lot";
 import { getAirportByCode } from "@/config/airports";
 import { trackSearch } from "@/lib/analytics/gtag";
-import { compareByTotal, compareByTotalDesc } from "@/lib/search/ranking";
+import { bookableFirst, compareByTotal, compareByTotalDesc } from "@/lib/search/ranking";
+import { NoLotsHere } from "@/components/search/no-lots-here";
 // Park & Stay (admin-only until launch): the hook decides whether to ASK —
 // signed out, it makes no request — and the slots lazy-load the switch and
 // the card badge only when the access endpoint said yes. They get the raw
@@ -62,6 +63,10 @@ function SearchPageContent() {
   // True when /api/search answered with direct lots only because ResLab was
   // unreachable (`reslabUnavailable`) — a partial list, shown with a banner.
   const [partialResults, setPartialResults] = useState(false);
+  // True when the answer says some inventory wasn't read (a degraded or thin
+  // location list, or the direct-lot read failed). An empty list is then NOT
+  // "nothing bookable here", so the no-lots message must not claim it.
+  const [incompleteResults, setIncompleteResults] = useState(false);
   // A deterministic date problem (the API's 400) is NOT a transient upstream
   // fault — it gets its own message and no "Try again" that can never succeed.
   const [dateError, setDateError] = useState<string | null>(null);
@@ -72,6 +77,10 @@ function SearchPageContent() {
   // from these — never the header's unsubmitted edits, which would show these
   // results' totals for dates they were not priced for.
   const [pricedStay, setPricedStay] = useState<{ checkIn: string; checkOut: string } | null>(null);
+  // The airport the CURRENT results are for, as /api/search answered it. A sort
+  // change re-fetches with the header's airport, so neither the URL nor the
+  // header field is safe to name in the empty state.
+  const [pricedAirport, setPricedAirport] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<"list" | "map">("list");
   const [activeMapCardIndex, setActiveMapCardIndex] = useState(0);
   const carouselRef = useRef<HTMLDivElement>(null);
@@ -89,6 +98,7 @@ function SearchPageContent() {
     setLoading(true);
     setLoadError(false);
     setPartialResults(false);
+    setIncompleteResults(false);
     setDateError(null);
     // Full date rules (past check-in, advance-booking window, reversed range) — a
     // bookmarked or emailed link with a bad check-in used to round-trip to
@@ -140,7 +150,14 @@ function SearchPageContent() {
             ? { checkIn: data.checkin, checkOut: data.checkout }
             : null
         );
+        setPricedAirport(typeof data.airport?.code === "string" ? data.airport.code : null);
         setPartialResults(data.reslabUnavailable === true);
+        setIncompleteResults(
+          data.reslabUnavailable === true ||
+            data.directUnavailable === true ||
+            data.listIncomplete === true ||
+            data.degraded === true
+        );
         if (data.closedForToday === true && (data.results?.length ?? 0) === 0) {
           setDateError(
             "No lots near this airport can take a booking for the rest of today. Try a check-in date of tomorrow."
@@ -193,7 +210,8 @@ function SearchPageContent() {
       default:
         break;
     }
-    return sorted;
+    // Lots the stay can't book (below their minimum) always come last.
+    return bookableFirst(sorted);
   }, [lots, sortBy]);
 
   const handleSearch = () => {
@@ -301,6 +319,31 @@ function SearchPageContent() {
               className={mobileView === "map" ? "hidden lg:block" : ""}
               partialResults={partialResults}
               onRetry={fetchResults}
+              emptyState={
+                incompleteResults ? (
+                  // Some inventory wasn't read: an empty list is not "nothing
+                  // here", so say so and offer a retry (lesson 5).
+                  <div className="text-center py-12 px-4">
+                    <p className="text-gray-700 font-medium">We couldn&apos;t load every lot for this search.</p>
+                    {/* The partial-results banner above already has a Try again. */}
+                    {!partialResults && (
+                    <button
+                      onClick={fetchResults}
+                      className="mt-3 text-brand-orange font-semibold text-sm underline underline-offset-2"
+                    >
+                      Try again
+                    </button>
+                    )}
+                  </div>
+                ) : pricedAirport ? (
+                  // The airport and dates the empty answer was for.
+                  <NoLotsHere
+                    airportCode={pricedAirport}
+                    checkin={pricedStay?.checkIn ?? ""}
+                    checkout={pricedStay?.checkOut ?? ""}
+                  />
+                ) : undefined
+              }
               renderExtraBadge={
                 parkStay
                   ? (lot) => <ParkStayLotBadgeSlot access={parkStay} search={urlSearch} reslabLocationId={lot.reslabLocationId ?? null} />

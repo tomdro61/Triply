@@ -26,6 +26,8 @@ interface SearchResultsListProps {
   onRetry?: () => void;
   /** An optional extra badge per card (LotCard's `extraBadge`). Unset renders nothing. */
   renderExtraBadge?: (lot: UnifiedLot) => ReactNode;
+  /** What to show when there are no lots. Unset keeps the one-line message. */
+  emptyState?: ReactNode;
 }
 
 export function SearchResultsList({
@@ -41,6 +43,7 @@ export function SearchResultsList({
   partialResults = false,
   onRetry,
   renderExtraBadge,
+  emptyState,
 }: SearchResultsListProps) {
   return (
     <div className={`w-full lg:w-2/5 h-full overflow-y-auto no-scrollbar bg-gray-50 ${className}`}>
@@ -104,9 +107,11 @@ export function SearchResultsList({
           </div>
         )}
         {lots.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-gray-500">No parking lots found for your search criteria.</p>
-          </div>
+          emptyState ?? (
+            <div className="text-center py-12">
+              <p className="text-gray-500">No parking lots found for your search criteria.</p>
+            </div>
+          )
         ) : (
           lots.map((lot, index) => (
             <LotCard

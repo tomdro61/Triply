@@ -5,6 +5,8 @@ import { ReslabError } from "@/lib/reslab/client";
 import { UnifiedLot } from "@/types/lot";
 import { captureAPIError } from "@/lib/sentry";
 import { fetchLotReviewSummaries, withReviews } from "@/lib/reviews/summary";
+import { mostLotsRunShuttle } from "@/lib/lots/shuttle-status";
+
 
 // Throttles the failure report below to one event per window per instance.
 const AIRPORT_PAGE_REPORT_INTERVAL_MS = 10 * 60 * 1000;
@@ -264,7 +266,10 @@ export const fetchAirportPageData = cache(async function fetchAirportPageData(
     return best;
   }, null);
 
-  const hasShuttle = lots.some((l) => l.shuttleInfo?.summary);
+  // Drives "Most lots offer complimentary shuttle service": true only when
+  // most lots' summaries read as a running shuttle (lib/lots/shuttle-status),
+  // never because a lot merely has a summary that says "No shuttle".
+  const hasShuttle = mostLotsRunShuttle(lots);
 
   // Count amenity frequency across all lots
   const amenityCounts = new Map<string, number>();

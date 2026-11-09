@@ -58,6 +58,7 @@ import {
 import {
   compareByTotal,
   compareByTotalDesc,
+  bookableFirst,
   lowestTotalLot,
   pickMostBookedLot,
   rankRecommended,
@@ -273,6 +274,7 @@ export function sortLots(
     case "popularity":
     default:
       if (ranking.recommended) {
+        // rankRecommended already puts bookable lots first.
         return rankRecommended(sorted, ranking.pinnedId);
       }
       sorted.sort(
@@ -282,7 +284,7 @@ export function sortLots(
       break;
   }
 
-  return sorted;
+  return bookableFirst(sorted);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

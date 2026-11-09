@@ -30,7 +30,7 @@ export function FAQ() {
     {
       question: "How do I get to the parking lot?",
       answer:
-        "Each parking lot provides detailed directions in your booking confirmation. Most lots offer free shuttle service to and from the airport terminal. Shuttle frequency and hours vary by lot - check the lot details before booking to find the best option for your flight time.",
+        "Each parking lot provides detailed directions in your booking confirmation. Many lots run a shuttle to and from the airport terminal, and some have none. Shuttle hours, frequency and any fee vary by lot - check the lot details before booking to find the best option for your flight time.",
     },
     {
       question: "Is my car safe?",
