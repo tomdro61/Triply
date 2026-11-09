@@ -19,6 +19,15 @@ test('artifact phrases fail the write', () => {
   assert.ok(rules(lintArticle({ ...base, html: goodHtml + "<p>Wait, let's be precise: the garage is $40.</p>" })).includes('artifact-phrase'))
   assert.ok(rules(lintArticle({ ...base, html: goodHtml + '<p>No competitor article covers this.</p>' })).includes('artifact-phrase'))
 })
+test('#176: a refund promise fails; an airport policy saying "full refund" only warns', () => {
+  const warn = (r: ReturnType<typeof lintArticle>) => r.warnings.map((w) => w.rule)
+  assert.ok(rules(lintArticle({ ...base, html: goodHtml + '<p>Bookings have free cancellation with a full refund up to 24 hours before check-in.</p>' })).includes('refund-claim'))
+  assert.ok(rules(lintArticle({ ...base, html: goodHtml, faqItems: [{ question: 'Can I cancel?', answer: 'Yes, it is fully refundable.' }] })).includes('refund-claim'))
+  const ok = lintArticle({ ...base, html: goodHtml + '<p>Bookings have free cancellation up to 24 hours before check-in.</p>' })
+  assert.ok(!rules(ok).includes('refund-claim') && !warn(ok).includes('refund-claim'))
+  const airport = lintArticle({ ...base, html: goodHtml + '<p>The airport gives a full refund if you cancel before the reservation starts.</p>' })
+  assert.ok(!rules(airport).includes('refund-claim') && warn(airport).includes('refund-claim'))
+})
 test('money without a currency sign fails', () => {
   assert.ok(rules(lintArticle({ ...base, html: goodHtml + '<p>The cell lot costs 5/day and the garage 13/day.</p>' })).includes('bare-money'))
   assert.ok(!rules(lintArticle({ ...base, html: goodHtml + '<p>The cell lot costs C$5/day. Shuttles run every 10 minutes.</p>' })).includes('bare-money'))
