@@ -1,163 +1,163 @@
 {
-  "_comment": "Promo codes the lint allows in blog copy (W1.4). Only codes the airport, the lot, or Triply itself publishes AND that checkout accepts (an active promo_codes row). Every entry names its source. Anything else fails the write. TRIPLY10 was listed here on 2026-10-30 but no such row exists in promo_codes and no non-WELCOME code is active (checked 2026-10-30) - add a code back only after its row is created and active. Each entry: { code, source, addedOn, percentOff } or, for a flat-dollar code, { code, source, addedOn, amountOff, minSubtotal } — percentOff is the ONLY savings claim the lint accepts for that code without an outside source. amountOff/minSubtotal are the only $ figures the price check accepts for that code, and only in an edit that names the code.",
+  "_comment": "Promo codes the lint allows in blog copy (W1.4). Only codes the airport, the lot, or Triply itself publishes AND that checkout accepts (an active promo_codes row). Every entry names its source. Anything else fails the write. TRIPLY10 was listed here on 2026-10-30 but no such row exists in promo_codes and no non-WELCOME code was active then (checked 2026-10-30) - add a code only after its row is created and active. The 23 <IATA>5 codes below are active since 2026-11-07; each is one airport's code, so a post names its own airport's code (bookings.promo_code shows which airport's posts drove the sale). Each entry: { code, source, addedOn, percentOff } or, for a flat-dollar code, { code, source, addedOn, amountOff, minSubtotal } — percentOff is the ONLY savings claim the lint accepts for that code without an outside source. amountOff/minSubtotal are the only $ figures the price check accepts for that code, and only in an edit that names the code.",
   "codes": [
     {
       "code": "DFW5",
-      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, max 500 uses, expires 2027-01-31); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
+      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, 100 uses, expires the end of 2027-01-31 ET (2027-02-01T04:59:59Z), valid at any lot); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
       "addedOn": "2026-11-09",
       "amountOff": 5,
       "minSubtotal": 25
     },
     {
       "code": "LAX5",
-      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, max 500 uses, expires 2027-01-31); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
+      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, 100 uses, expires the end of 2027-01-31 ET (2027-02-01T04:59:59Z), valid at any lot); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
       "addedOn": "2026-11-09",
       "amountOff": 5,
       "minSubtotal": 25
     },
     {
       "code": "CLT5",
-      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, max 500 uses, expires 2027-01-31); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
+      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, 100 uses, expires the end of 2027-01-31 ET (2027-02-01T04:59:59Z), valid at any lot); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
       "addedOn": "2026-11-09",
       "amountOff": 5,
       "minSubtotal": 25
     },
     {
       "code": "EWR5",
-      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, max 500 uses, expires 2027-01-31); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
+      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, 100 uses, expires the end of 2027-01-31 ET (2027-02-01T04:59:59Z), valid at any lot); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
       "addedOn": "2026-11-09",
       "amountOff": 5,
       "minSubtotal": 25
     },
     {
       "code": "IAH5",
-      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, max 500 uses, expires 2027-01-31); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
+      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, 100 uses, expires the end of 2027-01-31 ET (2027-02-01T04:59:59Z), valid at any lot); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
       "addedOn": "2026-11-09",
       "amountOff": 5,
       "minSubtotal": 25
     },
     {
       "code": "TPA5",
-      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, max 500 uses, expires 2027-01-31); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
+      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, 100 uses, expires the end of 2027-01-31 ET (2027-02-01T04:59:59Z), valid at any lot); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
       "addedOn": "2026-11-09",
       "amountOff": 5,
       "minSubtotal": 25
     },
     {
       "code": "LGA5",
-      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, max 500 uses, expires 2027-01-31); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
+      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, 100 uses, expires the end of 2027-01-31 ET (2027-02-01T04:59:59Z), valid at any lot); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
       "addedOn": "2026-11-09",
       "amountOff": 5,
       "minSubtotal": 25
     },
     {
       "code": "SAN5",
-      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, max 500 uses, expires 2027-01-31); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
+      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, 100 uses, expires the end of 2027-01-31 ET (2027-02-01T04:59:59Z), valid at any lot); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
       "addedOn": "2026-11-09",
       "amountOff": 5,
       "minSubtotal": 25
     },
     {
       "code": "JFK5",
-      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, max 500 uses, expires 2027-01-31); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
+      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, 100 uses, expires the end of 2027-01-31 ET (2027-02-01T04:59:59Z), valid at any lot); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
       "addedOn": "2026-11-09",
       "amountOff": 5,
       "minSubtotal": 25
     },
     {
       "code": "IAD5",
-      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, max 500 uses, expires 2027-01-31); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
+      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, 100 uses, expires the end of 2027-01-31 ET (2027-02-01T04:59:59Z), valid at any lot); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
       "addedOn": "2026-11-09",
       "amountOff": 5,
       "minSubtotal": 25
     },
     {
       "code": "BOS5",
-      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, max 500 uses, expires 2027-01-31); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
+      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, 100 uses, expires the end of 2027-01-31 ET (2027-02-01T04:59:59Z), valid at any lot); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
       "addedOn": "2026-11-09",
       "amountOff": 5,
       "minSubtotal": 25
     },
     {
       "code": "LAS5",
-      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, max 500 uses, expires 2027-01-31); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
+      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, 100 uses, expires the end of 2027-01-31 ET (2027-02-01T04:59:59Z), valid at any lot); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
       "addedOn": "2026-11-09",
       "amountOff": 5,
       "minSubtotal": 25
     },
     {
       "code": "SFO5",
-      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, max 500 uses, expires 2027-01-31); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
+      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, 100 uses, expires the end of 2027-01-31 ET (2027-02-01T04:59:59Z), valid at any lot); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
       "addedOn": "2026-11-09",
       "amountOff": 5,
       "minSubtotal": 25
     },
     {
       "code": "AUS5",
-      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, max 500 uses, expires 2027-01-31); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
+      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, 100 uses, expires the end of 2027-01-31 ET (2027-02-01T04:59:59Z), valid at any lot); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
       "addedOn": "2026-11-09",
       "amountOff": 5,
       "minSubtotal": 25
     },
     {
       "code": "MSP5",
-      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, max 500 uses, expires 2027-01-31); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
+      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, 100 uses, expires the end of 2027-01-31 ET (2027-02-01T04:59:59Z), valid at any lot); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
       "addedOn": "2026-11-09",
       "amountOff": 5,
       "minSubtotal": 25
     },
     {
       "code": "MCO5",
-      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, max 500 uses, expires 2027-01-31); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
+      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, 100 uses, expires the end of 2027-01-31 ET (2027-02-01T04:59:59Z), valid at any lot); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
       "addedOn": "2026-11-09",
       "amountOff": 5,
       "minSubtotal": 25
     },
     {
       "code": "ATL5",
-      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, max 500 uses, expires 2027-01-31); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
+      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, 100 uses, expires the end of 2027-01-31 ET (2027-02-01T04:59:59Z), valid at any lot); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
       "addedOn": "2026-11-09",
       "amountOff": 5,
       "minSubtotal": 25
     },
     {
       "code": "DEN5",
-      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, max 500 uses, expires 2027-01-31); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
+      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, 100 uses, expires the end of 2027-01-31 ET (2027-02-01T04:59:59Z), valid at any lot); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
       "addedOn": "2026-11-09",
       "amountOff": 5,
       "minSubtotal": 25
     },
     {
       "code": "DCA5",
-      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, max 500 uses, expires 2027-01-31); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
+      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, 100 uses, expires the end of 2027-01-31 ET (2027-02-01T04:59:59Z), valid at any lot); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
       "addedOn": "2026-11-09",
       "amountOff": 5,
       "minSubtotal": 25
     },
     {
       "code": "ORD5",
-      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, max 500 uses, expires 2027-01-31); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
+      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, 100 uses, expires the end of 2027-01-31 ET (2027-02-01T04:59:59Z), valid at any lot); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
       "addedOn": "2026-11-09",
       "amountOff": 5,
       "minSubtotal": 25
     },
     {
       "code": "PHL5",
-      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, max 500 uses, expires 2027-01-31); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
+      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, 100 uses, expires the end of 2027-01-31 ET (2027-02-01T04:59:59Z), valid at any lot); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
       "addedOn": "2026-11-09",
       "amountOff": 5,
       "minSubtotal": 25
     },
     {
       "code": "BWI5",
-      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, max 500 uses, expires 2027-01-31); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
+      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, 100 uses, expires the end of 2027-01-31 ET (2027-02-01T04:59:59Z), valid at any lot); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
       "addedOn": "2026-11-09",
       "amountOff": 5,
       "minSubtotal": 25
     },
     {
       "code": "SEA5",
-      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, max 500 uses, expires 2027-01-31); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
+      "source": "Triply promo_codes row (fixed $5 off parking subtotal, $25 minimum, 100 uses, expires the end of 2027-01-31 ET (2027-02-01T04:59:59Z), valid at any lot); live in checkout since 7 Nov 2026 (#167, #168); /api/promo/validate checked 9 Nov 2026",
       "addedOn": "2026-11-09",
       "amountOff": 5,
       "minSubtotal": 25

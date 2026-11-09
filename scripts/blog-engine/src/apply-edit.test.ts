@@ -171,3 +171,19 @@ test('checkEdit: a flat-amount code sources its own $ terms, only where the edit
   const none = checkEdit(post(), rn, { insert: ins('Shuttle', named) }, new Set([1800]), undefined, {})
   assert.ok(none.blockers.some((b) => b.startsWith('price check: $5')))
 })
+
+test('checkEdit: a code sources its $ terms only in its own block, and they are not reported as stale afterwards', () => {
+  const figs = { DFW5: [5, 25] }
+  // The code is named in one paragraph; a lot price that happens to equal a code figure sits in another.
+  const two = '<p>Use DFW5 at checkout for $5 off a parking subtotal of $25 or more.</p><p>Economy parking from $25/day.</p>'
+  const r2 = applyEdit(post(), { insert: ins('Shuttle', two) })
+  const c2 = checkEdit(post(), r2, { insert: ins('Shuttle', two) }, new Set([1800]), undefined, figs)
+  assert.ok(c2.blockers.some((b) => b.startsWith('price check: $25')), c2.blockers.join(' | '))
+  // After an allowed edit, the whole-body report doesn't list the code's own $5 / $25 as stale figures.
+  const named = '<p>Use DFW5 at checkout for $5 off a parking subtotal of $25 or more.</p>'
+  const rn = applyEdit(post(), { insert: ins('Shuttle', named) })
+  const cn = checkEdit(post(), rn, { insert: ins('Shuttle', named) }, new Set([1800]), undefined, figs)
+  assert.deepEqual(cn.blockers.filter((b) => b.startsWith('price check')), [])
+  assert.ok(!cn.remainingPrices.some((x) => x === '$5' || x === '$25'), cn.remainingPrices.join(', '))
+  assert.ok(cn.remainingPrices.includes('$40'), 'the old $40 garage figure is still reported')
+})

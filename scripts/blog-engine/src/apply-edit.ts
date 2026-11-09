@@ -876,16 +876,22 @@ export function checkEdit(post: PostLike, res: EditResult, edit: EditSpec, known
   ].filter((e, i, arr) => arr.findIndex((x) => key(x) === key(e)) === i)
   const hasPrice = /(?:C\$|CA\$|US\$|\$)\s?\d/.test(`${newText}\n${res.fieldText}`)
   const unique = (xs: string[]) => [...new Set(xs)]
-  // A flat-amount code's own terms ("DFW5: $5 off, $25 minimum") are sourced by the code, but only where the edit names it.
-  const named = Object.keys(codeFigures).filter((c) => new RegExp(`\\b${c}\\b`, 'i').test(`${newText}\n${res.fieldText}`))
-  const priceKnown = known && named.length ? new Set([...known, ...named.flatMap((c) => codeFigures[c].map((n) => Math.round(n * 100)))]) : known
-  const badPrices = priceKnown ? unique([...blocks.flatMap((b) => priceCheck(b, '', priceKnown)), ...priceCheck('', res.fieldText, priceKnown)]) : []
+  // A flat-amount code's own terms ("DFW5: $5 off, $25 minimum") are sourced by the code, but only in the block that
+  // names it: one allowance for the whole edit let a "$25/day" lot price in another paragraph pass (review, Nov 2026).
+  const allowFor = (html: string, k: ReadonlySet<number>): ReadonlySet<number> => {
+    const text = stripTags(html)
+    const figs = Object.keys(codeFigures).filter((c) => new RegExp(`\\b${c.replace(/[^A-Z0-9]/gi, '')}\\b`, 'i').test(text))
+      .flatMap((c) => codeFigures[c].map((n) => Math.round(n * 100)))
+    return figs.length ? new Set([...k, ...figs]) : k
+  }
+  const badPrices = known ? unique([...blocks.flatMap((b) => priceCheck(b, '', allowFor(b, known))), ...priceCheck('', res.fieldText, allowFor(res.fieldText, known))]) : []
   const loss = guardLoss(post.content, res.after.content, removedNodes(res.replaced))
   // The whole resulting body, so a stale figure the edit did NOT remove is still caught (reported, not blocking:
   // old posts carry computed totals the allow-list never holds, and this edit may be fixing one block of many).
   // Block by block (each root node), like the new material: one joined body let a quote borrow the next paragraph's link.
+  // Same code allowance, so a code's own terms aren't reported as stale on every later edit of the post.
   const remainingPrices = known && res.patch.content !== undefined
-    ? unique(res.after.content.root.children.flatMap((n) => priceCheck(toHtml([n]), '', known))).filter((x) => !badPrices.includes(x))
+    ? unique(res.after.content.root.children.flatMap((n) => { const html = toHtml([n]); return priceCheck(html, '', allowFor(html, known)) })).filter((x) => !badPrices.includes(x))
     : []
   // Backstop for the booking CTA (sectionEnd keeps sections off it; a text op can still target it): the result must
   // still link the airport's booking page if the live post did, unless edit.json says the removal is meant.
