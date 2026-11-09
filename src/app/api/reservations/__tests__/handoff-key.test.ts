@@ -40,11 +40,23 @@ const body = {
   vehicleSize: "none",
   vehicleSizeSource: "modal",
 };
-const post = (secretHeader?: string) =>
+/** A ResLab booking's body (the reservationSchema path most bookings take). */
+const reslabBody = {
+  locationId: 42,
+  costsToken: "tok",
+  fromDate: "2026-11-20 10:00:00",
+  toDate: "2026-11-24 14:00:00",
+  parkingTypeId: 7,
+  customer: { firstName: "Ada", lastName: "L", email: "ada@example.com", phone: "555" },
+  vehicle: { make: "Volvo", model: "XC60", color: "Blue", licensePlate: "ABC", state: "NY" },
+  stripePaymentIntentId: "pi_direct",
+  protectionPlanCode: null,
+};
+const post = (secretHeader?: string, payload: object = body) =>
   POST(
     new NextRequest("http://localhost/api/reservations", {
       method: "POST",
-      body: JSON.stringify(body),
+      body: JSON.stringify(payload),
       headers: {
         "content-type": "application/json",
         ...(secretHeader !== undefined ? { "x-payment-client-secret": secretHeader } : {}),
@@ -88,7 +100,9 @@ describe("POST /api/reservations — the hand-off key", () => {
   });
 
   it("a bare pi_ id or someone else's secret is not proof → no key, a warning, the answer unchanged", async () => {
-    for (const given of ["pi_direct", "pi_direct_secret_wrong", "pi_other_secret_s3cr3t"]) {
+    // Includes the right secret with one character flipped: same length, so a
+    // length-only comparison would accept it.
+    for (const given of ["pi_direct", "pi_direct_secret_wrong", "pi_other_secret_s3cr3t", SECRET.slice(0, -1) + "X"]) {
       sentry.captureBookingError.mockClear();
       const res = await post(given);
       expect(res.status).toBe(200);
@@ -98,6 +112,31 @@ describe("POST /api/reservations — the hand-off key", () => {
       // Never the value that was sent.
       expect(String(err.message)).not.toMatch(/_secret_/);
       expect(ctx).toMatchObject({ step: "checkout", level: "warning", fingerprint: ["handoff-secret", "mismatch"] });
+    }
+  });
+
+  it("the secret must be the BOOKED PaymentIntent's: an attacker's own valid secret earns nothing", async () => {
+    retrieve.mockImplementation(async (id: string) => ({ id, client_secret: `${id}_secret_s3cr3t` }));
+    // The body names the victim's PaymentIntent; the header is the attacker's real secret for their own.
+    const res = await post("pi_attacker_secret_s3cr3t");
+    expect(await res.json()).not.toHaveProperty("bookingKey");
+    expect(retrieve).toHaveBeenCalledWith("pi_direct", {}, expect.anything());
+    expect(retrieve).not.toHaveBeenCalledWith("pi_attacker", expect.anything(), expect.anything());
+  });
+
+  it("the ResLab path (most bookings) follows the same rule", async () => {
+    createBooking.mockResolvedValue({ kind: "created", reservationNumber: "RTL869257", reservation: { reservationNumber: "RTL869257" } });
+    let res = await post(SECRET, reslabBody);
+    expect(res.status).toBe(200);
+    expect((await res.json()).bookingKey).toBe(bookingKey("RTL869257"));
+    expect(createBooking.mock.calls[0][0]).toHaveProperty("payload");
+    createBooking.mockResolvedValue({ kind: "already_exists", reservationNumber: "RTL869257" });
+    res = await post(SECRET, reslabBody);
+    expect((await res.json()).bookingKey).toBe(bookingKey("RTL869257"));
+    for (const given of [undefined, "pi_direct", SECRET.slice(0, -1) + "X"]) {
+      res = await post(given, reslabBody);
+      expect(res.status).toBe(200);
+      expect(await res.json()).not.toHaveProperty("bookingKey");
     }
   });
 

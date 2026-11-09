@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { isIPv4, isIPv6 } from "net";
 import { captureBookingError } from "@/lib/sentry";
 import { createAdminClient } from "@/lib/supabase/server";
-import { bounded } from "@/lib/utils/bounded";
+import { bounded, BoundedTimeoutError } from "@/lib/utils/bounded";
 import { requireBookingLinkSecret } from "./booking-key";
 
 /**
@@ -53,6 +53,12 @@ export function normalizeGuestEmail(raw: string | null | undefined): string | nu
   const email = (raw ?? "").trim().toLowerCase();
   if (!email || email.length > MAX_EMAIL_LENGTH) return null;
   return email;
+}
+
+/** Both sides normalised by normalizeGuestEmail; a blank or missing side never matches. */
+export function sameGuestEmail(a: string | null | undefined, b: string | null | undefined): boolean {
+  const left = normalizeGuestEmail(a);
+  return left !== null && left === normalizeGuestEmail(b);
 }
 
 /** All eight groups of an IPv6 address, lowercased, or null. */
@@ -156,7 +162,21 @@ export function shouldReportRefusal(refused: number): boolean {
 export type GuestLookupTake =
   | { kind: "allowed"; keys: string[] }
   | { kind: "blocked"; retryAfterSeconds: number }
-  | { kind: "error"; detail: string };
+  /** `maybeCharged`: no answer in time — the take may still have committed, so the caller gives it back. */
+  | { kind: "error"; detail: string; maybeCharged: boolean };
+
+/**
+ * The least time a refusal on the email path takes, counted from the take. A
+ * wrong email on a real booking costs one more read than a number that isn't
+ * a booking; answering both no sooner than this hides the difference.
+ */
+export const GUEST_LOOKUP_DENY_FLOOR_MS = 800;
+
+/** Wait until GUEST_LOOKUP_DENY_FLOOR_MS after `takenAt` (now, if that has passed). */
+export function holdGuestDenial(takenAt: number): Promise<void> {
+  const wait = takenAt + GUEST_LOOKUP_DENY_FLOOR_MS - Date.now();
+  return wait > 0 ? new Promise((resolve) => setTimeout(resolve, wait)) : Promise.resolve();
+}
 
 type RpcResult = PromiseLike<{ data: unknown; error: { message: string; code?: string } | null }>;
 
@@ -224,11 +244,23 @@ export async function takeGuestLookup(
       "guest_lookup_take"
     );
   } catch (err) {
-    return { kind: "error", detail: err instanceof Error ? err.message : String(err) };
+    // Our timeout, or the request aborted: the database may still commit it.
+    const maybeCharged = err instanceof BoundedTimeoutError || (err instanceof Error && err.name === "AbortError");
+    return { kind: "error", detail: err instanceof Error ? err.message : String(err), maybeCharged };
   }
-  if (result.error) return { kind: "error", detail: `rpc failed (${result.error.code ?? "?"}): ${result.error.message}` };
+  if (result.error) {
+    // supabase-js turns a fetch that failed or was aborted (our AbortSignal
+    // timeout) into an error result with an EMPTY code: the request may have
+    // reached the database. A database error carries a code, and its
+    // statement was rolled back.
+    return {
+      kind: "error",
+      detail: `rpc failed (${result.error.code || "no code"}): ${result.error.message}`,
+      maybeCharged: !result.error.code,
+    };
+  }
   const row = parseTakeRow(result.data);
-  if (!row) return { kind: "error", detail: `unexpected rpc result: ${JSON.stringify(result.data)?.slice(0, 200)}` };
+  if (!row) return { kind: "error", detail: `unexpected rpc result: ${JSON.stringify(result.data)?.slice(0, 200)}`, maybeCharged: false };
   if (row.allowed) return { kind: "allowed", keys: buckets.keys };
 
   if (shouldReportRefusal(row.refused)) {

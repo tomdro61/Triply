@@ -5,13 +5,31 @@
  * hands off to /checkout/complete, which polls the engine for the truth.
  */
 import { describe, it, expect } from "vitest";
-import { postAuthActionFor } from "../post-auth-outcome";
+import { bookingKeyFromAnswer, postAuthActionFor, reservationRequestHeaders } from "../post-auth-outcome";
 
 describe("postAuthActionFor", () => {
   it("200 with a reservation number → confirmed", () => {
     expect(
       postAuthActionFor({ status: 200, body: { success: true, reservation: { reservationNumber: "RTL123" } } })
     ).toEqual({ kind: "confirmed", reservationNumber: "RTL123" });
+  });
+
+  it("reservationRequestHeaders: the client secret rides in its header; none without one", () => {
+    expect(reservationRequestHeaders("pi_1_secret_x")).toEqual({
+      "Content-Type": "application/json",
+      "x-payment-client-secret": "pi_1_secret_x",
+    });
+    expect(reservationRequestHeaders(null)).toEqual({ "Content-Type": "application/json" });
+    expect(reservationRequestHeaders("")).toEqual({ "Content-Type": "application/json" });
+  });
+
+  it("bookingKeyFromAnswer reads either route's answer (/complete's booked state too)", () => {
+    expect(bookingKeyFromAnswer({ state: "booked", reservationNumber: "RTL1", bookingKey: "AbCdEfGhIjKlMnOpQrStUv" })).toBe(
+      "AbCdEfGhIjKlMnOpQrStUv"
+    );
+    for (const bad of [{ state: "booked" }, { bookingKey: "" }, { bookingKey: 1 }, null, "x"]) {
+      expect(bookingKeyFromAnswer(bad)).toBeUndefined();
+    }
   });
 
   it("200 with a booking key → confirmed with it; a non-string or empty key is dropped", () => {

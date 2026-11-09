@@ -87,6 +87,23 @@ describe("guest email hand-off to /confirmation", () => {
     });
   });
 
+  it("only the value that couldn't be stored rides in the URL (the email failed, the key was kept)", () => {
+    const store = new Map<string, string>();
+    vi.stubGlobal("window", {
+      sessionStorage: {
+        setItem: (k: string, v: string) => {
+          if (k.startsWith("triply_confirmation_email:")) throw new Error("QuotaExceededError");
+          store.set(k, v);
+        },
+        getItem: (k: string) => store.get(k) ?? null,
+      },
+    });
+    expect(confirmationHandOff("/confirmation/RTL1", "RTL1", "dana@example.com", "AbCdEfGhIjKlMnOpQrStUv")).toEqual({
+      url: "/confirmation/RTL1?email=dana%40example.com",
+      fullLoad: true,
+    });
+  });
+
   it("no email to hand over → the path as is, in-app", () => {
     stubStorage("blocked");
     expect(confirmationHandOff("/confirmation/RTL1", "RTL1", "")).toEqual({ url: "/confirmation/RTL1", fullLoad: false });

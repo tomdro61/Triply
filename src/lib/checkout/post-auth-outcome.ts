@@ -57,12 +57,30 @@ function reservationNumberOf(body: unknown): string | null {
   return null;
 }
 
-function bookingKeyOf(body: unknown): string | undefined {
+/**
+ * The signed booking key in a finishing route's answer (POST /api/reservations
+ * or /api/reservations/complete), or undefined — an older server, or one that
+ * couldn't make it. The confirmation page then uses the email.
+ */
+export function bookingKeyFromAnswer(body: unknown): string | undefined {
   if (body && typeof body === "object" && "bookingKey" in body) {
     const key = (body as { bookingKey: unknown }).bookingKey;
     if (typeof key === "string" && key) return key;
   }
   return undefined;
+}
+
+/**
+ * Headers for POST /api/reservations once the card is authorized. The client
+ * secret proves this browser paid, so the answer can carry the booking key. A
+ * header, not a body field: a rolled-back .strict() schema would refuse a new
+ * body key.
+ */
+export function reservationRequestHeaders(clientSecret: string | null): Record<string, string> {
+  return {
+    "Content-Type": "application/json",
+    ...(clientSecret ? { "x-payment-client-secret": clientSecret } : {}),
+  };
 }
 
 export function postAuthActionFor(answer: ReservationAnswer): PostAuthAction {
@@ -74,7 +92,7 @@ export function postAuthActionFor(answer: ReservationAnswer): PostAuthAction {
     // failure: the booking was made. The complete page re-reads it by the
     // PaymentIntent (`already_exists`) and lands on the confirmation.
     if (!reservationNumber) return { kind: "handoff", reason: "success_without_reservation_number" };
-    const bookingKey = bookingKeyOf(body);
+    const bookingKey = bookingKeyFromAnswer(body);
     return { kind: "confirmed", reservationNumber, ...(bookingKey && { bookingKey }) };
   }
 

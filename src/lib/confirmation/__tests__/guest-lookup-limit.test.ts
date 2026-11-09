@@ -9,8 +9,11 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 
 import {
+  GUEST_LOOKUP_DENY_FLOOR_MS,
   GUEST_LOOKUP_LIMITS,
   GUEST_LOOKUP_RPC_TIMEOUT_MS,
+  holdGuestDenial,
+  sameGuestEmail,
   GUEST_LOOKUP_WINDOW_SECONDS,
   bucketHash,
   guestLookupBuckets,
@@ -63,6 +66,39 @@ describe("normalizeGuestEmail", () => {
     expect(normalizeGuestEmail(undefined)).toBeNull();
     expect(normalizeGuestEmail("a".repeat(243) + "@example.co")).toBe("a".repeat(243) + "@example.co"); // 254
     expect(normalizeGuestEmail("a".repeat(244) + "@example.co")).toBeNull(); // 255
+  });
+});
+
+describe("sameGuestEmail", () => {
+  it("compares normalised; a blank or missing side never matches", () => {
+    expect(sameGuestEmail(" Dana@Example.com", "dana@example.com ")).toBe(true);
+    expect(sameGuestEmail("dana@example.com", "dan@example.com")).toBe(false);
+    expect(sameGuestEmail(null, null)).toBe(false);
+    expect(sameGuestEmail("", "")).toBe(false);
+    expect(sameGuestEmail("   ", "  ")).toBe(false);
+    expect(sameGuestEmail(undefined, "dana@example.com")).toBe(false);
+    expect(sameGuestEmail("dana@example.com", null)).toBe(false);
+  });
+});
+
+describe("holdGuestDenial", () => {
+  it("answers no sooner than the floor after the take; immediately once it has passed", async () => {
+    vi.useFakeTimers();
+    const takenAt = Date.now();
+    let done = false;
+    const held = holdGuestDenial(takenAt).then(() => {
+      done = true;
+    });
+    await vi.advanceTimersByTimeAsync(GUEST_LOOKUP_DENY_FLOOR_MS - 1);
+    expect(done).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    await held;
+    expect(done).toBe(true);
+    let late = false;
+    await holdGuestDenial(Date.now() - GUEST_LOOKUP_DENY_FLOOR_MS - 5).then(() => {
+      late = true;
+    });
+    expect(late).toBe(true);
   });
 });
 
@@ -166,6 +202,25 @@ describe("takeGuestLookup", () => {
     await vi.advanceTimersByTimeAsync(GUEST_LOOKUP_RPC_TIMEOUT_MS + 1);
     expect((await pending).kind).toBe("error");
   });
+
+  it("maybeCharged: only when the take may have committed unseen (our timeout, or a fetch with no database answer)", async () => {
+    const outcome = async (answer: Answer | (() => Promise<Answer>)) => {
+      const r = await takeGuestLookup(buckets(), "RTL900001", rpcAnswering(answer).rpc);
+      return r.kind === "error" ? r.maybeCharged : "not an error";
+    };
+    // A database error has a code: its statement rolled back.
+    expect(await outcome({ data: null, error: { message: "boom", code: "XX000" } })).toBe(false);
+    // supabase-js: a failed or aborted fetch comes back with an empty code.
+    expect(await outcome({ data: null, error: { message: "TimeoutError: signal timed out", code: "" } })).toBe(true);
+    expect(await outcome({ data: null, error: { message: "FetchError: fetch failed" } })).toBe(true);
+    // A malformed answer came from the database: not charged.
+    expect(await outcome({ data: [], error: null })).toBe(false);
+    vi.useFakeTimers();
+    const pending = takeGuestLookup(buckets(), "RTL900001", rpcAnswering(() => new Promise<Answer>(() => {})).rpc);
+    await vi.advanceTimersByTimeAsync(GUEST_LOOKUP_RPC_TIMEOUT_MS + 1);
+    const r = await pending;
+    expect(r.kind === "error" && r.maybeCharged).toBe(true);
+  });
 });
 
 describe("noteUnknownGuestIp", () => {
@@ -189,5 +244,17 @@ describe("releaseGuestLookup", () => {
     await expect(releaseGuestLookup(["k1"], "RTL900001", failing.rpc)).resolves.toBeUndefined();
     expect(sentry.captureBookingError).toHaveBeenCalledTimes(1);
     expect(sentry.captureBookingError.mock.calls[0][1]).toMatchObject({ fingerprint: ["guest-lookup-release-failed"] });
+  });
+
+  it("a release that never answers ends at the timeout, reported", async () => {
+    vi.useFakeTimers();
+    const hanging: GuestLookupRpc = {
+      take: () => Promise.resolve(allowedRow),
+      release: () => new Promise<Answer>(() => {}),
+    };
+    const pending = releaseGuestLookup(["k1"], "RTL900001", hanging);
+    await vi.advanceTimersByTimeAsync(GUEST_LOOKUP_RPC_TIMEOUT_MS + 1);
+    await expect(pending).resolves.toBeUndefined();
+    expect(sentry.captureBookingError).toHaveBeenCalledTimes(1);
   });
 });

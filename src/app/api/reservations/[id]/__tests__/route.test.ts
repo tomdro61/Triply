@@ -160,10 +160,12 @@ const limit = vi.hoisted(() => {
   return {
     attempts,
     /** "fake" = the rules above; otherwise answer this for every take. */
-    mode: "fake" as "fake" | { kind: "error"; detail: string },
+    mode: "fake" as "fake" | { kind: "error"; detail: string; maybeCharged: boolean },
     takes: [] as Array<{ keys: string[]; kinds: string[]; limits: number[] }>,
     releases: [] as string[][],
     unknownIp: [] as string[],
+    /** Refusals held to the timing floor (holdGuestDenial calls). */
+    holds: 0,
   };
 });
 vi.mock("@/lib/confirmation/guest-lookup-limit", async (importOriginal) => {
@@ -184,6 +186,9 @@ vi.mock("@/lib/confirmation/guest-lookup-limit", async (importOriginal) => {
     },
     noteUnknownGuestIp: (id: string) => {
       limit.unknownIp.push(id);
+    },
+    holdGuestDenial: async () => {
+      limit.holds++;
     },
   };
 });
@@ -253,6 +258,7 @@ beforeEach(() => {
   limit.takes = [];
   limit.releases = [];
   limit.unknownIp = [];
+  limit.holds = 0;
   afterQueue.length = 0;
   __resetGuestLookupRateLimitForTests();
 });
@@ -592,17 +598,27 @@ describe("direct booking", () => {
   });
 
   describe("guest access: the signed key, and the capped email path", () => {
-    const guestCall = (id: string, opts: { email?: string; query?: string; key?: string; ip?: string } = {}) => {
+    /**
+     * One request, then its after() work (the release) runs — as in
+     * production, where it runs once the response is sent. `keepAfter` leaves
+     * it queued, to check it waits for the response.
+     */
+    const guestCall = async (
+      id: string,
+      opts: { email?: string; query?: string; key?: string; ip?: string; keepAfter?: boolean } = {}
+    ) => {
       const headers: Record<string, string> = {};
       if (opts.email !== undefined) headers["x-booking-email"] = opts.email;
       if (opts.key !== undefined) headers["x-booking-key"] = opts.key;
       if (opts.ip !== undefined) headers["x-forwarded-for"] = opts.ip;
-      return GET(
+      const res = await GET(
         new NextRequest(`https://x.test/api/reservations/${id}${opts.query ? `?email=${encodeURIComponent(opts.query)}` : ""}`, {
           headers,
         }),
         { params: Promise.resolve({ id }) }
       );
+      if (!opts.keepAfter) await flushAfter();
+      return res;
     };
     const keyRow = (livemode: boolean | null): Result => ({ data: { livemode }, error: null });
 
@@ -612,6 +628,8 @@ describe("direct booking", () => {
         const statuses: number[] = [];
         for (let i = 0; i < 10; i++) statuses.push((await guestCall(`RTL90000${i}`, { email: EMAIL })).status);
         expect(statuses).toEqual(Array(10).fill(403));
+        // A wrong guess never gives its try back (the release step has run).
+        expect(limit.releases).toEqual([]);
         const lookups = h.state.authLookups;
         const res = await guestCall("RTL900010", { email: EMAIL });
         expect(res.status).toBe(429);
@@ -625,6 +643,7 @@ describe("direct booking", () => {
         h.state.detailRow = { data: row(), error: null };
         h.state.pendingRow = { data: { customer: { email: "also-someone-else@example.com" } }, error: null };
         for (let i = 1; i <= 5; i++) expect((await guestCall(TRP, { email: `guess${i}@example.com` })).status).toBe(403);
+        expect(limit.releases).toEqual([]);
         expect((await guestCall(TRP, { email: "guess6@example.com" })).status).toBe(429);
         expect((await guestCall(TRP, { email: EMAIL })).status).toBe(429);
         expect(h.state.detailSelect).toBeNull();
@@ -642,7 +661,7 @@ describe("direct booking", () => {
 
       it("a match gives the try back, after the response", async () => {
         h.state.detailRow = { data: row(), error: null };
-        const res = await guestCall(TRP, { email: EMAIL });
+        const res = await guestCall(TRP, { email: EMAIL, keepAfter: true });
         expect(res.status).toBe(200);
         expect(limit.releases).toEqual([]);
         await flushAfter();
@@ -691,7 +710,7 @@ describe("direct booking", () => {
       });
 
       it("fails closed: the limiter erroring → 500 'try again', nothing looked up", async () => {
-        limit.mode = { kind: "error", detail: "timeout" };
+        limit.mode = { kind: "error", detail: "rpc failed (XX000)", maybeCharged: false };
         h.state.detailRow = { data: row(), error: null };
         const res = await guestCall(TRP, { email: EMAIL });
         expect(res.status).toBe(500);
@@ -700,17 +719,46 @@ describe("direct booking", () => {
         expect(h.captureBookingError).toHaveBeenCalled();
       });
 
-      it("an undecided answer gives the try back: a failed lookup or a failed staged read → 500 + release", async () => {
+      it("a failed booking read (nothing compared yet) → 500 and the try is given back", async () => {
         h.state.authRow = { data: null, error: { message: "db down" } };
         expect((await guestCall(TRP, { email: EMAIL })).status).toBe(500);
+        await flushAfter();
+        expect(limit.releases).toHaveLength(1);
+      });
+
+      it("a failed staged read AFTER the customers email failed → 500 that still costs the try (no free guesses during a fault)", async () => {
         h.state.authRow = {
           data: { customer_id: "c1", stripe_payment_intent_id: "pi_direct", customers: { email: "booker@example.com" } },
           error: null,
         };
         h.state.pendingRow = { data: null, error: { message: "timeout" } };
+        expect((await guestCall(TRP, { email: "guess@example.com" })).status).toBe(500);
+        await flushAfter();
+        expect(limit.releases).toEqual([]);
+        for (let i = 2; i <= 5; i++) await guestCall(TRP, { email: `guess${i}@example.com` });
+        expect((await guestCall(TRP, { email: "guess6@example.com" })).status).toBe(429);
+      });
+
+      it("a take that timed out may have committed → 500, and the try is given back", async () => {
+        limit.mode = { kind: "error", detail: "guest_lookup_take did not answer within 3000 ms", maybeCharged: true };
         expect((await guestCall(TRP, { email: EMAIL })).status).toBe(500);
         await flushAfter();
-        expect(limit.releases).toHaveLength(2);
+        expect(limit.releases).toHaveLength(1);
+        expect(h.state.authLookups).toBe(0);
+      });
+
+      it("every refusal on the email path is held to the timing floor: no booking and wrong email alike", async () => {
+        h.state.rowsById = {};
+        expect((await guestCall("RTL404", { email: EMAIL })).status).toBe(403);
+        expect(limit.holds).toBe(1);
+        h.state.rowsById = null;
+        h.state.pendingRow = { data: { customer: { email: "also-someone-else@example.com" } }, error: null };
+        expect((await guestCall(TRP, { email: "wrong@example.com" })).status).toBe(403);
+        expect(limit.holds).toBe(2);
+        // A match is never held.
+        h.state.detailRow = { data: row(), error: null };
+        expect((await guestCall(TRP, { email: EMAIL })).status).toBe(200);
+        expect(limit.holds).toBe(2);
       });
 
       it("a missing signing secret → 503, reported", async () => {
@@ -800,6 +848,76 @@ describe("direct booking", () => {
         const key = bookingKey(TRP);
         vi.stubEnv("BOOKING_LINK_SIGNING_SECRET", "");
         expect((await guestCall(TRP, { key })).status).toBe(503);
+      });
+
+      it("a verified key whose row is missing or from the other mode is reported (a data problem, never a guess)", async () => {
+        h.state.authRow = { data: null, error: null };
+        expect((await guestCall(TRP, { key: bookingKey(TRP) })).status).toBe(403);
+        expect(h.captureBookingError.mock.calls.at(-1)?.[1]).toMatchObject({ fingerprint: ["booking-key-no-row"], level: "warning" });
+        h.state.authRow = keyRow(true);
+        expect((await guestCall(TRP, { key: bookingKey(TRP) })).status).toBe(403);
+        expect(h.captureBookingError.mock.calls.at(-1)?.[1]).toMatchObject({ fingerprint: ["booking-key-other-mode"] });
+      });
+
+      it("a key with the right shape that does not verify is reported on a ladder (a rotated secret shows up)", async () => {
+        h.state.detailRow = { data: row(), error: null };
+        for (let i = 0; i < 10; i++) await guestCall(TRP, { key: `ForgedKeyForgedKeyFor${i}` });
+        const reports = h.captureBookingError.mock.calls.filter(([, ctx]) => ctx?.fingerprint?.[0] === "booking-key-invalid");
+        expect(reports.length).toBeGreaterThanOrEqual(1);
+        expect(reports.length).toBeLessThanOrEqual(2);
+        // A wrong-shape value is not a key at all: nothing reported.
+        h.captureBookingError.mockClear();
+        await guestCall(TRP, { key: "short" });
+        expect(h.captureBookingError).not.toHaveBeenCalled();
+      });
+
+      it("a refusal on the key path is not held to the email path's timing floor", async () => {
+        h.state.authRow = { data: null, error: null };
+        await guestCall(TRP, { key: bookingKey(TRP) });
+        expect(limit.holds).toBe(0);
+      });
+
+      it("signed in to ANOTHER account: the booking's key still opens it; without the key → 403", async () => {
+        h.state.user = { id: "u-other", email: "other@example.com", email_confirmed_at: "2026-01-01" };
+        h.state.authRow = { data: { customer_id: "c1", stripe_payment_intent_id: "pi_direct", customers: { user_id: "u1", email: EMAIL }, livemode: false }, error: null };
+        h.state.pendingRow = { data: { customer: { email: EMAIL, firstName: "Dana" } }, error: null };
+        h.state.detailRow = { data: row(), error: null };
+        expect((await guestCall(TRP, {})).status).toBe(403);
+        expect((await guestCall(TRP, { key: "ForgedKeyForgedKeyForX" })).status).toBe(403);
+        expect((await guestCall(TRP, { key: bookingKey(TRP) })).status).toBe(200);
+        expect(limit.takes).toEqual([]);
+      });
+
+      it("a direct booking opened by key shows the guest as typed at checkout — never the account holder", async () => {
+        h.state.authRow = keyRow(false);
+        h.state.detailRow = {
+          data: { ...row(), customers: { first_name: "Booker", last_name: "Account", email: "booker@example.com", phone: "5550000000" } },
+          error: null,
+        };
+        h.state.pendingRow = {
+          data: { customer: { firstName: "Gina", lastName: "Guest", email: "gina@example.com", phone: "5551112222" } },
+          error: null,
+        };
+        const res = await guestCall(TRP, { key: bookingKey(TRP) });
+        expect(res.status).toBe(200);
+        const text = JSON.stringify(await res.json());
+        expect(text).toContain("gina@example.com");
+        expect(text).not.toContain("booker@example.com");
+        expect(text).not.toContain("5550000000");
+      });
+
+      it("[codex] a direct booking opened by key whose staged guest can't be read → 500, never the account holder's details", async () => {
+        h.state.authRow = keyRow(false);
+        h.state.detailRow = {
+          data: { ...row(), customers: { first_name: "Booker", last_name: "Account", email: "booker@example.com", phone: "5550000000" } },
+          error: null,
+        };
+        for (const pendingRow of [{ data: null, error: { message: "timeout" } }, { data: null, error: null }]) {
+          h.state.pendingRow = pendingRow;
+          const res = await guestCall(TRP, { key: bookingKey(TRP) });
+          expect(res.status).toBe(500);
+          expect(JSON.stringify(await res.json())).not.toContain("booker@example.com");
+        }
       });
 
       it("every answer varies by the key header too", async () => {

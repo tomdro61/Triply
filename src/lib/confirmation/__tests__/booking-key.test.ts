@@ -45,6 +45,18 @@ describe("booking key", () => {
     expect(verifyBookingKey("", key)).toBe(false);
   });
 
+  it("compares the TEXT: another spelling that decodes to the same 16 bytes never verifies", () => {
+    withSecret("test-secret-one");
+    const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    for (const number of ["TRP-7K3M9QXA", "RTL900001", "RTL869257"]) {
+      const key = bookingKey(number);
+      // The 22nd character carries 2 key bits + 4 spare bits: flip a spare one.
+      const alt = key.slice(0, 21) + ALPHABET[ALPHABET.indexOf(key[21]) ^ 1];
+      expect(Buffer.from(alt, "base64url").equals(Buffer.from(key, "base64url"))).toBe(true);
+      expect(verifyBookingKey(number, alt)).toBe(false);
+    }
+  });
+
   it("a value made with the same secret for another purpose never verifies", () => {
     withSecret("test-secret-one");
     const number = "RTL900001";

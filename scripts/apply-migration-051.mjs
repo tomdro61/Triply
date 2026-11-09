@@ -99,9 +99,10 @@ try {
     p_keys: [probeKey],
     p_kinds: ["number"],
     p_limits: [5],
-    p_window_seconds: 60,
+    // The app's window (24 h), so the take's cleanup treats live buckets exactly as the app does.
+    p_window_seconds: 86400,
   });
-  const release = await supabase.rpc("guest_lookup_release", { p_keys: [probeKey], p_window_seconds: 60 });
+  const release = await supabase.rpc("guest_lookup_release", { p_keys: [probeKey], p_window_seconds: 86400 });
   const row = Array.isArray(take.data) ? take.data[0] : null;
   rpc =
     take.error || release.error
@@ -110,9 +111,51 @@ try {
         ? "take allowed, release gave 1 back"
         : `unexpected: take=${JSON.stringify(take.data)} release=${JSON.stringify(release.data)}`;
 } finally {
-  await q(`delete from public.guest_lookup_attempts where key_hash = $1`, [probeKey]);
+  const left = (await client.query(`delete from public.guest_lookup_attempts where key_hash = $1`, [probeKey])).rowCount;
+  // The take inserted one row: none deleted means PostgREST wrote somewhere this connection can't see.
+  if (rpc === "take allowed, release gave 1 back" && left !== 1) rpc = `probe row not found for cleanup (deleted ${left})`;
 }
 console.log(`rpc probe (service role via PostgREST): ${rpc}`);
+
+// The rule itself, on the live database: two fresh buckets, limit 1. Take
+// both → allowed; take again → refused, nothing charged, the full one counted.
+const fullKey = crypto.randomBytes(32).toString("base64url");
+const otherKey = crypto.randomBytes(32).toString("base64url");
+let limitProbe = "not run";
+try {
+  const takeBoth = () =>
+    supabase.rpc("guest_lookup_take", {
+      p_keys: [fullKey, otherKey],
+      p_kinds: ["number", "email"],
+      p_limits: [1, 2],
+      p_window_seconds: 86400,
+    });
+  const first = await takeBoth();
+  const second = await takeBoth();
+  const r1 = Array.isArray(first.data) ? first.data[0] : null;
+  const r2 = Array.isArray(second.data) ? second.data[0] : null;
+  const rows = Object.fromEntries(
+    (await q(`select key_hash, attempts, refused from public.guest_lookup_attempts where key_hash = any($1::text[])`, [[fullKey, otherKey]])).map(
+      (r) => [r.key_hash, r]
+    )
+  );
+  limitProbe =
+    first.error || second.error
+      ? `error: ${first.error?.message ?? second.error?.message}`
+      : r1?.allowed === true &&
+          r2?.allowed === false &&
+          r2?.refused === 1 &&
+          r2?.retry_after_seconds > 0 &&
+          JSON.stringify(r2?.blocked_kinds) === '["number"]' &&
+          rows[fullKey]?.attempts === 1 &&
+          rows[fullKey]?.refused === 1 &&
+          rows[otherKey]?.attempts === 1
+        ? "blocked at the limit, nothing charged, refusal counted"
+        : `unexpected: first=${JSON.stringify(first.data)} second=${JSON.stringify(second.data)} rows=${JSON.stringify(rows)}`;
+} finally {
+  await q(`delete from public.guest_lookup_attempts where key_hash = any($1::text[])`, [[fullKey, otherKey]]);
+}
+console.log(`limit probe: ${limitProbe}`);
 
 const role = (list, name) => list?.find((x) => x.role === name);
 const ok =
@@ -129,7 +172,8 @@ const ok =
     const f = role(after.functions, "service_role");
     return t && t.sel && t.ins && t.upd && t.del && f && f.take && f.release;
   })() &&
-  rpc === "take allowed, release gave 1 back";
+  rpc === "take allowed, release gave 1 back" &&
+  limitProbe === "blocked at the limit, nothing charged, refusal counted";
 console.log(
   ok
     ? "VERIFIED: RLS on, no policy; anon/authenticated have no table or function access; service_role reads, writes, deletes and runs both functions through PostgREST — OK"

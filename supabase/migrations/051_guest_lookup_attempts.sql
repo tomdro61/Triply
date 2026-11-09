@@ -123,12 +123,15 @@ BEGIN
   END IF;
 
   -- 4. Clean up: up to 100 rows whose window ended, never the caller's own.
-  -- SKIP LOCKED, so it never waits on (or deadlocks with) another take.
+  -- SKIP LOCKED, so it never waits on (or deadlocks with) another take. The
+  -- cut-off is never shorter than 24 hours, whatever window this caller asked
+  -- for, so a short-window caller (a verification probe, a deploy changing the
+  -- window) can't delete buckets that are still live.
   DELETE FROM guest_lookup_attempts AS g
    WHERE g.key_hash IN (
      SELECT c.key_hash
        FROM guest_lookup_attempts AS c
-      WHERE c.window_started_at < now() - v_window
+      WHERE c.window_started_at < now() - greatest(v_window, interval '24 hours')
         AND NOT (c.key_hash = ANY (p_keys))
       ORDER BY c.window_started_at
       LIMIT 100

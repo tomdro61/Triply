@@ -37,7 +37,7 @@ import {
 } from "@/lib/analytics/gtag";
 import { bucketCheckoutFailure, deviceToday, fieldList, leadDays } from "@/lib/analytics/checkout-funnel";
 import { markPurchaseToTrack } from "@/lib/analytics/purchase-once";
-import { postAuthActionFor } from "@/lib/checkout/post-auth-outcome";
+import { postAuthActionFor, reservationRequestHeaders } from "@/lib/checkout/post-auth-outcome";
 import { saveRecoveryMarker } from "@/lib/checkout/recovery-marker";
 import { StageUnreachableError } from "@/lib/checkout/submit-report";
 import {
@@ -1176,13 +1176,8 @@ export function CheckoutForm({
     try {
       const response = await fetch("/api/reservations", {
         method: "POST",
-        // The client secret proves this browser paid, so the answer can carry
-        // the signed booking key for the confirmation page. A header, not a
-        // body field: a rolled-back .strict() schema would refuse a new key.
-        headers: {
-          "Content-Type": "application/json",
-          ...(clientSecret ? { "x-payment-client-secret": clientSecret } : {}),
-        },
+        // With the client secret, so the answer can carry the booking key.
+        headers: reservationRequestHeaders(clientSecret),
         body: JSON.stringify(
           isDirect
             ? buildDirectBookingBody(stripePaymentIntentId, requireProtectionChoice(stripePaymentIntentId))
