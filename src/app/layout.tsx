@@ -113,8 +113,9 @@ export default function RootLayout({
               src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
               strategy="afterInteractive"
             />
-            {/* Consent defaults + config; keeps the guest's email and a Stripe
-                client secret out of the first page_view (see the module). */}
+            {/* Consent defaults + config; keeps the guest's email, the booking
+                key and a Stripe client secret out of the first page_view (see
+                the module). */}
             <Script id="gtag-init" strategy="afterInteractive">
               {gtagInitScript(GA_MEASUREMENT_ID)}
             </Script>
@@ -122,8 +123,8 @@ export default function RootLayout({
         )}
         {CLARITY_ID && (
           // Clarity waits for load + idle. Not started for an analytics
-          // opt-out, or while the URL / referrer carries the guest's email or
-          // a Stripe client secret (see the module).
+          // opt-out, or while the URL / referrer carries the guest's email,
+          // the booking key or a Stripe client secret (see the module).
           <Script id="clarity-init" strategy="lazyOnload">
             {clarityInitScript(CLARITY_ID)}
           </Script>

@@ -4,7 +4,11 @@
  *   - `email`: the guest's proof on an emailed confirmation link
  *     (/confirmation/{n}?email=…), and their address;
  *   - `payment_intent_client_secret`: Stripe's return URL after 3-D Secure
- *     carries it, and /api/reservations/complete trades it for that email.
+ *     carries it, and /api/reservations/complete trades it for that email;
+ *   - `booking_key`: a signed key for one booking on a confirmation link. It
+ *     opens that booking on its own, like a password, so it never reaches a
+ *     recorder (and stays listed even when no link carries it, so a revert of
+ *     the links that do can't leak one).
  *
  * Matched by NAME only — never a text search: our email links carry
  * `utm_medium=email`.
@@ -12,7 +16,7 @@
  * Used by the layout's inline guards (interpolated into the scripts),
  * instrumentation-client.ts (deferring replay) and lib/sentry-scrub.ts.
  */
-export const RECORDED_URL_SECRET_PARAMS = ["email", "payment_intent_client_secret"] as const;
+export const RECORDED_URL_SECRET_PARAMS = ["email", "payment_intent_client_secret", "booking_key"] as const;
 
 /** True when `href` carries any RECORDED_URL_SECRET_PARAMS. */
 export function hasRecordedUrlSecret(href: string): boolean {

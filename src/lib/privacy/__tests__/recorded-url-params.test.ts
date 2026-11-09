@@ -10,6 +10,12 @@ describe("hasRecordedUrlSecret", () => {
     expect(hasRecordedUrlSecret("/confirmation/RTL1?lot=reslab-2")).toBe(false);
   });
 
+  it("matches the signed booking key on a confirmation link", () => {
+    expect(hasRecordedUrlSecret("https://www.triplypro.com/confirmation/RTL1?booking_key=AbCdEfGhIjKlMnOpQrStUv")).toBe(true);
+    expect(hasRecordedUrlSecret("/confirmation/RTL1?booking_key=AbCdEfGhIjKlMnOpQrStUv&email=a%40b.co")).toBe(true);
+    expect(hasRecordedUrlSecret("/x?booking=1&key=2")).toBe(false);
+  });
+
   it("never matches on text: utm_medium=email and look-alike names are not secrets", () => {
     expect(hasRecordedUrlSecret("/blog/x?utm_source=triply&utm_medium=email")).toBe(false);
     expect(hasRecordedUrlSecret("/x?customer_email=a&payment_intent=pi_1")).toBe(false);
@@ -17,12 +23,12 @@ describe("hasRecordedUrlSecret", () => {
 });
 
 /**
- * No page may navigate in-app to a URL carrying the guest's email: Clarity and
- * Sentry are already running and record it. The hand-off goes through
- * lib/confirmation/guest-email.ts (sessionStorage; a full page load when that
- * fails). Only the confirmation EMAIL may build an ?email= link.
+ * No page may navigate in-app to a URL carrying the guest's email or booking
+ * key: Clarity and Sentry are already running and record it. The hand-off goes
+ * through lib/confirmation/guest-email.ts (sessionStorage; a full page load
+ * when that fails). Only the confirmation EMAIL may build such a link.
  */
-describe("no in-app ?email= links", () => {
+describe("no in-app ?email= / ?booking_key= links", () => {
   const SRC = path.resolve(__dirname, "../../..");
   // The confirmation email's link, and the storage-blocked fallback (which
   // always goes through a FULL page load — see confirmationHandOff).
@@ -39,10 +45,12 @@ describe("no in-app ?email= links", () => {
     });
   }
 
-  it("only the email template and the hand-off helper build a URL carrying the email", () => {
+  it("only the email template and the hand-off helper build a URL carrying the email or the key", () => {
     // Template literals (?email=${…}), concatenation ("&email=" + …) and
-    // URLSearchParams / searchParams .set("email", …) / .append("email", …).
-    const BUILDS_EMAIL_URL = /[?&]email=(?:\$\{|["'`]\s*\+)|\.(?:set|append)\(\s*["'`]email["'`]/;
+    // URLSearchParams / searchParams .set("email", …) / .append("email", …);
+    // the same for booking_key.
+    const BUILDS_EMAIL_URL =
+      /[?&](?:email|booking_key)=(?:\$\{|["'`]\s*\+)|\.(?:set|append)\(\s*["'`](?:email|booking_key)["'`]/;
     const offenders = sourceFiles(SRC)
       .filter((file) => !ALLOWED.has(path.relative(SRC, file)))
       .filter((file) => BUILDS_EMAIL_URL.test(fs.readFileSync(file, "utf8")))
