@@ -82,6 +82,10 @@ describe("sameGuestEmail", () => {
 });
 
 describe("holdGuestDenial", () => {
+  it("the floor is long enough to cover a database read with room to spare", () => {
+    expect(GUEST_LOOKUP_DENY_FLOOR_MS).toBeGreaterThanOrEqual(500);
+  });
+
   it("answers no sooner than the floor after the take; immediately once it has passed", async () => {
     vi.useFakeTimers();
     const takenAt = Date.now();

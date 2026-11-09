@@ -163,6 +163,13 @@ a human.
 
 One entry per reviewed PR: what the review found, by lesson number. Newest first.
 
+- **Guest booking key + email-path limit (Nov 9):**
+  - Lesson 9: a wrong email on a real booking cost one more read than a number that isn't one, so response time showed which numbers are bookings (found while building). Refusals now answer no sooner than a fixed floor after the take, on the guest path and, in round 2, the signed-in path.
+  - Lesson 9: a failed staged read gave the try back after the main email had already been compared, a free guess during a database fault (round 1). It now costs the try.
+  - Lesson 1: a direct booking opened by key could show the account holder's contact details when the guest's own couldn't be read (Codex). It now answers 500.
+  - Lesson 5: giving back a take that timed out could refund a take the database had refused (round 2). A timeout keeps its try used.
+  - Lesson 13: the mutation check found 16 of 70 breaks passing, including a length-only secret comparison and a refund on every wrong guess. The test harness never ran `after()` work and every wrong secret had a different length. Tests were added and the breaks re-run.
+
 - **Booking-link privacy guards (Nov 8):**
   - Lesson 9: Sentry matched the new link param only by its literal name, so `booking%5Fkey=`, which the page reads exactly like `booking_key=`, kept its value (Codex). Names are now compared as `URLSearchParams` decodes them.
   - Lesson 15: that fix's regex consumed whole param values, so a secret nested unencoded inside another param (`?next=/confirmation/n?booking_key=…`) went unchecked, which the old literal regex had caught (pass 2). It became a scan that consumes only names.

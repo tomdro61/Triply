@@ -166,6 +166,8 @@ const limit = vi.hoisted(() => {
     unknownIp: [] as string[],
     /** Refusals held to the timing floor (holdGuestDenial calls). */
     holds: 0,
+    /** What each hold waits on (resolved by default; a test can hold it open). */
+    holdGate: Promise.resolve() as Promise<void>,
   };
 });
 vi.mock("@/lib/confirmation/guest-lookup-limit", async (importOriginal) => {
@@ -189,6 +191,7 @@ vi.mock("@/lib/confirmation/guest-lookup-limit", async (importOriginal) => {
     },
     holdGuestDenial: async () => {
       limit.holds++;
+      await limit.holdGate;
     },
   };
 });
@@ -259,6 +262,7 @@ beforeEach(() => {
   limit.releases = [];
   limit.unknownIp = [];
   limit.holds = 0;
+  limit.holdGate = Promise.resolve();
   afterQueue.length = 0;
   __resetGuestLookupRateLimitForTests();
 });
@@ -735,6 +739,8 @@ describe("direct booking", () => {
         expect((await guestCall(TRP, { email: "guess@example.com" })).status).toBe(500);
         await flushAfter();
         expect(limit.releases).toEqual([]);
+        // Held like a refusal: the staged read runs only for a real booking.
+        expect(limit.holds).toBe(1);
         for (let i = 2; i <= 5; i++) await guestCall(TRP, { email: `guess${i}@example.com` });
         expect((await guestCall(TRP, { email: "guess6@example.com" })).status).toBe(429);
       });
@@ -946,6 +952,71 @@ describe("direct booking", () => {
           expect(res.status).toBe(500);
           expect(JSON.stringify(await res.json())).not.toContain("booker@example.com");
         }
+      });
+
+      it("signed in to another account: a valid key on an other-mode or missing row → 403", async () => {
+        h.state.user = { id: "u-other", email: "other@example.com", email_confirmed_at: "2026-01-01" };
+        h.state.detailRow = { data: row(), error: null };
+        h.state.authRow = { data: { customer_id: "c1", stripe_payment_intent_id: "pi_direct", customers: { user_id: "u1", email: EMAIL }, livemode: true }, error: null };
+        expect((await guestCall(TRP, { key: bookingKey(TRP) })).status).toBe(403);
+        h.state.authRow = { data: null, error: null };
+        expect((await guestCall(TRP, { key: bookingKey(TRP) })).status).toBe(403);
+      });
+
+      it("signed in to another account + key: a direct booking with no readable staged guest → 500, never the booker's details", async () => {
+        h.state.user = { id: "u-other", email: "other@example.com", email_confirmed_at: null };
+        h.state.authRow = { data: { customer_id: "c1", stripe_payment_intent_id: "pi_direct", customers: { user_id: "u1", email: EMAIL }, livemode: false }, error: null };
+        h.state.detailRow = {
+          data: { ...row(), customers: { first_name: "Booker", last_name: "Account", email: "booker@example.com", phone: "5550000000" } },
+          error: null,
+        };
+        for (const pendingRow of [{ data: null, error: { message: "timeout" } }, { data: null, error: null }]) {
+          h.state.pendingRow = pendingRow;
+          const res = await guestCall(TRP, { key: bookingKey(TRP) });
+          expect(res.status).toBe(500);
+          expect(JSON.stringify(await res.json())).not.toContain("booker@example.com");
+        }
+      });
+
+      it("a direct booking opened by key with no staged guest is reported", async () => {
+        h.state.authRow = keyRow(false);
+        h.state.detailRow = { data: row(), error: null };
+        h.state.pendingRow = { data: null, error: null };
+        expect((await guestCall(TRP, { key: bookingKey(TRP) })).status).toBe(500);
+        expect(h.captureBookingError.mock.calls.some(([, ctx]) => ctx?.fingerprint?.[0] === "direct-keyed-staged-guest-missing")).toBe(true);
+      });
+
+      it("a refusal is not answered until the hold has finished", async () => {
+        h.state.rowsById = {};
+        let open!: () => void;
+        limit.holdGate = new Promise<void>((resolve) => {
+          open = resolve;
+        });
+        let settled = false;
+        const pending = guestCall("RTL404", { email: EMAIL }).then((r) => {
+          settled = true;
+          return r;
+        });
+        await new Promise((resolve) => setTimeout(resolve, 25));
+        expect(limit.holds).toBe(1);
+        expect(settled).toBe(false);
+        open();
+        expect((await pending).status).toBe(403);
+      });
+
+      it("a wrong-shape value never counts toward the invalid-key ladder (fresh module)", async () => {
+        vi.resetModules();
+        const fresh = (await import("../route")).GET;
+        h.state.detailRow = { data: row(), error: null };
+        const send = (key: string) =>
+          fresh(new NextRequest(`https://x.test/api/reservations/${TRP}`, { headers: { "x-booking-key": key } }), {
+            params: Promise.resolve({ id: TRP }),
+          });
+        const invalidReports = () => h.captureBookingError.mock.calls.filter(([, c]) => c?.fingerprint?.[0] === "booking-key-invalid").length;
+        await send("short");
+        expect(invalidReports()).toBe(0);
+        await send("ForgedKeyForgedKeyForA");
+        expect(invalidReports()).toBe(1);
       });
 
       it("every answer varies by the key header too", async () => {
