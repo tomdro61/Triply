@@ -15,7 +15,7 @@ function ownCodeRule(airportCode: string): string {
   if (!code) return ''
   const pct = loadApprovedOffers()[code]
   if (!loadApprovedCodes().map((c) => c.toUpperCase()).includes(code) || typeof pct !== 'number') {
-    console.warn(`  ⚠ COUPON_CODE=${code} is not in src/config/approved-promo-codes.json with a percentOff — the promo-code rule is left out of the prompt`)
+    console.warn(`  ⚠ COUPON_CODE=${code} is not an approved, unexpired code with a percentOff in src/config/approved-promo-codes.json — the promo-code rule is left out of the prompt`)
     return ''
   }
   return `39. TRIPLY PROMO CODE (coupon-intent articles only): If the focus keyword involves coupons, promo codes, discounts, or deals, feature Triply's own code as the FIRST direct answer near the top: an H2 "Promo code ${code}: ${pct}% off" followed by a short paragraph stating that ${code} takes ${pct}% off the parking rate on bookings made on triplypro.com, entered in the promo code field at checkout, with a link to https://www.${DOMAIN}/search?airport=${airportCode} in that same paragraph, plus the terms line "Applies to bookings made on triplypro.com." Never call it verified or working, never promise one use per customer, NEVER write that no codes exist. Third-party code discussion comes after ours and names only codes the airport or the lot itself publishes.`

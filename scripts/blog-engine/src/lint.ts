@@ -227,8 +227,8 @@ export function lintArticle(input: LintInput): LintResult {
   const errors: LintFinding[] = []
   const warnings: LintFinding[] = []
   const now = input.now || new Date()
-  const approved = new Set((input.approvedCodes || loadApprovedCodes()).map((c) => c.toUpperCase()))
-  const offers = input.approvedOffers ?? (input.approvedCodes ? {} : loadApprovedOffers())
+  const approved = new Set((input.approvedCodes || loadApprovedCodes(undefined, now)).map((c) => c.toUpperCase()))
+  const offers = input.approvedOffers ?? (input.approvedCodes ? {} : loadApprovedOffers(undefined, now))
   const savingsClaims = (text: string) => [...text.matchAll(new RegExp(SAVE_UP_TO.source, 'gi'))].map((m) => m[0])
 
   const faqText = (input.faqItems || []).map((f) => `${f.question} ${f.answer}`).join(' ')
@@ -271,7 +271,7 @@ export function lintArticle(input: LintInput): LintResult {
       // Skip obvious non-codes: airport codes with digits don't exist; terminal labels, PNG sizes, model names
       if (/^(?:T\d|B\d|P\d{1,2}|LOT\d{1,2}|HWY\d+|I\d{2,3}|US\d{1,3}|SR\d{1,3}|A\d{1,2}|C\d{1,2}|D\d{1,2}|E\d{1,2}|F\d{1,2}|G\d{1,2}|H\d{1,2}|\d+X\d+|COVID19|SB\d{2,4}|HB\d{2,4})$/.test(code)) continue
       seen.add(code)
-      errors.push({ level: 'error', rule: 'unapproved-code', message: `promo code "${code}" is not in config/approved-promo-codes.json`, snippet: context(allText, index) })
+      errors.push({ level: 'error', rule: 'unapproved-code', message: `promo code "${code}" is not an approved, unexpired code in config/approved-promo-codes.json`, snippet: context(allText, index) })
     }
   }
 

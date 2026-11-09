@@ -204,6 +204,16 @@ test("checkEdit: another airport's code sources nothing and is a warning", () =>
   assert.ok(!checkInsert(PROMO, offers).warnings.some((x) => x.rule === 'other-airport-code'), 'its own code is no warning')
 })
 
+// The real list, end to end: a DFW post's DFW5 paragraph clears every gate (lint, price check, codes). Skipped once
+// the codes have expired, when they leave the list (and checkout) anyway.
+test('checkEdit: the real DFW5 copy in a DFW post clears every gate', { skip: Date.now() >= Date.parse('2027-02-01T04:59:59Z') && 'the $5 codes have expired' }, () => {
+  const dfw: PostLike = { ...post(), slug: 'dfw-airport-parking-promo-code', airportCode: 'DFW', title: 'DFW Parking Promo Code' }
+  const html = '<p>Use promo code DFW5 at checkout for $5 off a parking subtotal of $25 or more. Applies to bookings made on triplypro.com.</p>'
+  const c = checkEdit(dfw, applyEdit(dfw, { insert: ins('Shuttle', html) }), { insert: ins('Shuttle', html) }, new Set([1800]))
+  assert.deepEqual(c.blockers, [])
+  assert.ok(!c.warnings.some((w) => w.rule === 'other-airport-code'))
+})
+
 test('checkEdit: the code is matched as a whole word, in any case', () => {
   for (const near of ['EWR50', 'XEWR5', 'EWR5X']) {
     assert.ok(priceBlockers(checkInsert(`<p>Use ${near} for $5 off a parking subtotal of $25 or more.</p>`)).some((b) => b.startsWith('price check: $5')), near)
