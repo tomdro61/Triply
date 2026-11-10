@@ -2,7 +2,8 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { getAirportByCode, getAirportBySlug, productionAirports, type Airport } from "@/config/airports";
 import { lotIdLookup, lotSlugLookup } from "@/lib/reslab/get-lot";
 import type { ReslabLocation } from "@/lib/reslab/client";
-import { isOwnAirportFilterEnabled, locationBelongsToAirport } from "@/lib/search/airport-ownership";
+import { isExemptFromOwnership, isOwnAirportFilterEnabled, locationBelongsToAirport } from "@/lib/search/airport-ownership";
+import { AIRPORT_SEARCH_RADIUS_KM } from "@/lib/reslab/search";
 import { calculateDistance } from "@/lib/utils/geo";
 import { generateSlug } from "@/lib/utils/slug";
 import type { LinkParam } from "@/lib/utils/link-date";
@@ -14,14 +15,16 @@ import type { LinkParam } from "@/lib/utils/link-date";
  * Console's noindex report, 137 more in "crawled, not indexed", 10 Nov 2026).
  *
  *   live slug, owned here           → renders
- *   live slug, owned by another     → 308 to the owning airport (what the
- *     airport                          canonical already says; LGA once
- *                                      listed JFK lots)
+ *   live slug, no same-name lot     → 308 to the owning airport (what the
+ *     owned here                       canonical already says; a thin list
+ *                                      renders instead)
  *   numeric id (`466`, `reslab-466`) → 308 to the lot's slug URL; real 404
  *                                      when the id is gone
- *   old slug with an airport-code   → 308 to the live lot of that name AT
- *     suffix (`snap-parking-ewr`)      that airport; 404 when that airport
- *                                      has none (`park-for-u-yyz` must not
+ *   old slug with an airport-code   → 308 to the live lot of that name at
+ *     suffix (`snap-parking-ewr`)      that airport, or at the neighbour that
+ *                                      now owns it when it is within search
+ *                                      range; 404 when the only same-name lot
+ *                                      is far away (`park-for-u-yyz` must not
  *                                      land on the JFK lot)
  *   old slug with a cruise-port     → 308 to the live lot of that name here
  *     suffix (`…-portmiami`)
@@ -49,10 +52,12 @@ export async function resolveLotUrl(
   const here = await lotSlugLookup(lotSlug, airport.code);
   if (here.status === "unknown") return;
   if (here.status === "exists") {
-    if (here.reslab.length > 0) {
-      const owner = ownerOf(nearest(here.reslab, airport), airport);
-      if (owner.code !== airport.code) permanentRedirect(`/${owner.slug}/airport-parking/${lotSlug}${qs}`);
-    }
+    // A same-name lot this airport owns (the one the sitemap lists), a direct
+    // lot, or a thin list that may hide it: render. Otherwise the lot is
+    // another airport's — 308 there, as the canonical already says.
+    if (here.reslab.length === 0 || here.incomplete || here.reslab.some((l) => belongs(l, airport))) return;
+    const owner = ownerOf(nearest(here.reslab, airport), airport);
+    if (owner.code !== airport.code) permanentRedirect(`/${owner.slug}/airport-parking/${lotSlug}${qs}`);
     return;
   }
 
@@ -60,8 +65,17 @@ export async function resolveLotUrl(
     const twin = await lotSlugLookup(slug, at.code);
     // Can't tell whether the live twin exists: render as before, no 404 on a guess.
     if (twin.status === "unknown") return;
-    if (twin.status === "exists" && (twin.reslab.length === 0 || twin.reslab.some((l) => belongs(l, at)))) {
+    if (twin.status !== "exists") continue;
+    if (twin.reslab.length === 0 || twin.reslab.some((l) => belongs(l, at))) {
       permanentRedirect(`/${at.slug}/airport-parking/${slug}${qs}`);
+    }
+    if (twin.incomplete) return;
+    // The lot now belongs to a neighbour (an old `-lga` slug for a JFK lot):
+    // follow it when it is within search range of the named airport. A
+    // same-name lot far away (park-for-u-yyz vs the JFK lot) is not this one.
+    const near = nearest(twin.reslab, at);
+    if (distanceKm(near, at) <= AIRPORT_SEARCH_RADIUS_KM) {
+      permanentRedirect(`/${ownerOf(near, at).slug}/airport-parking/${slug}${qs}`);
     }
   }
   notFound();
@@ -86,10 +100,20 @@ function belongs(loc: ReslabLocation, airport: Airport): boolean {
   return !isOwnAirportFilterEnabled() || locationBelongsToAirport(loc, airport);
 }
 
-/** The airport that owns this lot — this one if it does, else the first production airport that does (as canonicalAirportFor). */
+/**
+ * The airport that owns this lot: this one if it does, else the nearest-wins
+ * owner among airports the rule covers. Exempt airports (cruise ports,
+ * single-location, test) say yes to every lot, so they never win the search
+ * (POE sorts mid-list and would take every later airport's lots).
+ */
 function ownerOf(loc: ReslabLocation, airport: Airport): Airport {
   if (belongs(loc, airport)) return airport;
-  return productionAirports.find((a) => locationBelongsToAirport(loc, a)) ?? airport;
+  return productionAirports.find((a) => !isExemptFromOwnership(a) && locationBelongsToAirport(loc, a)) ?? airport;
+}
+
+function distanceKm(loc: ReslabLocation, airport: Airport): number {
+  const mi = calculateDistance(airport.latitude, airport.longitude, parseFloat(loc.latitude), parseFloat(loc.longitude), false);
+  return Number.isNaN(mi) ? Infinity : mi * 1.609344;
 }
 
 /** findLotBySlug's tie-break: the same-name lot nearest the URL's airport. */

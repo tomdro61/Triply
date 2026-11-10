@@ -103,6 +103,12 @@ describe("lotIdLookup", () => {
     expect((await lotIdLookup("7")).status).toBe("unknown");
   });
 
+  it("exists carries the list's incomplete flag", async () => {
+    channel([loc(7, "Snap Parking")], true);
+    const r = await lotSlugLookup("snap-parking", "EWR");
+    expect(r.status === "exists" && r.incomplete).toBe(true);
+  });
+
   it("a hidden or non-USD id is missing; a non-id is unknown", async () => {
     channel([loc(416, "Parking 4 Airport"), loc(9, "Maple Leaf Lot", "CAD")]);
     expect((await lotIdLookup("416")).status).toBe("missing");
@@ -125,6 +131,14 @@ describe("lotSlugStatus — direct lots on", () => {
   it("a failed direct read is unknown", async () => {
     directRows(null, { code: "57014", message: "statement timeout" });
     expect(await lotSlugStatus("acme-jfk", "JFK")).toBe("unknown");
+  });
+
+  it("numeric ids: a direct twin, or a failed direct read, is unknown; no twin falls to the list", async () => {
+    directRows([directLotRow({ slug: "acme-jfk", airport_code: "JFK", reslab_location_id: 7 })]);
+    expect((await lotIdLookup("7")).status).toBe("unknown");
+    expect((await lotIdLookup("379")).status).toBe("missing");
+    directRows(null, { code: "57014", message: "statement timeout" });
+    expect((await lotIdLookup("8")).status).toBe("unknown");
   });
 
   it("direct ids are left to getLotById", async () => {

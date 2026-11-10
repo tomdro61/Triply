@@ -10,7 +10,7 @@
  */
 import { productionAirports, type Airport } from "@/config/airports";
 import { priceViewFromPricing } from "@/lib/pricing/price-view";
-import { lotBelongsToAirport } from "@/lib/search/airport-ownership";
+import { isExemptFromOwnership, lotBelongsToAirport } from "@/lib/search/airport-ownership";
 import type { UnifiedLot } from "@/types/lot";
 
 /** Same host as the sitemap and `NEXT_PUBLIC_APP_URL` in production. */
@@ -30,7 +30,8 @@ export function lotCanonicalPath(airportSlug: string, lotSlug: string): string {
  */
 export function canonicalAirportFor(lot: UnifiedLot, airport: Airport): Airport {
   if (lot.source !== "reslab" || lotBelongsToAirport(lot, airport)) return airport;
-  return productionAirports.find((a) => lotBelongsToAirport(lot, a)) ?? airport;
+  // Exempt airports (cruise ports, single-location) claim every lot, so they never win here.
+  return productionAirports.find((a) => !isExemptFromOwnership(a) && lotBelongsToAirport(lot, a)) ?? airport;
 }
 
 /** An image Google can fetch: an absolute URL, never the "/placeholder-parking.jpg" filler. */

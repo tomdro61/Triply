@@ -388,7 +388,8 @@ function directToUnified(lot: DirectLot, fromDate: string, toDate: string): Unif
  *               itself. Never a 404 on a guess.
  */
 export type LotLookup =
-  | { status: "exists"; reslab: readonly ReslabLocation[] }
+  /** `incomplete`: the channel list is known thin, so a lot absent from `reslab` may still exist. */
+  | { status: "exists"; reslab: readonly ReslabLocation[]; incomplete: boolean }
   | { status: "missing" }
   | { status: "unknown" };
 
@@ -415,7 +416,7 @@ export async function lotSlugLookup(slug: string, airportCode: string): Promise<
   if (directEnabled) {
     const direct = await loadSellableDirectLots(airportCode);
     if (!direct.ok) return UNKNOWN;
-    if (direct.lots.some((l) => l.slug === slug && l.airportCode === airportCode)) return { status: "exists", reslab: [] };
+    if (direct.lots.some((l) => l.slug === slug && l.airportCode === airportCode)) return { status: "exists", reslab: [], incomplete: false };
     const maybeThis = direct.droppedKeys.some(
       (k) => (k.airportCode === null || k.airportCode === airportCode) && (k.slug === null || k.slug === slug),
     );
@@ -426,7 +427,7 @@ export async function lotSlugLookup(slug: string, airportCode: string): Promise<
   if (!channel) return UNKNOWN;
   const allMatches = channel.data.filter((loc) => generateSlug(loc.name) === slug);
   const visible = allMatches.filter(isVisible);
-  if (visible.length > 0) return { status: "exists", reslab: visible };
+  if (visible.length > 0) return { status: "exists", reslab: visible, incomplete: channel.incomplete };
   if (allMatches.length > 0) return MISSING;
   return channel.incomplete ? UNKNOWN : MISSING;
 }
@@ -436,18 +437,23 @@ export async function lotSlugLookup(slug: string, airportCode: string): Promise<
  * once linked ids, and Google still crawls them — 10 live duplicates of the
  * slug pages (it picked the id URL as canonical on 4) and 4 dead ones that
  * were soft 404s (audit, 10 Nov 2026). "exists" carries the one location so
- * the caller can 308 to its slug URL. A ResLab id that a direct lot twins is
- * left "unknown" once direct booking is open (getLotById swaps in the direct
- * lot); "missing" only on a complete list.
+ * the caller can 308 to its slug URL. An id with a direct-lot twin is left
+ * "unknown" while direct booking is open (getLotById renders the direct lot
+ * there), as is any id when the direct read fails; "missing" only on a
+ * complete list.
  */
 export async function lotIdLookup(id: string): Promise<LotLookup> {
   const m = /^(?:reslab-)?(\d+)$/.exec(id);
   if (!m) return UNKNOWN;
-  if (isDirectLotsEnabled() && DIRECT_BOOKING_OPEN) return UNKNOWN;
+  const reslabId = Number(m[1]);
+  if (isDirectLotsEnabled() && DIRECT_BOOKING_OPEN) {
+    const direct = await loadSellableDirectLots(null);
+    if (!direct.ok || direct.lots.some((l) => l.reslabLocationId === reslabId)) return UNKNOWN;
+  }
   const channel = await channelForPrecheck(`id ${id}`);
   if (!channel) return UNKNOWN;
-  const loc = channel.data.find((l) => l.id === Number(m[1]));
-  if (loc) return isVisible(loc) ? { status: "exists", reslab: [loc] } : MISSING;
+  const loc = channel.data.find((l) => l.id === reslabId);
+  if (loc) return isVisible(loc) ? { status: "exists", reslab: [loc], incomplete: channel.incomplete } : MISSING;
   return channel.incomplete ? UNKNOWN : MISSING;
 }
 

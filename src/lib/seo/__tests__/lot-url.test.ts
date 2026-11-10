@@ -26,6 +26,8 @@ const NEAR_EWR = [40.69, -74.17] as const;
 const NEAR_JFK = [40.66, -73.79] as const;
 const NEAR_BOS = [42.37, -71.02] as const;
 const NEAR_MIA = [25.8, -80.29] as const;
+const NEAR_SFO = [37.62, -122.38] as const;
+const BETWEEN_JFK_LGA = [40.7, -73.82] as const; // owned by JFK, within 15 km of LGA
 
 /** slug -> the visible same-name locations (any airport); absent = no lot by that name. */
 let live: Record<string, Loc[]>;
@@ -40,15 +42,18 @@ beforeEach(() => {
     "park-for-u": [at(3, "Park For U", ...NEAR_JFK)],
     "safe-park-jfk": [at(4, "Safe Park JFK", ...NEAR_JFK)],
     "safe-cruise-parking": [at(5, "Safe Cruise Parking", ...NEAR_MIA)],
+    "sfo-lot": [at(6, "SFO Lot", ...NEAR_SFO)],
+    "queens-lot": [at(7, "Queens Lot", ...BETWEEN_JFK_LGA)],
+    "days-inn": [at(8, "Days Inn", ...NEAR_JFK), at(9, "Days Inn", ...NEAR_EWR)],
   };
   lookups.lotSlugLookup.mockReset();
   lookups.lotSlugLookup.mockImplementation(async (slug: string) =>
-    live[slug] ? { status: "exists", reslab: live[slug] } : { status: "missing" },
+    live[slug] ? { status: "exists", reslab: live[slug], incomplete: false } : { status: "missing" },
   );
   lookups.lotIdLookup.mockReset();
   lookups.lotIdLookup.mockImplementation(async (id: string) => {
     const loc = ids[id.replace(/^reslab-/, "")];
-    return loc ? { status: "exists", reslab: [loc] } : { status: "missing" };
+    return loc ? { status: "exists", reslab: [loc], incomplete: false } : { status: "missing" };
   });
 });
 afterEach(() => {
@@ -67,13 +72,27 @@ describe("resolveLotUrl — live slugs", () => {
     await expect(resolve("new-york-lga", "safe-park-jfk")).rejects.toThrow("REDIRECT /new-york-jfk/airport-parking/safe-park-jfk");
   });
 
+  it("an owner that sorts after the POE cruise port is still found (exempt airports never win)", async () => {
+    await expect(resolve("san-jose-sjc", "sfo-lot")).rejects.toThrow("REDIRECT /san-francisco-sfo/airport-parking/sfo-lot");
+  });
+
+  it("renders when ANY same-name lot belongs here (the one the sitemap lists), even if another is nearer", async () => {
+    await expect(resolve("new-york-ewr", "days-inn")).resolves.toBeUndefined();
+    await expect(resolve("new-york-jfk", "days-inn")).resolves.toBeUndefined();
+  });
+
+  it("a thin list never moves a live URL: renders", async () => {
+    lookups.lotSlugLookup.mockResolvedValue({ status: "exists", reslab: live["safe-park-jfk"], incomplete: true });
+    await expect(resolve("new-york-lga", "safe-park-jfk")).resolves.toBeUndefined();
+  });
+
   it("with the own-airport filter off, no ownership redirect", async () => {
     process.env.SEARCH_OWN_AIRPORT_FILTER = "off";
     await expect(resolve("new-york-lga", "safe-park-jfk")).resolves.toBeUndefined();
   });
 
   it("a direct lot (no ResLab locations) renders", async () => {
-    lookups.lotSlugLookup.mockResolvedValue({ status: "exists", reslab: [] });
+    lookups.lotSlugLookup.mockResolvedValue({ status: "exists", reslab: [], incomplete: false });
     await expect(resolve("boston-bos", "acme-direct")).resolves.toBeUndefined();
   });
 });
@@ -92,6 +111,17 @@ describe("resolveLotUrl — old code-suffixed slugs", () => {
   it("404s when the only same-name lot belongs to another airport (park-for-u-yyz must not land on the JFK lot)", async () => {
     await expect(resolve("toronto-yyz", "park-for-u-yyz")).rejects.toThrow("NOT_FOUND");
     expect(nav.permanentRedirect).not.toHaveBeenCalled();
+  });
+
+  it("follows a lot that now belongs to a nearby airport (old -lga slug for a JFK-owned lot)", async () => {
+    await expect(resolve("new-york-lga", "queens-lot-lga")).rejects.toThrow("REDIRECT /new-york-jfk/airport-parking/queens-lot");
+  });
+
+  it("a far-away twin on a thin list renders instead of 404ing", async () => {
+    lookups.lotSlugLookup.mockImplementation(async (slug: string) =>
+      slug === "park-for-u" ? { status: "exists", reslab: live["park-for-u"], incomplete: true } : { status: "missing" },
+    );
+    await expect(resolve("toronto-yyz", "park-for-u-yyz")).resolves.toBeUndefined();
   });
 
   it("a dead slug with no live twin is a real 404; a non-code suffix is not stripped", async () => {
@@ -127,6 +157,11 @@ describe("resolveLotUrl — numeric ids", () => {
   it("a live id 308s to its slug URL under its owning airport", async () => {
     await expect(resolve("boston-bos", "466")).rejects.toThrow("REDIRECT /boston-bos/airport-parking/ramada-by-wyndham-boston");
     await expect(resolve("new-york-jfk", "reslab-466")).rejects.toThrow("REDIRECT /boston-bos/airport-parking/ramada-by-wyndham-boston");
+  });
+
+  it("with the own-airport filter off, a live id 308s under the URL's airport", async () => {
+    process.env.SEARCH_OWN_AIRPORT_FILTER = "off";
+    await expect(resolve("new-york-jfk", "466")).rejects.toThrow("REDIRECT /new-york-jfk/airport-parking/ramada-by-wyndham-boston");
   });
 
   it("a gone id is a real 404; unknown renders as before", async () => {
