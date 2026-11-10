@@ -107,6 +107,10 @@ const BARE_MONEY: RegExp[] = [
 // a confirmation code — those posts must not have every all-caps word read as a promo code (NJ TRANSIT, PANYNJ).
 export const PROMO_WORD = /\b(?:promo|promotional|coupon|discount|voucher)\s?codes?\b|\b(?:promo|coupon)s?\b/i
 // "verified"/"working"/… near "promo code" (any case), or near "code TRIPLY10" (an upper-case token that looks like a code).
+/** #176: a Triply booking with a protection plan is partly non-refundable, so our copy never promises a full refund. */
+const REFUND_PROMISE = /\bfree cancell?ation\b[^.<>]{0,40}\b(?:full|100%) refund\b|\bfully refundable\b|\bmoney[- ]back\b/i
+/** Any other "full refund" may be an airport's own published policy (MKE, SJC): a warning to check, not a block. */
+const FULL_REFUND = /\bfull refund\b/i
 const VERIFIED_NEAR_CODE = /\b(?:verified|working|tested|confirmed|guaranteed)\b[^.<>]{0,60}\b(?:promo|coupon|discount)\s?codes?\b|\b(?:promo|coupon|discount)\s?codes?\b[^.<>]{0,60}\b(?:verified|working|tested|confirmed|guaranteed)\b/i
 // The token must look like a promo code (letters AND digits, "TRIPLY10"), and "gate code 4821" / "confirmation code" are not promo codes.
 const NOT_PROMO_CODE_WORD = '(?<!\\b(?:[Gg]ate|[Aa]ccess|[Dd]oor|[Cc]onfirmation|[Bb]ooking|[Rr]eservation|[Zz]ip|[Pp]ostal|[Qq][Rr]|[Bb]ar|[Aa]rea|[Pp]in)[\\s-]+)'
@@ -240,6 +244,16 @@ export function lintArticle(input: LintInput): LintResult {
   for (const re of ARTIFACT_PHRASES) {
     const m = allText.match(re)
     if (m) errors.push({ level: 'error', rule: 'artifact-phrase', message: `AI/editing artifact "${m[0]}" left in the text`, snippet: context(allText, m.index || 0) })
+  }
+
+  // 1b. Refund promises (#176)
+  {
+    const m = allText.match(REFUND_PROMISE)
+    if (m) errors.push({ level: 'error', rule: 'refund-claim', message: `"${m[0]}": say "free cancellation up to 24 hours before check-in"; a protection plan is partly non-refundable`, snippet: context(allText, m.index || 0) })
+    else {
+      const f = allText.match(FULL_REFUND)
+      if (f) warnings.push({ level: 'warn', rule: 'refund-claim', message: '"full refund": fine only as an airport\'s own published policy, never for a Triply booking', snippet: context(allText, f.index || 0) })
+    }
   }
 
   // 2. Money without a currency sign
