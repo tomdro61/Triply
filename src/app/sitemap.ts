@@ -82,6 +82,15 @@ function staticPages(): MetadataRoute.Sitemap {
   ];
 }
 
+/**
+ * Airports whose page lists no lots ("coming soon", noindexed by listsNoLots)
+ * as of 10 Nov 2026. Used ONLY when the sitemap is built with no location
+ * list; with a list, the real lot selection decides. Update it when one of
+ * these gains lots (it is then left out of a cold build's sitemap for about
+ * an hour) or another airport loses all of them.
+ */
+const KNOWN_ZERO_LOT_AIRPORTS: ReadonlySet<string> = new Set(["DAL", "RSW", "YOW", "YUL", "YYC", "YYZ"]);
+
 async function airportPages(): Promise<MetadataRoute.Sitemap> {
   // An airport page with no lots listed at all renders "coming soon" and is
   // noindexed (listsNoLots in src/lib/airport-page/content.ts); a sitemap
@@ -91,14 +100,13 @@ async function airportPages(): Promise<MetadataRoute.Sitemap> {
   // indexed.
   //
   // With no usable list (cold instance, snapshot off) we cannot tell which
-  // airports list lots, so no airport is listed on a guess: listing all of
-  // them re-submits the noindexed zero-lot hubs (DAL, RSW, YOW, YUL, YYC,
-  // YYZ in Nov 2026) and reopens Search Console's "Excluded by noindex tag"
-  // alert. In production at runtime, fail the regeneration so Next keeps the
-  // last good segment (as lotPages does). At build or outside production,
-  // list only the airports direct lots prove; the hourly regeneration fills
-  // in the rest. Leaving a hub out of the sitemap for an hour does not
-  // deindex it; a noindexed URL in the sitemap is what Search Console flags.
+  // airports list lots. Listing all of them re-submits the noindexed
+  // zero-lot hubs and reopens Search Console's "Excluded by noindex tag"
+  // alert (9 Nov 2026). In production at runtime, fail the regeneration so
+  // Next keeps the last good segment (as lotPages does). At build or outside
+  // production, list every airport except the known zero-lot ones
+  // (KNOWN_ZERO_LOT_AIRPORTS), so no sellable hub drops out of the sitemap;
+  // the hourly regeneration then decides from the real list.
   const channel = await getChannelLocationsNoSweep();
   if (channel === null) {
     const why = isSnapshotEnabled()
@@ -107,7 +115,7 @@ async function airportPages(): Promise<MetadataRoute.Sitemap> {
     if (resolveEnv() === "production" && process.env.NEXT_PHASE !== "phase-production-build") {
       throw new Error(`Sitemap airports: ${why}; keeping the previous segment`);
     }
-    console.warn(`Sitemap airports: ${why}; listing only airports with direct lots`);
+    console.warn(`Sitemap airports: ${why}; listing every airport except the known zero-lot ones`);
   }
   let directAirportCodes = new Set<string>();
   if (isDirectLotsEnabled()) {
@@ -125,8 +133,9 @@ async function airportPages(): Promise<MetadataRoute.Sitemap> {
   }
   const listed = productionAirports.filter(
     (airport) =>
-      (channel !== null && reslabLocationsFor(channel, airport).length > 0) ||
-      directAirportCodes.has(airport.code)
+      (channel === null
+        ? !KNOWN_ZERO_LOT_AIRPORTS.has(airport.code)
+        : reslabLocationsFor(channel, airport).length > 0) || directAirportCodes.has(airport.code)
   );
   if (listed.length < productionAirports.length) {
     console.log(`Sitemap airports: ${listed.length} of ${productionAirports.length} airports list lots; the rest are left out`);

@@ -243,27 +243,27 @@ describe("sitemap airport segment — airports with nothing listed are left out 
     await expect(segment(AIRPORTS_ID)).rejects.toThrow(/keeping the previous segment/);
   });
 
-  it("during `next build` with no usable list, lists no airport hub on a guess (never the zero-lot ones)", async () => {
+  it("during `next build` with no usable list, lists every airport except the six zero-lot ones", async () => {
     process.env.NEXT_PHASE = "phase-production-build";
     channel.getChannelLocationsNoSweep.mockResolvedValue(null);
     const urls = await airportUrls();
-    expect(urls.filter((u) => u.endsWith("/airport-parking"))).toHaveLength(1); // the index page only
     for (const slug of zeroLotHubs) expect(has(urls, slug)).toBe(false);
-    expect(urls[0].endsWith("/airport-parking")).toBe(true);
+    for (const a of productionAirports.filter((x) => !zeroLotHubs.includes(x.slug))) {
+      expect(has(urls, a.slug)).toBe(true);
+    }
+    expect(urls).toHaveLength(productionAirports.length - zeroLotHubs.length + 1);
     expect(console.warn).toHaveBeenCalled();
   });
 
-  it("during `next build` with no usable list, still lists airports a direct lot proves", async () => {
+  it("during `next build` with no usable list, a direct lot still lists its airport", async () => {
     process.env.NEXT_PHASE = "phase-production-build";
     directFlag.on = true;
     channel.getChannelLocationsNoSweep.mockResolvedValue(null);
-    directStore.fetchDirectLots.mockResolvedValue({ ok: true, lots: [directLot({ airportCode: "BOS" })] });
-    const urls = await airportUrls();
-    expect(has(urls, "boston-bos")).toBe(true);
-    expect(has(urls, "new-york-jfk")).toBe(false);
+    directStore.fetchDirectLots.mockResolvedValue({ ok: true, lots: [directLot({ airportCode: "DAL" })] });
+    expect(has(await airportUrls(), "dallas-dal")).toBe(true);
   });
 
-  it("outside production with no usable list, does not throw and lists no hub on a guess", async () => {
+  it("outside production with no usable list, does not throw and leaves out the zero-lot hubs", async () => {
     process.env.NEXT_PUBLIC_APP_ENV = "staging";
     channel.getChannelLocationsNoSweep.mockResolvedValue(null);
     const urls = await airportUrls();
