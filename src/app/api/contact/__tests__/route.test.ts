@@ -1,15 +1,16 @@
 /**
  * /api/contact is public and sends two emails per request from our verified
  * Resend domain. The /partners page (PR #56) makes it a lead-gen target, so
- * these pin the guards added with it: the honeypot (recorded, never silent),
- * the per-IP limit (charged only on a valid submission), the enum subject,
- * and a confirmation email that repeats nothing the caller typed.
+ * these pin the guards added with it: the per-IP limit (charged only on a
+ * valid submission), the enum subject, and a confirmation email that repeats
+ * nothing the caller typed. (The hidden "honeypot" field is gone: autofill
+ * filled it and real messages were dropped.)
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
 const resendSend = vi.hoisted(() => vi.fn());
-const sentry = vi.hoisted(() => ({ captureAPIError: vi.fn(), captureContactHoneypotDrop: vi.fn() }));
+const sentry = vi.hoisted(() => ({ captureAPIError: vi.fn() }));
 vi.mock("@/lib/resend/client", () => ({
   resend: { emails: { send: resendSend } },
   FROM_EMAIL: "Triply <support@triplypro.com>",
@@ -17,7 +18,6 @@ vi.mock("@/lib/resend/client", () => ({
 vi.mock("@/lib/sentry", () => sentry);
 
 import { POST } from "../route";
-import { CONTACT_HONEYPOT_FIELD } from "@/lib/validation/schemas";
 import { __resetContactRateLimitForTests } from "@/lib/attribution/limiter";
 
 const valid = {
@@ -39,7 +39,6 @@ beforeEach(() => {
   resendSend.mockReset();
   resendSend.mockResolvedValue({ data: { id: "email_1" }, error: null });
   sentry.captureAPIError.mockReset();
-  sentry.captureContactHoneypotDrop.mockReset();
   vi.spyOn(console, "warn").mockImplementation(() => {});
   __resetContactRateLimitForTests();
 });
@@ -65,31 +64,15 @@ describe("POST /api/contact", () => {
     expect(resendSend).not.toHaveBeenCalled();
   });
 
-  it("answers a filled honeypot with the same 200, sends nothing, and RECORDS the drop", async () => {
-    const res = await POST(req({ ...valid, [CONTACT_HONEYPOT_FIELD]: "http://spam.example" }));
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ success: true });
-    expect(resendSend).not.toHaveBeenCalled();
-    expect(sentry.captureContactHoneypotDrop).toHaveBeenCalledWith({
-      subject: "Partnership Inquiry",
-      emailDomain: "example.com",
-      ipKey: "203.0.113.7",
-    });
-  });
-
-  it("the honeypot path counts against the per-IP limit, so one source cannot push unlimited drops through the logs", async () => {
-    const bot = { ...valid, [CONTACT_HONEYPOT_FIELD]: "x" };
-    for (let i = 0; i < 5; i++) expect((await POST(req(bot))).status).toBe(200);
-    expect((await POST(req(bot))).status).toBe(429);
-    expect(sentry.captureContactHoneypotDrop).toHaveBeenCalledTimes(5);
-    expect(resendSend).not.toHaveBeenCalled();
-  });
-
-  it("an empty honeypot (what both real forms send) is not a trap", async () => {
-    const res = await POST(req({ ...valid, [CONTACT_HONEYPOT_FIELD]: "" }));
-    expect(res.status).toBe(200);
-    expect(resendSend).toHaveBeenCalledTimes(2);
-    expect(sentry.captureContactHoneypotDrop).not.toHaveBeenCalled();
+  it("a page opened before the hidden field was removed still sends it — filled (autofill) or empty, the message goes through", async () => {
+    for (const old of ["Pemberton Holdings", ""]) {
+      resendSend.mockClear();
+      const res = await POST(req({ ...valid, hp_x7q: old }));
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ success: true, confirmationSent: true });
+      expect(resendSend).toHaveBeenCalledTimes(2);
+      expect(resendSend.mock.calls[0][0].html).not.toContain("Pemberton"); // stripped, never forwarded
+    }
   });
 
   it("rate-limits per IP after 5 valid messages in 10 minutes, with Retry-After; other IPs are unaffected", async () => {

@@ -13,7 +13,6 @@ import {
   partnerInquiryMissingField,
   type PartnerInquiryFields,
 } from "@/lib/partners/inquiry";
-import { CONTACT_HONEYPOT_FIELD } from "@/lib/validation/schemas";
 import { Send, Loader2, Check, AlertCircle } from "lucide-react";
 
 const MISSING_FIELD_MESSAGE: Record<NonNullable<ReturnType<typeof partnerInquiryMissingField>>, string> = {
@@ -43,9 +42,6 @@ const labelClass = "block text-sm font-medium text-gray-700 mb-1";
 
 export function PartnerInquiryForm() {
   const [fields, setFields] = useState<PartnerInquiryFields>(EMPTY);
-  // Honeypot — hidden from people, filled by bots; /api/contact drops the
-  // submission silently when it is non-empty.
-  const [website, setWebsite] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,7 +72,7 @@ export function PartnerInquiryForm() {
       const response = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...buildPartnerInquiryPayload(fields), [CONTACT_HONEYPOT_FIELD]: website }),
+        body: JSON.stringify(buildPartnerInquiryPayload(fields)),
       });
 
       if (!response.ok) {
@@ -129,23 +125,6 @@ export function PartnerInquiryForm() {
       onSubmit={handleSubmit}
       className="relative bg-white rounded-xl border border-gray-200 p-6 space-y-4"
     >
-      {/* Honeypot: off-screen, skipped by tab, autofill and password managers, invisible to screen readers. */}
-      <div aria-hidden="true" className="absolute -left-[9999px] top-auto w-px h-px overflow-hidden">
-        <input
-          id={`partner-${CONTACT_HONEYPOT_FIELD}`}
-          name={CONTACT_HONEYPOT_FIELD}
-          type="text"
-          tabIndex={-1}
-          autoComplete="off"
-          data-1p-ignore
-          data-lpignore="true"
-          data-bwignore="true"
-          data-form-type="other"
-          value={website}
-          onChange={(e) => setWebsite(e.target.value)}
-        />
-      </div>
-
       <div className="grid sm:grid-cols-2 gap-4">
         <div>
           <label htmlFor="partner-name" className={labelClass}>
