@@ -2,6 +2,7 @@ import { withSentryConfig } from "@sentry/nextjs";
 import withPWAInit from "@ducanh2912/next-pwa";
 import blogRedirectMap from "./src/config/blog-redirects.json" with { type: "json" };
 import { buildBlogRedirects } from "./src/lib/blog/blog-redirects.mjs";
+import { HTML_LIMITED_BOTS } from "./src/config/html-limited-bots.mjs";
 
 // A Vercel build refuses to start without BOOKING_LINK_SIGNING_SECRET: every
 // guest view of a booking (the signed key and the capped email path) needs
@@ -78,6 +79,10 @@ const withPWA = withPWAInit({
 const nextConfig = {
   // Use webpack for PWA support (PWA library uses webpack plugins)
   turbopack: {},
+
+  // Googlebot gets title/robots/canonical in <head>, not streamed into <body>
+  // (src/config/html-limited-bots.mjs).
+  htmlLimitedBots: HTML_LIMITED_BOTS,
 
   // Image optimization
   images: {

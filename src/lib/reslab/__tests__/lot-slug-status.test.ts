@@ -1,5 +1,5 @@
 /**
- * lotSlugStatus — the lot page's no-pricing existence check (soft-404 fix,
+ * lotSlugLookup / lotIdLookup — the lot page's no-pricing existence check (soft-404 fix,
  * 10 Nov 2026). "missing" only when the lists are complete and readable.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -13,7 +13,9 @@ const db = vi.hoisted(() => ({ rpc: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ createAdminClient: vi.fn(async () => db) }));
 vi.mock("@/lib/sentry", () => ({ captureAPIError: vi.fn() }));
 
-import { lotSlugStatus } from "../get-lot";
+import { lotSlugLookup, lotIdLookup } from "../get-lot";
+
+const lotSlugStatus = async (slug: string, code: string) => (await lotSlugLookup(slug, code)).status;
 import { __resetCaptureThrottleForTests } from "@/lib/direct/store";
 import { directLotRow } from "@/lib/direct/__tests__/fixtures";
 
@@ -73,10 +75,39 @@ describe("lotSlugStatus — ResLab", () => {
     expect(db.rpc).not.toHaveBeenCalled();
   });
 
-  it("ids are not slugs: left to getLotById", async () => {
+  it("ids are not slugs: left to lotIdLookup", async () => {
     expect(await lotSlugStatus("7", "EWR")).toBe("unknown");
     expect(await lotSlugStatus("reslab-7", "EWR")).toBe("unknown");
     expect(searchMock.getChannelLocationsCached).not.toHaveBeenCalled();
+  });
+
+  it("exists carries the visible same-name locations (any airport), not the hidden ones", async () => {
+    channel([loc(416, "Dup Name"), loc(6, "Dup Name")]);
+    const r = await lotSlugLookup("dup-name", "JFK");
+    expect(r.status === "exists" && r.reslab.map((l) => l.id)).toEqual([6]);
+  });
+});
+
+describe("lotIdLookup", () => {
+  it("a live id exists with its location; a gone id on a complete list is missing", async () => {
+    const r = await lotIdLookup("7");
+    expect(r.status === "exists" && r.reslab[0].name).toBe("Snap Parking");
+    expect((await lotIdLookup("reslab-7")).status).toBe("exists");
+    expect((await lotIdLookup("379")).status).toBe("missing");
+  });
+
+  it("a gone id on a thin list, or a list read that throws, is unknown", async () => {
+    channel([loc(7, "Snap Parking")], true);
+    expect((await lotIdLookup("379")).status).toBe("unknown");
+    searchMock.getChannelLocationsCached.mockRejectedValue(new Error("breaker open"));
+    expect((await lotIdLookup("7")).status).toBe("unknown");
+  });
+
+  it("a hidden or non-USD id is missing; a non-id is unknown", async () => {
+    channel([loc(416, "Parking 4 Airport"), loc(9, "Maple Leaf Lot", "CAD")]);
+    expect((await lotIdLookup("416")).status).toBe("missing");
+    expect((await lotIdLookup("9")).status).toBe("missing");
+    expect((await lotIdLookup("snap-parking")).status).toBe("unknown");
   });
 });
 

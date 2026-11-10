@@ -1,8 +1,9 @@
 /**
- * resolveLotUrl — real 404 / 308 for dead and old-slug lot URLs, decided
- * before the lot page streams (soft-404 fix, 10 Nov 2026).
+ * resolveLotUrl — real 404 / 308 for dead, old-slug, numeric-id and
+ * wrong-airport lot URLs, decided before the lot page streams (soft-404 fix
+ * and audit follow-ups, 10 Nov 2026). Ownership uses the real airport config.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const nav = vi.hoisted(() => ({
   notFound: vi.fn(() => {
@@ -14,74 +15,137 @@ const nav = vi.hoisted(() => ({
 }));
 vi.mock("next/navigation", () => nav);
 
-const status = vi.hoisted(() => ({ lotSlugStatus: vi.fn() }));
-vi.mock("@/lib/reslab/get-lot", () => status);
+const lookups = vi.hoisted(() => ({ lotSlugLookup: vi.fn(), lotIdLookup: vi.fn() }));
+vi.mock("@/lib/reslab/get-lot", () => lookups);
 
 import { resolveLotUrl } from "../lot-url";
 
-const live = new Set(["EWR:snap-parking", "JFK:bolt-parking", "EWR:snap-parking-ewr-long-term"]);
+type Loc = { id: number; name: string; latitude: string; longitude: string };
+const at = (id: number, name: string, lat: number, lng: number): Loc => ({ id, name, latitude: String(lat), longitude: String(lng) });
+const NEAR_EWR = [40.69, -74.17] as const;
+const NEAR_JFK = [40.66, -73.79] as const;
+const NEAR_BOS = [42.37, -71.02] as const;
+const NEAR_MIA = [25.8, -80.29] as const;
+
+/** slug -> the visible same-name locations (any airport); absent = no lot by that name. */
+let live: Record<string, Loc[]>;
+const ids: Record<string, Loc> = { "466": at(466, "Ramada by Wyndham Boston", ...NEAR_BOS) };
+
 beforeEach(() => {
   nav.notFound.mockClear();
   nav.permanentRedirect.mockClear();
-  status.lotSlugStatus.mockReset();
-  status.lotSlugStatus.mockImplementation(async (slug: string, code: string) =>
-    live.has(`${code}:${slug}`) ? "exists" : "missing",
+  live = {
+    "snap-parking": [at(1, "Snap Parking", ...NEAR_EWR)],
+    "bolt-parking": [at(2, "Bolt Parking", ...NEAR_JFK)],
+    "park-for-u": [at(3, "Park For U", ...NEAR_JFK)],
+    "safe-park-jfk": [at(4, "Safe Park JFK", ...NEAR_JFK)],
+    "safe-cruise-parking": [at(5, "Safe Cruise Parking", ...NEAR_MIA)],
+  };
+  lookups.lotSlugLookup.mockReset();
+  lookups.lotSlugLookup.mockImplementation(async (slug: string) =>
+    live[slug] ? { status: "exists", reslab: live[slug] } : { status: "missing" },
   );
+  lookups.lotIdLookup.mockReset();
+  lookups.lotIdLookup.mockImplementation(async (id: string) => {
+    const loc = ids[id.replace(/^reslab-/, "")];
+    return loc ? { status: "exists", reslab: [loc] } : { status: "missing" };
+  });
+});
+afterEach(() => {
+  delete process.env.SEARCH_OWN_AIRPORT_FILTER;
 });
 
-describe("resolveLotUrl", () => {
-  it("a live slug renders (no 404, no redirect)", async () => {
-    await expect(resolveLotUrl("new-york-ewr", "snap-parking", {})).resolves.toBeUndefined();
+const resolve = (airport: string, lot: string, query: Record<string, string | string[] | undefined> = {}) =>
+  resolveLotUrl(airport, lot, query);
+
+describe("resolveLotUrl — live slugs", () => {
+  it("a live lot owned by the URL's airport renders", async () => {
+    await expect(resolve("new-york-ewr", "snap-parking")).resolves.toBeUndefined();
   });
 
-  it("an old code-suffixed slug 308s to the live slug, query kept", async () => {
-    await expect(
-      resolveLotUrl("new-york-ewr", "snap-parking-ewr", { checkin: "2026-11-20", checkout: "2026-11-24" }),
-    ).rejects.toThrow("REDIRECT /new-york-ewr/airport-parking/snap-parking?checkin=2026-11-20&checkout=2026-11-24");
+  it("a live lot owned by another airport 308s there (LGA once listed JFK lots)", async () => {
+    await expect(resolve("new-york-lga", "safe-park-jfk")).rejects.toThrow("REDIRECT /new-york-jfk/airport-parking/safe-park-jfk");
   });
 
-  it("redirects to the airport the suffix names (old LGA URL for a JFK lot)", async () => {
-    await expect(resolveLotUrl("new-york-lga", "bolt-parking-jfk", {})).rejects.toThrow(
-      "REDIRECT /new-york-jfk/airport-parking/bolt-parking",
+  it("with the own-airport filter off, no ownership redirect", async () => {
+    process.env.SEARCH_OWN_AIRPORT_FILTER = "off";
+    await expect(resolve("new-york-lga", "safe-park-jfk")).resolves.toBeUndefined();
+  });
+
+  it("a direct lot (no ResLab locations) renders", async () => {
+    lookups.lotSlugLookup.mockResolvedValue({ status: "exists", reslab: [] });
+    await expect(resolve("boston-bos", "acme-direct")).resolves.toBeUndefined();
+  });
+});
+
+describe("resolveLotUrl — old code-suffixed slugs", () => {
+  it("308s to the live lot at that airport, query kept", async () => {
+    await expect(resolve("new-york-ewr", "snap-parking-ewr", { checkin: "2026-11-20", checkout: "2026-11-24" })).rejects.toThrow(
+      "REDIRECT /new-york-ewr/airport-parking/snap-parking?checkin=2026-11-20&checkout=2026-11-24",
     );
   });
 
-  it("a dead slug with no live code-less twin is a real 404", async () => {
-    await expect(resolveLotUrl("boston-bos", "preflight-airport-parking", {})).rejects.toThrow("NOT_FOUND");
-    await expect(resolveLotUrl("chicago-ord", "days-inn-ord", {})).rejects.toThrow("NOT_FOUND");
+  it("goes to the airport the suffix names", async () => {
+    await expect(resolve("new-york-lga", "bolt-parking-jfk")).rejects.toThrow("REDIRECT /new-york-jfk/airport-parking/bolt-parking");
+  });
+
+  it("404s when the only same-name lot belongs to another airport (park-for-u-yyz must not land on the JFK lot)", async () => {
+    await expect(resolve("toronto-yyz", "park-for-u-yyz")).rejects.toThrow("NOT_FOUND");
     expect(nav.permanentRedirect).not.toHaveBeenCalled();
   });
 
-  it("a suffix that is not an airport code is not stripped", async () => {
-    await expect(resolveLotUrl("new-york-ewr", "snap-parking-xyz", {})).rejects.toThrow("NOT_FOUND");
-    expect(status.lotSlugStatus).toHaveBeenCalledTimes(1);
+  it("a dead slug with no live twin is a real 404; a non-code suffix is not stripped", async () => {
+    await expect(resolve("boston-bos", "preflight-airport-parking")).rejects.toThrow("NOT_FOUND");
+    await expect(resolve("new-york-ewr", "snap-parking-xyz")).rejects.toThrow("NOT_FOUND");
+    expect(nav.permanentRedirect).not.toHaveBeenCalled();
   });
 
-  it("unknown (thin list, failed read) renders the page as before — never a 404 on a guess", async () => {
-    status.lotSlugStatus.mockResolvedValue("unknown");
-    await expect(resolveLotUrl("new-york-ewr", "snap-parking-ewr", {})).resolves.toBeUndefined();
-  });
-
-  it("old slug missing but the twin lookup can't tell → renders as before, no 404 on a guess", async () => {
-    status.lotSlugStatus.mockImplementation(async (slug: string) => (slug === "bolt-parking" ? "unknown" : "missing"));
-    await expect(resolveLotUrl("new-york-lga", "bolt-parking-jfk", {})).resolves.toBeUndefined();
+  it("twin lookup can't tell → renders as before, no 404 on a guess", async () => {
+    lookups.lotSlugLookup.mockImplementation(async (slug: string) => (slug === "bolt-parking" ? { status: "unknown" } : { status: "missing" }));
+    await expect(resolve("new-york-lga", "bolt-parking-jfk")).resolves.toBeUndefined();
     expect(nav.notFound).not.toHaveBeenCalled();
   });
 
   it("keeps repeated params in order and drops undefined ones", async () => {
-    await expect(
-      resolveLotUrl("new-york-ewr", "snap-parking-ewr", { checkin: ["2026-11-20", "2026-11-21"], ref: undefined }),
-    ).rejects.toThrow("REDIRECT /new-york-ewr/airport-parking/snap-parking?checkin=2026-11-20&checkin=2026-11-21");
+    await expect(resolve("new-york-ewr", "snap-parking-ewr", { checkin: ["2026-11-20", "2026-11-21"], ref: undefined })).rejects.toThrow(
+      "REDIRECT /new-york-ewr/airport-parking/snap-parking?checkin=2026-11-20&checkin=2026-11-21",
+    );
+  });
+});
+
+describe("resolveLotUrl — cruise-port suffixes", () => {
+  it("308s to the live code-less lot at the same airport", async () => {
+    await expect(resolve("miami-mia", "safe-cruise-parking-portmiami")).rejects.toThrow("REDIRECT /miami-mia/airport-parking/safe-cruise-parking");
   });
 
+  it("404s when there is no live twin", async () => {
+    await expect(resolve("san-diego-san", "fox-auto-parks-port-of-san-diego")).rejects.toThrow("NOT_FOUND");
+  });
+});
+
+describe("resolveLotUrl — numeric ids", () => {
+  it("a live id 308s to its slug URL under its owning airport", async () => {
+    await expect(resolve("boston-bos", "466")).rejects.toThrow("REDIRECT /boston-bos/airport-parking/ramada-by-wyndham-boston");
+    await expect(resolve("new-york-jfk", "reslab-466")).rejects.toThrow("REDIRECT /boston-bos/airport-parking/ramada-by-wyndham-boston");
+  });
+
+  it("a gone id is a real 404; unknown renders as before", async () => {
+    await expect(resolve("toronto-yyz", "379")).rejects.toThrow("NOT_FOUND");
+    lookups.lotIdLookup.mockResolvedValue({ status: "unknown" });
+    await expect(resolve("toronto-yyz", "379")).resolves.toBeUndefined();
+    expect(lookups.lotSlugLookup).not.toHaveBeenCalled();
+  });
+});
+
+describe("resolveLotUrl — errors and bad airports", () => {
   it("a lookup that throws propagates (the page's error state), never a 404", async () => {
-    status.lotSlugStatus.mockRejectedValue(new Error("boom"));
-    await expect(resolveLotUrl("new-york-ewr", "snap-parking", {})).rejects.toThrow("boom");
+    lookups.lotSlugLookup.mockRejectedValue(new Error("boom"));
+    await expect(resolve("new-york-ewr", "snap-parking")).rejects.toThrow("boom");
     expect(nav.notFound).not.toHaveBeenCalled();
   });
 
-  it("an unknown airport is a 404 without a lot lookup", async () => {
-    await expect(resolveLotUrl("nowhere-xxx", "snap-parking", {})).rejects.toThrow("NOT_FOUND");
-    expect(status.lotSlugStatus).not.toHaveBeenCalled();
+  it("an unknown airport is a 404 without a lookup", async () => {
+    await expect(resolve("nowhere-xxx", "snap-parking")).rejects.toThrow("NOT_FOUND");
+    expect(lookups.lotSlugLookup).not.toHaveBeenCalled();
   });
 });
