@@ -13,6 +13,23 @@ const RESLAB_API_DOMAIN = process.env.RESLAB_API_DOMAIN || "triplypro.com";
 // Token cache (server-side singleton)
 let cachedToken: { token: string; expiry: number } | null = null;
 
+// Errors thrown by the sign-in (POST /authenticate) rather than by the call
+// itself. Marked, not wrapped: callers such as the booking engine branch on the
+// error's class and name, which must not change.
+const signInFailures = new WeakSet<object>();
+
+/**
+ * True when a ResLab call failed at the sign-in: the first one, or the
+ * re-sign-in after the call got a 401 (ResLab refused it, so did nothing).
+ */
+export function isReslabSignInFailure(err: unknown): boolean {
+  return typeof err === "object" && err !== null && signInFailures.has(err);
+}
+
+export function __markReslabSignInFailureForTests(err: object): void {
+  signInFailures.add(err);
+}
+
 // =============================================================================
 // Types - Based on OpenAPI spec v1.10
 // =============================================================================
@@ -370,6 +387,15 @@ async function getToken(): Promise<string> {
     return cachedToken.token;
   }
 
+  try {
+    return await authenticate();
+  } catch (err) {
+    if (typeof err === "object" && err !== null) signInFailures.add(err);
+    throw err;
+  }
+}
+
+async function authenticate(): Promise<string> {
   const { response, clear } = await reslabFetch(`${RESLAB_API_URL}/authenticate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

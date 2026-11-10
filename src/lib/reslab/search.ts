@@ -14,6 +14,7 @@ import {
   ReslabMinPriceResponse,
   stripHtml,
   getFeaturedPhoto,
+  isReslabSignInFailure,
 } from "@/lib/reslab/client";
 import { UnifiedLot, SortOption, type LotBadge } from "@/types/lot";
 import { calculateDistance } from "@/lib/utils/geo";
@@ -1208,6 +1209,39 @@ export async function getChannelLocationsNoSweep(): Promise<readonly ReslabLocat
   return mem.data;
 }
 
+/**
+ * Why one lot's price call failed, for the Sentry message: ResLab's HTTP status
+ * (`http_429` would be a rate limit), our own timeout, a dropped connection, or
+ * the error's name. `auth_` in front when it failed at the sign-in rather than
+ * at the price call. Never the response body.
+ */
+function pricingFailureReason(err: unknown): string {
+  const kind = pricingFailureKind(err);
+  return isReslabSignInFailure(err) ? `auth_${kind}` : kind;
+}
+
+function pricingFailureKind(err: unknown): string {
+  if (err instanceof ReslabError) return `http_${err.statusCode}`;
+  if (err instanceof Error && (err.name === "AbortError" || err.name === "TimeoutError")) {
+    return "timeout";
+  }
+  // fetch's own connection failures are a TypeError carrying a cause; any other
+  // TypeError is a bug or bad config and is named as such below.
+  if (err instanceof TypeError && (err.cause !== undefined || err.message === "fetch failed")) {
+    return "network";
+  }
+  if (err instanceof Error && /^[A-Za-z]{1,40}$/.test(err.name)) return `other_${err.name}`;
+  return "other";
+}
+
+/** "timeout ×3, http_502 ×1", most frequent first. */
+function formatPricingFailureReasons(reasons: ReadonlyMap<string, number>): string {
+  return [...reasons]
+    .sort((a, b) => b[1] - a[1])
+    .map(([reason, n]) => `${reason} ×${n}`)
+    .join(", ");
+}
+
 export async function searchParking(
   params: SearchParkingParams
 ): Promise<SearchParkingResult> {
@@ -1588,6 +1622,7 @@ export async function searchParking(
   // non-fatal — we still show the others — but count them so we can tell a
   // genuine "everything is sold out" empty from a ResLab degradation (below).
   let pricingErrors = 0;
+  const pricingFailureReasons = new Map<string, number>();
   // Keep the raw minPriceData alongside each transformed lot: transformLocation
   // collapses sold_out/available_spots into one `availability` string and the
   // filter below then drops the sold-out lots entirely, so this is the only
@@ -1616,11 +1651,13 @@ export async function searchParking(
           to_date: window.toDate,
           number_of_spots: 1,
         });
-      } catch {
+      } catch (err) {
         // Price unavailable for this location (transient ResLab error or
         // genuinely no price). Counted so an all-error result doesn't get
-        // served as a cacheable empty success.
+        // served as a cacheable empty success, with the reason for Sentry.
         pricingErrors++;
+        const reason = pricingFailureReason(err);
+        pricingFailureReasons.set(reason, (pricingFailureReasons.get(reason) ?? 0) + 1);
       }
 
       return {
@@ -1827,7 +1864,8 @@ export async function searchParking(
   if (availableLots.length === 0 && pricingErrors > 0 && directUnified.length === 0) {
     throw new ReslabError(
       502,
-      `ResLab pricing unavailable for all ${pricedLots.length} ${airportCode} location(s)`
+      // The rest of the lots were sold out; only the failures carry a reason.
+      `ResLab pricing unavailable for all ${pricedLots.length} ${airportCode} location(s); ${pricingErrors} failed (${formatPricingFailureReasons(pricingFailureReasons)})`
     );
   }
 
@@ -1839,9 +1877,14 @@ export async function searchParking(
   if (pricingErrors > 0) {
     captureAPIError(
       new Error(
-        `ResLab pricing degraded: ${pricingErrors}/${pricedLots.length} ${airportCode} location(s) failed to price`
+        `ResLab pricing degraded: ${pricingErrors}/${pricedLots.length} ${airportCode} location(s) failed to price (${formatPricingFailureReasons(pricingFailureReasons)})`
       ),
-      { endpoint: "/api/search", method: "GET", statusCode: 502 }
+      {
+        endpoint: "/api/search",
+        method: "GET",
+        statusCode: 502,
+        extra: { pricingFailureReasons: Object.fromEntries(pricingFailureReasons) },
+      }
     );
   }
 
