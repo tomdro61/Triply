@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { productionAirports, type Airport } from "@/config/airports";
+import { productionAirports, getAirportByCode, type Airport } from "@/config/airports";
 import type { ReslabLocation } from "@/lib/reslab/client";
 import { liveComparisons } from "@/data/comparison";
 import {
@@ -125,19 +125,25 @@ function reslabLocationsFor(channel: readonly ReslabLocation[], airport: Airport
 }
 
 async function blogAirportHubPages(): Promise<MetadataRoute.Sitemap> {
+  // Every production airport has a blog hub (/blog/airport/<code> renders for
+  // any configured airport, posts or not), so list them all (Vin, 10 Nov
+  // 2026: index every page). Airports with published posts are added from
+  // the CMS, but only when the hub resolves, so no 404 is ever listed.
+  const codes = new Set(productionAirports.map((a) => a.code));
   try {
-    const codes = await getDistinctAirportCodes();
-    return codes.map((code) => ({
-      url: `${baseUrl}/blog/airport/${code.toLowerCase()}`,
-      changeFrequency: "weekly" as const,
-      priority: 0.7,
-    }));
+    for (const code of await getDistinctAirportCodes()) {
+      if (getAirportByCode(code)) codes.add(code.toUpperCase());
+    }
   } catch (error) {
-    // A refused API key must not become an empty sitemap: rethrow so the
-    // route 500s (search engines retry) and Sentry has the cms:auth event.
+    // A refused API key must not become a quietly shorter sitemap: rethrow so
+    // the route 500s (search engines retry) and Sentry has the cms:auth event.
     if (error instanceof CmsAuthError) throw error;
-    return [];
   }
+  return [...codes].sort().map((code) => ({
+    url: `${baseUrl}/blog/airport/${code.toLowerCase()}`,
+    changeFrequency: "weekly" as const,
+    priority: 0.7,
+  }));
 }
 
 async function blogCategoryPages(): Promise<MetadataRoute.Sitemap> {

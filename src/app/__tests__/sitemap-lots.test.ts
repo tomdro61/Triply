@@ -55,7 +55,8 @@ vi.mock("@/lib/sentry", async () => {
 
 import sitemap from "../sitemap";
 import { productionAirports } from "@/config/airports";
-import { AIRPORTS_ID, LOTS_ID_START, AIRPORTS_PER_LOT_SEGMENT } from "@/lib/sitemap-config";
+import { AIRPORTS_ID, BLOG_AIRPORT_HUBS_ID, LOTS_ID_START, AIRPORTS_PER_LOT_SEGMENT } from "@/lib/sitemap-config";
+import * as cms from "@/lib/cms";
 
 function directLot(over: Record<string, unknown>) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -230,5 +231,29 @@ describe("sitemap airport segment — every airport is listed (Vin, 10 Nov 2026)
     await expect(segment(AIRPORTS_ID)).resolves.toBeDefined();
     process.env.NEXT_PHASE = "phase-production-build";
     await expect(segment(AIRPORTS_ID)).resolves.toBeDefined();
+  });
+});
+
+describe("sitemap blog airport hubs — every production airport is listed (Vin, 10 Nov 2026)", () => {
+  const hubUrls = async () => (await segment(BLOG_AIRPORT_HUBS_ID)).map((u) => u.url);
+
+  it("lists a hub for every production airport, posts or not, plus CMS codes that resolve", async () => {
+    vi.mocked(cms.getDistinctAirportCodes).mockResolvedValue(["JFK", "ZZZ"]);
+    const urls = await hubUrls();
+    for (const a of productionAirports) {
+      expect(urls.some((u) => u.endsWith(`/blog/airport/${a.code.toLowerCase()}`))).toBe(true);
+    }
+    expect(urls.some((u) => u.endsWith("/blog/airport/zzz"))).toBe(false); // no airport → would 404
+    expect(new Set(urls).size).toBe(urls.length);
+  });
+
+  it("a CMS outage still lists every production hub", async () => {
+    vi.mocked(cms.getDistinctAirportCodes).mockRejectedValue(new Error("502"));
+    expect(await hubUrls()).toHaveLength(productionAirports.length);
+  });
+
+  it("a refused CMS key still fails the segment", async () => {
+    vi.mocked(cms.getDistinctAirportCodes).mockRejectedValue(new cms.CmsAuthError("401"));
+    await expect(segment(BLOG_AIRPORT_HUBS_ID)).rejects.toThrow();
   });
 });
