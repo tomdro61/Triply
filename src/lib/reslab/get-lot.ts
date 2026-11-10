@@ -19,6 +19,7 @@ import {
 } from "./search";
 import { cache } from "react";
 import { getAirportByCode } from "@/config/airports";
+import { isOwnAirportFilterEnabled, locationBelongsToAirport } from "@/lib/search/airport-ownership";
 import { isDirectLotsEnabled, DIRECT_BOOKING_OPEN } from "@/lib/direct/flag";
 import {
   fetchDirectLots,
@@ -281,7 +282,7 @@ export async function findLotBySlug(
   slug: string,
   fromDate: string,
   toDate: string,
-  airportCoords?: AirportCoords,
+  airportCoords?: AirportCoords & { code?: string },
   pricingWindowFor?: ReslabPricingWindowFn
 ): Promise<UnifiedLot | null> {
   // Deliberately NOT wrapped in try/catch. A ResLab failure (or an open
@@ -311,7 +312,15 @@ export async function findLotBySlug(
       const d = calculateDistance(airportCoords.latitude, airportCoords.longitude, parseFloat(loc.latitude), parseFloat(loc.longitude), false);
       return Number.isNaN(d) ? Infinity : d; // unparseable coordinates never win
     };
-    match = matches.reduce((best, loc) => (dist(loc) < dist(best) ? loc : best), matches[0]);
+    // A lot this airport OWNS beats a nearer same-name lot another airport
+    // owns: the sitemap lists /<airport>/…/<slug> for the owned one, and the
+    // page must render (and canonical) that lot, not its namesake (audit,
+    // 10 Nov 2026). Same rule as the sitemap's reslabLocationsFor.
+    const urlAirport = airportCoords.code ? getAirportByCode(airportCoords.code) : undefined;
+    const owned =
+      urlAirport && isOwnAirportFilterEnabled() ? matches.filter((loc) => locationBelongsToAirport(loc, urlAirport)) : [];
+    const pool = owned.length > 0 ? owned : matches;
+    match = pool.reduce((best, loc) => (dist(loc) < dist(best) ? loc : best), pool[0]);
   }
   if (!match) {
     if (incomplete) {
