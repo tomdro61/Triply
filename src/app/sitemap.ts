@@ -87,10 +87,28 @@ async function airportPages(): Promise<MetadataRoute.Sitemap> {
   // noindexed (listsNoLots in src/lib/airport-page/content.ts); a sitemap
   // entry for a noindexed URL is a contradictory signal Search Console
   // reports for good, so leave those out. Same lot selection as the lot
-  // segments and searchParking. With no usable list (cold instance, snapshot
-  // off) every airport stays listed — the page decides, and inclusion is
-  // the harmless side. A sell-out keeps its entry: the page stays indexed.
+  // segments and searchParking. A sell-out keeps its entry: the page stays
+  // indexed.
+  //
+  // With no usable list (cold instance, snapshot off) we cannot tell which
+  // airports list lots, so no airport is listed on a guess: listing all of
+  // them re-submits the noindexed zero-lot hubs (DAL, RSW, YOW, YUL, YYC,
+  // YYZ in Nov 2026) and reopens Search Console's "Excluded by noindex tag"
+  // alert. In production at runtime, fail the regeneration so Next keeps the
+  // last good segment (as lotPages does). At build or outside production,
+  // list only the airports direct lots prove; the hourly regeneration fills
+  // in the rest. Leaving a hub out of the sitemap for an hour does not
+  // deindex it; a noindexed URL in the sitemap is what Search Console flags.
   const channel = await getChannelLocationsNoSweep();
+  if (channel === null) {
+    const why = isSnapshotEnabled()
+      ? "no usable location list (snapshot unavailable)"
+      : "no location list in memory (ENABLE_RESLAB_LOCATION_SNAPSHOT is off)";
+    if (resolveEnv() === "production" && process.env.NEXT_PHASE !== "phase-production-build") {
+      throw new Error(`Sitemap airports: ${why}; keeping the previous segment`);
+    }
+    console.warn(`Sitemap airports: ${why}; listing only airports with direct lots`);
+  }
   let directAirportCodes = new Set<string>();
   if (isDirectLotsEnabled()) {
     try {
@@ -107,11 +125,10 @@ async function airportPages(): Promise<MetadataRoute.Sitemap> {
   }
   const listed = productionAirports.filter(
     (airport) =>
-      channel === null ||
-      reslabLocationsFor(channel, airport).length > 0 ||
+      (channel !== null && reslabLocationsFor(channel, airport).length > 0) ||
       directAirportCodes.has(airport.code)
   );
-  if (channel !== null && listed.length < productionAirports.length) {
+  if (listed.length < productionAirports.length) {
     console.log(`Sitemap airports: ${listed.length} of ${productionAirports.length} airports list lots; the rest are left out`);
   }
   return [
