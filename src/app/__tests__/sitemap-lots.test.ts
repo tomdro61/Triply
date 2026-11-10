@@ -210,83 +210,25 @@ describe("sitemap lot segments — direct lots (ENABLE_DIRECT_LOTS)", () => {
   });
 });
 
-describe("sitemap airport segment — airports with nothing listed are left out (PR #122)", () => {
+describe("sitemap airport segment — every airport is listed (Vin, 10 Nov 2026)", () => {
   const airportUrls = async () => (await segment(AIRPORTS_ID)).map((u) => u.url);
   const has = (urls: string[], slug: string) => urls.some((u) => u.endsWith(`/${slug}/airport-parking`));
-
-  it("keeps an airport with a lot near it, leaves out one with none, keeps the index page", async () => {
-    channel.getChannelLocationsNoSweep.mockResolvedValue([loc(1, "JFK Long Term Lot", "40.6600", "-73.7900")]);
-    const urls = await airportUrls();
-    expect(has(urls, "new-york-jfk")).toBe(true);
-    expect(has(urls, "boston-bos")).toBe(false);
-    expect(urls[0].endsWith("/airport-parking")).toBe(true); // the /airport-parking index page is always first
-    expect(urls).toHaveLength(2);
-  });
-
-  it("a blocked lot alone does not count as listed", async () => {
-    channel.getChannelLocationsNoSweep.mockResolvedValue([loc(416, "Parking 4 Airport", "40.6600", "-73.7900")]);
-    expect(has(await airportUrls(), "new-york-jfk")).toBe(false);
-  });
-
-  // A cold build used to list every airport, re-submitting the noindexed
-  // zero-lot hubs (Search Console "Excluded by noindex tag", 9 Nov 2026).
   const zeroLotHubs = ["dallas-dal", "fort-myers-rsw", "ottawa-yow", "montreal-yul", "calgary-yyc", "toronto-yyz"];
 
-  it("in production at runtime with no usable list, fails so Next keeps the previous segment", async () => {
-    channel.getChannelLocationsNoSweep.mockResolvedValue(null);
-    await expect(segment(AIRPORTS_ID)).rejects.toThrow(/keeping the previous segment/);
-  });
-
-  it("in production with the snapshot flag OFF and a cold instance, still keeps the previous segment", async () => {
-    snapshotFlag.on = false;
-    channel.getChannelLocationsNoSweep.mockResolvedValue(null);
-    await expect(segment(AIRPORTS_ID)).rejects.toThrow(/keeping the previous segment/);
-  });
-
-  it("during `next build` with no usable list, lists every airport except the six zero-lot ones", async () => {
-    process.env.NEXT_PHASE = "phase-production-build";
-    channel.getChannelLocationsNoSweep.mockResolvedValue(null);
-    const urls = await airportUrls();
-    for (const slug of zeroLotHubs) expect(has(urls, slug)).toBe(false);
-    for (const a of productionAirports.filter((x) => !zeroLotHubs.includes(x.slug))) {
-      expect(has(urls, a.slug)).toBe(true);
+  it("lists every production airport plus the index page, whatever the lot data says", async () => {
+    for (const list of [null, [], [loc(1, "JFK Long Term Lot", "40.6600", "-73.7900")]]) {
+      channel.getChannelLocationsNoSweep.mockResolvedValue(list);
+      const urls = await airportUrls();
+      expect(urls[0].endsWith("/airport-parking")).toBe(true);
+      for (const a of productionAirports) expect(has(urls, a.slug)).toBe(true);
+      for (const slug of zeroLotHubs) expect(has(urls, slug)).toBe(true);
     }
-    expect(urls).toHaveLength(productionAirports.length - zeroLotHubs.length + 1);
-    expect(console.warn).toHaveBeenCalled();
   });
 
-  it("during `next build` with no usable list, a direct lot still lists its airport", async () => {
+  it("never throws for missing lot data, at build or at runtime", async () => {
+    channel.getChannelLocationsNoSweep.mockResolvedValue(null);
+    await expect(segment(AIRPORTS_ID)).resolves.toBeDefined();
     process.env.NEXT_PHASE = "phase-production-build";
-    directFlag.on = true;
-    channel.getChannelLocationsNoSweep.mockResolvedValue(null);
-    directStore.fetchDirectLots.mockResolvedValue({ ok: true, lots: [directLot({ airportCode: "DAL" })] });
-    expect(has(await airportUrls(), "dallas-dal")).toBe(true);
-  });
-
-  it("outside production with no usable list, does not throw and leaves out the zero-lot hubs", async () => {
-    process.env.NEXT_PUBLIC_APP_ENV = "staging";
-    channel.getChannelLocationsNoSweep.mockResolvedValue(null);
-    const urls = await airportUrls();
-    for (const slug of zeroLotHubs) expect(has(urls, slug)).toBe(false);
-  });
-
-  it("with a list, the six zero-lot hubs are never listed", async () => {
-    channel.getChannelLocationsNoSweep.mockResolvedValue([loc(1, "JFK Long Term Lot", "40.6600", "-73.7900")]);
-    const urls = await airportUrls();
-    for (const slug of zeroLotHubs) expect(has(urls, slug)).toBe(false);
-  });
-
-  it("a direct lot keeps its airport listed when direct lots are on; a failed direct read decides on ResLab alone", async () => {
-    directFlag.on = true;
-    channel.getChannelLocationsNoSweep.mockResolvedValue([]);
-    directStore.fetchDirectLots.mockResolvedValue({ ok: true, lots: [directLot({ airportCode: "BOS" })] });
-    let urls = await airportUrls();
-    expect(has(urls, "boston-bos")).toBe(true);
-    expect(has(urls, "new-york-jfk")).toBe(false);
-
-    directStore.fetchDirectLots.mockRejectedValue(new Error("isListable bug"));
-    urls = await airportUrls();
-    expect(has(urls, "boston-bos")).toBe(false);
-    expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
+    await expect(segment(AIRPORTS_ID)).resolves.toBeDefined();
   });
 });

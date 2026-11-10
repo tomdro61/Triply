@@ -150,19 +150,6 @@ export function isKnownEmpty(
   return totalLots === 0 && locationsConsidered !== null;
 }
 
-/**
- * True when we list no lots at all near this airport (the "coming soon"
- * case) — the only empty state that is noindexed, and the one the sitemap
- * leaves out. A sell-out is re-decided every hour: noindexing it would drop a
- * small airport from Google for a holiday week and take days to come back
- * once lots return (the lot page applies the same rule to transient states).
- * A lot that sits sold out for months is removed from the listing instead,
- * which turns its airport into this case.
- */
-export function listsNoLots(locationsConsidered: number | null): boolean {
-  return locationsConsidered === 0;
-}
-
 /** Meta description for a known-empty page. No prices, no lot counts. */
 export function emptyMetaDescription(airportName: string, airportCode: string): string {
   return `No ${airportCode} parking lots are bookable on Triply right now. Search your dates near ${airportName} for the latest availability.`;

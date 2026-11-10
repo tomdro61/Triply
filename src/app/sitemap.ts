@@ -82,64 +82,11 @@ function staticPages(): MetadataRoute.Sitemap {
   ];
 }
 
-/**
- * Airports whose page lists no lots ("coming soon", noindexed by listsNoLots)
- * as of 10 Nov 2026. Used ONLY when the sitemap is built with no location
- * list; with a list, the real lot selection decides. Update it when one of
- * these gains lots (it is then left out of a cold build's sitemap for about
- * an hour) or another airport loses all of them.
- */
-const KNOWN_ZERO_LOT_AIRPORTS: ReadonlySet<string> = new Set(["DAL", "RSW", "YOW", "YUL", "YYC", "YYZ"]);
-
 async function airportPages(): Promise<MetadataRoute.Sitemap> {
-  // An airport page with no lots listed at all renders "coming soon" and is
-  // noindexed (listsNoLots in src/lib/airport-page/content.ts); a sitemap
-  // entry for a noindexed URL is a contradictory signal Search Console
-  // reports for good, so leave those out. Same lot selection as the lot
-  // segments and searchParking. A sell-out keeps its entry: the page stays
-  // indexed.
-  //
-  // With no usable list (cold instance, snapshot off) we cannot tell which
-  // airports list lots. Listing all of them re-submits the noindexed
-  // zero-lot hubs and reopens Search Console's "Excluded by noindex tag"
-  // alert (9 Nov 2026). In production at runtime, fail the regeneration so
-  // Next keeps the last good segment (as lotPages does). At build or outside
-  // production, list every airport except the known zero-lot ones
-  // (KNOWN_ZERO_LOT_AIRPORTS), so no sellable hub drops out of the sitemap;
-  // the hourly regeneration then decides from the real list.
-  const channel = await getChannelLocationsNoSweep();
-  if (channel === null) {
-    const why = isSnapshotEnabled()
-      ? "no usable location list (snapshot unavailable)"
-      : "no location list in memory (ENABLE_RESLAB_LOCATION_SNAPSHOT is off)";
-    if (resolveEnv() === "production" && process.env.NEXT_PHASE !== "phase-production-build") {
-      throw new Error(`Sitemap airports: ${why}; keeping the previous segment`);
-    }
-    console.warn(`Sitemap airports: ${why}; listing every airport except the known zero-lot ones`);
-  }
-  let directAirportCodes = new Set<string>();
-  if (isDirectLotsEnabled()) {
-    try {
-      const direct = await fetchDirectLots({}, "sitemap");
-      if (direct.ok) directAirportCodes = new Set(direct.lots.filter((l) => isListable(l)).map((l) => l.airportCode));
-    } catch (error) {
-      console.warn("Sitemap airports: direct lots read threw, deciding on ResLab lots only:", error);
-      captureAPIError(error instanceof Error ? error : new Error(String(error)), {
-        endpoint: "sitemap",
-        method: "GET",
-        stage: "direct_lots_airports",
-      });
-    }
-  }
-  const listed = productionAirports.filter(
-    (airport) =>
-      (channel === null
-        ? !KNOWN_ZERO_LOT_AIRPORTS.has(airport.code)
-        : reslabLocationsFor(channel, airport).length > 0) || directAirportCodes.has(airport.code)
-  );
-  if (listed.length < productionAirports.length) {
-    console.log(`Sitemap airports: ${listed.length} of ${productionAirports.length} airports list lots; the rest are left out`);
-  }
+  // Every production airport page is listed and indexable, including ones
+  // that list no lots yet (Vin, 10 Nov 2026). No lot data is read here, so a
+  // cold instance can never change this segment.
+  const listed = productionAirports;
   return [
     {
       url: `${baseUrl}/airport-parking`,
