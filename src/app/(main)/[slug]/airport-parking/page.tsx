@@ -11,6 +11,7 @@ import {
 } from "@/lib/airport-page/content";
 import { buildAirportSchemas } from "@/lib/airport-page/schemas";
 import { getAirportContent } from "@/data/airport-content";
+import { getNoLotsAirportContent } from "@/data/airport-content/no-lots";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { Navbar, Footer } from "@/components/shared";
 import { Newsletter } from "@/components/shared/newsletter";
@@ -58,9 +59,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const airport = getAirportBySlug(slug);
   if (!airport) return {};
 
-  const [data, customContent] = await Promise.all([
+  const [data, customContent, noLotsGuide] = await Promise.all([
     fetchAirportPageData(airport),
     getAirportContent(airport.code),
+    getNoLotsAirportContent(airport.code),
   ]);
   const priceText = data.cheapestPrice ? ` from $${data.cheapestPrice.toFixed(0)}` : "";
   // Trailing space lives in the value so a 0-lot page doesn't read "Compare  parking".
@@ -71,7 +73,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   // index every page to reach more customers).
   const empty = isKnownEmpty(data.totalLots, data.locationsConsidered);
   const description = empty
-    ? emptyMetaDescription(airport.name, airport.code)
+    ? noLotsGuide?.metaDescription ?? emptyMetaDescription(airport.name, airport.code)
     : customContent?.metaDescription
       ?? `Compare ${lotCount}parking lots near ${airport.name}. Reserve ${airport.code} parking${priceText}/day with free cancellation. Book now & save.`;
 
@@ -97,10 +99,14 @@ export default async function AirportParkingPage({ params }: PageProps) {
   const airport = getAirportBySlug(slug);
   if (!airport) notFound();
 
-  const [data, customContent] = await Promise.all([
+  const [data, customContent, noLotsContent] = await Promise.all([
     fetchAirportPageData(airport),
     getAirportContent(airport.code),
+    getNoLotsAirportContent(airport.code),
   ]);
+  // Nothing to book: show the no-lots guide (the airport's own parking,
+  // transit, nearby airports) when one exists, so the page still helps.
+  const noLotsGuide = data.totalLots > 0 ? null : noLotsContent;
   const seoSections = customContent?.sections ?? generateSEOContent(airport, data);
   const faqs = customContent?.faqs ?? generateFAQs(airport, data);
   const emptyState = emptyStateCopy(airport.name, data.locationsConsidered);
@@ -111,8 +117,8 @@ export default async function AirportParkingPage({ params }: PageProps) {
   const schemas = buildAirportSchemas(
     airport,
     data,
-    data.totalLots > 0 ? faqs : [],
-    showsGuide ? customContent : null
+    data.totalLots > 0 ? faqs : noLotsGuide?.faqs ?? [],
+    showsGuide ? customContent : noLotsGuide
   );
 
   return (
@@ -143,6 +149,13 @@ export default async function AirportParkingPage({ params }: PageProps) {
           </h2>
           <p className="text-gray-500 max-w-lg mx-auto">{emptyState.body}</p>
         </section>
+      )}
+
+      {noLotsGuide && (
+        <>
+          <SEOContent sections={noLotsGuide.sections} updatedOn={noLotsGuide.updatedOn} />
+          <AirportFAQ faqs={noLotsGuide.faqs} airportCode={airport.code} />
+        </>
       )}
 
       <AirportGuides airport={airport} />
