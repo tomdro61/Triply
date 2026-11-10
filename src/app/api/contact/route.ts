@@ -1,8 +1,8 @@
 import { after, NextRequest, NextResponse } from "next/server";
 import { resend, FROM_EMAIL } from "@/lib/resend/client";
 import { ALERT_EMAILS } from "@/config/admin";
-import { contactFormSchema, escapeHtml, CONTACT_HONEYPOT_FIELD } from "@/lib/validation/schemas";
-import { captureAPIError, captureContactHoneypotDrop } from "@/lib/sentry";
+import { contactFormSchema, escapeHtml } from "@/lib/validation/schemas";
+import { captureAPIError } from "@/lib/sentry";
 import { clientKey } from "@/lib/http/origin";
 import { checkContactRateLimit, CONTACT_RATE_LIMIT_WINDOW_SECONDS } from "@/lib/attribution/limiter";
 import { createAdminClient } from "@/lib/supabase/server";
@@ -27,16 +27,16 @@ import type { ContactFormData } from "@/lib/validation/schemas";
  *
  * Public, and it sends TWO emails per accepted request from our verified
  * Resend domain (one to the team, one to whatever address was typed), so it
- * carries three guards (PR #56 review):
- *   1. honeypot — a filled CONTACT_HONEYPOT_FIELD gets the same 200 a real
- *      submission gets, nothing is sent, and the drop is RECORDED (Sentry info
- *      event + console) so a lead eaten by a password manager's identity fill
- *      is never silently lost;
- *   2. a per-IP limit, charged only on a request that passed validation, so
+ * carries two guards (PR #56 review):
+ *   1. a per-IP limit, charged only on a request that passed validation, so
  *      a person's typos never burn their own allowance;
- *   3. nothing caller-controlled is repeated in the confirmation email: the
+ *   2. nothing caller-controlled is repeated in the confirmation email: the
  *      subject is an enum (contactFormSchema) and the greeting names nobody,
  *      so the email cannot carry a scammer's text to a victim's inbox.
+ * There is no hidden "honeypot" field any more: real people's browsers filled
+ * it (all three drops in a month were Chrome users, none a bot), and their
+ * messages were thrown away. A page opened before that change still sends
+ * the old field; Zod strips it.
  */
 /** 429 — deliberately generic. */
 function tooMany() {
@@ -54,21 +54,6 @@ export async function POST(request: NextRequest) {
     // A non-JSON body is caller error, not a crash: parse to undefined and
     // let Zod answer 400 instead of 500-ing (and paging Sentry) per bot post.
     const body: unknown = await request.json().catch(() => undefined);
-    const record = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
-
-    const honeypot = record[CONTACT_HONEYPOT_FIELD];
-    if (typeof honeypot === "string" && honeypot.trim() !== "") {
-      // The trap counts against the same per-IP allowance a real submission
-      // uses, so one source can push at most 5 drops per window through the
-      // logs; past that it gets the ordinary 429 (which tells a bot nothing).
-      if (!checkContactRateLimit(clientKey(request))) return tooMany();
-      const email = typeof record.email === "string" ? record.email : "";
-      const subject = typeof record.subject === "string" ? record.subject.slice(0, 60) : "";
-      const context = { subject, emailDomain: (email.split("@")[1] ?? "").toLowerCase().slice(0, 100), ipKey: clientKey(request) };
-      captureContactHoneypotDrop(context); // throttled per instance; console line kept short
-      console.warn("[contact] honeypot drop", context.ipKey, context.emailDomain);
-      return NextResponse.json({ success: true });
-    }
 
     // Validate with Zod
     const result = contactFormSchema.safeParse(body);

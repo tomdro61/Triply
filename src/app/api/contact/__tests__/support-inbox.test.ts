@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
 
 const resendSend = vi.hoisted(() => vi.fn());
-const sentry = vi.hoisted(() => ({ captureAPIError: vi.fn(), captureContactHoneypotDrop: vi.fn() }));
+const sentry = vi.hoisted(() => ({ captureAPIError: vi.fn() }));
 const discord = vi.hoisted(() => ({ postToDiscord: vi.fn(), isDiscordWebhookUrl: vi.fn(() => true) }));
 const db = vi.hoisted(() => ({
   booking: null as null | Record<string, unknown>,

@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Navbar, Footer } from "@/components/shared";
 import { trackContactFormSubmit } from "@/lib/analytics/gtag";
-import { CONTACT_HONEYPOT_FIELD, CONTACT_SUBJECTS } from "@/lib/validation/schemas";
+import { CONTACT_SUBJECTS } from "@/lib/validation/schemas";
 import {
   ArrowLeft,
   Mail,
@@ -123,9 +123,6 @@ export default function ContactPageClient({
     urgent: false,
     replied: false,
   });
-  // Honeypot — hidden from people, filled by bots; /api/contact drops the
-  // submission silently when it is non-empty.
-  const [website, setWebsite] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -155,7 +152,6 @@ export default function ContactPageClient({
           ...(askReservation && formData.reservationNumber.trim()
             ? { reservationNumber: formData.reservationNumber.trim() }
             : {}),
-          [CONTACT_HONEYPOT_FIELD]: website,
         }),
       });
 
@@ -271,22 +267,6 @@ export default function ContactPageClient({
                     </div>
                   </div>
                   <form onSubmit={handleSubmit} className="relative p-6 space-y-4">
-                    {/* Honeypot: off-screen, skipped by tab, autofill and password managers, invisible to screen readers. */}
-                    <div aria-hidden="true" className="absolute -left-[9999px] top-auto w-px h-px overflow-hidden">
-                      <input
-                        id={`contact-${CONTACT_HONEYPOT_FIELD}`}
-                        name={CONTACT_HONEYPOT_FIELD}
-                        type="text"
-                        tabIndex={-1}
-                        autoComplete="off"
-                        data-1p-ignore
-                        data-lpignore="true"
-                        data-bwignore="true"
-                        data-form-type="other"
-                        value={website}
-                        onChange={(e) => setWebsite(e.target.value)}
-                      />
-                    </div>
                     <div className="grid sm:grid-cols-2 gap-4">
                       <div>
                         <label
