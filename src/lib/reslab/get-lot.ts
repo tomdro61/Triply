@@ -404,9 +404,10 @@ export async function lotSlugStatus(slug: string, airportCode: string): Promise<
   let channel: Awaited<ReturnType<typeof getChannelLocationsCached>>;
   try {
     channel = await getChannelLocationsCached();
-  } catch {
+  } catch (error) {
     // Not swallowed: the page body's getLotById makes the same read and
     // renders its error state; this pre-check only declines to decide.
+    console.warn(`[lot-page] slug pre-check could not read the location list for "${slug}":`, error);
     return "unknown";
   }
   const allMatches = channel.data.filter((loc) => generateSlug(loc.name) === slug);

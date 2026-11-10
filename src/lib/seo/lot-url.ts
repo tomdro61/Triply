@@ -29,9 +29,13 @@ export async function resolveLotUrl(
   const suffix = /^(.+)-([a-z]{3})$/.exec(lotSlug);
   const suffixAirport = suffix ? getAirportByCode(suffix[2]) : undefined;
   if (suffix && suffixAirport && productionAirports.includes(suffixAirport)) {
-    if ((await lotSlugStatus(suffix[1], suffixAirport.code)) === "exists") {
+    const twin = await lotSlugStatus(suffix[1], suffixAirport.code);
+    if (twin === "exists") {
       permanentRedirect(`/${suffixAirport.slug}/airport-parking/${suffix[1]}${queryString(query)}`);
     }
+    // Can't tell whether the live twin exists (thin list, failed read): no
+    // 404 on a guess — render as before; the next crawl decides.
+    if (twin === "unknown") return;
   }
   notFound();
 }

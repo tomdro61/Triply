@@ -62,6 +62,24 @@ describe("resolveLotUrl", () => {
     await expect(resolveLotUrl("new-york-ewr", "snap-parking-ewr", {})).resolves.toBeUndefined();
   });
 
+  it("old slug missing but the twin lookup can't tell → renders as before, no 404 on a guess", async () => {
+    status.lotSlugStatus.mockImplementation(async (slug: string) => (slug === "bolt-parking" ? "unknown" : "missing"));
+    await expect(resolveLotUrl("new-york-lga", "bolt-parking-jfk", {})).resolves.toBeUndefined();
+    expect(nav.notFound).not.toHaveBeenCalled();
+  });
+
+  it("keeps repeated params in order and drops undefined ones", async () => {
+    await expect(
+      resolveLotUrl("new-york-ewr", "snap-parking-ewr", { checkin: ["2026-11-20", "2026-11-21"], ref: undefined }),
+    ).rejects.toThrow("REDIRECT /new-york-ewr/airport-parking/snap-parking?checkin=2026-11-20&checkin=2026-11-21");
+  });
+
+  it("a lookup that throws propagates (the page's error state), never a 404", async () => {
+    status.lotSlugStatus.mockRejectedValue(new Error("boom"));
+    await expect(resolveLotUrl("new-york-ewr", "snap-parking", {})).rejects.toThrow("boom");
+    expect(nav.notFound).not.toHaveBeenCalled();
+  });
+
   it("an unknown airport is a 404 without a lot lookup", async () => {
     await expect(resolveLotUrl("nowhere-xxx", "snap-parking", {})).rejects.toThrow("NOT_FOUND");
     expect(status.lotSlugStatus).not.toHaveBeenCalled();

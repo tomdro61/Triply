@@ -62,6 +62,17 @@ describe("lotSlugStatus — ResLab", () => {
     expect(await lotSlugStatus("maple-leaf-lot", "YYZ")).toBe("missing");
   });
 
+  it("a live slug that itself ends in a code exists; a hidden twin does not shadow a visible one", async () => {
+    channel([loc(5, "Park N Fly JFK"), loc(416, "Dup Name"), loc(6, "Dup Name")]);
+    expect(await lotSlugStatus("park-n-fly-jfk", "JFK")).toBe("exists");
+    expect(await lotSlugStatus("dup-name", "JFK")).toBe("exists");
+  });
+
+  it("flag off: never reads direct inventory, and a direct-looking slug is decided on the list", async () => {
+    expect(await lotSlugStatus("direct-12", "JFK")).toBe("missing");
+    expect(db.rpc).not.toHaveBeenCalled();
+  });
+
   it("ids are not slugs: left to getLotById", async () => {
     expect(await lotSlugStatus("7", "EWR")).toBe("unknown");
     expect(await lotSlugStatus("reslab-7", "EWR")).toBe("unknown");

@@ -276,6 +276,9 @@ async function LotPageContent({ params, searchParams }: LotPageProps) {
 export default async function LotPage(props: LotPageProps) {
   // Before the Suspense boundary, so a dead or old-slug URL gets a real
   // 404 / 308 instead of a streamed soft 404 (src/lib/seo/lot-url.ts).
+  // Cost: on a cold instance the location-list read now happens before the
+  // first byte instead of behind the spinner (warm: an in-memory hit, no
+  // ResLab call). The shared snapshot keeps that read short in production.
   const { slug, lot: lotSlug } = await props.params;
   await resolveLotUrl(slug, lotSlug, await props.searchParams);
   return (
