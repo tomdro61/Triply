@@ -49,7 +49,7 @@ now feeds two places through `src/lib/blog/blog-redirects.mjs`:
 - `src/components/blog/RichText.tsx`: any link to `/blog/<old>` renders as `/blog/<new>`, whether it is
   absolute (`triplypro.com`, with or without `www`) or relative, and keeps any trailing slash, query or `#fragment`.
   Readers and crawlers never hop through the redirect.
-The map stays empty until the W2 merge test. `buildBlogRedirects` validates the map at build time (slug → slug,
+The map holds no W2 merges yet. Since Nov 2026 it carries 82 rescues for deleted posts that 404'd in Search Console, each to the closest-intent live post at the same airport; never to a hub, and none at the W2 pilot airports (BWI, LAX, BOS, EWR). `buildBlogRedirects` validates the map at build time (slug → slug,
 no self-redirect, no chain) and fails `next build` on a bad entry — a 308 is cached by browsers, so a wrong
 entry must never ship. Tests: `src/lib/blog/__tests__/blog-redirects.test.ts` and
 `src/config/__tests__/blog-redirects.test.ts`. The sitemap and post cards build URLs from CMS slugs, so a merged
