@@ -369,6 +369,53 @@ function directToUnified(lot: DirectLot, fromDate: string, toDate: string): Unif
 }
 
 /**
+ * Does a lot page slug name a lot — answered WITHOUT pricing, from the same
+ * lists getLotById reads (the shared channel list, the direct-lot read), so
+ * the lot page can decide before it starts streaming. A `notFound()` inside
+ * the page's Suspense boundary is sent after the 200 status line, so a dead
+ * lot URL used to be a soft 404: 200, "Parking Not Found", noindex (66 such
+ * URLs in Search Console's noindex report, 10 Nov 2026).
+ *
+ *   "exists"  — a sellable lot has this slug (direct in scope, or ResLab)
+ *   "missing" — the lists are complete and readable and no lot has it, or
+ *               every ResLab match is hidden (a firm 404, as findLotBySlug)
+ *   "unknown" — cannot tell (thin list, failed/broken direct read, list read
+ *               threw) or not a slug (`direct-<id>`, `reslab-<id>`, `<id>`):
+ *               the caller falls through to getLotById, which surfaces the
+ *               error state itself. Never a 404 on a guess.
+ */
+export type LotSlugStatus = "exists" | "missing" | "unknown";
+
+export async function lotSlugStatus(slug: string, airportCode: string): Promise<LotSlugStatus> {
+  if (/^(reslab-)?\d+$/.test(slug)) return "unknown";
+  const directEnabled = isDirectLotsEnabled();
+  if (directEnabled && parseDirectLotUnifiedId(slug) !== null) return "unknown";
+
+  if (directEnabled) {
+    const direct = await loadSellableDirectLots(airportCode);
+    if (!direct.ok) return "unknown";
+    if (direct.lots.some((l) => l.slug === slug && l.airportCode === airportCode)) return "exists";
+    const maybeThis = direct.droppedKeys.some(
+      (k) => (k.airportCode === null || k.airportCode === airportCode) && (k.slug === null || k.slug === slug),
+    );
+    if (maybeThis) return "unknown";
+  }
+
+  let channel: Awaited<ReturnType<typeof getChannelLocationsCached>>;
+  try {
+    channel = await getChannelLocationsCached();
+  } catch {
+    // Not swallowed: the page body's getLotById makes the same read and
+    // renders its error state; this pre-check only declines to decide.
+    return "unknown";
+  }
+  const allMatches = channel.data.filter((loc) => generateSlug(loc.name) === slug);
+  if (allMatches.some((loc) => !isHiddenReslabLocation(loc.id) && isUsdPricedLocation(loc))) return "exists";
+  if (allMatches.length > 0) return "missing";
+  return channel.incomplete ? "unknown" : "missing";
+}
+
+/**
  * Where the lookup came from. `code` is the airport in the page URL (the lot
  * page always has one; the checkout API has none) and scopes DIRECT matches
  * to that airport, so a JFK direct lot does not render under /boston-… and a

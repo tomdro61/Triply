@@ -15,6 +15,7 @@ import {
 import { JsonLd } from "@/components/seo/JsonLd";
 import { getAirportBySlug } from "@/config/airports";
 import { getLotById } from "@/lib/reslab/get-lot";
+import { resolveLotUrl } from "@/lib/seo/lot-url";
 import { limitedSpotsTag } from "@/lib/reslab/availability";
 import { airportPricingTimes, reslabLotPricingWindow, toPricingWindow } from "@/lib/reslab/pricing-window";
 import type { ReslabPricingWindowFn } from "@/lib/reslab/get-lot";
@@ -272,7 +273,11 @@ async function LotPageContent({ params, searchParams }: LotPageProps) {
   );
 }
 
-export default function LotPage(props: LotPageProps) {
+export default async function LotPage(props: LotPageProps) {
+  // Before the Suspense boundary, so a dead or old-slug URL gets a real
+  // 404 / 308 instead of a streamed soft 404 (src/lib/seo/lot-url.ts).
+  const { slug, lot: lotSlug } = await props.params;
+  await resolveLotUrl(slug, lotSlug, await props.searchParams);
   return (
     <Suspense fallback={<LoadingState />}>
       <LotPageContent {...props} />
