@@ -12,7 +12,7 @@ export function Newsletter() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submittedMessage, setSubmittedMessage] = useState(
-    "Check your email for your 10% off code!"
+    "Check your email for your welcome code!"
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -56,7 +56,7 @@ export function Newsletter() {
         throw new Error("We couldn't confirm your signup. Please try again.");
       }
 
-      setSubmittedMessage(data.message || "Check your email for your 10% off code!");
+      setSubmittedMessage(data.message || "Check your email for your welcome code!");
       setIsSubmitted(true);
       // The response no longer says whether this address was already
       // subscribed (that flag was an enumeration oracle — see /api/newsletter's

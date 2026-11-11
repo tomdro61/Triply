@@ -28,8 +28,9 @@ describe("welcomeBookUrl", () => {
 });
 
 describe("welcomeBookLabel", () => {
-  it("names the airport when known, generic otherwise", () => {
-    expect(welcomeBookLabel("DFW")).toBe("Book DFW parking &amp; save 10%");
-    expect(welcomeBookLabel(undefined)).toBe("Book Now &amp; Save 10%");
+  it("names the airport when known, generic otherwise, with the code's own amount", () => {
+    expect(welcomeBookLabel("DFW", "$5")).toBe("Book DFW parking &amp; save $5");
+    expect(welcomeBookLabel(undefined, "$5")).toBe("Book Now &amp; Save $5");
+    expect(welcomeBookLabel("DFW", "10%")).toBe("Book DFW parking &amp; save 10%");
   });
 });

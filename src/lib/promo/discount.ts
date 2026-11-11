@@ -89,9 +89,19 @@ export type CheckoutPromoOutcome =
 /** "$25" for whole dollars, "$24.50" otherwise. */
 const dollarsLabel = (cents: number): string => (cents % 100 === 0 ? `$${cents / 100}` : `$${(cents / 100).toFixed(2)}`);
 
+/** The amount alone, as the customer reads it: "$5" / "10%" (e.g. "save $5"). */
+export function promoRuleAmountLabel(rule: Pick<PromoRule, "percent" | "amountCents">): string {
+  return rule.amountCents !== null ? dollarsLabel(rule.amountCents) : `${rule.percent}%`;
+}
+
 /** The code's offer as the customer reads it: "$5 off" / "10% off". */
-export function promoRuleLabel(rule: PromoRule): string {
-  return rule.amountCents !== null ? `${dollarsLabel(rule.amountCents)} off` : `${rule.percent}% off`;
+export function promoRuleLabel(rule: Pick<PromoRule, "percent" | "amountCents">): string {
+  return `${promoRuleAmountLabel(rule)} off`;
+}
+
+/** The least parking the code needs, "$25", or null when it has no minimum. */
+export function promoMinimumLabel(rule: Pick<PromoRule, "minSubtotalCents">): string | null {
+  return rule.minSubtotalCents > 0 ? dollarsLabel(rule.minSubtotalCents) : null;
 }
 
 /** Why a code gives no discount on this cart, in the customer's words — the same text in the widget and the checkout notice. */

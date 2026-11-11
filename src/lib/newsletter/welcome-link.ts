@@ -4,8 +4,8 @@ import { appBase } from "@/lib/reviews/links";
 /**
  * Where the welcome email's button sends a new subscriber.
  *
- * Signups come almost entirely from airport-specific blog posts (the 10%-off
- * box on "<airport> parking promo code" articles), and the signup records the
+ * Signups come almost entirely from airport-specific blog posts (the welcome
+ * code box on "<airport> parking promo code" articles), and the signup records the
  * airport. Sending the reader to that airport's search — which runs at once
  * with default dates — beats the bare homepage, where they had to pick the
  * airport again. Unknown or unsellable airport → the homepage.
@@ -24,7 +24,12 @@ export function welcomeBookUrl(airportCode: string | null | undefined): string {
   return url.toString();
 }
 
-export function welcomeBookLabel(airportCode: string | null | undefined): string {
+/**
+ * The button text. `amountLabel` is the code's own amount ("$5" / "10%",
+ * `promoRuleAmountLabel`) — never a constant, because a re-send can carry a
+ * code minted under an earlier offer.
+ */
+export function welcomeBookLabel(airportCode: string | null | undefined, amountLabel: string): string {
   const airport = airportCode ? getAirportByCode(airportCode) : undefined;
-  return airport?.enabled ? `Book ${airport.code} parking &amp; save 10%` : "Book Now &amp; Save 10%";
+  return airport?.enabled ? `Book ${airport.code} parking &amp; save ${amountLabel}` : `Book Now &amp; Save ${amountLabel}`;
 }

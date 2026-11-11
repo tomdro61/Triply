@@ -175,6 +175,12 @@ a human.
 
 One entry per reviewed PR: what the review found, by lesson number. Newest first.
 
+- **Welcome email worded from the code's own row (Nov 11, PR A of the $5 welcome switch):**
+  - Lesson 13: the test fake returned whole `promo_codes` rows whatever the select named and enforced none of 049's CHECKs, so a mint writing both kinds (a 503 on every real signup) or a select dropping `min_subtotal` (a $5 code emailed without its $25 minimum) passed every test. The fake now projects `promo_codes` selects and enforces the kind CHECKs; the route requires every column present.
+  - Lesson 2: the email said "Valid for 30 days" on re-sends of codes minted days earlier. It now states the row's `expires_at` (ET).
+  - Lesson 10: a re-send of a held $5 code while `PROMO_FIXED_ENABLED` is off would have emailed a code checkout refuses. It is held, not sent.
+  - Lesson 15: the unreadable-row Sentry event was deduped per instance, so a second affected subscriber was invisible. Now one per subscriber, with a counter.
+
 - **#181 lot URLs: real 404s and 308s (Nov 10):**
   - Lesson 17 (new): 308s went to the lot's owning airport, not to where the page would actually show that lot. With two same-name lots, an old URL could go to a different business. With the kill switch off, or at the cruise port, the distance check was skipped (`park-for-u-yyz` → the JFK lot). Every 308 is now checked against the destination page's own choice and canonical; unproven → render as before.
   - Lesson 1: the "lot owned by another airport" 308 also caught our own search cards. When an airport is sold out, search shows another airport's lots under the searched airport's URL, so a JFK customer would have been bounced to an LGA page. Removed: the canonical already tells Google.
@@ -321,6 +327,6 @@ One entry per reviewed PR: what the review found, by lesson number. Newest first
 - **#143 airport data (Nov 2):** lesson 2, stale lot prices in prose. It took 8 rounds, each finding
   bugs in the last round's fixes (lesson 15).
 
-*Updated November 10, 2026: lesson 17 (redirects, #181) and the #180 / #181 / #183 Log entries.*
+*Updated November 11, 2026: Log entry for the welcome-email wording PR. November 10, 2026: lesson 17 (redirects, #181) and the #180 / #181 / #183 Log entries.*
 
 *Created November 6, 2026 (lesson 16 added the same day, #161) — from REVIEW-FINDINGS.md (wrapper repo) and the reviews of #143–#160.*

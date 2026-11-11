@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalisePromoCode, parsePromoRule, promoDiscountCents, promoRefusalMessage, promoRuleLabel, type Cart, type PromoRule } from "../discount";
+import { normalisePromoCode, parsePromoRule, promoDiscountCents, promoMinimumLabel, promoRefusalMessage, promoRuleAmountLabel, promoRuleLabel, type Cart, type PromoRule } from "../discount";
 import { computeDirectQuote } from "@/lib/direct/pricing";
 
 /**
@@ -215,6 +215,14 @@ describe("the customer's words", () => {
     expect(promoRuleLabel(JFK5)).toBe("$5 off");
     expect(promoRuleLabel(SAVE10)).toBe("10% off");
     expect(promoRuleLabel({ ...JFK5, amountCents: 250 })).toBe("$2.50 off");
+  });
+
+  it("promoRuleAmountLabel: the amount alone; promoMinimumLabel: the minimum or null", () => {
+    expect(promoRuleAmountLabel(JFK5)).toBe("$5");
+    expect(promoRuleAmountLabel(SAVE10)).toBe("10%");
+    expect(promoMinimumLabel(JFK5)).toBe("$25");
+    expect(promoMinimumLabel({ minSubtotalCents: 2450 })).toBe("$24.50");
+    expect(promoMinimumLabel(SAVE10)).toBeNull();
   });
 
   it("promoRefusalMessage names the minimum and the pay-at-the-lot rule", () => {
