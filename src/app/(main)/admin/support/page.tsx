@@ -11,8 +11,20 @@ import {
   CheckCircle2,
   Inbox,
   RefreshCw,
+  FileText,
+  Copy,
 } from "lucide-react";
+import Link from "next/link";
 import { formatDateTime } from "@/lib/utils";
+import {
+  REPLY_TEMPLATES,
+  MAILTO_MAX_LENGTH,
+  findTemplate,
+  mailtoHref,
+  renderTemplate,
+  replySubject,
+  type TemplateBooking,
+} from "@/lib/support/templates";
 
 interface Ticket {
   id: string;
@@ -119,6 +131,13 @@ export default function AdminSupportPage() {
   // is conditional on THIS, not on the latest list copy: a refresh that pulls
   // in someone else's change must not hand a stale draft a fresh token.
   const [notesBase, setNotesBase] = useState("");
+  // Saved replies: the matched booking for the open ticket (read on open, so a
+  // reply can quote it), the chosen template, and the editable text.
+  const [replyBooking, setReplyBooking] = useState<{ ticketId: string; booking: TemplateBooking | null; failed: boolean } | null>(null);
+  const [templateId, setTemplateId] = useState("");
+  const [replyDraft, setReplyDraft] = useState("");
+  const [copied, setCopied] = useState(false);
+  const openTicketId = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     const id = ++requestId.current;
@@ -213,10 +232,65 @@ export default function AdminSupportPage() {
     setSelected(t);
     setNotesDraft(t.notes);
     setNotesBase(t.updated_at);
+    setTemplateId("");
+    setReplyDraft("");
+    setCopied(false);
+    openTicketId.current = t.id;
+    setReplyBooking(null);
+    if (t.booking_match === "matched" && t.booking_id) void loadReplyBooking(t.id);
+    else setReplyBooking({ ticketId: t.id, booking: null, failed: false });
   }
 
-  const replyHref = (t: Ticket) =>
-    `mailto:${encodeURIComponent(t.email)}?subject=${encodeURIComponent(`Re: Triply #${t.ticket_number} - ${t.subject}`)}`;
+  /** The matched booking, for saved replies. Only the open ticket's answer is kept. */
+  async function loadReplyBooking(ticketId: string) {
+    let booking: TemplateBooking | null = null;
+    let failed = false;
+    try {
+      const res = await fetch(`/api/admin/support/${ticketId}`);
+      const data = await res.json().catch(() => null);
+      const b = data?.booking as
+        | { reslab_reservation_number: string | null; location_name: string | null; airport_code: string | null; check_in: string | null; check_out: string | null }
+        | null
+        | undefined;
+      if (!res.ok || data?.bookingError || !b) failed = true;
+      else if (b.reslab_reservation_number && b.location_name && b.check_in && b.check_out) {
+        booking = {
+          reservationNumber: b.reslab_reservation_number,
+          locationName: b.location_name,
+          airportCode: b.airport_code,
+          checkIn: b.check_in,
+          checkOut: b.check_out,
+        };
+      }
+    } catch {
+      failed = true;
+    }
+    if (openTicketId.current === ticketId) setReplyBooking({ ticketId, booking, failed });
+  }
+
+  function pickTemplate(t: Ticket, id: string) {
+    setTemplateId(id);
+    setCopied(false);
+    const template = findTemplate(id);
+    const booking = replyBooking?.ticketId === t.id ? replyBooking.booking : null;
+    setReplyDraft(
+      template
+        ? renderTemplate(template, { ticketNumber: t.ticket_number, subject: t.subject, customerName: t.name, booking })
+        : ""
+    );
+  }
+
+  async function copyReply() {
+    try {
+      await navigator.clipboard.writeText(replyDraft);
+      setCopied(true);
+    } catch {
+      setError("Couldn't copy: select the text and copy it by hand.");
+    }
+  }
+
+  const replyHref = (t: Ticket) => mailtoHref(t.email, replySubject(t.ticket_number, t.subject));
+  const templateHref = (t: Ticket) => mailtoHref(t.email, replySubject(t.ticket_number, t.subject), replyDraft);
 
   return (
     <div>
@@ -428,6 +502,66 @@ export default function AdminSupportPage() {
                   >
                     Reopen
                   </button>
+                )}
+                <Link
+                  href={`/admin/support/${selected.id}/evidence`}
+                  className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  <FileText className="h-4 w-4" /> Evidence PDF
+                </Link>
+              </div>
+
+              <div className="mt-5 rounded-lg border border-gray-200 p-4">
+                <label className="block text-sm">
+                  <span className="mb-1 block text-gray-600">Saved reply</span>
+                  <select
+                    value={templateId}
+                    disabled={replyBooking?.ticketId !== selected.id}
+                    onChange={(e) => pickTemplate(selected, e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 disabled:opacity-50"
+                  >
+                    <option value="">{replyBooking?.ticketId === selected.id ? "Pick a saved reply…" : "Loading the booking…"}</option>
+                    {REPLY_TEMPLATES.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {replyBooking?.ticketId === selected.id && replyBooking.failed && (
+                  <p className="mt-2 text-xs text-red-600">Couldn&apos;t load the booking: fill in the [blanks] by hand.</p>
+                )}
+                {templateId && (
+                  <>
+                    <textarea
+                      value={replyDraft}
+                      onChange={(e) => {
+                        setReplyDraft(e.target.value);
+                        setCopied(false);
+                      }}
+                      rows={12}
+                      className="mt-3 w-full resize-y rounded-lg border border-gray-200 px-3 py-2 font-mono text-xs leading-relaxed outline-none focus:ring-2 focus:ring-brand-orange"
+                    />
+                    {/\[[^\]]+\]/.test(replyDraft) && (
+                      <p className="mt-1 text-xs text-amber-700">Fill in or delete every [bracketed blank] before sending.</p>
+                    )}
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {templateHref(selected).length <= MAILTO_MAX_LENGTH && (
+                        <a
+                          href={templateHref(selected)}
+                          className="inline-flex items-center gap-2 rounded-lg bg-brand-orange px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600"
+                        >
+                          <Mail className="h-4 w-4" /> Open in email
+                        </a>
+                      )}
+                      <button
+                        onClick={copyReply}
+                        className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        <Copy className="h-4 w-4" /> {copied ? "Copied" : "Copy text"}
+                      </button>
+                    </div>
+                  </>
                 )}
               </div>
 

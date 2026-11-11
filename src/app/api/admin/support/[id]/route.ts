@@ -4,8 +4,18 @@ import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { isAdminEmail } from "@/config/admin";
 import { captureAPIError } from "@/lib/sentry";
 import { TICKET_COLUMNS } from "@/lib/support/tickets";
+import { EVIDENCE_BOOKING_COLUMNS } from "@/lib/support/evidence";
 
 /**
+ * GET /api/admin/support/[id] — one ticket plus the booking it is about
+ * (ADMIN_EMAILS only). Feeds the saved replies and the evidence page.
+ *
+ * The booking is read ONLY when the ticket's booking_match is "matched" (the
+ * booking's email equals the sender's), so neither a reply nor an evidence
+ * file can quote someone else's reservation. `booking: null` +
+ * `bookingError: true` = it should exist but couldn't be read: the page says
+ * so instead of showing a ticket with no booking as if there were none.
+ *
  * PATCH /api/admin/support/[id] — work a ticket (ADMIN_EMAILS only).
  * Body (all optional, at least one): status, assignedTo (an admin email or
  * null), notes, markReplied (stamps first_response_at once and moves a "new"
@@ -16,6 +26,64 @@ import { TICKET_COLUMNS } from "@/lib/support/tickets";
  * makes the write conditional: if someone else saved since, nothing changes
  * and the answer is 409, so one admin's notes never silently erase another's.
  */
+
+const DB_TIMEOUT_MS = 3_000;
+
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const authClient = await createClient();
+    const {
+      data: { user },
+    } = await authClient.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!isAdminEmail(user.email)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    const { id } = await params;
+    if (!z.string().uuid().safeParse(id).success) {
+      return NextResponse.json({ error: "Bad ticket id" }, { status: 400 });
+    }
+
+    const db = await createAdminClient();
+    const { data: ticket, error: ticketError } = await db
+      .from("support_tickets")
+      .select(`${TICKET_COLUMNS}, livemode`)
+      .eq("id", id)
+      .abortSignal(AbortSignal.timeout(DB_TIMEOUT_MS))
+      .maybeSingle<{ booking_id: string | null; booking_match: string }>();
+    if (ticketError) throw new Error(`admin support ticket read failed: ${ticketError.message}`);
+    if (!ticket) return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
+
+    let booking: unknown = null;
+    let bookingError = false;
+    if (ticket.booking_id && ticket.booking_match === "matched") {
+      const { data, error } = await db
+        .from("bookings")
+        .select(EVIDENCE_BOOKING_COLUMNS)
+        .eq("id", ticket.booking_id)
+        .abortSignal(AbortSignal.timeout(DB_TIMEOUT_MS))
+        .maybeSingle();
+      if (error || !data) {
+        bookingError = true;
+        if (error) {
+          captureAPIError(new Error(`admin support booking read failed: ${error.message}`), {
+            endpoint: "/api/admin/support/[id]",
+            method: "GET",
+          });
+        }
+      } else {
+        booking = data;
+      }
+    }
+
+    return NextResponse.json({ ticket, booking, bookingError });
+  } catch (error) {
+    captureAPIError(error instanceof Error ? error : new Error(String(error)), {
+      endpoint: "/api/admin/support/[id]",
+      method: "GET",
+    });
+    return NextResponse.json({ error: "Failed to load ticket" }, { status: 500 });
+  }
+}
 
 const patchSchema = z
   .object({
