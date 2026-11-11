@@ -95,9 +95,14 @@ describe("lotIdLookup", () => {
     expect((await lotIdLookup("reslab-7")).status).toBe("exists");
   });
 
-  it("an id absent from a complete list is unknown, never missing: the list can be days old, getLotById reads ids from ResLab", async () => {
+  it("an id absent from a complete, fresh list is missing (a lot dropped from the channel)", async () => {
+    expect((await lotIdLookup("379")).status).toBe("missing");
+    expect((await lotIdLookup("reslab-379")).status).toBe("missing");
+  });
+
+  it("an id absent from a STALE list is unknown: getLotById reads ids from ResLab, and a lot added since may be live", async () => {
+    searchMock.getChannelLocationsCached.mockResolvedValue({ data: [loc(7, "Snap Parking")], incomplete: false, stale: true });
     expect((await lotIdLookup("379")).status).toBe("unknown");
-    expect((await lotIdLookup("reslab-379")).status).toBe("unknown");
   });
 
   it("a gone id on a thin list, or a list read that throws, is unknown", async () => {

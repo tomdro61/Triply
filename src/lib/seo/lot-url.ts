@@ -1,7 +1,9 @@
 import { notFound, permanentRedirect } from "next/navigation";
 import { getAirportByCode, getAirportBySlug, productionAirports, type Airport } from "@/config/airports";
 import { lotIdLookup, lotSlugLookup, type LotLookup } from "@/lib/reslab/get-lot";
+import { pickSameNameLot } from "@/lib/reslab/same-name-lot";
 import type { ReslabLocation } from "@/lib/reslab/client";
+import { captureAPIError } from "@/lib/sentry";
 import { isExemptFromOwnership, locationBelongsToAirport } from "@/lib/search/airport-ownership";
 import { AIRPORT_SEARCH_RADIUS_KM } from "@/lib/reslab/search";
 import { calculateDistance } from "@/lib/utils/geo";
@@ -63,12 +65,36 @@ export async function resolveLotUrl(
   };
   const lookup = (what: string, read: () => Promise<LotLookup>) => withDeadline(read(), airport.code, lotSlug, what);
 
+  const renders = (reason: string): void => {
+    console.info(JSON.stringify({ event: "lot_url_decision", airport: airport.code, slug: lotSlug, decision: "render", reason }));
+  };
+
+  /**
+   * Where a 308 for `intended` may go, for an old URL under `from`: the slug
+   * URL under the airport the lot's canonical names, and only if that page
+   * renders exactly this lot (pickSameNameLot over every visible lot of the
+   * name there, the page's own choice) and names itself canonical. null when
+   * it can't land cleanly (a direct lot of that name there, a namesake the
+   * page would pick instead, a list that can't tell): the caller renders as
+   * before rather than send a permanent redirect to the wrong lot.
+   */
+  const landing = async (intended: ReslabLocation, from: Airport): Promise<string | null> => {
+    const target = canonicalOwner(intended, from);
+    const slug = generateSlug(intended.name);
+    const there = await lookup(`target ${slug}@${target.code}`, () => lotSlugLookup(slug, target.code));
+    if (there.status !== "exists" || there.reslab.length === 0 || there.incomplete) return null;
+    const dest = pickSameNameLot(there.reslab, target);
+    if (!dest || dest.id !== intended.id || canonicalOwner(dest, target).code !== target.code) return null;
+    return `/${target.slug}/airport-parking/${slug}`;
+  };
+
   if (/^(reslab-)?\d+$/.test(lotSlug)) {
     const byId = await lookup("id", () => lotIdLookup(lotSlug));
     if (byId.status === "unknown") return;
-    if (byId.status === "missing") return gone("id_hidden");
-    const loc = byId.reslab[0];
-    return moved(`/${canonicalOwner(loc, airport).slug}/airport-parking/${generateSlug(loc.name)}`, "id");
+    if (byId.status === "missing") return gone("id_missing");
+    const to = await landing(byId.reslab[0], airport);
+    if (to) return moved(to, "id");
+    return renders("id_no_clean_landing");
   }
 
   const here = await lookup("slug", () => lotSlugLookup(lotSlug, airport.code));
@@ -83,14 +109,17 @@ export async function resolveLotUrl(
     if (twin.status !== "exists") continue;
     // A direct lot of that name at that airport.
     if (twin.reslab.length === 0) return moved(`/${at.slug}/airport-parking/${slug}`, "twin_direct");
-    // The same-name lot nearest the named airport, when it is within search
-    // range (an old `-lga` slug for a lot JFK now owns lands on JFK's page).
-    // A same-name lot far away is not this one: park-for-u-yyz must never 308
-    // to the JFK lot, with or without the own-airport kill switch, and an
-    // exempt airport (POE claims every lot) gets no pass either.
-    const near = nearest(twin.reslab, at);
-    if (distanceKm(near, at) <= AIRPORT_SEARCH_RADIUS_KM) {
-      return moved(`/${canonicalOwner(near, at).slug}/airport-parking/${slug}`, "twin");
+    // The lot the named airport's own page shows for that name (one it owns
+    // first, then the nearest), when it is within search range: an old `-lga`
+    // slug lands on the LGA lot of that name, or on JFK's page when JFK now
+    // owns it. A same-name lot far away is not this one: park-for-u-yyz must
+    // never 308 to the JFK lot, with or without the own-airport kill switch,
+    // and an exempt airport (POE claims every lot) gets no pass either.
+    const pick = pickSameNameLot(twin.reslab, at);
+    if (pick && distanceKm(pick, at) <= AIRPORT_SEARCH_RADIUS_KM) {
+      const to = await landing(pick, at);
+      if (to) return moved(to, "twin");
+      return renders("twin_no_clean_landing");
     }
     // A thin list may be missing a nearer one: render as before.
     if (twin.incomplete) return;
@@ -100,18 +129,28 @@ export async function resolveLotUrl(
 
 /**
  * The pre-check runs before the page's first byte (before its Suspense
- * spinner), so it gets its own deadline: a slow list read (a cold instance
- * whose snapshot read misses and falls back to the sweep) renders the page as
- * before instead of holding a blank tab, or a 504, until it settles. The read
- * keeps running; the page body awaits the same single-flight list. A lookup
- * that throws is "unknown" too: the body hits the same error and shows it.
+ * spinner), so it gets its own deadline. 10 s covers a cold instance's
+ * direct-lot read (4 s cap) plus its snapshot read (5 s cap), so a normal
+ * cold start still decides the status; only the rare full sweep (no snapshot)
+ * renders the page as before instead of holding a blank tab, or a 504, until
+ * it settles. The read keeps running; the page body awaits the same
+ * single-flight list, so the total time is unchanged.
+ *
+ * A lookup that throws is "unknown" too (render as before), but every
+ * expected failure is already turned into "unknown" inside the lookups, so a
+ * throw here is a code or data bug that would silently bring the soft 404s
+ * back: it goes to Sentry (throttled).
  */
-const PRECHECK_DEADLINE_MS = 3000;
+const PRECHECK_DEADLINE_MS = 10_000;
+const CAPTURE_EVERY_MS = 10 * 60 * 1000;
+let lastCaptureAt = 0;
 
 async function withDeadline(read: Promise<LotLookup>, airport: string, slug: string, what: string): Promise<LotLookup> {
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let timedOut = false;
   const late = new Promise<LotLookup>((resolve) => {
     timer = setTimeout(() => {
+      timedOut = true;
       console.warn(JSON.stringify({ event: "lot_url_precheck_timeout", airport, slug, what, ms: PRECHECK_DEADLINE_MS }));
       resolve({ status: "unknown" });
     }, PRECHECK_DEADLINE_MS);
@@ -119,7 +158,15 @@ async function withDeadline(read: Promise<LotLookup>, airport: string, slug: str
   try {
     return await Promise.race([
       read.catch((error: unknown) => {
-        console.warn(`[lot-page] pre-check ${what} threw for ${airport}/${slug}:`, error);
+        console.warn(`[lot-page] pre-check ${what} threw for ${airport}/${slug}${timedOut ? " (after its deadline)" : ""}:`, error);
+        if (Date.now() - lastCaptureAt >= CAPTURE_EVERY_MS) {
+          lastCaptureAt = Date.now();
+          captureAPIError(error instanceof Error ? error : new Error(String(error)), {
+            endpoint: "/[slug]/airport-parking/[lot]",
+            method: "GET",
+            stage: "lot_url_precheck",
+          });
+        }
         return { status: "unknown" } as const;
       }),
       late,
@@ -160,15 +207,6 @@ function canonicalOwner(loc: ReslabLocation, airport: Airport): Airport {
 function distanceKm(loc: ReslabLocation, airport: Airport): number {
   const mi = calculateDistance(airport.latitude, airport.longitude, parseFloat(loc.latitude), parseFloat(loc.longitude), false);
   return Number.isNaN(mi) ? Infinity : mi * 1.609344;
-}
-
-/** findLotBySlug's tie-break: the same-name lot nearest the URL's airport. */
-function nearest(locs: readonly ReslabLocation[], airport: Airport): ReslabLocation {
-  const dist = (l: ReslabLocation) => {
-    const d = calculateDistance(airport.latitude, airport.longitude, parseFloat(l.latitude), parseFloat(l.longitude), false);
-    return Number.isNaN(d) ? Infinity : d;
-  };
-  return locs.reduce((best, l) => (dist(l) < dist(best) ? l : best), locs[0]);
 }
 
 function queryString(query: Record<string, LinkParam>): string {

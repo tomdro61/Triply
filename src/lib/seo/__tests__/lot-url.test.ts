@@ -17,6 +17,8 @@ vi.mock("next/navigation", () => nav);
 
 const lookups = vi.hoisted(() => ({ lotSlugLookup: vi.fn(), lotIdLookup: vi.fn() }));
 vi.mock("@/lib/reslab/get-lot", () => lookups);
+const sentry = vi.hoisted(() => ({ captureAPIError: vi.fn() }));
+vi.mock("@/lib/sentry", () => sentry);
 
 import { resolveLotUrl } from "../lot-url";
 
@@ -49,6 +51,7 @@ beforeEach(() => {
     "sfo-lot": [at(6, "SFO Lot", ...NEAR_SFO)],
     "queens-lot": [at(7, "Queens Lot", ...BETWEEN_JFK_LGA)],
     "days-inn": [at(8, "Days Inn", ...NEAR_JFK), at(9, "Days Inn", ...NEAR_EWR)],
+    "ramada-by-wyndham-boston": [ids["466"]],
   };
   lookups.lotSlugLookup.mockReset();
   lookups.lotSlugLookup.mockImplementation(async (slug: string) =>
@@ -197,10 +200,13 @@ describe("resolveLotUrl — numeric ids", () => {
 });
 
 describe("resolveLotUrl — errors and bad airports", () => {
-  it("a lookup that throws renders as before (the page body shows its own error state), never a 404", async () => {
+  it("a lookup that throws renders as before, never a 404, and reaches Sentry (lookups turn every expected failure into unknown, so a throw is a bug)", async () => {
+    sentry.captureAPIError.mockClear();
     lookups.lotSlugLookup.mockRejectedValue(new Error("boom"));
     await expect(resolve("new-york-ewr", "snap-parking")).resolves.toBeUndefined();
     expect(nav.notFound).not.toHaveBeenCalled();
+    expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
+    expect(sentry.captureAPIError.mock.calls[0][1]).toMatchObject({ stage: "lot_url_precheck" });
   });
 
   it("an unknown airport is a 404 without a lookup", async () => {
@@ -215,7 +221,7 @@ describe("resolveLotUrl — pre-check deadline", () => {
     try {
       lookups.lotSlugLookup.mockImplementation(() => new Promise(() => {}));
       const pending = resolve("boston-bos", "gone-lot");
-      await vi.advanceTimersByTimeAsync(3000);
+      await vi.advanceTimersByTimeAsync(10_000);
       await expect(pending).resolves.toBeUndefined();
       expect(nav.notFound).not.toHaveBeenCalled();
       expect(nav.permanentRedirect).not.toHaveBeenCalled();
@@ -224,9 +230,50 @@ describe("resolveLotUrl — pre-check deadline", () => {
     }
   });
 
-  it("a lookup that throws renders as before", async () => {
+  it("a second throw soon after renders as before too, without a second Sentry event (throttled)", async () => {
+    sentry.captureAPIError.mockClear();
     lookups.lotSlugLookup.mockRejectedValue(new Error("bug"));
     await expect(resolve("boston-bos", "gone-lot")).resolves.toBeUndefined();
     expect(nav.notFound).not.toHaveBeenCalled();
+    expect(sentry.captureAPIError).not.toHaveBeenCalled();
+  });
+});
+
+describe("resolveLotUrl — a 308 lands only on the lot it means", () => {
+  // Two "Foo Parking" lots near LGA: X is LGA's own (12 km out), Y is nearer
+  // LGA (11 km) but JFK owns it. LGA's page for foo-parking renders X.
+  const X = at(101, "Foo Parking", 40.88, -73.92);
+  const Y = at(102, "Foo Parking", 40.7, -73.8);
+  beforeEach(() => {
+    live["foo-parking"] = [X, Y];
+    ids["101"] = X;
+  });
+  afterEach(() => {
+    delete ids["101"];
+  });
+
+  it("an old -lga slug goes to the LGA lot of that name, not a nearer namesake JFK owns", async () => {
+    await expect(resolve("new-york-lga", "foo-parking-lga")).rejects.toThrow("REDIRECT /new-york-lga/airport-parking/foo-parking");
+  });
+
+  it("an id whose slug page would render a different namesake renders as before instead of a wrong 308", async () => {
+    // With the own-airport filter off, LGA's foo-parking page renders Y
+    // (nearest), so /lga/101 must not 308 there: it would show the wrong lot.
+    process.env.SEARCH_OWN_AIRPORT_FILTER = "off";
+    await expect(resolve("new-york-lga", "101")).resolves.toBeUndefined();
+    expect(nav.permanentRedirect).not.toHaveBeenCalled();
+    expect(nav.notFound).not.toHaveBeenCalled();
+  });
+
+  it("a destination where a direct lot holds the slug renders as before", async () => {
+    lookups.lotSlugLookup.mockImplementation(async (slug: string, code: string) =>
+      slug === "foo-parking" && code === "LGA"
+        ? { status: "exists", reslab: [], incomplete: false }
+        : live[slug]
+          ? { status: "exists", reslab: live[slug], incomplete: false }
+          : { status: "missing" },
+    );
+    await expect(resolve("new-york-jfk", "101")).resolves.toBeUndefined();
+    expect(nav.permanentRedirect).not.toHaveBeenCalled();
   });
 });

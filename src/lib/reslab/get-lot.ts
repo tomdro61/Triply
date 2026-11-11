@@ -19,7 +19,7 @@ import {
 } from "./search";
 import { cache } from "react";
 import { getAirportByCode } from "@/config/airports";
-import { isOwnAirportFilterEnabled, locationBelongsToAirport } from "@/lib/search/airport-ownership";
+import { pickSameNameLot } from "./same-name-lot";
 import { isDirectLotsEnabled, DIRECT_BOOKING_OPEN } from "@/lib/direct/flag";
 import {
   fetchDirectLots,
@@ -306,22 +306,7 @@ export async function findLotBySlug(
   const allMatches = locations.filter((loc) => generateSlug(loc.name) === slug);
   const matches = allMatches.filter((loc) => !isHiddenReslabLocation(loc.id) && isUsdPricedLocation(loc));
   if (allMatches.length > 0 && matches.length === 0) return null;
-  let match = matches[0];
-  if (matches.length > 1 && airportCoords) {
-    const dist = (loc: ReslabLocation) => {
-      const d = calculateDistance(airportCoords.latitude, airportCoords.longitude, parseFloat(loc.latitude), parseFloat(loc.longitude), false);
-      return Number.isNaN(d) ? Infinity : d; // unparseable coordinates never win
-    };
-    // A lot this airport OWNS beats a nearer same-name lot another airport
-    // owns: the sitemap lists /<airport>/…/<slug> for the owned one, and the
-    // page must render (and canonical) that lot, not its namesake (audit,
-    // 10 Nov 2026). Same rule as the sitemap's reslabLocationsFor.
-    const urlAirport = airportCoords.code ? getAirportByCode(airportCoords.code) : undefined;
-    const owned =
-      urlAirport && isOwnAirportFilterEnabled() ? matches.filter((loc) => locationBelongsToAirport(loc, urlAirport)) : [];
-    const pool = owned.length > 0 ? owned : matches;
-    match = pool.reduce((best, loc) => (dist(loc) < dist(best) ? loc : best), pool[0]);
-  }
+  const match = airportCoords ? pickSameNameLot(matches, airportCoords) : matches[0];
   if (!match) {
     if (incomplete) {
       // The list is KNOWN thin — the cache deliberately retains a partial sweep
@@ -406,7 +391,9 @@ const UNKNOWN: LotLookup = { status: "unknown" };
 const MISSING: LotLookup = { status: "missing" };
 
 /** The shared channel list, or null when it cannot be read (logged, never swallowed: the body re-reads it). */
-async function channelForPrecheck(what: string): Promise<{ data: readonly ReslabLocation[]; incomplete: boolean } | null> {
+async function channelForPrecheck(
+  what: string,
+): Promise<{ data: readonly ReslabLocation[]; incomplete: boolean; stale: boolean } | null> {
   try {
     return await getChannelLocationsCached();
   } catch (error) {
@@ -448,11 +435,13 @@ export async function lotSlugLookup(slug: string, airportCode: string): Promise<
  * were soft 404s (audit, 10 Nov 2026). "exists" carries the one location so
  * the caller can 308 to its slug URL. An id with a direct-lot twin is left
  * "unknown" while direct booking is open (getLotById renders the direct lot
- * there), as is any id when the direct read fails. "missing" only for an id
- * the list holds as a hidden lot. An id ABSENT from the list stays "unknown"
- * even on a complete list: the list can be days old (the snapshot is served
- * stale), and getLotById reads an id straight from ResLab, so a lot added
- * since then is live there. Only that read may call it gone.
+ * there), as is any id when the direct read fails. "missing" for an id the
+ * list holds as a hidden lot, or one absent from a complete list that is not
+ * stale (a lot dropped from the channel: the normal "gone" case). Absent from
+ * a stale or thin list stays "unknown": getLotById reads ids straight from
+ * ResLab, so a lot added since an old list was built is live there. (A lot
+ * added within the fresh window is reachable by id only if someone links its
+ * id, and nothing we publish links ids.)
  */
 export async function lotIdLookup(id: string): Promise<LotLookup> {
   const m = /^(?:reslab-)?(\d+)$/.exec(id);
@@ -466,7 +455,7 @@ export async function lotIdLookup(id: string): Promise<LotLookup> {
   if (!channel) return UNKNOWN;
   const loc = channel.data.find((l) => l.id === reslabId);
   if (loc) return isVisible(loc) ? { status: "exists", reslab: [loc], incomplete: channel.incomplete } : MISSING;
-  return UNKNOWN;
+  return channel.incomplete || channel.stale ? UNKNOWN : MISSING;
 }
 
 /**
