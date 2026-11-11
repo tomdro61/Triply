@@ -10,8 +10,15 @@ describe("buildBlogRedirects", () => {
       { source: "/blog/ewr-parking-prices", destination: "/blog/newark-airport-parking-rates", permanent: true },
     ]);
   });
-  it("is empty for the committed map (nothing merged yet)", () => {
-    expect(buildBlogRedirects(liveMap as Record<string, string>)).toEqual([]);
+  it("builds one 308 per entry of the committed map (Nov 2026: deleted-post 404 rescues, no W2 merges yet)", () => {
+    const map = liveMap as Record<string, string>;
+    const built = buildBlogRedirects(map);
+    expect(built).toHaveLength(Object.keys(map).length);
+    for (const r of built) {
+      expect(r.source).toMatch(/^\/blog\/[a-z0-9-]+$/);
+      expect(r.destination).toMatch(/^\/blog\/[a-z0-9-]+$/);
+      expect(r.permanent).toBe(true);
+    }
   });
   it("fails the build on a self-redirect, a chain, a bad slug or a non-object map", () => {
     expect(() => buildBlogRedirects({ a: "a" })).toThrow(/redirects to itself/);

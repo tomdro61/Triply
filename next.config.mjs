@@ -153,7 +153,7 @@ const nextConfig = {
         destination: "https://www.parkguardcoveragehub.com/triplyproclaims",
         permanent: false,
       },
-      // Merged blog posts (W2): /blog/<old> -> /blog/<new>, 308. Map is empty until the merge test.
+      // Merged blog posts (W2): /blog/<old> -> /blog/<new>, 308. Also holds deleted-post 404 rescues (Nov 2026).
       ...buildBlogRedirects(blogRedirectMap),
     ];
   },
