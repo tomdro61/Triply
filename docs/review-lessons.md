@@ -157,11 +157,51 @@ a human.
 - **Rule:** before writing a new metric, grep for the existing one (channel, airport, live/test,
   `excludeTestBookings`, net take) and call it, or copy its exact rule and say where it came from.
 
+### 17. A permanent redirect must land on the page that shows exactly that item, and names itself canonical
+
+- **#181:** old lot URLs were 308'd to the airport that owns the lot, but the destination page picks
+  among same-name lots by its own rule (one the airport owns first, then the nearest). With two lots
+  of the same name, an old URL, with its search history and its visitors, could be handed to a
+  different business. With the kill switch off, or at the cruise port (which claims every lot), the
+  distance check was skipped, so `park-for-u-yyz` would have landed on the JFK lot.
+- Browsers cache a 308 and Google treats it as permanent, so a wrong one is hard to take back.
+- **Rule:** compute the target with the same function the destination page uses (share it, don't
+  re-implement it). Check that the destination shows exactly that item and names itself canonical.
+  When you can't prove it, render as before.
+
 ---
 
 ## Log
 
 One entry per reviewed PR: what the review found, by lesson number. Newest first.
+
+- **#181 lot URLs: real 404s and 308s (Nov 10):**
+  - Lesson 17 (new): 308s went to the lot's owning airport, not to where the page would actually show that lot. With two same-name lots, an old URL could go to a different business. With the kill switch off, or at the cruise port, the distance check was skipped (`park-for-u-yyz` → the JFK lot). Every 308 is now checked against the destination page's own choice and canonical; unproven → render as before.
+  - Lesson 1: the "lot owned by another airport" 308 also caught our own search cards. When an airport is sold out, search shows another airport's lots under the searched airport's URL, so a JFK customer would have been bounced to an LGA page. Removed: the canonical already tells Google.
+  - Lesson 5: a numeric id missing from the cached list got a hard 404, though that list can be 10–24 h old and the page reads ids from ResLab directly (Codex). An absent id renders as before; only an id the list holds as hidden 404s.
+  - Lesson 4: the new check runs before the first byte, with no deadline of its own. It now has one (10 s), and a throw reaches Sentry instead of only the console.
+  - Lesson 15: every round found something in the previous round's fixes. The round-1 fix picked the nearest same-name lot, which broke the owned-first rule; round 3 found that range has to be checked before the choice.
+  - Lesson 13: each new guard has a test, and removing any one of them fails a test (mutation-checked).
+
+- **#180 airport pages indexed + no-lots guides (Nov 10):**
+  - Lesson 1: every guide answered "What is the cheapest parking at X?" from the airport's own parking only; at YYZ, Pearson itself calls a different lot its most affordable. The questions now ask for the airport's own lowest rate.
+  - Lesson 1: copy that turns false on a known date: RSW's Thanksgiving lot (Nov 23–29) and the YOW and YYC rate rises (Jan 1). Rates now read "until 31 December … from 1 January …"; the RSW lot carries `showUntil` and drops off by itself; meta descriptions carry no dated figure.
+  - Lesson 2: a fact-check against the airports' and transit agencies' own pages found these errors:
+    - LeeTran's hours were outdated;
+    - the YUL valet billing rule was wrong;
+    - the DFW distance had no source;
+    - RSW's exits were said to take cash, but they are card-only;
+    - YYZ's garage rooftop is uncovered.
+    Fares now say "November 2026".
+  - Lesson 1: pages that sell nothing were about to be indexed with three claims they can't back:
+    - the title "Cheap X Parking Rates";
+    - the "Free Cancellation · Instant Confirmation" badges;
+    - "Coming Soon — we're expanding our inventory".
+    All three changed.
+  - Lesson 5: the sitemap was about to list 11 blog hubs with no posts ("No articles for X yet").
+  - Lesson 13: no test covered the page's own choices (guide or lots, structured data, badges). A page test now does, mutation-checked.
+
+- **#183 deleted-post redirects (Nov 10):** clean. All 82 old URLs 404 live, all 73 destinations return 200, and none is a hub or at a pilot airport.
 
 - **ResLab price-failure reasons (Nov 10):**
   - Lesson 13: the first version also shared one ResLab sign-in between concurrent calls, and its tests still passed with the "clear after success" line broken, which would have left an instance on an expired token. The shared sign-in was dropped: it also let one stalled sign-in fail every waiting call, a booking included, and handed each the same error object, which Sentry reports only once.
@@ -280,5 +320,7 @@ One entry per reviewed PR: what the review found, by lesson number. Newest first
 - **#146 guest email (Nov 3):** lesson 9, the new key went to the analytics it was meant to avoid.
 - **#143 airport data (Nov 2):** lesson 2, stale lot prices in prose. It took 8 rounds, each finding
   bugs in the last round's fixes (lesson 15).
+
+*Updated November 10, 2026: lesson 17 (redirects, #181) and the #180 / #181 / #183 Log entries.*
 
 *Created November 6, 2026 (lesson 16 added the same day, #161) — from REVIEW-FINDINGS.md (wrapper repo) and the reviews of #143–#160.*
