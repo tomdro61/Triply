@@ -229,7 +229,7 @@ export default async function BlogPostPage({ params }: Props) {
               )}
             </div>
 
-            {/* Promo-code posts: the 10% signup goes to the top — the reader
+            {/* Promo-code posts: the welcome-code signup goes to the top — the reader
                 searched for a code, and this is the real one we have. */}
             {isPromo && (
               <ArticleEmailCapture airportCode={post.airportCode} slug={slug} placement="promo" />

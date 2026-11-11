@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Mail, ArrowRight, Check, Tag, Bell, Lightbulb, Loader2 } from "lucide-react";
+import { Mail, ArrowRight, Check, Tag, Clock, Ticket, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { trackNewsletterSignup, markAndShouldTrackNewsletterSignup } from "@/lib/analytics/gtag";
 import { Input } from "@/components/ui/input";
+import { WELCOME_OFFER, WELCOME_OFFER_AMOUNT, WELCOME_OFFER_MINIMUM } from "@/lib/newsletter/welcome-offer";
 
 export function Newsletter() {
   const [email, setEmail] = useState("");
@@ -74,9 +75,12 @@ export function Newsletter() {
   };
 
   const benefits = [
-    { icon: Tag, text: "Weekly exclusive deals" },
-    { icon: Bell, text: "New lot alerts" },
-    { icon: Lightbulb, text: "Travel tips & guides" },
+    // Only what /api/newsletter actually does (src/lib/newsletter/welcome-offer.ts).
+    // The old "Weekly exclusive deals" / "New lot alerts" / "5,000+" lines
+    // weren't backed by anything (removed Nov 11, 2026).
+    { icon: Tag, text: `${WELCOME_OFFER_AMOUNT} off parking of ${WELCOME_OFFER_MINIMUM} or more` },
+    { icon: Clock, text: `Good for ${WELCOME_OFFER.validDays} days` },
+    { icon: Ticket, text: "One code, one booking" },
   ];
 
   return (
@@ -98,10 +102,10 @@ export function Newsletter() {
           </div>
 
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">
-            Get 10% Off Your First Booking
+            Get {WELCOME_OFFER_AMOUNT} Off Your First Booking
           </h2>
           <p className="text-gray-400 mb-8 max-w-lg mx-auto">
-            Subscribe to our newsletter for exclusive deals and travel tips.
+            Enter your email and we&apos;ll send you a one-time code to use at checkout on Triply.
           </p>
 
           {/* Benefits */}
@@ -144,7 +148,7 @@ export function Newsletter() {
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   <>
-                    Get 10% Off
+                    Get {WELCOME_OFFER_AMOUNT} Off
                     <ArrowRight className="ml-2 w-4 h-4" />
                   </>
                 )}
@@ -156,7 +160,7 @@ export function Newsletter() {
           )}
 
           <p className="text-gray-500 text-sm mt-5">
-            Join 5,000+ smart travelers. No spam, unsubscribe anytime.
+            One code per email address. Not valid on pay-at-the-lot bookings.
           </p>
         </div>
       </div>
