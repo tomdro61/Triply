@@ -78,10 +78,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       ?? `Compare ${lotCount}parking lots near ${airport.name}. Reserve ${airport.code} parking${priceText}/day with free cancellation. Book now & save.`;
 
   return {
-    // Nothing bookable: no "Cheap … Rates" promise in the search result.
-    title: empty
-      ? `${airport.city} Airport Parking Guide (${airport.code})`
-      : `${airport.city} Airport Parking - Cheap ${airport.code} Parking Rates${priceText}`,
+    // Nothing bookable: no "Cheap … Rates" promise in the search result, and
+    // "Guide" only when the guide is on the page.
+    title: !empty
+      ? `${airport.city} Airport Parking - Cheap ${airport.code} Parking Rates${priceText}`
+      : noLotsGuide
+        ? `${airport.city} Airport Parking Guide (${airport.code})`
+        : `${airport.city} Airport Parking (${airport.code})`,
     description,
     alternates: {
       canonical: `https://www.triplypro.com/${airport.slug}/airport-parking`,
@@ -114,7 +117,15 @@ export default async function AirportParkingPage({ params }: PageProps) {
   const noLotsGuide = isKnownEmpty(data.totalLots, data.locationsConsidered) ? noLotsContent : null;
   const seoSections = customContent?.sections ?? generateSEOContent(airport, data);
   const faqs = customContent?.faqs ?? generateFAQs(airport, data);
-  const emptyState = emptyStateCopy(airport.name, data.locationsConsidered);
+  // Above a guide, say plainly that nothing is bookable here, with no
+  // "Coming Soon" / "expanding our inventory" promise (nothing backs one at
+  // DAL or RSW) and no pointer to a search that would come back empty.
+  const emptyState = noLotsGuide
+    ? {
+        heading: `No Lots to Book at ${airport.code} Right Now`,
+        body: `Triply has no bookable lots at ${airport.name} at the moment. Below is the airport's own parking, transit and pickup information.`,
+      }
+    : emptyStateCopy(airport.name, data.locationsConsidered);
   // FAQPage JSON-LD only for the FAQ actually on screen (Google requires FAQ
   // markup to match visible content): the airport FAQ when there are lots,
   // the no-lots guide's FAQ when that guide shows, else none. Article the

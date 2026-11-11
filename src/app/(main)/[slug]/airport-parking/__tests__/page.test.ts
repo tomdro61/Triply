@@ -12,10 +12,27 @@ vi.mock("@/lib/airport-page/data", () => ({ fetchAirportPageData: (...a: unknown
 const buildAirportSchemas = vi.fn((..._a: unknown[]) => [] as unknown[]);
 vi.mock("@/lib/airport-page/schemas", () => ({ buildAirportSchemas: (...a: unknown[]) => buildAirportSchemas(...a) }));
 
+// The search widget is a client component that needs the app router; the hero test only reads its badges.
+vi.mock("@/components/airport/search-widget", () => ({ SearchWidget: () => null }));
+
+import { createElement, isValidElement, type ReactNode } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import AirportParkingPage, { generateMetadata } from "@/app/(main)/[slug]/airport-parking/page";
 import { getNoLotsAirportContent } from "@/data/airport-content/no-lots";
+import { SEOContent } from "@/components/airport/seo-content";
+import { AirportFAQ } from "@/components/airport/airport-faq";
+import { HeroSection } from "@/components/airport/hero-section";
+import { getAirportByCode } from "@/config/airports";
 
 const props = (slug: string) => ({ params: Promise.resolve({ slug }) });
+
+/** Every element of this component type in the page's returned tree (props only; nothing is rendered). */
+function elementsOf(node: ReactNode, type: unknown): Record<string, unknown>[] {
+  if (Array.isArray(node)) return node.flatMap((n) => elementsOf(n, type));
+  if (!isValidElement(node)) return [];
+  const p = node.props as Record<string, unknown>;
+  return [...(node.type === type ? [p] : []), ...elementsOf(p.children as ReactNode, type)];
+}
 
 function pageData(totalLots: number, locationsConsidered: number | null): AirportPageData {
   return {
@@ -95,5 +112,47 @@ describe("airport page — unknown lot count (a failed search at build)", () => 
     const [, , faqs, content] = buildAirportSchemas.mock.calls[0];
     expect(faqs).toEqual([]);
     expect(content).toBeNull();
+  });
+});
+
+describe("airport page — what is on screen", () => {
+  it("at 0 lots with a guide, the guide's sections and FAQ are rendered (the same ones the structured data gets)", async () => {
+    fetchAirportPageData.mockResolvedValue(pageData(0, 0));
+    const guide = (await getNoLotsAirportContent("DAL"))!;
+    const tree = await AirportParkingPage(props("dallas-dal") as never);
+    const [, , schemaFaqs] = buildAirportSchemas.mock.calls[0];
+    expect(elementsOf(tree, SEOContent).map((p) => p.sections)).toEqual([guide.sections]);
+    expect(elementsOf(tree, AirportFAQ).map((p) => p.faqs)).toEqual([schemaFaqs]);
+    expect(schemaFaqs).toEqual(guide.faqs);
+  });
+
+  it("with lots, no guide section or FAQ is rendered", async () => {
+    fetchAirportPageData.mockResolvedValue(pageData(2, 2));
+    const guide = (await getNoLotsAirportContent("DAL"))!;
+    const tree = await AirportParkingPage(props("dallas-dal") as never);
+    for (const p of elementsOf(tree, SEOContent)) expect(p.sections).not.toEqual(guide.sections);
+    for (const p of elementsOf(tree, AirportFAQ)) expect(p.faqs).not.toEqual(guide.faqs);
+  });
+
+  it("the hero shows its booking badges only when there is something to book", () => {
+    const airport = getAirportByCode("DAL")!;
+    const hero = (totalLots: number) =>
+      renderToStaticMarkup(createElement(HeroSection, { airport, data: pageData(totalLots, totalLots) }));
+    expect(hero(2)).toContain("Free Cancellation");
+    expect(hero(0)).not.toMatch(/Free Cancellation|Instant Confirmation|Trusted Lots/);
+  });
+});
+
+describe("airport page — nothing bookable and no guide (a sold-out week at SLC)", () => {
+  beforeEach(() => {
+    fetchAirportPageData.mockResolvedValue(pageData(0, 3));
+  });
+
+  it("is titled plainly (no 'Guide', no 'Cheap … Rates') and renders no guide", async () => {
+    const meta = await generateMetadata(props("salt-lake-city-slc") as never);
+    expect(meta.title).toBe("Salt Lake City Airport Parking (SLC)");
+    const tree = await AirportParkingPage(props("salt-lake-city-slc") as never);
+    expect(elementsOf(tree, SEOContent)).toEqual([]);
+    expect(elementsOf(tree, AirportFAQ)).toEqual([]);
   });
 });

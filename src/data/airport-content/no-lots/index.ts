@@ -13,8 +13,10 @@ import { getAirportByCode } from "@/config/airports";
  * never a "cheapest" ranking (we can't see every lot near the airport).
  *
  * Anything true only until a known date carries `showUntil` (the last day it
- * shows, airport-local YYYY-MM-DD): it drops off the page, its FAQ markup and
- * the meta on the next hourly revalidation after that day. A figure that
+ * shows, airport-local YYYY-MM-DD): it drops off the page and its FAQ markup
+ * on the next successful hourly revalidation after that day (a failed one
+ * keeps the last good page). The meta description has no date gate, so it
+ * never names dated content. A figure that
  * changes on a known date is written so it reads true on both sides of it
  * ("until 31 December 2026 … from 1 January 2027 …").
  */
@@ -34,17 +36,24 @@ const noLotsModules: Record<string, () => Promise<{ default: NoLotsGuide }>> = {
   YYZ: () => import("./yyz"),
 };
 
-/** Today in the airport's own timezone, as YYYY-MM-DD. */
+/** Today in the airport's own timezone, as YYYY-MM-DD (built from parts, not a locale's format). */
 function airportToday(code: string, now: Date): string {
   const timeZone = getAirportByCode(code)?.timezone ?? "America/New_York";
-  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now);
+  const part = (type: "year" | "month" | "day") => parts.find((p) => p.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+/** The guide as written, showUntil included (the tests check every date is a real YYYY-MM-DD). */
+export async function loadRawNoLotsGuide(airportCode: string): Promise<NoLotsGuide | null> {
+  const loader = noLotsModules[airportCode.toUpperCase()];
+  return loader ? (await loader()).default : null;
 }
 
 export async function getNoLotsAirportContent(airportCode: string, now: Date = new Date()): Promise<AirportContent | null> {
   const code = airportCode.toUpperCase();
-  const loader = noLotsModules[code];
-  if (!loader) return null;
-  const guide = (await loader()).default;
+  const guide = await loadRawNoLotsGuide(code);
+  if (!guide) return null;
   const today = airportToday(code, now);
   const current = <T,>(item: Dated<T>) => !item.showUntil || today <= item.showUntil;
   return {

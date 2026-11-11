@@ -34,7 +34,7 @@ The **cell phone waiting lot** at the northeast corner of Hawes and Herb Kellehe
     },
     {
       heading: "Getting to Love Field Without Parking",
-      body: `**DART Route 5 Love Link** runs between the terminal and Inwood/Love Field Station on DART's Green and Orange rail lines, every 15 minutes at weekday peak and midday and every 30 minutes off-peak. It stops on the lower-level drive outside baggage claim. DART's Local 3-Hour Pass is $3.00 and a Local Day Pass is $6.00.
+      body: `**DART Route 5 Love Link** runs between the terminal and Inwood/Love Field Station on DART's Green and Orange rail lines, every 15 minutes at weekday peak and midday and every 30 minutes off-peak. It stops on the lower-level drive outside baggage claim. DART's Local 3-Hour Pass is $3.00 and a Local Day Pass is $6.00 (DART fares, November 2026).
 
 From Inwood/Love Field Station, the Green and Orange lines run into downtown Dallas, and the Orange Line continues to DFW Airport Terminal A.`,
     },

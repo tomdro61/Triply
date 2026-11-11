@@ -4,7 +4,7 @@
  * (docs/review-lessons.md lesson 1), and Canadian pages quote C$ only.
  */
 import { describe, it, expect } from "vitest";
-import { getNoLotsAirportContent, NO_LOTS_GUIDE_CODES } from "../no-lots";
+import { getNoLotsAirportContent, loadRawNoLotsGuide, NO_LOTS_GUIDE_CODES } from "../no-lots";
 import { getAirportByCode } from "@/config/airports";
 
 const CANADIAN = new Set(["YOW", "YUL", "YYC", "YYZ"]);
@@ -65,5 +65,19 @@ describe("dated guide content (showUntil)", () => {
   it("never names the dated lot in the meta description, which has no date gate", async () => {
     const g = (await getNoLotsAirportContent("RSW", new Date("2026-11-10T12:00:00Z")))!;
     expect(g.metaDescription).not.toMatch(/RSWRemote|Thanksgiving/);
+  });
+});
+
+describe.each(NO_LOTS_GUIDE_CODES)("no-lots guide %s — showUntil values", (code) => {
+  // A string comparison decides what shows, so a typo ("29 Nov 2026",
+  // "2026-12-1") would keep dated content up for good, silently.
+  it("every showUntil is a real calendar date written YYYY-MM-DD", async () => {
+    const raw = (await loadRawNoLotsGuide(code))!;
+    for (const item of [...raw.sections, ...raw.faqs]) {
+      if (item.showUntil === undefined) continue;
+      expect(item.showUntil).toMatch(ISO);
+      const d = new Date(`${item.showUntil}T00:00:00Z`);
+      expect(d.toISOString().slice(0, 10)).toBe(item.showUntil);
+    }
   });
 });

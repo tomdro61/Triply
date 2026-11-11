@@ -30,9 +30,9 @@ Except ValetParc, which charges its daily rate from the first minute, the lots b
     },
     {
       heading: "Getting There Without Parking",
-      body: `**STM bus 747** runs 24/7 between the airport, Lionel-Groulx and Berri-UQAM metro stations and the Gare d'autocars de Montréal, every 10–15 minutes during the day. The fare is **C$11.25**, a 24-hour pass that also covers STM buses, the metro, the REM and trains in Zone A. Pay with exact change on board, at the STM counter and machines at door 28 (international arrivals) or in the Chrono app.
+      body: `**STM bus 747** runs 24/7 between the airport, Lionel-Groulx and Berri-UQAM metro stations and the Gare d'autocars de Montréal, every 10–15 minutes during the day. The fare is **C$11.25** (STM, November 2026), a 24-hour pass that also covers STM buses, the metro, the REM and trains in Zone A. Pay with exact change on board, at the STM counter and machines at door 28 (international arrivals) or in the Chrono app.
 
-**Taxis** charge a fixed fare to downtown: **C$49.45 from 5 a.m. to 11 p.m.** and **C$56.70 from 11 p.m. to 5 a.m.** The taxi dispatcher is at door 23 on the arrivals level.`,
+**Taxis** charge a fixed fare to downtown (Aéroports de Montréal, November 2026): **C$49.45 from 5 a.m. to 11 p.m.** and **C$56.70 from 11 p.m. to 5 a.m.** The taxi dispatcher is at door 23 on the arrivals level.`,
     },
   ],
 
@@ -55,7 +55,7 @@ Except ValetParc, which charges its daily rate from the first minute, the lots b
     {
       question: "How do I get from YUL to downtown Montreal?",
       answer:
-        "STM bus 747 runs 24/7 to Lionel-Groulx and Berri-UQAM for C$11.25 (a 24-hour pass), or a taxi costs a fixed C$49.45 by day and C$56.70 at night.",
+        "STM bus 747 runs 24/7 to Lionel-Groulx and Berri-UQAM for C$11.25 (a 24-hour pass), or a taxi costs a fixed C$49.45 by day and C$56.70 at night (fares as of November 2026).",
     },
     {
       question: "Is there covered parking at YUL?",

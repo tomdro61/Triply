@@ -32,9 +32,9 @@ Online bookings can be cancelled free more than 24 hours before they start; with
     },
     {
       heading: "Getting There Without Parking",
-      body: `**UP Express** runs from Terminal 1 to Union Station every 15 minutes, seven days a week, stopping at Weston, Mount Dennis and Bloor. An adult one-way fare is **C$12.35**, or **C$9.25 with PRESTO**. From Terminal 3, take the free Terminal Link train to Terminal 1.
+      body: `**UP Express** runs from Terminal 1 to Union Station every 15 minutes, seven days a week, stopping at Weston, Mount Dennis and Bloor. An adult one-way fare is **C$12.35**, or **C$9.25 with PRESTO** (UP Express, November 2026). From Terminal 3, take the free Terminal Link train to Terminal 1.
 
-**TTC 900 Airport Express** buses run to Kipling Station on Line 2. An adult TTC fare is **C$3.30** with PRESTO or a tap card (2-hour transfer), or C$3.35 cash.
+**TTC 900 Airport Express** buses run to Kipling Station on Line 2. An adult TTC fare is **C$3.30** with PRESTO or a tap card (2-hour transfer), or C$3.35 cash (TTC, November 2026).
 
 Taxis and limos charge flat rates by zone with no surge pricing. **Uber, Lyft and Hopp** pick up at marked zones: at T1, zones 3–5 (doors P–S); at T3, zones 2–6 (doors B and D).`,
     },
@@ -59,7 +59,7 @@ Taxis and limos charge flat rates by zone with no surge pricing. **Uber, Lyft an
     {
       question: "How do I get from Pearson to downtown Toronto?",
       answer:
-        "UP Express runs from Terminal 1 to Union Station every 15 minutes for C$12.35 (C$9.25 with PRESTO). The TTC 900 bus to Kipling Station costs C$3.30 with PRESTO.",
+        "UP Express runs from Terminal 1 to Union Station every 15 minutes for C$12.35 (C$9.25 with PRESTO). The TTC 900 bus to Kipling Station costs C$3.30 with PRESTO (fares as of November 2026).",
     },
     {
       question: "Can I cancel a Pearson parking booking?",

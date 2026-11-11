@@ -31,7 +31,7 @@ For parking that **ends on or after 1 January 2027**, the airport lists Economy 
 
 **Route 500 Airport Express** (formerly Route 300) runs between downtown and the airport via Centre Street. An adult fare is **C$4.00** (valid 90 minutes) and a day pass is C$12.65 (Calgary Transit 2026 fares). There is no CTrain line to the airport; Route 100 connects to Saddletowne CTrain station.
 
-**Taxis** are metered, about **C$40–45 to downtown** in normal conditions, from stands at doors 1, 9 and 15. **Airport sedans** charge a flat **C$68.75 to downtown**. **Uber and Lyft** pick up on Arrivals by doors 3, 12 or 15.`,
+**Taxis** are metered, about **C$40–45 to downtown** in normal conditions, from stands at doors 1, 9 and 15. **Airport sedans** charge a flat **C$68.75 to downtown** (Calgary Airport Authority, November 2026). **Uber and Lyft** pick up on Arrivals by doors 3, 12 or 15.`,
     },
   ],
 
@@ -58,7 +58,7 @@ For parking that **ends on or after 1 January 2027**, the airport lists Economy 
     {
       question: "How do I get from YYC to downtown Calgary?",
       answer:
-        "Take Route 500 Airport Express for C$4.00 (2026 fare), a metered taxi for about C$40–45, or an airport sedan for a flat C$68.75.",
+        "Take Route 500 Airport Express for C$4.00 (2026 fare), a metered taxi for about C$40–45, or an airport sedan for a flat C$68.75 (November 2026).",
     },
   ],
 };
