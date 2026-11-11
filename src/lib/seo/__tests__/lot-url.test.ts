@@ -31,7 +31,11 @@ const BETWEEN_JFK_LGA = [40.7, -73.82] as const; // owned by JFK, within 15 km o
 
 /** slug -> the visible same-name locations (any airport); absent = no lot by that name. */
 let live: Record<string, Loc[]>;
-const ids: Record<string, Loc> = { "466": at(466, "Ramada by Wyndham Boston", ...NEAR_BOS) };
+const NEAR_BUF = [42.94, -78.73] as const;
+const ids: Record<string, Loc> = {
+  "466": at(466, "Ramada by Wyndham Boston", ...NEAR_BOS),
+  "6": at(6, "SFO Lot", ...NEAR_SFO),
+};
 
 beforeEach(() => {
   nav.notFound.mockClear();
@@ -68,12 +72,10 @@ describe("resolveLotUrl — live slugs", () => {
     await expect(resolve("new-york-ewr", "snap-parking")).resolves.toBeUndefined();
   });
 
-  it("a live lot owned by another airport 308s there (LGA once listed JFK lots)", async () => {
-    await expect(resolve("new-york-lga", "safe-park-jfk")).rejects.toThrow("REDIRECT /new-york-jfk/airport-parking/safe-park-jfk");
-  });
-
-  it("an owner that sorts after the POE cruise port is still found (exempt airports never win)", async () => {
-    await expect(resolve("san-jose-sjc", "sfo-lot")).rejects.toThrow("REDIRECT /san-francisco-sfo/airport-parking/sfo-lot");
+  it("a live lot owned by another airport renders (search's sold-out fallback links it here; the canonical names the owner)", async () => {
+    await expect(resolve("new-york-lga", "safe-park-jfk")).resolves.toBeUndefined();
+    await expect(resolve("san-jose-sjc", "sfo-lot")).resolves.toBeUndefined();
+    expect(nav.permanentRedirect).not.toHaveBeenCalled();
   });
 
   it("renders when ANY same-name lot belongs here (the one the sitemap lists), even if another is nearer", async () => {
@@ -113,6 +115,17 @@ describe("resolveLotUrl — old code-suffixed slugs", () => {
     expect(nav.permanentRedirect).not.toHaveBeenCalled();
   });
 
+  it("with the own-airport filter off, a far-away twin is still a 404, never a 308 (park-for-u-yyz vs the JFK lot)", async () => {
+    process.env.SEARCH_OWN_AIRPORT_FILTER = "off";
+    await expect(resolve("toronto-yyz", "park-for-u-yyz")).rejects.toThrow("NOT_FOUND");
+    expect(nav.permanentRedirect).not.toHaveBeenCalled();
+  });
+
+  it("with the own-airport filter off, a nearby twin still 308s", async () => {
+    process.env.SEARCH_OWN_AIRPORT_FILTER = "off";
+    await expect(resolve("new-york-lga", "bolt-parking-jfk")).rejects.toThrow("REDIRECT /new-york-jfk/airport-parking/bolt-parking");
+  });
+
   it("follows a lot that now belongs to a nearby airport (old -lga slug for a JFK-owned lot)", async () => {
     await expect(resolve("new-york-lga", "queens-lot-lga")).rejects.toThrow("REDIRECT /new-york-jfk/airport-parking/queens-lot");
   });
@@ -148,6 +161,13 @@ describe("resolveLotUrl — cruise-port suffixes", () => {
     await expect(resolve("miami-mia", "safe-cruise-parking-portmiami")).rejects.toThrow("REDIRECT /miami-mia/airport-parking/safe-cruise-parking");
   });
 
+  it("at an exempt airport (POE claims every lot), a far-away namesake is still a 404, never a 308", async () => {
+    live["hampton-inn-suites"] = [at(10, "Hampton Inn & Suites", ...NEAR_BUF)];
+    await expect(resolve("fort-lauderdale-poe", "hampton-inn-suites-port-everglades")).rejects.toThrow("NOT_FOUND");
+    await expect(resolve("fort-lauderdale-poe", "hampton-inn-suites-poe")).rejects.toThrow("NOT_FOUND");
+    expect(nav.permanentRedirect).not.toHaveBeenCalled();
+  });
+
   it("404s when there is no live twin", async () => {
     await expect(resolve("san-diego-san", "fox-auto-parks-port-of-san-diego")).rejects.toThrow("NOT_FOUND");
   });
@@ -159,12 +179,16 @@ describe("resolveLotUrl — numeric ids", () => {
     await expect(resolve("new-york-jfk", "reslab-466")).rejects.toThrow("REDIRECT /boston-bos/airport-parking/ramada-by-wyndham-boston");
   });
 
-  it("with the own-airport filter off, a live id 308s under the URL's airport", async () => {
-    process.env.SEARCH_OWN_AIRPORT_FILTER = "off";
-    await expect(resolve("new-york-jfk", "466")).rejects.toThrow("REDIRECT /new-york-jfk/airport-parking/ramada-by-wyndham-boston");
+  it("an owner that sorts after the POE cruise port is still found (exempt airports never win)", async () => {
+    await expect(resolve("san-jose-sjc", "6")).rejects.toThrow("REDIRECT /san-francisco-sfo/airport-parking/sfo-lot");
   });
 
-  it("a gone id is a real 404; unknown renders as before", async () => {
+  it("with the own-airport filter off, a live id still 308s to the URL its canonical names (no hop to a non-canonical URL)", async () => {
+    process.env.SEARCH_OWN_AIRPORT_FILTER = "off";
+    await expect(resolve("new-york-jfk", "466")).rejects.toThrow("REDIRECT /boston-bos/airport-parking/ramada-by-wyndham-boston");
+  });
+
+  it("an id the list holds as hidden (missing) is a real 404; unknown renders as before", async () => {
     await expect(resolve("toronto-yyz", "379")).rejects.toThrow("NOT_FOUND");
     lookups.lotIdLookup.mockResolvedValue({ status: "unknown" });
     await expect(resolve("toronto-yyz", "379")).resolves.toBeUndefined();
@@ -173,14 +197,36 @@ describe("resolveLotUrl — numeric ids", () => {
 });
 
 describe("resolveLotUrl — errors and bad airports", () => {
-  it("a lookup that throws propagates (the page's error state), never a 404", async () => {
+  it("a lookup that throws renders as before (the page body shows its own error state), never a 404", async () => {
     lookups.lotSlugLookup.mockRejectedValue(new Error("boom"));
-    await expect(resolve("new-york-ewr", "snap-parking")).rejects.toThrow("boom");
+    await expect(resolve("new-york-ewr", "snap-parking")).resolves.toBeUndefined();
     expect(nav.notFound).not.toHaveBeenCalled();
   });
 
   it("an unknown airport is a 404 without a lookup", async () => {
     await expect(resolve("nowhere-xxx", "snap-parking")).rejects.toThrow("NOT_FOUND");
     expect(lookups.lotSlugLookup).not.toHaveBeenCalled();
+  });
+});
+
+describe("resolveLotUrl — pre-check deadline", () => {
+  it("a lookup that hangs past the deadline renders as before (no 404, no 308, no blank tab)", async () => {
+    vi.useFakeTimers();
+    try {
+      lookups.lotSlugLookup.mockImplementation(() => new Promise(() => {}));
+      const pending = resolve("boston-bos", "gone-lot");
+      await vi.advanceTimersByTimeAsync(3000);
+      await expect(pending).resolves.toBeUndefined();
+      expect(nav.notFound).not.toHaveBeenCalled();
+      expect(nav.permanentRedirect).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a lookup that throws renders as before", async () => {
+    lookups.lotSlugLookup.mockRejectedValue(new Error("bug"));
+    await expect(resolve("boston-bos", "gone-lot")).resolves.toBeUndefined();
+    expect(nav.notFound).not.toHaveBeenCalled();
   });
 });

@@ -89,11 +89,15 @@ describe("lotSlugStatus — ResLab", () => {
 });
 
 describe("lotIdLookup", () => {
-  it("a live id exists with its location; a gone id on a complete list is missing", async () => {
+  it("a live id exists with its location", async () => {
     const r = await lotIdLookup("7");
     expect(r.status === "exists" && r.reslab[0].name).toBe("Snap Parking");
     expect((await lotIdLookup("reslab-7")).status).toBe("exists");
-    expect((await lotIdLookup("379")).status).toBe("missing");
+  });
+
+  it("an id absent from a complete list is unknown, never missing: the list can be days old, getLotById reads ids from ResLab", async () => {
+    expect((await lotIdLookup("379")).status).toBe("unknown");
+    expect((await lotIdLookup("reslab-379")).status).toBe("unknown");
   });
 
   it("a gone id on a thin list, or a list read that throws, is unknown", async () => {
@@ -133,10 +137,24 @@ describe("lotSlugStatus — direct lots on", () => {
     expect(await lotSlugStatus("acme-jfk", "JFK")).toBe("unknown");
   });
 
+  it("a broken (dropped) direct row is unknown for its own slug and airport, never a 404", async () => {
+    // A CMS edit that breaks the live lot's row must not hard-404 its sitemap URL.
+    directRows([directLotRow({ slug: "acme-jfk", airport_code: "JFK", name: null })]);
+    expect(await lotSlugStatus("acme-jfk", "JFK")).toBe("unknown");
+    // Dropped at another airport: not this lot, so the list decides.
+    expect(await lotSlugStatus("acme-jfk", "BOS")).toBe("missing");
+    // A dropped row with no readable slug could be any lot at its airport.
+    directRows([directLotRow({ slug: null, airport_code: "JFK", name: null })]);
+    expect(await lotSlugStatus("anything-at-jfk", "JFK")).toBe("unknown");
+    expect(await lotSlugStatus("anything-at-jfk", "BOS")).toBe("missing");
+  });
+
   it("numeric ids: a direct twin, or a failed direct read, is unknown; no twin falls to the list", async () => {
     directRows([directLotRow({ slug: "acme-jfk", airport_code: "JFK", reslab_location_id: 7 })]);
     expect((await lotIdLookup("7")).status).toBe("unknown");
-    expect((await lotIdLookup("379")).status).toBe("missing");
+    channel([loc(7, "Snap Parking"), loc(8, "Queens Lot"), loc(416, "Parking 4 Airport")]);
+    expect((await lotIdLookup("8")).status).toBe("exists");
+    expect((await lotIdLookup("416")).status).toBe("missing");
     directRows(null, { code: "57014", message: "statement timeout" });
     expect((await lotIdLookup("8")).status).toBe("unknown");
   });

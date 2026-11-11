@@ -303,9 +303,7 @@ export async function generateMetadata({ params, searchParams }: LotPageProps) {
   const defaultCheckout =
     checkout ||
     (checkin ? shiftIsoDate(checkin, 7) : new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
-  // Same window as the page body (it used a fixed 10:00 AM, a guaranteed 422
-  // on every same-day view), so both renders make the same min-price call.
-  const { fromDate, toDate, pricingWindowFor } = lotPricing(
+  const { fromDate, toDate } = lotPricing(
     defaultCheckin,
     defaultCheckout,
     airport?.timezone,
@@ -314,7 +312,10 @@ export async function generateMetadata({ params, searchParams }: LotPageProps) {
   );
 
   // Try to get lot. Same airport scope as the page body (the two share one
-  // direct-lot read per request via React.cache).
+  // direct-lot read per request via React.cache). No price: nothing below
+  // uses one, and Googlebot gets this metadata blocking (htmlLimitedBots), so
+  // a min-price call here would hold its first byte for up to ResLab's
+  // timeout. Skipping it also saves one ResLab call per lot page view.
   let lot: UnifiedLot | null;
   try {
     lot = await getLotById(
@@ -322,7 +323,7 @@ export async function generateMetadata({ params, searchParams }: LotPageProps) {
       fromDate,
       toDate,
       airport ? { latitude: airport.latitude, longitude: airport.longitude, code: airport.code } : undefined,
-      pricingWindowFor
+      () => null
     );
   } catch (err) {
     // No `robots: noindex` here: that is a removal signal, and this is a

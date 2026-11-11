@@ -448,8 +448,11 @@ export async function lotSlugLookup(slug: string, airportCode: string): Promise<
  * were soft 404s (audit, 10 Nov 2026). "exists" carries the one location so
  * the caller can 308 to its slug URL. An id with a direct-lot twin is left
  * "unknown" while direct booking is open (getLotById renders the direct lot
- * there), as is any id when the direct read fails; "missing" only on a
- * complete list.
+ * there), as is any id when the direct read fails. "missing" only for an id
+ * the list holds as a hidden lot. An id ABSENT from the list stays "unknown"
+ * even on a complete list: the list can be days old (the snapshot is served
+ * stale), and getLotById reads an id straight from ResLab, so a lot added
+ * since then is live there. Only that read may call it gone.
  */
 export async function lotIdLookup(id: string): Promise<LotLookup> {
   const m = /^(?:reslab-)?(\d+)$/.exec(id);
@@ -463,7 +466,7 @@ export async function lotIdLookup(id: string): Promise<LotLookup> {
   if (!channel) return UNKNOWN;
   const loc = channel.data.find((l) => l.id === reslabId);
   if (loc) return isVisible(loc) ? { status: "exists", reslab: [loc], incomplete: channel.incomplete } : MISSING;
-  return channel.incomplete ? UNKNOWN : MISSING;
+  return UNKNOWN;
 }
 
 /**
