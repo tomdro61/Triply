@@ -1,6 +1,6 @@
 import { notFound, permanentRedirect } from "next/navigation";
 import { getAirportByCode, getAirportBySlug, productionAirports, type Airport } from "@/config/airports";
-import { lotIdLookup, lotSlugLookup, type LotLookup } from "@/lib/reslab/get-lot";
+import { lotIdLookup, lotSlugLookup, mayRenderDirectTwin, type LotLookup } from "@/lib/reslab/get-lot";
 import { pickSameNameLot } from "@/lib/reslab/same-name-lot";
 import type { ReslabLocation } from "@/lib/reslab/client";
 import { captureAPIError } from "@/lib/sentry";
@@ -74,9 +74,10 @@ export async function resolveLotUrl(
    * URL under the airport the lot's canonical names, and only if that page
    * renders exactly this lot (pickSameNameLot over every visible lot of the
    * name there, the page's own choice) and names itself canonical. null when
-   * it can't land cleanly (a direct lot of that name there, a namesake the
-   * page would pick instead, a list that can't tell): the caller renders as
-   * before rather than send a permanent redirect to the wrong lot.
+   * it can't land cleanly (a direct lot of that name there, a direct twin
+   * getLotById would swap in, a namesake the page would pick instead, a list
+   * that can't tell): the caller renders as before rather than send a
+   * permanent redirect to the wrong lot.
    */
   const landing = async (intended: ReslabLocation, from: Airport): Promise<string | null> => {
     const target = canonicalOwner(intended, from);
@@ -85,16 +86,18 @@ export async function resolveLotUrl(
     if (there.status !== "exists" || there.reslab.length === 0 || there.incomplete) return null;
     const dest = pickSameNameLot(there.reslab, target);
     if (!dest || dest.id !== intended.id || canonicalOwner(dest, target).code !== target.code) return null;
+    if (await mayRenderDirectTwin(intended.id, target.code).catch(() => true)) return null;
     return `/${target.slug}/airport-parking/${slug}`;
   };
 
   if (/^(reslab-)?\d+$/.test(lotSlug)) {
     const byId = await lookup("id", () => lotIdLookup(lotSlug));
     if (byId.status === "unknown") return;
-    if (byId.status === "missing") return gone("id_missing");
+    if (byId.status === "missing") return gone("id_hidden");
     const to = await landing(byId.reslab[0], airport);
     if (to) return moved(to, "id");
-    return renders("id_no_clean_landing");
+    // getLotById renders the lot by its id, as before this check existed.
+    return renders("id_renders_by_id");
   }
 
   const here = await lookup("slug", () => lotSlugLookup(lotSlug, airport.code));
@@ -109,17 +112,22 @@ export async function resolveLotUrl(
     if (twin.status !== "exists") continue;
     // A direct lot of that name at that airport.
     if (twin.reslab.length === 0) return moved(`/${at.slug}/airport-parking/${slug}`, "twin_direct");
-    // The lot the named airport's own page shows for that name (one it owns
-    // first, then the nearest), when it is within search range: an old `-lga`
-    // slug lands on the LGA lot of that name, or on JFK's page when JFK now
-    // owns it. A same-name lot far away is not this one: park-for-u-yyz must
-    // never 308 to the JFK lot, with or without the own-airport kill switch,
-    // and an exempt airport (POE claims every lot) gets no pass either.
-    const pick = pickSameNameLot(twin.reslab, at);
-    if (pick && distanceKm(pick, at) <= AIRPORT_SEARCH_RADIUS_KM) {
+    // Only lots within search range of the named airport can be the one an
+    // old `-lga` URL meant (search and the sitemap filter by range first).
+    // Among those, the one that airport's own page shows (one it owns first,
+    // then the nearest): an old `-lga` slug lands on the LGA lot of that name,
+    // or on JFK's page when JFK now owns it. A same-name lot far away is not
+    // this one: park-for-u-yyz must never 308 to the JFK lot, with or without
+    // the own-airport kill switch, and an exempt airport (POE claims every
+    // lot) gets no pass either.
+    const inRange = twin.reslab.filter((l) => distanceKm(l, at) <= AIRPORT_SEARCH_RADIUS_KM);
+    const pick = pickSameNameLot(inRange, at);
+    if (pick) {
       const to = await landing(pick, at);
       if (to) return moved(to, "twin");
-      return renders("twin_no_clean_landing");
+      // The old slug itself is no lot, so the body shows "Parking Not Found"
+      // with a 200: a soft 404 kept on purpose rather than a wrong 308.
+      return renders("soft404_fallback_twin");
     }
     // A thin list may be missing a nearer one: render as before.
     if (twin.incomplete) return;
@@ -145,6 +153,11 @@ const PRECHECK_DEADLINE_MS = 10_000;
 const CAPTURE_EVERY_MS = 10 * 60 * 1000;
 let lastCaptureAt = 0;
 
+/** Test seam: forget the last Sentry capture so each test starts unthrottled. */
+export function __resetPrecheckCaptureThrottleForTests(): void {
+  lastCaptureAt = 0;
+}
+
 async function withDeadline(read: Promise<LotLookup>, airport: string, slug: string, what: string): Promise<LotLookup> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let timedOut = false;
@@ -161,11 +174,15 @@ async function withDeadline(read: Promise<LotLookup>, airport: string, slug: str
         console.warn(`[lot-page] pre-check ${what} threw for ${airport}/${slug}${timedOut ? " (after its deadline)" : ""}:`, error);
         if (Date.now() - lastCaptureAt >= CAPTURE_EVERY_MS) {
           lastCaptureAt = Date.now();
-          captureAPIError(error instanceof Error ? error : new Error(String(error)), {
-            endpoint: "/[slug]/airport-parking/[lot]",
-            method: "GET",
-            stage: "lot_url_precheck",
-          });
+          try {
+            captureAPIError(error instanceof Error ? error : new Error(String(error)), {
+              endpoint: "/[slug]/airport-parking/[lot]",
+              method: "GET",
+              stage: "lot_url_precheck",
+            });
+          } catch {
+            // Reporting must never turn "render as before" into a 500.
+          }
         }
         return { status: "unknown" } as const;
       }),

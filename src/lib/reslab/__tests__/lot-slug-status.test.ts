@@ -13,7 +13,7 @@ const db = vi.hoisted(() => ({ rpc: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ createAdminClient: vi.fn(async () => db) }));
 vi.mock("@/lib/sentry", () => ({ captureAPIError: vi.fn() }));
 
-import { lotSlugLookup, lotIdLookup } from "../get-lot";
+import { lotSlugLookup, lotIdLookup, mayRenderDirectTwin } from "../get-lot";
 
 const lotSlugStatus = async (slug: string, code: string) => (await lotSlugLookup(slug, code)).status;
 import { __resetCaptureThrottleForTests } from "@/lib/direct/store";
@@ -95,9 +95,9 @@ describe("lotIdLookup", () => {
     expect((await lotIdLookup("reslab-7")).status).toBe("exists");
   });
 
-  it("an id absent from a complete, fresh list is missing (a lot dropped from the channel)", async () => {
-    expect((await lotIdLookup("379")).status).toBe("missing");
-    expect((await lotIdLookup("reslab-379")).status).toBe("missing");
+  it("an id absent from a complete, fresh list is unknown, never missing: 'fresh' is up to 10-24 h old, and getLotById reads ids from ResLab", async () => {
+    expect((await lotIdLookup("379")).status).toBe("unknown");
+    expect((await lotIdLookup("reslab-379")).status).toBe("unknown");
   });
 
   it("an id absent from a STALE list is unknown: getLotById reads ids from ResLab, and a lot added since may be live", async () => {
@@ -164,7 +164,23 @@ describe("lotSlugStatus — direct lots on", () => {
     expect((await lotIdLookup("8")).status).toBe("unknown");
   });
 
+  it("mayRenderDirectTwin: a direct twin at that airport, or a failed direct read, says yes; elsewhere no", async () => {
+    directRows([directLotRow({ slug: "acme-jfk", airport_code: "JFK", reslab_location_id: 7 })]);
+    expect(await mayRenderDirectTwin(7, "JFK")).toBe(true);
+    expect(await mayRenderDirectTwin(7, "BOS")).toBe(false);
+    expect(await mayRenderDirectTwin(8, "JFK")).toBe(false);
+    directRows(null, { code: "57014", message: "statement timeout" });
+    expect(await mayRenderDirectTwin(8, "BOS")).toBe(true);
+  });
+
   it("direct ids are left to getLotById", async () => {
     expect(await lotSlugStatus("direct-12", "JFK")).toBe("unknown");
+  });
+});
+
+describe("mayRenderDirectTwin — direct lots off", () => {
+  it("never blocks a redirect", async () => {
+    directRows([directLotRow({ slug: "acme-jfk", airport_code: "JFK", reslab_location_id: 7 })]);
+    expect(await mayRenderDirectTwin(7, "JFK")).toBe(false);
   });
 });

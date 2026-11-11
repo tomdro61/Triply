@@ -15,12 +15,12 @@ const nav = vi.hoisted(() => ({
 }));
 vi.mock("next/navigation", () => nav);
 
-const lookups = vi.hoisted(() => ({ lotSlugLookup: vi.fn(), lotIdLookup: vi.fn() }));
+const lookups = vi.hoisted(() => ({ lotSlugLookup: vi.fn(), lotIdLookup: vi.fn(), mayRenderDirectTwin: vi.fn() }));
 vi.mock("@/lib/reslab/get-lot", () => lookups);
 const sentry = vi.hoisted(() => ({ captureAPIError: vi.fn() }));
 vi.mock("@/lib/sentry", () => sentry);
 
-import { resolveLotUrl } from "../lot-url";
+import { resolveLotUrl, __resetPrecheckCaptureThrottleForTests } from "../lot-url";
 
 type Loc = { id: number; name: string; latitude: string; longitude: string };
 const at = (id: number, name: string, lat: number, lng: number): Loc => ({ id, name, latitude: String(lat), longitude: String(lng) });
@@ -57,6 +57,9 @@ beforeEach(() => {
   lookups.lotSlugLookup.mockImplementation(async (slug: string) =>
     live[slug] ? { status: "exists", reslab: live[slug], incomplete: false } : { status: "missing" },
   );
+  lookups.mayRenderDirectTwin.mockReset();
+  lookups.mayRenderDirectTwin.mockResolvedValue(false);
+  __resetPrecheckCaptureThrottleForTests();
   lookups.lotIdLookup.mockReset();
   lookups.lotIdLookup.mockImplementation(async (id: string) => {
     const loc = ids[id.replace(/^reslab-/, "")];
@@ -200,13 +203,22 @@ describe("resolveLotUrl — numeric ids", () => {
 });
 
 describe("resolveLotUrl — errors and bad airports", () => {
-  it("a lookup that throws renders as before, never a 404, and reaches Sentry (lookups turn every expected failure into unknown, so a throw is a bug)", async () => {
+  it("a lookup that throws renders as before, never a 404, and reaches Sentry once per 10 minutes (lookups turn every expected failure into unknown, so a throw is a bug)", async () => {
     sentry.captureAPIError.mockClear();
     lookups.lotSlugLookup.mockRejectedValue(new Error("boom"));
     await expect(resolve("new-york-ewr", "snap-parking")).resolves.toBeUndefined();
+    await expect(resolve("boston-bos", "gone-lot")).resolves.toBeUndefined();
     expect(nav.notFound).not.toHaveBeenCalled();
     expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
     expect(sentry.captureAPIError.mock.calls[0][1]).toMatchObject({ stage: "lot_url_precheck" });
+  });
+
+  it("a Sentry call that throws still renders as before (reporting never becomes a 500)", async () => {
+    sentry.captureAPIError.mockImplementationOnce(() => {
+      throw new Error("sentry down");
+    });
+    lookups.lotSlugLookup.mockRejectedValue(new Error("boom"));
+    await expect(resolve("new-york-ewr", "snap-parking")).resolves.toBeUndefined();
   });
 
   it("an unknown airport is a 404 without a lookup", async () => {
@@ -228,14 +240,6 @@ describe("resolveLotUrl — pre-check deadline", () => {
     } finally {
       vi.useRealTimers();
     }
-  });
-
-  it("a second throw soon after renders as before too, without a second Sentry event (throttled)", async () => {
-    sentry.captureAPIError.mockClear();
-    lookups.lotSlugLookup.mockRejectedValue(new Error("bug"));
-    await expect(resolve("boston-bos", "gone-lot")).resolves.toBeUndefined();
-    expect(nav.notFound).not.toHaveBeenCalled();
-    expect(sentry.captureAPIError).not.toHaveBeenCalled();
   });
 });
 
@@ -275,5 +279,38 @@ describe("resolveLotUrl — a 308 lands only on the lot it means", () => {
     );
     await expect(resolve("new-york-jfk", "101")).resolves.toBeUndefined();
     expect(nav.permanentRedirect).not.toHaveBeenCalled();
+  });
+
+  it("a destination where getLotById would swap in a direct twin renders as before", async () => {
+    lookups.mayRenderDirectTwin.mockResolvedValue(true);
+    await expect(resolve("new-york-lga", "foo-parking-lga")).resolves.toBeUndefined();
+    await expect(resolve("new-york-jfk", "101")).resolves.toBeUndefined();
+    expect(nav.permanentRedirect).not.toHaveBeenCalled();
+  });
+
+  it("a thin list at the destination renders as before", async () => {
+    lookups.lotSlugLookup.mockImplementation(async (slug: string) =>
+      live[slug] ? { status: "exists", reslab: live[slug], incomplete: true } : { status: "missing" },
+    );
+    await expect(resolve("new-york-jfk", "101")).resolves.toBeUndefined();
+    expect(nav.permanentRedirect).not.toHaveBeenCalled();
+  });
+
+  it("an id whose airport owns a nearer namesake renders as before (the slug page would show that one)", async () => {
+    // X and Z are both LGA's; LGA's bar-parking page renders Z, the nearer.
+    const X2 = at(101, "Bar Parking", 40.88, -73.92);
+    const Z = at(103, "Bar Parking", 40.8, -73.9);
+    live["bar-parking"] = [X2, Z];
+    ids["101"] = X2;
+    await expect(resolve("new-york-lga", "101")).resolves.toBeUndefined();
+    expect(nav.permanentRedirect).not.toHaveBeenCalled();
+  });
+
+  it("an owned namesake out of range does not hide an in-range one another airport owns", async () => {
+    // A is LGA's but ~16 km out (beyond search range); B is ~10.5 km from LGA and JFK's.
+    const A = at(104, "Hotel Lot", 40.92, -73.87);
+    const B = at(105, "Hotel Lot", 40.7, -73.8);
+    live["hotel-lot"] = [A, B];
+    await expect(resolve("new-york-lga", "hotel-lot-lga")).rejects.toThrow("REDIRECT /new-york-jfk/airport-parking/hotel-lot");
   });
 });

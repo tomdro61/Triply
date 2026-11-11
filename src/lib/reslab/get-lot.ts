@@ -435,13 +435,12 @@ export async function lotSlugLookup(slug: string, airportCode: string): Promise<
  * were soft 404s (audit, 10 Nov 2026). "exists" carries the one location so
  * the caller can 308 to its slug URL. An id with a direct-lot twin is left
  * "unknown" while direct booking is open (getLotById renders the direct lot
- * there), as is any id when the direct read fails. "missing" for an id the
- * list holds as a hidden lot, or one absent from a complete list that is not
- * stale (a lot dropped from the channel: the normal "gone" case). Absent from
- * a stale or thin list stays "unknown": getLotById reads ids straight from
- * ResLab, so a lot added since an old list was built is live there. (A lot
- * added within the fresh window is reachable by id only if someone links its
- * id, and nothing we publish links ids.)
+ * there), as is any id when the direct read fails. "missing" only for an id
+ * the list holds as a hidden lot. An id ABSENT from the list stays "unknown"
+ * even on a complete, non-stale list: "fresh" still means up to 10 h
+ * (snapshot) or 24 h (sweep) old, and getLotById reads an id straight from
+ * ResLab, so a lot added since is live there. Only that read may call it
+ * gone (a dead id stays a soft 404, as before this check existed).
  */
 export async function lotIdLookup(id: string): Promise<LotLookup> {
   const m = /^(?:reslab-)?(\d+)$/.exec(id);
@@ -455,7 +454,20 @@ export async function lotIdLookup(id: string): Promise<LotLookup> {
   if (!channel) return UNKNOWN;
   const loc = channel.data.find((l) => l.id === reslabId);
   if (loc) return isVisible(loc) ? { status: "exists", reslab: [loc], incomplete: channel.incomplete } : MISSING;
-  return channel.incomplete || channel.stale ? UNKNOWN : MISSING;
+  return UNKNOWN;
+}
+
+/**
+ * Whether a lot page for this ResLab location under `airportCode` may show a
+ * direct lot instead: getLotById swaps in a direct twin (same
+ * reslabLocationId, same airport) while direct booking is open, and that page
+ * then canonicals to the direct lot's own slug. True too when the direct read
+ * fails (can't tell). resolveLotUrl sends no 308 in either case.
+ */
+export async function mayRenderDirectTwin(reslabId: number, airportCode: string): Promise<boolean> {
+  if (!isDirectLotsEnabled() || !DIRECT_BOOKING_OPEN) return false;
+  const direct = await loadSellableDirectLots(airportCode);
+  return !direct.ok || direct.lots.some((l) => l.airportCode === airportCode && l.reslabLocationId === reslabId);
 }
 
 /**
