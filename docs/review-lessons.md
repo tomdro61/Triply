@@ -163,6 +163,11 @@ a human.
 
 One entry per reviewed PR: what the review found, by lesson number. Newest first.
 
+- **ResLab price-failure reasons (Nov 10):**
+  - Lesson 13: the first version also shared one ResLab sign-in between concurrent calls, and its tests still passed with the "clear after success" line broken, which would have left an instance on an expired token. The shared sign-in was dropped: it also let one stalled sign-in fail every waiting call, a booking included, and handed each the same error object, which Sentry reports only once.
+  - Lesson 2: "pricing unavailable for all 10" listed reasons for the one lot that failed (the rest were sold out). The message now says how many failed.
+  - Lesson 15: the review of the rework found that breaking the re-sign-in after a 401 failed no test. Two tests added.
+
 - **#165 promo codes in blog copy (Nov 9):**
   - Lesson 2: all 23 code entries said "max 500 uses"; the rows allow 100. A source note is a source too: copy it from the record, not from the plan.
   - Lesson 2: the $5 / $25 allowance first covered the whole edit, then all of the edit's fields together, so a code named in one place let a matching figure through anywhere else (another paragraph, the title, another FAQ answer), and as a per-day price. It is now per block and per field, and never per day.

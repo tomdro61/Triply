@@ -30,6 +30,7 @@ const db = vi.hoisted(() => ({ from: vi.fn(), rpc: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ createAdminClient: vi.fn(async () => db) }));
 
 import { searchParking, __resetLocationListCacheForTests } from "../search";
+import { ReslabError, __markReslabSignInFailureForTests } from "../client";
 import { __resetAvailabilityLogWarnStateForTests } from "@/lib/availability/log";
 import { __resetSearchEventsLogWarnStateForTests } from "@/lib/search-events/log";
 
@@ -109,6 +110,58 @@ describe("searchParking — locationsConsidered", () => {
       return minPrice({ soldOut: true });
     });
     await expect(search()).rejects.toThrow(/pricing unavailable/);
+  });
+
+  it("names why each lot failed: ResLab's status, a timeout, a failed sign-in", async () => {
+    reslabMock.searchLocations.mockResolvedValue([fixtureLocation(1), fixtureLocation(2), fixtureLocation(3), fixtureLocation(4)]);
+    reslabMock.getMinPrice.mockImplementation(async (id: number) => {
+      if (id === 1 || id === 2) throw new DOMException("This operation was aborted", "AbortError");
+      if (id === 3) throw new ReslabError(429, "API request failed: Too Many Requests");
+      const signIn = new DOMException("This operation was aborted", "AbortError");
+      __markReslabSignInFailureForTests(signIn);
+      throw signIn;
+    });
+    const err = await search().catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ReslabError);
+    expect((err as ReslabError).message).toMatch(
+      /for all 4 TEST-NY location\(s\); 4 failed \(timeout ×2, (http_429 ×1, auth_timeout ×1|auth_timeout ×1, http_429 ×1)\)$/
+    );
+  });
+
+  it("says how many lots failed when the others were sold out", async () => {
+    reslabMock.searchLocations.mockResolvedValue([fixtureLocation(1), fixtureLocation(2), fixtureLocation(3)]);
+    reslabMock.getMinPrice.mockImplementation(async (id: number) => {
+      if (id === 1) throw new ReslabError(503, "API request failed: down");
+      return minPrice({ soldOut: true });
+    });
+    await expect(search()).rejects.toThrow(/for all 3 TEST-NY location\(s\); 1 failed \(http_503 ×1\)$/);
+  });
+
+  it("only a connection failure is 'network'; any other error is named by its type", async () => {
+    reslabMock.searchLocations.mockResolvedValue([fixtureLocation(1), fixtureLocation(2), fixtureLocation(3)]);
+    reslabMock.getMinPrice.mockImplementation(async (id: number) => {
+      if (id === 1) throw new TypeError("fetch failed", { cause: new Error("ECONNRESET") });
+      if (id === 2) throw new SyntaxError("Unexpected token < in JSON");
+      throw new TypeError("Cannot read properties of null (reading 'token')");
+    });
+    const err = await search().catch((e: unknown) => e);
+    const reasons = (err as ReslabError).message.match(/\(([^)]*)\)$/)?.[1].split(", ").sort();
+    expect(reasons).toEqual(["network ×1", "other_SyntaxError ×1", "other_TypeError ×1"]);
+  });
+
+  it("a partial failure reports its reasons to Sentry, never the response body", async () => {
+    reslabMock.searchLocations.mockResolvedValue([fixtureLocation(1), fixtureLocation(2)]);
+    reslabMock.getMinPrice.mockImplementation(async (id: number) => {
+      if (id === 1) throw new ReslabError(502, "API request failed: <html>secret body</html>");
+      return minPrice();
+    });
+    const r = await search();
+    expect(r.total).toBe(1);
+    const call = sentry.captureAPIError.mock.calls.find(([e]) => /pricing degraded/.test((e as Error).message));
+    expect(call).toBeDefined();
+    expect((call![0] as Error).message).toMatch(/failed to price \(http_502 ×1\)$/);
+    expect((call![0] as Error).message).not.toMatch(/secret/);
+    expect(call![1]).toMatchObject({ extra: { pricingFailureReasons: { http_502: 1 } } });
   });
 
   it("excludes blocked lots (BLOCKED_RESLAB_LOCATION_IDS)", async () => {
