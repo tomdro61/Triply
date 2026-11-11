@@ -55,7 +55,8 @@ vi.mock("@/lib/sentry", async () => {
 
 import sitemap from "../sitemap";
 import { productionAirports } from "@/config/airports";
-import { AIRPORTS_ID, LOTS_ID_START, AIRPORTS_PER_LOT_SEGMENT } from "@/lib/sitemap-config";
+import { AIRPORTS_ID, BLOG_AIRPORT_HUBS_ID, LOTS_ID_START, AIRPORTS_PER_LOT_SEGMENT } from "@/lib/sitemap-config";
+import * as cms from "@/lib/cms";
 
 function directLot(over: Record<string, unknown>) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -210,41 +211,47 @@ describe("sitemap lot segments — direct lots (ENABLE_DIRECT_LOTS)", () => {
   });
 });
 
-describe("sitemap airport segment — airports with nothing listed are left out (PR #122)", () => {
+describe("sitemap airport segment — every airport is listed (Vin, 10 Nov 2026)", () => {
   const airportUrls = async () => (await segment(AIRPORTS_ID)).map((u) => u.url);
   const has = (urls: string[], slug: string) => urls.some((u) => u.endsWith(`/${slug}/airport-parking`));
+  const zeroLotHubs = ["dallas-dal", "fort-myers-rsw", "ottawa-yow", "montreal-yul", "calgary-yyc", "toronto-yyz"];
 
-  it("keeps an airport with a lot near it, leaves out one with none, keeps the index page", async () => {
-    channel.getChannelLocationsNoSweep.mockResolvedValue([loc(1, "JFK Long Term Lot", "40.6600", "-73.7900")]);
-    const urls = await airportUrls();
-    expect(has(urls, "new-york-jfk")).toBe(true);
-    expect(has(urls, "boston-bos")).toBe(false);
-    expect(urls[0].endsWith("/airport-parking")).toBe(true); // the /airport-parking index page is always first
-    expect(urls).toHaveLength(2);
+  it("lists every production airport plus the index page, whatever the lot data says", async () => {
+    for (const list of [null, [], [loc(1, "JFK Long Term Lot", "40.6600", "-73.7900")]]) {
+      channel.getChannelLocationsNoSweep.mockResolvedValue(list);
+      const urls = await airportUrls();
+      expect(urls[0].endsWith("/airport-parking")).toBe(true);
+      for (const a of productionAirports) expect(has(urls, a.slug)).toBe(true);
+      for (const slug of zeroLotHubs) expect(has(urls, slug)).toBe(true);
+    }
   });
 
-  it("a blocked lot alone does not count as listed", async () => {
-    channel.getChannelLocationsNoSweep.mockResolvedValue([loc(416, "Parking 4 Airport", "40.6600", "-73.7900")]);
-    expect(has(await airportUrls(), "new-york-jfk")).toBe(false);
-  });
-
-  it("with no usable list, every airport stays listed (inclusion is the harmless side)", async () => {
+  it("never throws for missing lot data, at build or at runtime", async () => {
     channel.getChannelLocationsNoSweep.mockResolvedValue(null);
-    const urls = await airportUrls();
-    expect(urls).toHaveLength(productionAirports.length + 1);
+    await expect(segment(AIRPORTS_ID)).resolves.toBeDefined();
+    process.env.NEXT_PHASE = "phase-production-build";
+    await expect(segment(AIRPORTS_ID)).resolves.toBeDefined();
+  });
+});
+
+describe("sitemap blog airport hubs — only hubs with posts (a hub with none is a thin page)", () => {
+  const hubUrls = async () => (await segment(BLOG_AIRPORT_HUBS_ID)).map((u) => u.url);
+
+  it("lists the CMS codes that are production airports, once each, and no hub without posts", async () => {
+    vi.mocked(cms.getDistinctAirportCodes).mockResolvedValue(["JFK", "jfk", "LGA", "ZZZ"]);
+    const urls = await hubUrls();
+    expect(urls.map((u) => u.split("/blog/airport/")[1])).toEqual(["jfk", "lga"]);
+    // ZZZ is no airport (would 404); DAL has no posts here (would be "No articles for DAL yet").
+    expect(urls.some((u) => u.endsWith("/blog/airport/dal"))).toBe(false);
   });
 
-  it("a direct lot keeps its airport listed when direct lots are on; a failed direct read decides on ResLab alone", async () => {
-    directFlag.on = true;
-    channel.getChannelLocationsNoSweep.mockResolvedValue([]);
-    directStore.fetchDirectLots.mockResolvedValue({ ok: true, lots: [directLot({ airportCode: "BOS" })] });
-    let urls = await airportUrls();
-    expect(has(urls, "boston-bos")).toBe(true);
-    expect(has(urls, "new-york-jfk")).toBe(false);
+  it("a CMS outage lists no hubs rather than guessing", async () => {
+    vi.mocked(cms.getDistinctAirportCodes).mockRejectedValue(new Error("502"));
+    expect(await hubUrls()).toEqual([]);
+  });
 
-    directStore.fetchDirectLots.mockRejectedValue(new Error("isListable bug"));
-    urls = await airportUrls();
-    expect(has(urls, "boston-bos")).toBe(false);
-    expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
+  it("a refused CMS key still fails the segment", async () => {
+    vi.mocked(cms.getDistinctAirportCodes).mockRejectedValue(new cms.CmsAuthError("/api/posts", 401, true));
+    await expect(segment(BLOG_AIRPORT_HUBS_ID)).rejects.toThrow();
   });
 });

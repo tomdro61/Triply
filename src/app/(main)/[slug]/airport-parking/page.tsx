@@ -7,11 +7,11 @@ import {
   generateFAQs,
   emptyStateCopy,
   isKnownEmpty,
-  listsNoLots,
   emptyMetaDescription,
 } from "@/lib/airport-page/content";
 import { buildAirportSchemas } from "@/lib/airport-page/schemas";
 import { getAirportContent } from "@/data/airport-content";
+import { getNoLotsAirportContent } from "@/data/airport-content/no-lots";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { Navbar, Footer } from "@/components/shared";
 import { Newsletter } from "@/components/shared/newsletter";
@@ -59,28 +59,33 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const airport = getAirportBySlug(slug);
   if (!airport) return {};
 
-  const [data, customContent] = await Promise.all([
+  const [data, customContent, noLotsGuide] = await Promise.all([
     fetchAirportPageData(airport),
     getAirportContent(airport.code),
+    getNoLotsAirportContent(airport.code),
   ]);
   const priceText = data.cheapestPrice ? ` from $${data.cheapestPrice.toFixed(0)}` : "";
   // Trailing space lives in the value so a 0-lot page doesn't read "Compare  parking".
   const lotCount = data.totalLots > 0 ? `${data.totalLots}+ ` : "";
   // Nothing bookable: don't let a hand-written meta (SLC's "6+ lots from
-  // $6.50/day") advertise inventory the page can't sell. Only the structural
-  // case (no lots listed at all) is noindexed — a week's sell-out is transient
-  // and must not read as "remove this URL" (see listsNoLots).
+  // $6.50/day") advertise inventory the page can't sell. Every airport page
+  // stays indexable, including ones listing no lots yet (Vin, 10 Nov 2026:
+  // index every page to reach more customers).
   const empty = isKnownEmpty(data.totalLots, data.locationsConsidered);
-  const noindex = listsNoLots(data.locationsConsidered);
   const description = empty
-    ? emptyMetaDescription(airport.name, airport.code)
+    ? noLotsGuide?.metaDescription ?? emptyMetaDescription(airport.name, airport.code)
     : customContent?.metaDescription
       ?? `Compare ${lotCount}parking lots near ${airport.name}. Reserve ${airport.code} parking${priceText}/day with free cancellation. Book now & save.`;
 
   return {
-    title: `${airport.city} Airport Parking - Cheap ${airport.code} Parking Rates${priceText}`,
+    // Nothing bookable: no "Cheap … Rates" promise in the search result, and
+    // "Guide" only when the guide is on the page.
+    title: !empty
+      ? `${airport.city} Airport Parking - Cheap ${airport.code} Parking Rates${priceText}`
+      : noLotsGuide
+        ? `${airport.city} Airport Parking Guide (${airport.code})`
+        : `${airport.city} Airport Parking (${airport.code})`,
     description,
-    ...(noindex && { robots: { index: false, follow: true } }),
     alternates: {
       canonical: `https://www.triplypro.com/${airport.slug}/airport-parking`,
     },
@@ -100,22 +105,37 @@ export default async function AirportParkingPage({ params }: PageProps) {
   const airport = getAirportBySlug(slug);
   if (!airport) notFound();
 
-  const [data, customContent] = await Promise.all([
+  const [data, customContent, noLotsContent] = await Promise.all([
     fetchAirportPageData(airport),
     getAirportContent(airport.code),
+    getNoLotsAirportContent(airport.code),
   ]);
+  // Nothing to book: show the no-lots guide (the airport's own parking,
+  // transit, nearby airports) when one exists, so the page still helps.
+  // Same test as the metadata (isKnownEmpty), so the guide and its meta
+  // description always appear together.
+  const noLotsGuide = isKnownEmpty(data.totalLots, data.locationsConsidered) ? noLotsContent : null;
   const seoSections = customContent?.sections ?? generateSEOContent(airport, data);
   const faqs = customContent?.faqs ?? generateFAQs(airport, data);
-  const emptyState = emptyStateCopy(airport.name, data.locationsConsidered);
-  // FAQPage JSON-LD only when the FAQ is actually shown (it isn't at 0 lots) —
-  // Google requires FAQ markup to match visible content.
-  // Article only when the hand-written guide is on screen (it isn't at 0 lots).
+  // Above a guide, say plainly that nothing is bookable here, with no
+  // "Coming Soon" / "expanding our inventory" promise (nothing backs one at
+  // DAL or RSW) and no pointer to a search that would come back empty.
+  const emptyState = noLotsGuide
+    ? {
+        heading: `No Lots to Book at ${airport.code} Right Now`,
+        body: `Triply has no bookable lots at ${airport.name} at the moment. Below is the airport's own parking, transit and pickup information.`,
+      }
+    : emptyStateCopy(airport.name, data.locationsConsidered);
+  // FAQPage JSON-LD only for the FAQ actually on screen (Google requires FAQ
+  // markup to match visible content): the airport FAQ when there are lots,
+  // the no-lots guide's FAQ when that guide shows, else none. Article the
+  // same way: the hand-written guide on screen, if any.
   const showsGuide = data.totalLots > 0 && customContent !== null;
   const schemas = buildAirportSchemas(
     airport,
     data,
-    data.totalLots > 0 ? faqs : [],
-    showsGuide ? customContent : null
+    data.totalLots > 0 ? faqs : noLotsGuide?.faqs ?? [],
+    showsGuide ? customContent : noLotsGuide
   );
 
   return (
@@ -146,6 +166,13 @@ export default async function AirportParkingPage({ params }: PageProps) {
           </h2>
           <p className="text-gray-500 max-w-lg mx-auto">{emptyState.body}</p>
         </section>
+      )}
+
+      {noLotsGuide && (
+        <>
+          <SEOContent sections={noLotsGuide.sections} updatedOn={noLotsGuide.updatedOn} />
+          <AirportFAQ faqs={noLotsGuide.faqs} airportCode={airport.code} />
+        </>
       )}
 
       <AirportGuides airport={airport} />

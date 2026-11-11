@@ -83,37 +83,10 @@ function staticPages(): MetadataRoute.Sitemap {
 }
 
 async function airportPages(): Promise<MetadataRoute.Sitemap> {
-  // An airport page with no lots listed at all renders "coming soon" and is
-  // noindexed (listsNoLots in src/lib/airport-page/content.ts); a sitemap
-  // entry for a noindexed URL is a contradictory signal Search Console
-  // reports for good, so leave those out. Same lot selection as the lot
-  // segments and searchParking. With no usable list (cold instance, snapshot
-  // off) every airport stays listed — the page decides, and inclusion is
-  // the harmless side. A sell-out keeps its entry: the page stays indexed.
-  const channel = await getChannelLocationsNoSweep();
-  let directAirportCodes = new Set<string>();
-  if (isDirectLotsEnabled()) {
-    try {
-      const direct = await fetchDirectLots({}, "sitemap");
-      if (direct.ok) directAirportCodes = new Set(direct.lots.filter((l) => isListable(l)).map((l) => l.airportCode));
-    } catch (error) {
-      console.warn("Sitemap airports: direct lots read threw, deciding on ResLab lots only:", error);
-      captureAPIError(error instanceof Error ? error : new Error(String(error)), {
-        endpoint: "sitemap",
-        method: "GET",
-        stage: "direct_lots_airports",
-      });
-    }
-  }
-  const listed = productionAirports.filter(
-    (airport) =>
-      channel === null ||
-      reslabLocationsFor(channel, airport).length > 0 ||
-      directAirportCodes.has(airport.code)
-  );
-  if (channel !== null && listed.length < productionAirports.length) {
-    console.log(`Sitemap airports: ${listed.length} of ${productionAirports.length} airports list lots; the rest are left out`);
-  }
+  // Every production airport page is listed and indexable, including ones
+  // that list no lots yet (Vin, 10 Nov 2026). No lot data is read here, so a
+  // cold instance can never change this segment.
+  const listed = productionAirports;
   return [
     {
       url: `${baseUrl}/airport-parking`,
@@ -152,13 +125,21 @@ function reslabLocationsFor(channel: readonly ReslabLocation[], airport: Airport
 }
 
 async function blogAirportHubPages(): Promise<MetadataRoute.Sitemap> {
+  // Only hubs with published posts. A hub with none renders a bare "No
+  // articles for X yet", a thin page Google files as a soft 404 (11 such hubs
+  // on 10 Nov 2026: ABE ABQ AZO DAL GEG IDA MEM ROA RSW SLC SNA). A CMS code
+  // that isn't a production airport would 404, so it is skipped.
+  const production = new Set(productionAirports.map((a) => a.code));
   try {
-    const codes = await getDistinctAirportCodes();
-    return codes.map((code) => ({
-      url: `${baseUrl}/blog/airport/${code.toLowerCase()}`,
-      changeFrequency: "weekly" as const,
-      priority: 0.7,
-    }));
+    const codes = new Set((await getDistinctAirportCodes()).map((c) => c.toUpperCase()));
+    return [...codes]
+      .filter((code) => production.has(code))
+      .sort()
+      .map((code) => ({
+        url: `${baseUrl}/blog/airport/${code.toLowerCase()}`,
+        changeFrequency: "weekly" as const,
+        priority: 0.7,
+      }));
   } catch (error) {
     // A refused API key must not become an empty sitemap: rethrow so the
     // route 500s (search engines retry) and Sentry has the cms:auth event.
