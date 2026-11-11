@@ -19,6 +19,7 @@ import {
 } from "./search";
 import { cache } from "react";
 import { getAirportByCode } from "@/config/airports";
+import { pickSameNameLot } from "./same-name-lot";
 import { isDirectLotsEnabled, DIRECT_BOOKING_OPEN } from "@/lib/direct/flag";
 import {
   fetchDirectLots,
@@ -281,7 +282,7 @@ export async function findLotBySlug(
   slug: string,
   fromDate: string,
   toDate: string,
-  airportCoords?: AirportCoords,
+  airportCoords?: AirportCoords & { code?: string },
   pricingWindowFor?: ReslabPricingWindowFn
 ): Promise<UnifiedLot | null> {
   // Deliberately NOT wrapped in try/catch. A ResLab failure (or an open
@@ -305,14 +306,7 @@ export async function findLotBySlug(
   const allMatches = locations.filter((loc) => generateSlug(loc.name) === slug);
   const matches = allMatches.filter((loc) => !isHiddenReslabLocation(loc.id) && isUsdPricedLocation(loc));
   if (allMatches.length > 0 && matches.length === 0) return null;
-  let match = matches[0];
-  if (matches.length > 1 && airportCoords) {
-    const dist = (loc: ReslabLocation) => {
-      const d = calculateDistance(airportCoords.latitude, airportCoords.longitude, parseFloat(loc.latitude), parseFloat(loc.longitude), false);
-      return Number.isNaN(d) ? Infinity : d; // unparseable coordinates never win
-    };
-    match = matches.reduce((best, loc) => (dist(loc) < dist(best) ? loc : best), matches[0]);
-  }
+  const match = airportCoords ? pickSameNameLot(matches, airportCoords) : matches[0];
   if (!match) {
     if (incomplete) {
       // The list is KNOWN thin — the cache deliberately retains a partial sweep
@@ -366,6 +360,114 @@ function directToUnified(lot: DirectLot, fromDate: string, toDate: string): Unif
   const airport = getAirportByCode(lot.airportCode);
   if (!airport) throw new Error(`direct lot ${lot.id}: airport ${lot.airportCode} vanished from config`);
   return directLotToUnified(lot, airport, { fromDate, toDate });
+}
+
+/**
+ * Does a lot page URL name a lot — answered WITHOUT pricing, from the same
+ * lists getLotById reads (the shared channel list, the direct-lot read), so
+ * the lot page can decide before it starts streaming. A `notFound()` inside
+ * the page's Suspense boundary is sent after the 200 status line, so a dead
+ * lot URL used to be a soft 404: 200, "Parking Not Found", noindex (66 such
+ * URLs in Search Console's noindex report, 10 Nov 2026).
+ *
+ *   "exists"  — a sellable lot has this slug. `reslab` lists the visible
+ *               ResLab locations with that name (any airport: the slug match
+ *               is name-only, as findLotBySlug); empty for a direct lot.
+ *   "missing" — the lists are complete and readable and no lot has it, or
+ *               every ResLab match is hidden (a firm 404, as findLotBySlug)
+ *   "unknown" — cannot tell (thin list, failed/broken direct read, list read
+ *               threw) or an id form this check does not decide
+ *               (`direct-<id>`; numeric ids go to lotIdLookup): the caller
+ *               falls through to getLotById, which surfaces the error state
+ *               itself. Never a 404 on a guess.
+ */
+export type LotLookup =
+  /** `incomplete`: the channel list is known thin, so a lot absent from `reslab` may still exist. */
+  | { status: "exists"; reslab: readonly ReslabLocation[]; incomplete: boolean }
+  | { status: "missing" }
+  | { status: "unknown" };
+
+const UNKNOWN: LotLookup = { status: "unknown" };
+const MISSING: LotLookup = { status: "missing" };
+
+/** The shared channel list, or null when it cannot be read (logged, never swallowed: the body re-reads it). */
+async function channelForPrecheck(
+  what: string,
+): Promise<{ data: readonly ReslabLocation[]; incomplete: boolean; stale: boolean } | null> {
+  try {
+    return await getChannelLocationsCached();
+  } catch (error) {
+    console.warn(`[lot-page] pre-check could not read the location list for ${what}:`, error);
+    return null;
+  }
+}
+
+const isVisible = (loc: ReslabLocation) => !isHiddenReslabLocation(loc.id) && isUsdPricedLocation(loc);
+
+export async function lotSlugLookup(slug: string, airportCode: string): Promise<LotLookup> {
+  if (/^(reslab-)?\d+$/.test(slug)) return UNKNOWN;
+  const directEnabled = isDirectLotsEnabled();
+  if (directEnabled && parseDirectLotUnifiedId(slug) !== null) return UNKNOWN;
+
+  if (directEnabled) {
+    const direct = await loadSellableDirectLots(airportCode);
+    if (!direct.ok) return UNKNOWN;
+    if (direct.lots.some((l) => l.slug === slug && l.airportCode === airportCode)) return { status: "exists", reslab: [], incomplete: false };
+    const maybeThis = direct.droppedKeys.some(
+      (k) => (k.airportCode === null || k.airportCode === airportCode) && (k.slug === null || k.slug === slug),
+    );
+    if (maybeThis) return UNKNOWN;
+  }
+
+  const channel = await channelForPrecheck(`"${slug}"`);
+  if (!channel) return UNKNOWN;
+  const allMatches = channel.data.filter((loc) => generateSlug(loc.name) === slug);
+  const visible = allMatches.filter(isVisible);
+  if (visible.length > 0) return { status: "exists", reslab: visible, incomplete: channel.incomplete };
+  if (allMatches.length > 0) return MISSING;
+  return channel.incomplete ? UNKNOWN : MISSING;
+}
+
+/**
+ * A numeric lot URL (`/<airport>/airport-parking/466`, `reslab-466`): hubs
+ * once linked ids, and Google still crawls them — 10 live duplicates of the
+ * slug pages (it picked the id URL as canonical on 4) and 4 dead ones that
+ * were soft 404s (audit, 10 Nov 2026). "exists" carries the one location so
+ * the caller can 308 to its slug URL. An id with a direct-lot twin is left
+ * "unknown" while direct booking is open (getLotById renders the direct lot
+ * there), as is any id when the direct read fails. "missing" only for an id
+ * the list holds as a hidden lot. An id ABSENT from the list stays "unknown"
+ * even on a complete, non-stale list: "fresh" still means up to 10 h
+ * (snapshot) or 24 h (sweep) old, and getLotById reads an id straight from
+ * ResLab, so a lot added since is live there. Only that read may call it
+ * gone (a dead id stays a soft 404, as before this check existed).
+ */
+export async function lotIdLookup(id: string): Promise<LotLookup> {
+  const m = /^(?:reslab-)?(\d+)$/.exec(id);
+  if (!m) return UNKNOWN;
+  const reslabId = Number(m[1]);
+  if (isDirectLotsEnabled() && DIRECT_BOOKING_OPEN) {
+    const direct = await loadSellableDirectLots(null);
+    if (!direct.ok || direct.lots.some((l) => l.reslabLocationId === reslabId)) return UNKNOWN;
+  }
+  const channel = await channelForPrecheck(`id ${id}`);
+  if (!channel) return UNKNOWN;
+  const loc = channel.data.find((l) => l.id === reslabId);
+  if (loc) return isVisible(loc) ? { status: "exists", reslab: [loc], incomplete: channel.incomplete } : MISSING;
+  return UNKNOWN;
+}
+
+/**
+ * Whether a lot page for this ResLab location under `airportCode` may show a
+ * direct lot instead: getLotById swaps in a direct twin (same
+ * reslabLocationId, same airport) while direct booking is open, and that page
+ * then canonicals to the direct lot's own slug. True too when the direct read
+ * fails (can't tell). resolveLotUrl sends no 308 in either case.
+ */
+export async function mayRenderDirectTwin(reslabId: number, airportCode: string): Promise<boolean> {
+  if (!isDirectLotsEnabled() || !DIRECT_BOOKING_OPEN) return false;
+  const direct = await loadSellableDirectLots(airportCode);
+  return !direct.ok || direct.lots.some((l) => l.airportCode === airportCode && l.reslabLocationId === reslabId);
 }
 
 /**

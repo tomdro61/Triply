@@ -68,6 +68,30 @@ describe("findLotBySlug — duplicate names across the channel", () => {
     expect(reslabMock.getLocation).not.toHaveBeenCalledWith(1);
   });
 
+  it("prefers the same-name lot the URL's airport OWNS over a nearer one another airport owns (the sitemap lists the owned one)", async () => {
+    searchMock.getChannelLocationsCached.mockResolvedValue({
+      data: [
+        { ...loc(11, "Hotel Lot"), latitude: "40.705", longitude: "-73.80" }, // ~10.1 km from LGA, but JFK is nearer: JFK owns it
+        { ...loc(12, "Hotel Lot"), latitude: "40.875", longitude: "-73.874" }, // ~10.9 km north of LGA: LGA owns it
+      ],
+      incomplete: false,
+      stale: false,
+    });
+    reslabMock.getLocation.mockRejectedValue(new Error("stop here"));
+
+    await findLotBySlug("hotel-lot", FROM, TO, { latitude: 40.7769, longitude: -73.874, code: "LGA" }).catch(() => null);
+    expect(reslabMock.getLocation).toHaveBeenCalledWith(12);
+
+    reslabMock.getLocation.mockClear();
+    process.env.SEARCH_OWN_AIRPORT_FILTER = "off";
+    try {
+      await findLotBySlug("hotel-lot", FROM, TO, { latitude: 40.7769, longitude: -73.874, code: "LGA" }).catch(() => null);
+      expect(reslabMock.getLocation).toHaveBeenCalledWith(11); // kill switch: nearest again
+    } finally {
+      delete process.env.SEARCH_OWN_AIRPORT_FILTER;
+    }
+  });
+
   it("never lets a blocked lot win the tie over an unblocked lot of the same name", async () => {
     searchMock.getChannelLocationsCached.mockResolvedValue({
       data: [

@@ -15,6 +15,7 @@ import {
 import { JsonLd } from "@/components/seo/JsonLd";
 import { getAirportBySlug } from "@/config/airports";
 import { getLotById } from "@/lib/reslab/get-lot";
+import { resolveLotUrl } from "@/lib/seo/lot-url";
 import { limitedSpotsTag } from "@/lib/reslab/availability";
 import { airportPricingTimes, reslabLotPricingWindow, toPricingWindow } from "@/lib/reslab/pricing-window";
 import type { ReslabPricingWindowFn } from "@/lib/reslab/get-lot";
@@ -272,7 +273,14 @@ async function LotPageContent({ params, searchParams }: LotPageProps) {
   );
 }
 
-export default function LotPage(props: LotPageProps) {
+export default async function LotPage(props: LotPageProps) {
+  // Before the Suspense boundary, so a dead or old-slug URL gets a real
+  // 404 / 308 instead of a streamed soft 404 (src/lib/seo/lot-url.ts).
+  // Cost: on a cold instance the location-list read now happens before the
+  // first byte instead of behind the spinner (warm: an in-memory hit, no
+  // ResLab call). The shared snapshot keeps that read short in production.
+  const { slug, lot: lotSlug } = await props.params;
+  await resolveLotUrl(slug, lotSlug, await props.searchParams);
   return (
     <Suspense fallback={<LoadingState />}>
       <LotPageContent {...props} />
@@ -295,9 +303,7 @@ export async function generateMetadata({ params, searchParams }: LotPageProps) {
   const defaultCheckout =
     checkout ||
     (checkin ? shiftIsoDate(checkin, 7) : new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
-  // Same window as the page body (it used a fixed 10:00 AM, a guaranteed 422
-  // on every same-day view), so both renders make the same min-price call.
-  const { fromDate, toDate, pricingWindowFor } = lotPricing(
+  const { fromDate, toDate } = lotPricing(
     defaultCheckin,
     defaultCheckout,
     airport?.timezone,
@@ -306,7 +312,10 @@ export async function generateMetadata({ params, searchParams }: LotPageProps) {
   );
 
   // Try to get lot. Same airport scope as the page body (the two share one
-  // direct-lot read per request via React.cache).
+  // direct-lot read per request via React.cache). No price: nothing below
+  // uses one, and Googlebot gets this metadata blocking (htmlLimitedBots), so
+  // a min-price call here would hold its first byte for up to ResLab's
+  // timeout. Skipping it also saves one ResLab call per lot page view.
   let lot: UnifiedLot | null;
   try {
     lot = await getLotById(
@@ -314,7 +323,7 @@ export async function generateMetadata({ params, searchParams }: LotPageProps) {
       fromDate,
       toDate,
       airport ? { latitude: airport.latitude, longitude: airport.longitude, code: airport.code } : undefined,
-      pricingWindowFor
+      () => null
     );
   } catch (err) {
     // No `robots: noindex` here: that is a removal signal, and this is a
