@@ -78,7 +78,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       ?? `Compare ${lotCount}parking lots near ${airport.name}. Reserve ${airport.code} parking${priceText}/day with free cancellation. Book now & save.`;
 
   return {
-    title: `${airport.city} Airport Parking - Cheap ${airport.code} Parking Rates${priceText}`,
+    // Nothing bookable: no "Cheap … Rates" promise in the search result.
+    title: empty
+      ? `${airport.city} Airport Parking Guide (${airport.code})`
+      : `${airport.city} Airport Parking - Cheap ${airport.code} Parking Rates${priceText}`,
     description,
     alternates: {
       canonical: `https://www.triplypro.com/${airport.slug}/airport-parking`,
@@ -106,13 +109,16 @@ export default async function AirportParkingPage({ params }: PageProps) {
   ]);
   // Nothing to book: show the no-lots guide (the airport's own parking,
   // transit, nearby airports) when one exists, so the page still helps.
-  const noLotsGuide = data.totalLots > 0 ? null : noLotsContent;
+  // Same test as the metadata (isKnownEmpty), so the guide and its meta
+  // description always appear together.
+  const noLotsGuide = isKnownEmpty(data.totalLots, data.locationsConsidered) ? noLotsContent : null;
   const seoSections = customContent?.sections ?? generateSEOContent(airport, data);
   const faqs = customContent?.faqs ?? generateFAQs(airport, data);
   const emptyState = emptyStateCopy(airport.name, data.locationsConsidered);
-  // FAQPage JSON-LD only when the FAQ is actually shown (it isn't at 0 lots) —
-  // Google requires FAQ markup to match visible content.
-  // Article only when the hand-written guide is on screen (it isn't at 0 lots).
+  // FAQPage JSON-LD only for the FAQ actually on screen (Google requires FAQ
+  // markup to match visible content): the airport FAQ when there are lots,
+  // the no-lots guide's FAQ when that guide shows, else none. Article the
+  // same way: the hand-written guide on screen, if any.
   const showsGuide = data.totalLots > 0 && customContent !== null;
   const schemas = buildAirportSchemas(
     airport,

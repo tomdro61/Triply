@@ -1,11 +1,12 @@
-import { AirportContent } from "../types";
+import type { NoLotsGuide } from ".";
 
 // Sources (checked 2026-11-10; notes/empty-hubs-2026-11-10/YYZ.md):
 // torontopearson.com parking overview, Daily Park, Value Park Garage/Lot,
 // Preferred, Express, Valet Care, cell phone waiting area, ride-sharing pages;
 // upexpress.com; ttc.ca fares (live). The taxi tariff and TTC 900 headway were
-// not confirmed, so neither is quoted.
-const yyzNoLots: AirportContent = {
+// not confirmed, so neither is quoted. Pearson itself calls the Value Park Lot
+// (online only, varying price) its most affordable parking.
+const yyzNoLots: NoLotsGuide = {
   publishedOn: "2026-11-10",
   updatedOn: "2026-11-10",
   metaDescription:
@@ -16,8 +17,8 @@ const yyzNoLots: AirportContent = {
       heading: "Toronto Pearson Parking at a Glance",
       body: `Toronto Pearson runs its own parking, from a value garage on the free Terminal Link train to valet at Terminal 1 (Greater Toronto Airports Authority, November 2026; prices in Canadian dollars):
 
-• **Value Park Garage** (6145 Viscount Rd): **C$32 daily**, **C$160 for the first 7 days**. Covered, with the free Terminal Link train every 4 minutes (about 7–12 minutes to the terminals).
-• **Value Park Lot** (6135 Viscount Rd): online only, price varies; Terminal Link train to the terminals.
+• **Value Park Garage** (6145 Viscount Rd): **C$32 daily**, **C$160 for the first 7 days**. Covered except the rooftop, with the free Terminal Link train every 4 minutes (about 7–12 minutes to the terminals).
+• **Value Park Lot** (6135 Viscount Rd): online only, price varies; Pearson calls it its most affordable parking. Terminal Link train to the terminals.
 • **Daily Park, Terminal 1 and Terminal 3 garages**: **C$42 daily maximum**, **C$235 for the first 7 days**. A 3–5 minute walk.
 • **Preferred Park** (T1, reserved): **C$46 daily maximum**, **C$255 for the first 7 days**.
 • **Valet Care** (T1): **C$56 daily maximum** plus a one-time **C$20** valet fee, **C$275 for the first 7 days**.
@@ -27,7 +28,7 @@ Online bookings can be cancelled free more than 24 hours before they start; with
     },
     {
       heading: "Free Waiting Areas",
-      body: `Pearson's **free waiting areas** allow up to 45 minutes and you must stay with your vehicle. Free Waiting Area 1 is off Viscount Road via Network Road; Free Waiting Area 2 has EV fast chargers. Stopping on the terminal roadways brings a C$85 payment notice by licence-plate photo.`,
+      body: `Pearson's **free waiting areas** allow up to 45 minutes and you must stay with your vehicle. Free Waiting Area 1 is off Viscount Road via Network Road; Free Waiting Area 2 has EV fast chargers. Parking on the roadsides leading into the terminals can bring a C$85 payment notice.`,
     },
     {
       heading: "Getting There Without Parking",
@@ -46,9 +47,9 @@ Taxis and limos charge flat rates by zone with no surge pricing. **Uber, Lyft an
         "Value Park Garage is C$32 a day (C$160 for the first 7 days), Daily Park at Terminals 1 and 3 is C$42 a day (C$235 for 7 days), Preferred Park is C$46, Valet Care is C$56 plus a C$20 fee, and Express Park is C$59 a day.",
     },
     {
-      question: "What is the cheapest parking at Pearson airport?",
+      question: "What is the most affordable parking Pearson runs?",
       answer:
-        "The Value Park Garage at C$32 a day or C$160 for the first 7 days, with the free Terminal Link train to the terminals every 4 minutes. The Value Park Lot is sold online only at a varying price.",
+        "Pearson calls its Value Park Lot (6135 Viscount Rd) its most affordable option; it is sold online only, at a varying price. The Value Park Garage next door is C$32 a day or C$160 for the first 7 days at the gate, with the free Terminal Link train every 4 minutes.",
     },
     {
       question: "Is there a free cell phone lot at Toronto Pearson?",

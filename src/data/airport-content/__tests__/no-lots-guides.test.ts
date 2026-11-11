@@ -28,9 +28,42 @@ describe.each(NO_LOTS_GUIDE_CODES)("no-lots guide %s", (code) => {
     expect(text).not.toMatch(/\bon Triply\b|\bTriply (lot|price|rate)s?\b|book now|free cancellation|reserve with us/i);
   });
 
+  it("never ranks a 'cheapest' option: the sources cover only the airport's own parking", async () => {
+    const g = (await getNoLotsAirportContent(code))!;
+    const text = [g.metaDescription, ...g.sections.flatMap((s) => [s.heading, s.body]), ...g.faqs.flatMap((f) => [f.question, f.answer])].join("\n");
+    expect(text).not.toMatch(/cheapest/i);
+  });
+
+  it("never leaks the showUntil field into the page", async () => {
+    const g = (await getNoLotsAirportContent(code))!;
+    for (const item of [...g.sections, ...g.faqs]) expect(item).not.toHaveProperty("showUntil");
+  });
+
   it.runIf(CANADIAN.has(code))("quotes Canadian dollars as C$, never a bare $", async () => {
     const g = (await getNoLotsAirportContent(code))!;
     const text = [g.metaDescription, ...g.sections.map((s) => s.body), ...g.faqs.map((f) => f.answer)].join("\n");
     expect(text).not.toMatch(/(^|[^C])\$\d/);
+  });
+});
+
+describe("dated guide content (showUntil)", () => {
+  const rswText = async (iso: string) => {
+    const g = (await getNoLotsAirportContent("RSW", new Date(iso)))!;
+    return [g.metaDescription, ...g.sections.flatMap((s) => [s.heading, s.body]), ...g.faqs.flatMap((f) => [f.question, f.answer])].join("\n");
+  };
+
+  it("shows RSW's Thanksgiving lot through Sunday 29 Nov 2026, airport time", async () => {
+    // 23:30 on the 29th in Fort Myers is already the 30th in UTC.
+    expect(await rswText("2026-11-30T04:30:00Z")).toMatch(/RSWRemote/);
+  });
+
+  it("drops it, section and FAQ, from Monday 30 Nov 2026", async () => {
+    const text = await rswText("2026-11-30T05:30:00Z");
+    expect(text).not.toMatch(/RSWRemote|Thanksgiving/);
+  });
+
+  it("never names the dated lot in the meta description, which has no date gate", async () => {
+    const g = (await getNoLotsAirportContent("RSW", new Date("2026-11-10T12:00:00Z")))!;
+    expect(g.metaDescription).not.toMatch(/RSWRemote|Thanksgiving/);
   });
 });

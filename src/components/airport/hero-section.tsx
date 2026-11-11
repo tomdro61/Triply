@@ -27,7 +27,8 @@ export function HeroSection({ airport, data }: HeroSectionProps) {
               : `Find and compare parking options near ${airport.name}.`}
           </p>
 
-          {/* Trust badges */}
+          {/* Trust badges: promises about booking with us, so only when there is something to book. */}
+          {totalLots > 0 && (
           <div className="flex flex-wrap justify-center gap-4 md:gap-6 mt-6">
             <div className="flex items-center text-sm text-gray-300">
               <ShieldCheck className="w-4 h-4 text-brand-orange mr-1.5" />
@@ -42,6 +43,7 @@ export function HeroSection({ airport, data }: HeroSectionProps) {
               Instant Confirmation
             </div>
           </div>
+          )}
         </div>
 
         <SearchWidget airportCode={airport.code} />

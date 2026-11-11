@@ -234,26 +234,24 @@ describe("sitemap airport segment — every airport is listed (Vin, 10 Nov 2026)
   });
 });
 
-describe("sitemap blog airport hubs — every production airport is listed (Vin, 10 Nov 2026)", () => {
+describe("sitemap blog airport hubs — only hubs with posts (a hub with none is a thin page)", () => {
   const hubUrls = async () => (await segment(BLOG_AIRPORT_HUBS_ID)).map((u) => u.url);
 
-  it("lists a hub for every production airport, posts or not, plus CMS codes that resolve", async () => {
-    vi.mocked(cms.getDistinctAirportCodes).mockResolvedValue(["JFK", "ZZZ"]);
+  it("lists the CMS codes that are production airports, once each, and no hub without posts", async () => {
+    vi.mocked(cms.getDistinctAirportCodes).mockResolvedValue(["JFK", "jfk", "LGA", "ZZZ"]);
     const urls = await hubUrls();
-    for (const a of productionAirports) {
-      expect(urls.some((u) => u.endsWith(`/blog/airport/${a.code.toLowerCase()}`))).toBe(true);
-    }
-    expect(urls.some((u) => u.endsWith("/blog/airport/zzz"))).toBe(false); // no airport → would 404
-    expect(new Set(urls).size).toBe(urls.length);
+    expect(urls.map((u) => u.split("/blog/airport/")[1])).toEqual(["jfk", "lga"]);
+    // ZZZ is no airport (would 404); DAL has no posts here (would be "No articles for DAL yet").
+    expect(urls.some((u) => u.endsWith("/blog/airport/dal"))).toBe(false);
   });
 
-  it("a CMS outage still lists every production hub", async () => {
+  it("a CMS outage lists no hubs rather than guessing", async () => {
     vi.mocked(cms.getDistinctAirportCodes).mockRejectedValue(new Error("502"));
-    expect(await hubUrls()).toHaveLength(productionAirports.length);
+    expect(await hubUrls()).toEqual([]);
   });
 
   it("a refused CMS key still fails the segment", async () => {
-    vi.mocked(cms.getDistinctAirportCodes).mockRejectedValue(new cms.CmsAuthError("401"));
+    vi.mocked(cms.getDistinctAirportCodes).mockRejectedValue(new cms.CmsAuthError("/api/posts", 401, true));
     await expect(segment(BLOG_AIRPORT_HUBS_ID)).rejects.toThrow();
   });
 });

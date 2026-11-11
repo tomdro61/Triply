@@ -7,27 +7,48 @@
  * Walks the sitemap index, fetches each URL as Googlebot and fails if any
  * returns non-200, a noindex meta robots tag or an X-Robots-Tag noindex.
  *
- *   node scripts/check-sitemap-indexable.mjs [baseUrl] [--concurrency 8] [--limit N]
+ *   node scripts/check-sitemap-indexable.mjs [baseUrl] [--concurrency 4] [--limit N] [--all]
  *
  * Default baseUrl: https://www.triplypro.com. Exit 1 on any failure.
+ *
+ * By default it checks segments 0–3 only (static pages, airport pages, blog
+ * hubs, blog categories). `--all` adds the lot segments (/sitemap/1xx.xml) and
+ * blog post segments (/sitemap/2xx.xml): ~5,000 URLs, and each lot page costs
+ * live ResLab calls (rate-limited) and each cold post a CMS read, so run it
+ * with --all rarely and with a low --concurrency.
  */
 
 const args = process.argv.slice(2);
 const flag = (name, fallback) => {
   const i = args.indexOf(name);
-  return i >= 0 ? Number(args[i + 1]) : fallback;
+  if (i < 0) return fallback;
+  const n = Number(args[i + 1]);
+  // A missing, zero or non-numeric value must not become "check nothing, OK".
+  if (!Number.isInteger(n) || n < 1) {
+    console.error(`${name} needs a whole number of 1 or more (got "${args[i + 1] ?? ""}")`);
+    process.exit(2);
+  }
+  return n;
 };
 const base = (args.find((a) => /^https?:\/\//.test(a)) ?? "https://www.triplypro.com").replace(/\/$/, "");
-const concurrency = flag("--concurrency", 8);
+const concurrency = flag("--concurrency", 4);
 const limit = flag("--limit", Infinity);
+const all = args.includes("--all");
 const UA = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)";
+const TIMEOUT_MS = 30_000;
 
 const locs = (xml) => [...xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)].map((m) => m[1].replace(/&amp;/g, "&"));
 
 async function get(url) {
-  const res = await fetch(url, { headers: { "user-agent": UA }, redirect: "manual" });
+  const res = await fetch(url, { headers: { "user-agent": UA }, redirect: "manual", signal: AbortSignal.timeout(TIMEOUT_MS) });
   return { res, body: await res.text() };
 }
+
+/** Segment id of a child sitemap URL (/sitemap/100.xml -> 100), or null. */
+const segmentId = (url) => {
+  const m = /\/sitemap\/(\d+)\.xml$/.exec(url);
+  return m ? Number(m[1]) : null;
+};
 
 async function sitemapUrls() {
   const { res, body } = await get(`${base}/sitemap.xml`);
@@ -35,6 +56,8 @@ async function sitemapUrls() {
   if (!body.includes("<sitemapindex")) return locs(body);
   const urls = [];
   for (const child of locs(body)) {
+    const id = segmentId(child);
+    if (!all && (id === null || id >= 100)) continue;
     const c = await get(child);
     if (c.res.status !== 200) throw new Error(`${child} returned ${c.res.status}`);
     urls.push(...locs(c.body));

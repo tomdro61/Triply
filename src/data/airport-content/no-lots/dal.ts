@@ -1,11 +1,11 @@
-import { AirportContent } from "../types";
+import type { NoLotsGuide } from ".";
 
 // Sources (checked 2026-11-10; notes/empty-hubs-2026-11-10/DAL.md):
-// dallas-lovefield.com garages/valet, cell phone lot, public transport and
-// directions pages (Wayback captures 16–30 Oct 2026: the live site did not
-// resolve on 10 Nov), dart.org Love Field + Route 5 + fares pages (live).
-// Hourly rates are in a PDF we did not open, so none are quoted.
-const dalNoLots: AirportContent = {
+// dallas-lovefield.com garages/valet page and hourly-rates PDF (live, in a
+// browser: the site refuses scripted fetches), cell phone lot, public
+// transport and directions pages; dart.org Love Field, Route 5 and fares
+// pages (live). No official DAL–DFW distance was found, so none is quoted.
+const dalNoLots: NoLotsGuide = {
   publishedOn: "2026-11-10",
   updatedOn: "2026-11-10",
   metaDescription:
@@ -16,11 +16,11 @@ const dalNoLots: AirportContent = {
       heading: "Dallas Love Field Parking at a Glance",
       body: `Dallas Love Field sits at Mockingbird Lane and Herb Kelleher Way, about seven miles from downtown Dallas, and is Southwest Airlines' home base. All of its parking is on the airport: three garages next to the terminal plus valet. There is no shuttle lot, so every space is a short walk away.
 
-Official daily rates (Dallas Love Field, October 2026):
+Official daily rates (Dallas Love Field, checked November 2026):
 • **Garage B roof**: $18/day, uncovered, about an 8-minute walk
 • **Garage C roof**: $20/day, uncovered, about a 4-minute walk
 • **Garage B and Garage C covered levels**: $21/day
-• **Garage A**: $24/day, all levels covered, about a 5-minute walk to the ticketing hall
+• **Garage A**: $24/day on all levels, about a 5-minute walk to the ticketing hall
 • **Garage C 3rd-level Premium**: $30/day
 • **Contactless Valet**: $35/day, connected to the south end of the ticketing hall
 
@@ -40,7 +40,7 @@ From Inwood/Love Field Station, the Green and Orange lines run into downtown Dal
     },
     {
       heading: "Love Field or DFW?",
-      body: `DFW is about 18 miles from Love Field, roughly a 30-minute drive with no traffic (longer at rush hour). Love Field is the closer airport to downtown and has every space within walking distance of the terminal. DFW has far more airlines and also has off-airport parking you can compare: see Dallas (DFW) in the airports below.`,
+      body: `Love Field is the closer airport to downtown Dallas, and every space is within walking distance of the terminal. DFW has far more airlines. For DFW parking, see Dallas (DFW) in the airports below.`,
     },
   ],
 
@@ -48,11 +48,11 @@ From Inwood/Love Field Station, the Green and Orange lines run into downtown Dal
     {
       question: "How much is parking at Dallas Love Field?",
       answer:
-        "Official daily rates run from $18 (Garage B roof) to $30 (Garage C 3rd-level Premium) for self-parking, and $35 for valet. Garage A is $24 a day and the covered levels of Garages B and C are $21 (Dallas Love Field, October 2026).",
+        "Official daily rates run from $18 (Garage B roof) to $30 (Garage C 3rd-level Premium) for self-parking, and $35 for valet. Garage A is $24 a day and the covered levels of Garages B and C are $21 (Dallas Love Field, checked November 2026).",
     },
     {
-      question: "What is the cheapest parking at Love Field?",
-      answer: "The uncovered roof of Garage B at $18 a day, about an 8-minute walk to the terminal.",
+      question: "What is the lowest daily rate at Love Field's own garages?",
+      answer: "$18 a day on the uncovered roof of Garage B, about an 8-minute walk to the terminal.",
     },
     {
       question: "Is there free parking at Dallas Love Field?",

@@ -1,19 +1,21 @@
-import { AirportContent } from "../types";
+import type { NoLotsGuide } from ".";
 
 // Sources (checked 2026-11-10; notes/empty-hubs-2026-11-10/YOW.md):
 // yow.ca parking, special offers and ground transportation pages (live).
 // OC Transpo fares and O-Train frequency could not be opened (403), so none
-// are quoted. Rates change 1 Jan 2027: update the "today" figures then.
-const yowNoLots: AirportContent = {
+// are quoted. Rates change 1 Jan 2027: every rate is written as "until 31
+// December 2026 … from 1 January 2027 …" so it stays true; drop the old
+// figures in January.
+const yowNoLots: NoLotsGuide = {
   publishedOn: "2026-11-10",
   updatedOn: "2026-11-10",
   metaDescription:
-    "Ottawa Airport (YOW) parking guide: P4 long-term lot C$21/day or C$105/week, P1 parkade C$26/day, the free cell phone lot, the O-Train Line 4 and route 105 bus.",
+    "Ottawa Airport (YOW) parking guide: P4 long-term and P1 parkade rates (new rates from 1 Jan 2027), the airport's discounts, the free cell phone lot, O-Train Line 4 and route 105.",
 
   sections: [
     {
       heading: "Ottawa Airport Parking at a Glance",
-      body: `Ottawa Macdonald–Cartier International Airport runs two public parking areas, both a walk from the terminal (Ottawa International Airport Authority, November 2026; prices in Canadian dollars):
+      body: `Ottawa Macdonald–Cartier International Airport runs two public parking areas, both a walk from the terminal. Rates until 31 December 2026 (Ottawa International Airport Authority, November 2026; prices in Canadian dollars):
 
 • **P4 Long-term / Overheight lot**: C$6 per 30 minutes up to **C$21 per 24 hours**, **C$105 per 7 days** or **C$210 per 30 days**. Uncovered, about a 7-minute walk, 3.6 m height limit.
 • **P1 Parkade**: C$6 per 30 minutes up to **C$26 per 24 hours**. Covered, about a 2-minute walk over two skywalks, with free EV charging (120V). No weekly rate is published.
@@ -42,12 +44,12 @@ The parking office (P1 level 1) gives free battery boosts and snow dig-outs arou
     {
       question: "How much is parking at Ottawa Airport?",
       answer:
-        "The P4 long-term lot is C$21 per 24 hours (C$105 per week) and the covered P1 parkade is C$26 per 24 hours. Both rise on 1 January 2027, to C$22 and C$28.",
+        "Until 31 December 2026, the P4 long-term lot is C$21 per 24 hours (C$105 per week) and the covered P1 parkade is C$26 per 24 hours. From 1 January 2027 the airport has announced C$22 (C$110 per week) for P4 and C$28 for P1.",
     },
     {
-      question: "What is the cheapest long-term parking at YOW?",
+      question: "What is the lowest long-term rate at YOW's own parking?",
       answer:
-        "P4 at C$105 per 7 days or C$210 per 30 days. Booking a 14–30 day stay online with the \"10 for 30\" offer charges only 10 days.",
+        "P4: C$105 per 7 days or C$210 per 30 days until 31 December 2026, and C$110 or C$220 from 1 January 2027. Booking a 14–30 day stay online with the airport's \"10 for 30\" offer charges only 10 days.",
     },
     {
       question: "Is there covered parking at Ottawa Airport?",
