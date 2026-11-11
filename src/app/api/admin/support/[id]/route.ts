@@ -3,7 +3,7 @@ import { z } from "zod";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { isAdminEmail } from "@/config/admin";
 import { captureAPIError } from "@/lib/sentry";
-import { TICKET_COLUMNS } from "@/lib/support/tickets";
+import { TICKET_COLUMNS, supportLivemode } from "@/lib/support/tickets";
 import { EVIDENCE_BOOKING_COLUMNS } from "@/lib/support/evidence";
 
 /**
@@ -48,6 +48,8 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       .from("support_tickets")
       .select(`${TICKET_COLUMNS}, livemode`)
       .eq("id", id)
+      // This deployment's tickets only, as the list (staging and production share the database).
+      .eq("livemode", supportLivemode())
       .abortSignal(AbortSignal.timeout(DB_TIMEOUT_MS))
       .maybeSingle<{ booking_id: string | null; booking_match: string }>();
     if (ticketError) throw new Error(`admin support ticket read failed: ${ticketError.message}`);
@@ -64,12 +66,10 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         .maybeSingle();
       if (error || !data) {
         bookingError = true;
-        if (error) {
-          captureAPIError(new Error(`admin support booking read failed: ${error.message}`), {
-            endpoint: "/api/admin/support/[id]",
-            method: "GET",
-          });
-        }
+        captureAPIError(new Error(`admin support booking read failed: ${error ? error.message : "linked booking not found"}`), {
+          endpoint: "/api/admin/support/[id]",
+          method: "GET",
+        });
       } else {
         booking = data;
       }

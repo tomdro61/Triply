@@ -1,4 +1,4 @@
-import { formatLiteralDateTime } from "@/lib/booking/reconciliation-alert";
+import { formatLiteralDateTime } from "@/lib/booking/literal-time";
 
 /**
  * Saved replies for /admin/support — fixed, copy-paste messages the team
@@ -12,11 +12,11 @@ import { formatLiteralDateTime } from "@/lib/booking/reconciliation-alert";
 
 /** The booking facts a reply may quote. Times are tz-less airport-local strings. */
 export interface TemplateBooking {
-  reservationNumber: string;
-  locationName: string;
+  reservationNumber: string | null;
+  locationName: string | null;
   airportCode: string | null;
-  checkIn: string;
-  checkOut: string;
+  checkIn: string | null;
+  checkOut: string | null;
 }
 
 export interface TemplateContext {
@@ -56,12 +56,13 @@ export function greetingName(typed: string): string {
 
 function fields(ctx: TemplateContext): Fields {
   const b = ctx.booking;
+  // Each fact on its own: a booking missing one field still fills the rest.
   return {
     name: greetingName(ctx.customerName),
     reservation: b?.reservationNumber || "[reservation number]",
-    lot: b ? (b.airportCode ? `${b.locationName} (${b.airportCode})` : b.locationName) : "[parking lot]",
-    checkIn: b ? formatLiteralDateTime(b.checkIn) : "[check-in date and time]",
-    checkOut: b ? formatLiteralDateTime(b.checkOut) : "[check-out date and time]",
+    lot: b?.locationName ? (b.airportCode ? `${b.locationName} (${b.airportCode})` : b.locationName) : "[parking lot]",
+    checkIn: b?.checkIn ? formatLiteralDateTime(b.checkIn) : "[check-in date and time]",
+    checkOut: b?.checkOut ? formatLiteralDateTime(b.checkOut) : "[check-out date and time]",
   };
 }
 
@@ -81,7 +82,7 @@ To give the request the best chance, please reply with anything that shows why y
 - a medical or family emergency
 - anything else that changed your plans at the last minute
 
-We'll review it with the parking operator and let you know the answer by email.
+We'll send in your request for an exception and let you know the answer by email.
 
 ${SIGN_OFF}`,
   },
@@ -105,7 +106,7 @@ ${SIGN_OFF}`,
 
 Thanks for your patience while we looked into reservation ${f.reservation} at ${f.lot} (check-in ${f.checkIn}).
 
-We asked for an exception, but this time it wasn't approved. Cancellations within 24 hours of check-in aren't refundable under our cancellation policy: https://www.triplypro.com/terms#cancellation
+We asked for an exception, but this time it wasn't approved. Under our cancellation policy, refunds for cancellations within 24 hours of check-in are decided case by case: https://www.triplypro.com/terms#cancellation
 
 We're sorry this isn't the answer you hoped for. If something else comes up, just reply to this email.
 
@@ -147,7 +148,11 @@ ${SIGN_OFF}`,
 
 Thanks for reaching out about reservation ${f.reservation} at ${f.lot}.
 
-There's no edit option yet. If your check-in is more than 24 hours away, the fastest way is to cancel it at https://www.triplypro.com/reservations (sign in with the email you booked with) and book again with the new details. A cancellation more than 24 hours before check-in is refunded to your original payment method (if you added a Park Guard protection plan, part of the plan price isn't refundable).
+There's no edit option yet, so a change means cancelling and booking again with the new details. A cancellation more than 24 hours before check-in is refunded to your original payment method (if you added a Park Guard protection plan, part of the plan price isn't refundable).
+
+[Keep one of the next two lines and delete the other:]
+[You can cancel it yourself at https://www.triplypro.com/reservations: sign in with the email you booked with (if you booked as a guest, add the reservation to your account there first), then book the new dates.]
+[Reply to confirm and we'll cancel it for you, then you can book the new dates.]
 
 If check-in is less than 24 hours away, reply with the new dates or details and we'll see what we can do.
 

@@ -35,9 +35,6 @@ export interface EvidenceBooking {
   inventory_source: string | null;
 }
 
-/** Shown when a ticket has no stored zone to read times in. */
-export const FALLBACK_TIMEZONE = "America/New_York";
-
 function validZone(tz: string | null | undefined): string | null {
   if (!tz) return null;
   try {
@@ -52,14 +49,15 @@ function validZone(tz: string | null | undefined): string | null {
  * A real instant (a timestamptz like ticket.created_at) shown as the wall
  * clock in `tz`, with the zone named: "Nov 11, 2026, 3:42 PM EST". This
  * converts an instant INTO a zone; it never reinterprets an airport-local
- * booking time (those go through formatLiteralDateTime untouched).
+ * booking time (those go through formatLiteralDateTime untouched). With no
+ * known zone it is shown in UTC, never in a guessed local zone.
  */
 export function formatInstant(iso: string | null | undefined, tz: string | null | undefined): string {
   if (!iso) return "not recorded";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "not recorded";
   return d.toLocaleString("en-US", {
-    timeZone: validZone(tz) ?? FALLBACK_TIMEZONE,
+    timeZone: validZone(tz) ?? "UTC",
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -78,10 +76,13 @@ export function formatInstantUtc(iso: string | null | undefined): string {
 
 export type EvidenceBookingMatch = "matched" | "email_mismatch" | "not_found" | "lookup_failed" | "none";
 
-/** What the ticket's booking_match proves, and nothing more. */
+/**
+ * What the ticket's booking_match proves, and nothing more. The form's email
+ * is whatever was typed (never verified), so it is "entered", not "sent from".
+ */
 export const MATCH_STATEMENT: Record<EvidenceBookingMatch, string> = {
-  matched: "Reservation found, and the email on the reservation is the same email that sent this request.",
-  email_mismatch: "Reservation found, but it is under a different email than the one that sent this request.",
+  matched: "Reservation found. The email address entered on the form (not verified) is the same as the email on the reservation.",
+  email_mismatch: "Reservation found, but under a different email than the one entered on the form.",
   not_found: "No reservation with this number was found.",
   lookup_failed: "The reservation number was given but could not be checked when the request arrived.",
   none: "No reservation number was given.",
@@ -103,7 +104,15 @@ export function bookingStatusLabel(b: Pick<EvidenceBooking, "status" | "cancel_s
   return base;
 }
 
-/** The zone the booking's times are in, for the page to name. */
-export function evidenceZone(b: Pick<EvidenceBooking, "location_timezone"> | null): string {
-  return validZone(b?.location_timezone) ?? FALLBACK_TIMEZONE;
+/**
+ * The lot's zone, to show contact times on the same clock as check-in: the
+ * booking's stored zone, else its airport's. null = unknown, and the page
+ * shows those times in UTC and says so (a guessed zone could flip the order
+ * of "wrote to us" vs "check-in", the one thing this record exists to show).
+ */
+export function evidenceZone(
+  b: Pick<EvidenceBooking, "location_timezone"> | null,
+  airportZone?: string | null
+): string | null {
+  return validZone(b?.location_timezone) ?? validZone(airportZone) ?? null;
 }

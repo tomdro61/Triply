@@ -4,7 +4,7 @@
  * reservation under someone else's email. A booking that should exist but
  * can't be read is flagged, never shown as "no booking".
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
 
 const state = vi.hoisted(() => ({
@@ -15,6 +15,7 @@ const state = vi.hoisted(() => ({
   bookingError: null as null | { message: string },
   tables: [] as string[],
   signals: 0,
+  eqs: [] as Array<[string, unknown]>,
 }));
 
 vi.mock("@/lib/sentry", () => ({ captureAPIError: vi.fn() }));
@@ -29,7 +30,7 @@ vi.mock("@/lib/supabase/server", () => ({
       state.tables.push(table);
       const b = {
         select: () => b,
-        eq: () => b,
+        eq: (col: string, v: unknown) => (state.eqs.push([col, v]), b),
         abortSignal: () => (state.signals++, b),
         maybeSingle: async () =>
           table === "support_tickets"
@@ -42,6 +43,7 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 
 import { GET } from "../[id]/route";
+import { captureAPIError } from "@/lib/sentry";
 
 const ID = "11111111-1111-4111-8111-111111111111";
 const call = (id = ID) => GET(new NextRequest(`https://x/api/admin/support/${id}`), { params: Promise.resolve({ id }) });
@@ -54,6 +56,12 @@ beforeEach(() => {
   state.bookingError = null;
   state.tables = [];
   state.signals = 0;
+  state.eqs = [];
+  vi.mocked(captureAPIError).mockClear();
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 describe("GET /api/admin/support/[id]", () => {
@@ -81,6 +89,18 @@ describe("GET /api/admin/support/[id]", () => {
     expect(state.signals).toBe(2);
   });
 
+  it("reads only this deployment's tickets (staging and production share the database)", async () => {
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_x");
+    await call();
+    expect(state.eqs).toContainEqual(["livemode", false]);
+    vi.unstubAllEnvs();
+    state.eqs = [];
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_live_x");
+    await call();
+    expect(state.eqs).toContainEqual(["livemode", true]);
+    vi.unstubAllEnvs();
+  });
+
   it("never reads the booking when the email didn't match", async () => {
     state.ticket = { id: ID, booking_id: "b1", booking_match: "email_mismatch" };
     const body = await (await call()).json();
@@ -95,7 +115,13 @@ describe("GET /api/admin/support/[id]", () => {
     expect(body).toMatchObject({ booking: null, bookingError: true });
     state.bookingError = null;
     state.booking = null;
+    vi.mocked(captureAPIError).mockClear();
     body = await (await call()).json();
     expect(body).toMatchObject({ booking: null, bookingError: true });
+    // A linked booking that vanished is reported, not just shown.
+    expect(vi.mocked(captureAPIError)).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining("not found") }),
+      expect.anything()
+    );
   });
 });

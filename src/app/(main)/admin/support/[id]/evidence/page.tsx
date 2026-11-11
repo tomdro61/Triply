@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Download, Loader2 } from "lucide-react";
-import { formatLiteralDateTime } from "@/lib/booking/reconciliation-alert";
+import { formatLiteralDateTime } from "@/lib/booking/literal-time";
+import { getAirportByCode } from "@/config/airports";
 import {
   MATCH_STATEMENT,
   bookingStatusLabel,
@@ -70,7 +71,7 @@ export default function SupportEvidencePage() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`/api/admin/support/${encodeURIComponent(id)}`);
+        const res = await fetch(`/api/admin/support/${encodeURIComponent(id)}`, { signal: AbortSignal.timeout(10_000) });
         const body = await res.json().catch(() => null);
         if (!res.ok || !body?.ticket) throw new Error(body?.error || `Failed to load ticket (${res.status})`);
         if (!cancelled) setData(body as Loaded);
@@ -95,7 +96,7 @@ export default function SupportEvidencePage() {
   }
 
   const { ticket, booking, bookingError } = data;
-  const zone = evidenceZone(booking);
+  const zone = evidenceZone(booking, booking?.airport_code ? getAirportByCode(booking.airport_code)?.timezone : null);
   const notes = ticket.notes.trim();
 
   return (
@@ -113,7 +114,9 @@ export default function SupportEvidencePage() {
           </label>
           <button
             onClick={() => window.print()}
-            className="inline-flex items-center gap-2 rounded-lg bg-brand-orange px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600"
+            disabled={bookingError}
+            title={bookingError ? "The reservation didn't load: reload the page first" : undefined}
+            className="inline-flex items-center gap-2 rounded-lg bg-brand-orange px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-50"
           >
             <Download className="h-4 w-4" /> Download PDF
           </button>
@@ -143,8 +146,8 @@ export default function SupportEvidencePage() {
               {formatInstant(ticket.created_at, zone)}
               <span className="block text-xs text-gray-500">{formatInstantUtc(ticket.created_at)}</span>
             </Row>
-            <Row label="How it arrived">Contact form on triplypro.com (stored by our system when it was sent)</Row>
-            <Row label="From">
+            <Row label="How it arrived">A web form on triplypro.com (stored by our system when it was submitted)</Row>
+            <Row label="From (as entered on the form)">
               {ticket.name} &lt;{ticket.email}&gt;
             </Row>
             <Row label="Topic chosen">{ticket.subject}</Row>
@@ -180,7 +183,7 @@ export default function SupportEvidencePage() {
                   </Row>
                   <Row label="Booked">{formatInstant(booking.created_at, zone)}</Row>
                   <Row label="Status now">{bookingStatusLabel(booking)}</Row>
-                  {booking.cancel_claimed_at && <Row label="Cancellation started">{formatInstant(booking.cancel_claimed_at, zone)}</Row>}
+                  {booking.cancel_claimed_at && <Row label="Cancellation recorded (latest attempt)">{formatInstant(booking.cancel_claimed_at, zone)}</Row>}
                   {booking.cancelled_by && <Row label="Cancelled by">{booking.cancelled_by}</Row>}
                   {booking.cancellation_reason && <Row label="Cancellation reason">{booking.cancellation_reason}</Row>}
                 </tbody>
@@ -205,7 +208,10 @@ export default function SupportEvidencePage() {
         )}
 
         <p className="mt-6 border-t border-gray-200 pt-3 text-xs text-gray-500">
-          Times are shown in {zone}. Record generated {formatInstant(generatedAt, zone)} from Triply&apos;s support system.
+          {zone
+            ? `Times are shown in the lot's time zone (${zone}).`
+            : "The lot's time zone isn't recorded: check-in and check-out are the lot's local time; all other times are UTC."}{" "}
+          Record generated {formatInstant(generatedAt, zone)} from Triply&apos;s support system.
         </p>
       </div>
     </div>

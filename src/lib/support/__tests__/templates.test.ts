@@ -47,6 +47,28 @@ describe("saved reply templates", () => {
     expect(text).toContain("[check-in date and time]");
   });
 
+  it("a booking missing one fact still fills the others", () => {
+    const text = renderTemplate(findTemplate("late_cancel")!, ctx({ booking: { ...booking, checkIn: null, locationName: null } }));
+    expect(text).toContain("[check-in date and time]");
+    expect(text).toContain("[parking lot]");
+    expect(text).toContain("RL998877");
+    const declined = renderTemplate(findTemplate("change_dates")!, ctx({ booking: { ...booking, checkOut: null } }));
+    expect(declined).toContain("Park Fast (EWR)");
+  });
+
+  it("the decline never says late cancellations are never refundable (terms 5.3: case by case)", () => {
+    const text = renderTemplate(findTemplate("late_cancel_declined")!, ctx());
+    expect(text).not.toMatch(/aren't refundable|not refundable|non-refundable/i);
+    expect(text).toContain("case by case");
+  });
+
+  it("change dates never promises self-cancel unconditionally (it can be off, or the booking not eligible)", () => {
+    const text = renderTemplate(findTemplate("change_dates")!, ctx());
+    const selfCancel = text.split("\n").find((l) => l.includes("/reservations"));
+    expect(selfCancel).toMatch(/^\[.*\]$/);
+    expect(text).toContain("we'll cancel it for you");
+  });
+
   it("greets by first name only, and never repeats something that isn't a name", () => {
     expect(greetingName("  anne-marie  o'neil ")).toBe("Anne-marie");
     expect(greetingName("José")).toBe("José");

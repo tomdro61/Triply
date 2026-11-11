@@ -246,14 +246,14 @@ export default function AdminSupportPage() {
     let booking: TemplateBooking | null = null;
     let failed = false;
     try {
-      const res = await fetch(`/api/admin/support/${ticketId}`);
+      const res = await fetch(`/api/admin/support/${ticketId}`, { signal: AbortSignal.timeout(10_000) });
       const data = await res.json().catch(() => null);
       const b = data?.booking as
         | { reslab_reservation_number: string | null; location_name: string | null; airport_code: string | null; check_in: string | null; check_out: string | null }
         | null
         | undefined;
       if (!res.ok || data?.bookingError || !b) failed = true;
-      else if (b.reslab_reservation_number && b.location_name && b.check_in && b.check_out) {
+      else {
         booking = {
           reservationNumber: b.reslab_reservation_number,
           locationName: b.location_name,
