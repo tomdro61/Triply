@@ -260,7 +260,3 @@ test('approved codes: a bad entry is skipped, never widened (fail closed)', () =
   assert.deepEqual(loadApprovedOfferFigures(file, now), {})
   assert.deepEqual(loadApprovedCodes(file, now), [])
 })
-
-import { test as ciTest } from 'node:test'
-import ciAssert from 'node:assert/strict'
-ciTest('NEGATIVE CONTROL (never merge): a failing assertion', () => { ciAssert.equal(1 + 1, 3) })

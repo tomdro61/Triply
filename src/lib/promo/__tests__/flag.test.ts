@@ -21,8 +21,3 @@ describe("isFixedPromoEnabled", () => {
     expect(isFixedPromoEnabled(env(undefined))).toBe(false);
   });
 });
-
-import { it as ciIt, expect as ciExpect } from "vitest";
-ciIt("NEGATIVE CONTROL (never merge): a failing assertion", () => {
-  ciExpect(1 + 1).toBe(3);
-});
