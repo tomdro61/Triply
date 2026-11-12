@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { clarityInitScript, gtagInitScript } from "../inline-analytics-scripts";
 
 const window_ = (): Record<string, unknown> => ({});
@@ -60,6 +60,43 @@ describe("gtag-init", () => {
   it("an opt-out sets analytics_storage denied; utm_medium=email is not a secret", () => {
     const { calls } = run(gtagInitScript("G-TEST"), { href: "https://www.triplypro.com/?utm_medium=email", cookie: OPTED_OUT });
     expect(calls).toContainEqual(["consent", "default", expect.objectContaining({ analytics_storage: "denied" })]);
+    expect(calls).toContainEqual(["config", "G-TEST"]);
+  });
+});
+
+describe("gtag-init: automated browsers are tagged, not dropped", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const href = "https://www.triplypro.com/blog/jfk-airport-parking-rates";
+
+  it("navigator.webdriver: every hit is marked traffic_type automation, set before the config that sends the page_view", () => {
+    vi.stubGlobal("navigator", { webdriver: true });
+    const { calls } = run(gtagInitScript("G-TEST"), { href });
+    const set = calls.findIndex((c) => c[0] === "set");
+    const config = calls.findIndex((c) => c[0] === "config");
+    expect(calls[set]).toEqual(["set", { traffic_type: "automation" }]);
+    expect(set).toBeGreaterThan(-1);
+    expect(set).toBeLessThan(config);
+    // Still measured: the config (and its page_view) goes out as usual.
+    expect(calls).toContainEqual(["config", "G-TEST"]);
+  });
+
+  it.each([
+    ["an ordinary browser", { webdriver: false }],
+    ["a browser without the flag", {}],
+  ])("%s is not tagged", (_label, nav) => {
+    vi.stubGlobal("navigator", nav);
+    const { calls } = run(gtagInitScript("G-TEST"), { href });
+    expect(calls.some((c) => c[0] === "set")).toBe(false);
+    expect(calls).toContainEqual(["config", "G-TEST"]);
+  });
+
+  it("a navigator that throws does not stop analytics from starting", () => {
+    vi.stubGlobal("navigator", {
+      get webdriver() {
+        throw new Error("blocked");
+      },
+    });
+    const { calls } = run(gtagInitScript("G-TEST"), { href });
     expect(calls).toContainEqual(["config", "G-TEST"]);
   });
 });
