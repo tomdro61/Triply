@@ -5,6 +5,7 @@
  */
 
 import { captureBookingError } from "@/lib/sentry";
+import { buildSearchEventParams, type SearchEventInput } from "@/lib/analytics/search-event";
 
 declare global {
   interface Window {
@@ -37,7 +38,9 @@ export function grantAnalyticsConsent() {
 
 /**
  * Fire-and-forget: a failing analytics call must never break a search, a lot
- * panel or a checkout load. Every funnel event below goes through this.
+ * panel or a checkout step. Used by search, select_item, view_item,
+ * begin_checkout, add_payment_info and every checkout_* event. (purchase has
+ * its own handling: it reports a failure to Sentry.)
  */
 function safeEvent(name: string, params: Record<string, unknown>) {
   if (typeof window === "undefined" || !window.gtag) return;
@@ -48,36 +51,60 @@ function safeEvent(name: string, params: Record<string, unknown>) {
   }
 }
 
-// ── The booking funnel's standard events (definitions changed 2026-11-12) ────
+// ── The booking funnel's standard events ─────────────────────────────────────
 // search → select_item → view_item → begin_checkout → add_payment_info → purchase
 //
-//   search          one per search attempt, with how it ended and what was
-//                   shown (params built by src/lib/analytics/search-event.ts)
-//   select_item     a lot was picked from the results (list card, map pin or
-//                   mobile map card): item_list_name says which
-//   view_item       a lot's details were shown: the panel on /search
-//                   (item_surface "search_panel") or the full lot page
-//                   ("lot_page"). Before 2026-11-12: the lot page only.
-//   begin_checkout  /checkout loaded with a lot. Before 2026-11-12 it fired at
-//                   the payment step, where add_payment_info still fires: use
-//                   add_payment_info for the old series.
+//   search          one per search ATTEMPT, with how it ended and what was
+//                   shown (src/lib/analytics/search-event.ts)
+//   select_item     a lot was picked from the results. item_list_name:
+//                   "search_results" (list card) or "search_map" (map pin or
+//                   mobile map card)
+//   view_item       a lot's details were shown. item_surface: "search_panel"
+//                   (the panel on /search) or "lot_page"
+//   begin_checkout  the checkout form was shown with a lot: fires with
+//                   checkout_view, under the same conditions, once per page
+//                   load (not on a failed, sold-out or lot-less load)
+//   add_payment_info  the payment step was reached
 //
-// Price basis: select_item / view_item carry the lot's per-day "from" rate;
-// begin_checkout and purchase carry the stay's total.
+// What changed on 2026-11-12 (GA4 shows these breaks permanently):
+//   - begin_checkout fired at the payment step, beside add_payment_info. For
+//     the old series use add_payment_info, which did not change.
+//   - view_item fired on the lot page only, with item_id / item_name / price
+//     as flat params. It now has an items array (plus currency, item_surface).
+//   - select_item fired from the list card only; map picks sent nothing.
+//   - search fired on answered searches only; date_error and load_error
+//     attempts are new, and sort re-fetches now say so (search_trigger).
+//   - checkout_view's `priced` was 0 for every direct lot; it is now 1.
+//
+// Prices: select_item / view_item carry pricing.minPrice, the lot's pre-tax
+// per-day rate without the service fee. begin_checkout carries the stay's
+// online total at load (grand total + service fee; no Park Guard, promo or
+// at-lot vehicle surcharge, none of which is chosen or charged then).
+// add_payment_info and purchase carry the server-verified total.
+//
+// Event-scoped custom dimensions to register in GA4 for these: item_surface,
+// lots_shown, price_band, stay_days, dates_defaulted, search_outcome,
+// search_trigger, sort_by (lead_days is shared with checkout_view).
 
 /**
- * A search attempt and what the searcher saw. Params come from
- * buildSearchEventParams (search-event.ts).
+ * A search attempt and what the searcher saw. Builds its own params, so a
+ * search event cannot be sent with hand-made ones, and never throws: it is
+ * called from inside the search page's fetch, where a throw would replace good
+ * results with the error panel.
  */
-export function trackSearch(params: Record<string, string | number | undefined>) {
-  safeEvent("search", params);
+export function trackSearch(input: SearchEventInput) {
+  try {
+    safeEvent("search", buildSearchEventParams(input));
+  } catch {
+    // Analytics only.
+  }
 }
 
 /** A lot's details were shown, on the search panel or the full lot page. */
 export function trackLotView(lot: {
   id: string;
   name: string;
-  /** Per-day "from" rate. */
+  /** pricing.minPrice: the pre-tax per-day rate, without the service fee. */
   price?: number;
   surface: "search_panel" | "lot_page";
 }) {
@@ -114,9 +141,9 @@ export function trackSelectItem(lot: {
 }
 
 /**
- * /checkout loaded with a lot. `total` is what the customer sees at load
- * (checkoutLoadValue, checkout-funnel.ts); omitted when the load is not priced,
- * never a made-up figure.
+ * The checkout form was shown with a lot (fires with checkout_view). `total`
+ * is the online total at load (checkoutLoadValue, checkout-funnel.ts); omitted
+ * when the load is not priced, never a made-up figure.
  */
 export function trackBeginCheckout(booking: {
   lotId: string;
@@ -143,19 +170,19 @@ export function trackAddPaymentInfo(booking: {
   lotName: string;
   total: number;
 }) {
-  if (typeof window !== "undefined" && window.gtag) {
-    window.gtag("event", "add_payment_info", {
-      value: booking.total,
-      currency: "USD",
-      items: [
-        {
-          item_id: booking.lotId,
-          item_name: booking.lotName,
-          price: booking.total,
-        },
-      ],
-    });
-  }
+  // Through safeEvent: this runs inside the PaymentIntent try, where a throw
+  // would show "Payment Error" on a payment that was set up fine.
+  safeEvent("add_payment_info", {
+    value: booking.total,
+    currency: "USD",
+    items: [
+      {
+        item_id: booking.lotId,
+        item_name: booking.lotName,
+        price: booking.total,
+      },
+    ],
+  });
 }
 
 /**
@@ -314,8 +341,7 @@ function newsletterSignupDigest(value: string): string {
  * Pass-5 review: the key used to be the raw email, written on every submit
  * regardless of consent — a plaintext address parked in storage forever for
  * the sake of a counter. It is now hashed, expires, and is not written at all
- * until GA is actually loaded (i.e. until the cookie banner has been
- * accepted).
+ * until GA is actually loaded.
  *
  * Trade-off, accepted: a resubmit of the same email from a DIFFERENT browser
  * or device still double-counts — this is a marketing metric (generate_lead
@@ -325,10 +351,9 @@ function newsletterSignupDigest(value: string): string {
  * event rather than risk silently dropping a real lead.
  */
 export function markAndShouldTrackNewsletterSignup(email: string): boolean {
-  // No gtag means no consent yet (the GA script only loads once the cookie
-  // banner is accepted), or analytics is disabled entirely. Nothing will be
-  // sent, so nothing should be written down either — and returning true keeps
-  // a later, consented submit of the same address able to fire exactly once.
+  // No gtag means GA is not configured, not loaded yet, or blocked. Nothing
+  // will be sent, so nothing should be written down either — and returning
+  // true keeps a later submit of the same address able to fire exactly once.
   if (typeof window === "undefined" || !window.gtag) return true;
 
   const key = `${NEWSLETTER_SIGNUP_TRACKED_KEY_PREFIX}${newsletterSignupDigest(
@@ -405,19 +430,9 @@ export function trackChatStart() {
 // scoped custom dimensions checkout_step, checkout_fields, checkout_reason,
 // lead_days registered in GA4.
 
-/** Fire-and-forget: analytics must never be able to break a checkout step. */
-function sendCheckoutEvent(name: string, params: Record<string, string | number | undefined>) {
-  if (typeof window === "undefined" || !window.gtag) return;
-  try {
-    window.gtag("event", name, params);
-  } catch {
-    // Deliberately ignored: a failing analytics call is not a checkout error.
-  }
-}
-
 /** /checkout mounted — before its data loads (the load waits on ResLab). */
 export function trackCheckoutOpen() {
-  sendCheckoutEvent("checkout_open", {});
+  safeEvent("checkout_open", {});
 }
 
 /** The checkout form rendered with a loaded lot. */
@@ -426,10 +441,12 @@ export function trackCheckoutView(params: {
   leadDays: number | null;
   loadMs: number;
   /** 0 when the load fell back to estimated pricing (ResLab cost call failed)
-   *  — those visitors then fail at "Continue to Payment"; keep them separable. */
+   *  — those visitors then fail at "Continue to Payment"; keep them separable.
+   *  isPricedLoad (checkout-funnel.ts): a direct lot is priced by its own
+   *  terms and reports 1 (it reported 0 before 2026-11-12). */
   priced: 0 | 1;
 }) {
-  sendCheckoutEvent("checkout_view", {
+  safeEvent("checkout_view", {
     lot_id: params.lotId,
     lead_days: params.leadDays ?? undefined,
     load_ms: params.loadMs,
@@ -439,7 +456,7 @@ export function trackCheckoutView(params: {
 
 /** /checkout couldn't show the form (error, sold out, no lot, missing times). */
 export function trackCheckoutLoadFailed(params: { reason: string; status?: number; loadMs: number }) {
-  sendCheckoutEvent("checkout_load_failed", {
+  safeEvent("checkout_load_failed", {
     checkout_reason: params.reason,
     http_status: params.status,
     load_ms: params.loadMs,
@@ -447,7 +464,7 @@ export function trackCheckoutLoadFailed(params: { reason: string; status?: numbe
 }
 
 export function trackCheckoutStepView(step: string) {
-  sendCheckoutEvent("checkout_step_view", { checkout_step: step });
+  safeEvent("checkout_step_view", { checkout_step: step });
 }
 
 /** `source`: "browser" = native required/type checks; "form" = our validators. */
@@ -457,7 +474,7 @@ export function trackCheckoutValidationError(params: {
   source: "browser" | "form";
 }) {
   if (!params.fields) return;
-  sendCheckoutEvent("checkout_validation_error", {
+  safeEvent("checkout_validation_error", {
     checkout_step: params.step,
     checkout_fields: params.fields,
     validation_source: params.source,
@@ -466,14 +483,14 @@ export function trackCheckoutValidationError(params: {
 
 /** "Continue to Payment" failed to create the PaymentIntent. */
 export function trackCheckoutPaymentInitFailed(params: { reason: string; status?: number }) {
-  sendCheckoutEvent("checkout_payment_init_failed", {
+  safeEvent("checkout_payment_init_failed", {
     checkout_reason: params.reason,
     http_status: params.status,
   });
 }
 
 export function trackCheckoutBack(fromStep: string) {
-  sendCheckoutEvent("checkout_back", { checkout_step: fromStep });
+  safeEvent("checkout_back", { checkout_step: fromStep });
 }
 
 /**
@@ -485,7 +502,7 @@ export function trackCheckoutBack(fromStep: string) {
  * who started typing and quit. Field KEY only, never what was typed.
  */
 export function trackCheckoutFirstField(params: { step: string; field: string }) {
-  sendCheckoutEvent("checkout_first_field", {
+  safeEvent("checkout_first_field", {
     checkout_step: params.step,
     checkout_fields: params.field,
   });
@@ -502,7 +519,7 @@ export function trackBookingTimeChange(params: {
   which: "checkin" | "checkout";
   time: string;
 }) {
-  sendCheckoutEvent("booking_time_change", {
+  safeEvent("booking_time_change", {
     time_surface: params.surface,
     time_which: params.which,
     time_value: params.time,

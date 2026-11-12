@@ -1,12 +1,14 @@
 /**
- * The standard funnel events (search, select_item, view_item, begin_checkout):
- * their shapes, that they can never throw into a page, and where they fire.
+ * The standard funnel events (search, select_item, view_item, begin_checkout,
+ * add_payment_info): their shapes, that they can never throw into a page, how
+ * a checkout load is reported, and where each one fires.
  */
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { checkoutLoadValue, isPricedLoad } from "../checkout-funnel";
-import { trackBeginCheckout, trackLotView, trackSearch, trackSelectItem } from "../gtag";
+import { checkoutLoadReport, checkoutLoadValue, isPricedLoad } from "../checkout-funnel";
+import { trackAddPaymentInfo, trackBeginCheckout, trackLotView, trackSearch, trackSelectItem } from "../gtag";
+import type { SearchEventInput } from "../search-event";
 
 const cost = (over: Record<string, unknown> = {}) => ({
   costsToken: "tok" as string | null,
@@ -15,6 +17,8 @@ const cost = (over: Record<string, unknown> = {}) => ({
   soldOut: false,
   ...over,
 });
+const directTerms = { days: 4, taxRatePercent: 8, vehicleSurcharges: [] };
+const lot = { id: "reslab-132", name: "DoubleTree" };
 
 describe("isPricedLoad / checkoutLoadValue", () => {
   it("a ResLab lot with a costs token is priced: grand total plus the service fee", () => {
@@ -29,7 +33,7 @@ describe("isPricedLoad / checkoutLoadValue", () => {
   });
 
   it("a direct lot never has a token and is still priced", () => {
-    const direct = cost({ costsToken: null, direct: { days: 4, taxRatePercent: 8, vehicleSurcharges: [] } });
+    const direct = cost({ costsToken: null, direct: directTerms });
     expect(isPricedLoad(direct)).toBe(true);
     expect(checkoutLoadValue(direct)).toBe(92);
   });
@@ -42,6 +46,38 @@ describe("isPricedLoad / checkoutLoadValue", () => {
   });
 });
 
+describe("checkoutLoadReport: what a loaded checkout reports", () => {
+  it("no lot in the answer is a failed load", () => {
+    expect(checkoutLoadReport({ costData: cost() })).toEqual({ failed: "no_lot" });
+    expect(checkoutLoadReport(null)).toEqual({ failed: "no_lot" });
+  });
+
+  it("a sold-out lot is a failed load: no checkout_view, no begin_checkout", () => {
+    expect(checkoutLoadReport({ lot, costData: cost({ soldOut: true }) })).toEqual({ failed: "sold_out" });
+  });
+
+  it("a priced load reports the lot and the total the customer sees", () => {
+    expect(checkoutLoadReport({ lot, costData: cost() })).toEqual({
+      lotId: "reslab-132",
+      lotName: "DoubleTree",
+      priced: 1,
+      total: 92,
+    });
+  });
+
+  it("an estimate load (no token, not direct) or no cost data: unpriced, no total", () => {
+    expect(checkoutLoadReport({ lot, costData: cost({ costsToken: null }) })).toMatchObject({ priced: 0, total: undefined });
+    expect(checkoutLoadReport({ lot, costData: null })).toMatchObject({ lotId: "reslab-132", priced: 0, total: undefined });
+  });
+
+  it("a direct lot is priced", () => {
+    expect(checkoutLoadReport({ lot, costData: cost({ costsToken: null, direct: directTerms }) })).toMatchObject({
+      priced: 1,
+      total: 92,
+    });
+  });
+});
+
 describe("event shapes", () => {
   const gtag = vi.fn();
   beforeEach(() => {
@@ -50,12 +86,12 @@ describe("event shapes", () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it("view_item carries an items array and says where the lot was seen", () => {
-    trackLotView({ id: "reslab-132", name: "DoubleTree", price: 11.25, surface: "search_panel" });
+  it.each(["search_panel", "lot_page"] as const)("view_item carries an items array and its surface (%s)", (surface) => {
+    trackLotView({ id: "reslab-132", name: "DoubleTree", price: 11.25, surface });
     expect(gtag).toHaveBeenCalledWith("event", "view_item", {
       currency: "USD",
       items: [{ item_id: "reslab-132", item_name: "DoubleTree", price: 11.25 }],
-      item_surface: "search_panel",
+      item_surface: surface,
     });
   });
 
@@ -76,14 +112,46 @@ describe("event shapes", () => {
     expect(gtag.mock.calls[1][2].items[0].item_id).toBe("reslab-132");
   });
 
-  it("search passes its params through", () => {
-    trackSearch({ airport_code: "JFK", lots_shown: 0 });
-    expect(gtag).toHaveBeenCalledWith("event", "search", { airport_code: "JFK", lots_shown: 0 });
+  it("add_payment_info keeps its shape", () => {
+    trackAddPaymentInfo({ lotId: "reslab-132", lotName: "DoubleTree", total: 104.95 });
+    expect(gtag).toHaveBeenCalledWith("event", "add_payment_info", {
+      value: 104.95,
+      currency: "USD",
+      items: [{ item_id: "reslab-132", item_name: "DoubleTree", price: 104.95 }],
+    });
+  });
+
+  it("search builds its own params from the attempt", () => {
+    const input: SearchEventInput = {
+      airportCode: "JFK",
+      trigger: "submit",
+      sortBy: "popularity",
+      datesPicked: true,
+      checkin: "2026-11-24",
+      checkout: "2026-11-28",
+      today: "2026-11-12",
+      failure: "date_error",
+    };
+    trackSearch(input);
+    expect(gtag).toHaveBeenCalledTimes(1);
+    const [, name, params] = gtag.mock.calls[0];
+    expect(name).toBe("search");
+    expect(params).toMatchObject({ airport_code: "JFK", search_outcome: "date_error", search_trigger: "submit", dates_defaulted: 0 });
   });
 });
 
 describe("analytics can never break a page", () => {
   afterEach(() => vi.unstubAllGlobals());
+  const search: SearchEventInput = {
+    airportCode: "JFK",
+    trigger: "initial",
+    sortBy: "popularity",
+    datesPicked: false,
+    checkin: "2026-11-24",
+    checkout: "2026-11-28",
+    today: "2026-11-12",
+    failure: "load_error",
+  };
 
   it("a throwing gtag is swallowed by every funnel event", () => {
     vi.stubGlobal("window", {
@@ -91,49 +159,84 @@ describe("analytics can never break a page", () => {
         throw new Error("blocked");
       },
     });
-    expect(() => trackSearch({ airport_code: "JFK" })).not.toThrow();
+    expect(() => trackSearch(search)).not.toThrow();
     expect(() => trackLotView({ id: "a", name: "A", surface: "lot_page" })).not.toThrow();
     expect(() => trackSelectItem({ id: "a", name: "A", list: "search_results" })).not.toThrow();
     expect(() => trackBeginCheckout({ lotId: "a", lotName: "A" })).not.toThrow();
+    // Runs inside the PaymentIntent try: a throw would show "Payment Error".
+    expect(() => trackAddPaymentInfo({ lotId: "a", lotName: "A", total: 1 })).not.toThrow();
+  });
+
+  it("a search answer the builder cannot read is swallowed too", () => {
+    vi.stubGlobal("window", { gtag: vi.fn() });
+    const junk = { ...search, failure: undefined, answer: { results: [null] } } as unknown as SearchEventInput;
+    expect(() => trackSearch(junk)).not.toThrow();
   });
 
   it("no gtag on the page (blocked script): nothing happens", () => {
     vi.stubGlobal("window", {});
-    expect(() => trackSearch({ airport_code: "JFK" })).not.toThrow();
+    expect(() => trackSearch(search)).not.toThrow();
     expect(() => trackBeginCheckout({ lotId: "a", lotName: "A", total: 1 })).not.toThrow();
   });
 });
 
-// Where each event fires is the whole point of the 2026-11-12 change, and a
-// component effect cannot be exercised in this (node) test environment, so the
-// call sites are pinned by reading the source.
+// Where each event fires is the point of the 2026-11-12 change, and a
+// component effect cannot be exercised in this (node) test environment, so
+// the call sites are pinned by reading the source. The decisions themselves
+// (which outcome, which total) are unit-tested above and in search-event.test.ts.
 describe("where the events fire", () => {
-  const src = (p: string) => readFileSync(join(process.cwd(), "src", p), "utf8");
+  const SRC = join(process.cwd(), "src");
+  const src = (p: string) => readFileSync(join(SRC, p), "utf8");
+  const count = (text: string, re: RegExp) => text.match(re)?.length ?? 0;
+  /** Every non-test source file that contains `needle`, as forward-slash paths under src/. */
+  const filesCalling = (needle: string) =>
+    (readdirSync(SRC, { recursive: true }) as string[])
+      .map((f) => f.replace(/\\/g, "/"))
+      .filter((f) => /\.tsx?$/.test(f) && !f.includes("__tests__") && f !== "lib/analytics/gtag.ts")
+      .filter((f) => readFileSync(join(SRC, f), "utf8").includes(needle));
 
-  it("begin_checkout fires from the checkout page load, never from the payment step", () => {
-    expect(src("app/(main)/checkout/page.tsx")).toMatch(/trackBeginCheckout\(/);
-    expect(src("components/checkout/checkout-form.tsx")).not.toMatch(/trackBeginCheckout/);
+  it("begin_checkout fires from one place: the checkout page, off checkoutLoadReport", () => {
+    expect(filesCalling("trackBeginCheckout(")).toEqual(["app/(main)/checkout/page.tsx"]);
+    const page = src("app/(main)/checkout/page.tsx");
+    expect(count(page, /trackBeginCheckout\(/g)).toBe(1);
+    expect(page).toMatch(/trackBeginCheckout\(\{ lotId: report\.lotId, lotName: report\.lotName, total: report\.total \}\)/);
+    expect(page).toMatch(/priced: report\.priced/);
+    // The payment step still reports itself.
     expect(src("components/checkout/checkout-form.tsx")).toMatch(/trackAddPaymentInfo\(/);
   });
 
-  it("view_item fires from both places a lot's details are shown", () => {
+  it("view_item fires from the two places a lot's details are shown, each with its surface", () => {
+    expect(filesCalling("trackLotView(").sort()).toEqual(["components/lot/booking-widget.tsx", "components/search/product-detail-slider.tsx"]);
     expect(src("components/search/product-detail-slider.tsx")).toMatch(/trackLotView\(\{[^}]*surface: "search_panel"/);
     expect(src("components/lot/booking-widget.tsx")).toMatch(/trackLotView\(\{[^}]*surface: "lot_page"/);
   });
 
-  it("select_item fires once, from the search page, for every way a lot opens", () => {
+  it("select_item fires once, from the search page's openLot, for every way a lot opens", () => {
+    expect(filesCalling("trackSelectItem(")).toEqual(["app/(main)/search/page.tsx"]);
     const page = src("app/(main)/search/page.tsx");
-    expect(page).toMatch(/trackSelectItem\(/);
-    expect(page).not.toMatch(/onSelect=\{setSelectedLot\}/);
-    for (const f of ["lot-card.tsx", "search-map.tsx", "mobile-map-card.tsx"]) {
-      expect(src(`components/search/${f}`), f).not.toMatch(/trackSelectItem/);
-    }
+    expect(count(page, /trackSelectItem\(/g)).toBe(1);
+    // The panel opens only through openLot (and closes through onClose).
+    expect(count(page, /setSelectedLot\(/g)).toBe(2);
+    expect(count(page, /onSelect=\{/g)).toBe(4);
+    expect(count(page, /onSelect=\{openFromList\}/g)).toBe(1);
+    expect(count(page, /onSelect=\{openFromMap\}/g)).toBe(3);
+    expect(page).toMatch(/const openFromList = \(lot: UnifiedLot\) => openLot\(lot, "search_results"\);/);
+    expect(page).toMatch(/const openFromMap = \(lot: UnifiedLot\) => openLot\(lot, "search_map"\);/);
   });
 
-  it("the search page reports every attempt through the non-throwing reporter", () => {
+  it("the search page reports each attempt once, with the right trigger and the right result", () => {
     const page = src("app/(main)/search/page.tsx");
+    for (const trigger of ["initial", "sort", "submit", "retry"]) {
+      expect(count(page, new RegExp(`fetchResults\\("${trigger}"\\)`, "g")), trigger).toBe(1);
+    }
     expect(page).not.toMatch(/[^a-zA-Z]fetchResults\(\)/);
     expect(page).not.toMatch(/=\{fetchResults\}/);
-    expect(page.match(/reportSearch\(trigger,/g)?.length).toBe(4);
+    // Three exits: the client date check, an answered request, a thrown one.
+    expect(count(page, /reportSearch\(trigger, datesPicked, /g)).toBe(3);
+    expect(count(page, /reportSearch\(trigger, datesPicked, \{ failure: "date_error" \}\)/g)).toBe(1);
+    expect(count(page, /reportSearch\(trigger, datesPicked, searchResultFromResponse\(response\.ok, response\.status, data\)\)/g)).toBe(1);
+    expect(count(page, /reportSearch\(trigger, datesPicked, \{ failure: "load_error" \}\)/g)).toBe(1);
+    // "Picked" is read when the request starts, from both dates.
+    expect(page).toMatch(/const datesPicked = checkinPickedRef\.current && checkoutPickedRef\.current;\s+setLoading\(true\);/);
   });
 });

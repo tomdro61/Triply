@@ -66,13 +66,14 @@ export function ProductDetailSlider({
   onClose,
 }: ProductDetailSliderProps) {
   const router = useRouter();
-  // Analytics: this panel is how most searchers look at a lot, so it counts as
-  // a lot view (view_item), once per opening. The ref keeps React's dev-mode
-  // double effect from counting twice; trackLotView itself never throws.
-  const viewReportedRef = useRef(false);
+  // Analytics: opening this panel is a lot view (view_item), once per lot
+  // shown. The page mounts the panel per opening, so that is once per opening;
+  // the ref keeps React's dev-mode double effect from counting twice.
+  // trackLotView never throws.
+  const viewReportedRef = useRef<string | null>(null);
   useEffect(() => {
-    if (viewReportedRef.current) return;
-    viewReportedRef.current = true;
+    if (viewReportedRef.current === lot.id) return;
+    viewReportedRef.current = lot.id;
     trackLotView({ id: lot.id, name: lot.name, price: lot.pricing?.minPrice, surface: "search_panel" });
   }, [lot.id, lot.name, lot.pricing?.minPrice]);
   const [localCheckIn, setLocalCheckIn] = useState(checkIn);

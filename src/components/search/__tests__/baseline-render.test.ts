@@ -19,7 +19,7 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
   usePathname: () => "/search",
 }));
-// LotCard imports gtag for its click handler only; nothing fires during a render.
+// The search components import gtag for click handlers and effects only; nothing fires during a render.
 vi.mock("@/lib/analytics/gtag", () => ({ trackSelectItem: () => {} }));
 
 import { LotCard } from "../lot-card";

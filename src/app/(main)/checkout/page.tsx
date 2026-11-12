@@ -16,9 +16,8 @@ import {
 } from "@/lib/analytics/gtag";
 import {
   bucketCheckoutFailure,
-  checkoutLoadValue,
+  checkoutLoadReport,
   deviceToday,
-  isPricedLoad,
   leadDays,
 } from "@/lib/analytics/checkout-funnel";
 
@@ -101,38 +100,29 @@ function CheckoutContent() {
 
         const data = await response.json();
         setCheckoutData(data);
-        if (!data?.lot) {
-          reportLoadFailed("no_lot", status);
-        } else if (data.costData?.soldOut) {
-          reportLoadFailed("sold_out", status);
-        } else if (!loadReportedRef.current) {
-          loadReportedRef.current = true;
-          // Own try: inside the load's try, an analytics throw would turn a
-          // successful load into "Unable to Load Checkout".
-          try {
+        // Own try: inside the load's try, an analytics throw would turn a
+        // successful load into "Unable to Load Checkout".
+        try {
+          const report = checkoutLoadReport(data);
+          if ("failed" in report) {
+            reportLoadFailed(report.failed, status);
+          } else if (!loadReportedRef.current) {
+            loadReportedRef.current = true;
             // The RAW check-in: when the URL has none, checkIn is a made-up
             // "tomorrow" and its lead time would be fiction.
             const rawCheckin = searchParams.get("checkin");
             trackCheckoutView({
-              lotId: data.lot.id,
+              lotId: report.lotId,
               leadDays: rawCheckin ? leadDays(rawCheckin, deviceToday()) : null,
               loadMs: loadMs(),
-              priced: isPricedLoad(data.costData) ? 1 : 0,
+              priced: report.priced,
             });
-          } catch {
-            // Analytics only — never a checkout failure.
+            // GA4's standard "checkout started" event, under the same
+            // conditions as checkout_view and once per load.
+            trackBeginCheckout({ lotId: report.lotId, lotName: report.lotName, total: report.total });
           }
-          // GA4's standard "checkout started" event, once per load. Its own
-          // try, so neither event can cost the other.
-          try {
-            trackBeginCheckout({
-              lotId: data.lot.id,
-              lotName: data.lot.name,
-              total: checkoutLoadValue(data.costData),
-            });
-          } catch {
-            // Analytics only — never a checkout failure.
-          }
+        } catch {
+          // Analytics only — never a checkout failure.
         }
       } catch (err) {
         console.error("Checkout data fetch error:", err);

@@ -1,16 +1,18 @@
 /**
- * Pure helpers for the checkout-funnel GA4 events (gtag.ts trackCheckout*).
+ * Pure helpers for the funnel GA4 events (gtag.ts): the checkout_* events,
+ * begin_checkout's value, and the date arithmetic the search event reuses.
  *
  * Why the funnel is instrumented (2026-10-06): of the people who opened
  * /checkout, 58% never reached the payment step and nothing said where they
  * left — the URL doesn't change between steps, and begin_checkout then fired
  * only once the PaymentIntent existed. (Since 2026-11-12 begin_checkout fires
- * when /checkout loads; add_payment_info marks the payment step.)
+ * with checkout_view; add_payment_info marks the payment step.)
  *
  * Privacy rule: these events carry field KEYS and fixed reason buckets only —
  * never what a customer typed and never a raw server message.
  */
 import { STALE_CHECKOUT_MESSAGE } from "@/lib/parkguard/plans";
+import type { CheckoutCostData } from "@/types/checkout";
 
 export type CheckoutFunnelStep = "details" | "vehicle" | "payment";
 
@@ -95,12 +97,29 @@ export function deviceToday(now: Date = new Date()): string {
 }
 
 /** The parts of the checkout load's cost data the analytics read. */
-interface LoadCostData {
-  costsToken: string | null;
-  grandTotal: number;
-  serviceFee: number;
-  soldOut: boolean;
-  direct?: unknown;
+type LoadCostData = Pick<CheckoutCostData, "costsToken" | "grandTotal" | "serviceFee" | "soldOut" | "direct">;
+
+/** How a checkout load that got an HTTP answer is reported. */
+export type CheckoutLoadReport =
+  | { failed: Extract<CheckoutFailureReason, "no_lot" | "sold_out"> }
+  | { lotId: string; lotName: string; priced: 0 | 1; total: number | undefined };
+
+/**
+ * Decides what a loaded /checkout reports: a failure (no lot in the answer, or
+ * sold out) sends checkout_load_failed; anything else sends checkout_view and
+ * begin_checkout, with a total only when the load is priced.
+ */
+export function checkoutLoadReport(
+  data: { lot?: { id: string; name: string } | null; costData?: LoadCostData | null } | null | undefined
+): CheckoutLoadReport {
+  if (!data?.lot) return { failed: "no_lot" };
+  if (data.costData?.soldOut) return { failed: "sold_out" };
+  return {
+    lotId: data.lot.id,
+    lotName: data.lot.name,
+    priced: isPricedLoad(data.costData) ? 1 : 0,
+    total: checkoutLoadValue(data.costData),
+  };
 }
 
 /**
@@ -114,9 +133,12 @@ export function isPricedLoad(costData: LoadCostData | null | undefined): boolean
 }
 
 /**
- * The total the customer sees when /checkout loads: the grand total (which
- * includes any part due at the lot) plus the service fee. No Park Guard and no
- * promo: neither is chosen yet. Undefined when the load is not priced.
+ * The online total the customer sees when /checkout loads (the form's
+ * priceBreakdown.total at that moment): the grand total, which includes any
+ * part of the parking due at the lot, plus the service fee. No Park Guard and
+ * no promo: neither is chosen yet. Not included: a direct lot's oversized-
+ * vehicle surcharge, which is paid at the lot and shown as a separate "trip
+ * total". Undefined when the load is not priced.
  */
 export function checkoutLoadValue(costData: LoadCostData | null | undefined): number | undefined {
   if (!costData || !isPricedLoad(costData)) return undefined;

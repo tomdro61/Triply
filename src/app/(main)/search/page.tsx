@@ -17,7 +17,7 @@ import { useMediaQuery } from "@/hooks/use-media-query";
 import { UnifiedLot, SortOption } from "@/types/lot";
 import { getAirportByCode } from "@/config/airports";
 import { trackSearch, trackSelectItem } from "@/lib/analytics/gtag";
-import { buildSearchEventParams, type SearchAnswer, type SearchTrigger } from "@/lib/analytics/search-event";
+import { searchResultFromResponse, type SearchResult, type SearchTrigger } from "@/lib/analytics/search-event";
 import { deviceToday } from "@/lib/analytics/checkout-funnel";
 import { compareByTotal, compareByTotalDesc } from "@/lib/search/ranking";
 // Park & Stay (admin-only until launch): the hook decides whether to ASK —
@@ -82,38 +82,37 @@ function SearchPageContent() {
   // phones paid for a map they could not see. Mount it only on wide screens.
   // Tailwind's lg breakpoint is 1024px.
   const isDesktop = useMediaQuery("(min-width: 1024px)");
-  // Analytics only: whether the visitor chose the dates being searched. A link
-  // without dates gets today / +7 days filled in above; those are not a choice,
-  // and their lead time and trip length must not be reported as one.
-  const datesPickedRef = useRef(Boolean(linked.checkin && linked.checkout));
+  // Analytics only: whether the visitor chose each date being searched (in the
+  // link or the picker). A link without dates gets today / +7 days filled in
+  // above; those are not a choice, and their lead time and trip length must
+  // not be reported as one. (Known gap: our own links that carry made-up
+  // default dates, e.g. the homepage's "View All Parking Options", count as chosen.)
+  const checkinPickedRef = useRef(Boolean(linked.checkin));
+  const checkoutPickedRef = useRef(Boolean(linked.checkout));
 
   const airportInfo = getAirportByCode(airport);
   const locationName = airportInfo?.city || "New York";
 
   // One `search` event per attempt, saying how it ended and what was shown.
-  // Never throws: it runs inside the fetch below, where a throw would replace
-  // good results with the "couldn't load" panel.
-  const reportSearch = (trigger: SearchTrigger, result: { answer: SearchAnswer } | { failure: "date_error" | "load_error" }) => {
-    try {
-      trackSearch(
-        buildSearchEventParams({
-          airportCode: airport,
-          trigger,
-          sortBy,
-          datesDefaulted: !datesPickedRef.current || !departDate || !returnDate,
-          checkin: departDate,
-          checkout: returnDate,
-          today: deviceToday(),
-          ...result,
-        })
-      );
-    } catch {
-      // Analytics only.
-    }
-  };
+  // trackSearch never throws: this runs inside the fetch below, where a throw
+  // would replace good results with the "couldn't load" panel.
+  const reportSearch = (trigger: SearchTrigger, datesPicked: boolean, result: SearchResult) =>
+    trackSearch({
+      airportCode: airport,
+      trigger,
+      sortBy,
+      datesPicked,
+      checkin: departDate,
+      checkout: returnDate,
+      today: deviceToday(),
+      ...result,
+    });
 
   // Fetch search results
   const fetchResults = async (trigger: SearchTrigger) => {
+    // Read now, with the dates this request sends: the visitor can touch the
+    // picker while the request is in flight.
+    const datesPicked = checkinPickedRef.current && checkoutPickedRef.current;
     setLoading(true);
     setLoadError(false);
     setPartialResults(false);
@@ -128,7 +127,7 @@ function SearchPageContent() {
         setDateError(dateProblem);
         setLots([]);
         setLoading(false);
-        reportSearch(trigger, { failure: "date_error" });
+        reportSearch(trigger, datesPicked, { failure: "date_error" });
         return;
       }
     }
@@ -162,7 +161,6 @@ function SearchPageContent() {
           setLoadError(true);
         }
         setLots([]);
-        reportSearch(trigger, { failure: response.status === 400 ? "date_error" : "load_error" });
       } else {
         setLots(data.results || []);
         setPricedStay(
@@ -176,13 +174,15 @@ function SearchPageContent() {
             "No lots near this airport can take a booking for the rest of today. Try a check-in date of tomorrow."
           );
         }
-        reportSearch(trigger, { answer: data });
       }
+      // Last in the try: if anything above threw, the catch reports instead,
+      // so every attempt sends exactly one event.
+      reportSearch(trigger, datesPicked, searchResultFromResponse(response.ok, response.status, data));
     } catch (err) {
       console.error("Error fetching search results:", err);
       setLoadError(true);
       setLots([]);
-      reportSearch(trigger, { failure: "load_error" });
+      reportSearch(trigger, datesPicked, { failure: "load_error" });
     } finally {
       setLoading(false);
     }
@@ -252,6 +252,8 @@ function SearchPageContent() {
     });
     setSelectedLot(lot);
   };
+  const openFromList = (lot: UnifiedLot) => openLot(lot, "search_results");
+  const openFromMap = (lot: UnifiedLot) => openLot(lot, "search_map");
   const retrySearch = () => fetchResults("retry");
 
   // Handle carousel scroll to detect active card
@@ -283,7 +285,7 @@ function SearchPageContent() {
           onAirportChange={setAirport}
           departDate={departDate}
           onDepartDateChange={(d) => {
-            datesPickedRef.current = true;
+            checkinPickedRef.current = true;
             setDepartDate(d);
             // Keep the range valid: a depart after the current return pulls the
             // return up to it (the customer's newest pick wins, never dropped).
@@ -293,7 +295,7 @@ function SearchPageContent() {
           }}
           returnDate={returnDate}
           onReturnDateChange={(r) => {
-            datesPickedRef.current = true;
+            checkoutPickedRef.current = true;
             setReturnDate(r);
             if (r && departDate && r < departDate) setDepartDate(r);
           }}
@@ -346,7 +348,7 @@ function SearchPageContent() {
               onSortChange={setSortBy}
               hoveredId={hoveredId}
               onHover={setHoveredId}
-              onSelect={(lot) => openLot(lot, "search_results")}
+              onSelect={openFromList}
               className={mobileView === "map" ? "hidden lg:block" : ""}
               partialResults={partialResults}
               onRetry={retrySearch}
@@ -365,7 +367,7 @@ function SearchPageContent() {
                 lots={sortedLots}
                 hoveredId={hoveredId}
                 onHover={setHoveredId}
-                onSelect={(lot) => openLot(lot, "search_map")}
+                onSelect={openFromMap}
                 showControls={false}
                 airport={airportInfo}
               />
@@ -395,7 +397,7 @@ function SearchPageContent() {
                       <MobileMapCard
                         key={lot.id}
                         lot={lot}
-                        onSelect={(lot) => openLot(lot, "search_map")}
+                        onSelect={openFromMap}
                         extraBadge={
                           parkStay ? <ParkStayLotBadgeSlot access={parkStay} search={urlSearch} reslabLocationId={lot.reslabLocationId ?? null} /> : undefined
                         }
@@ -414,7 +416,7 @@ function SearchPageContent() {
                 lots={sortedLots}
                 hoveredId={hoveredId}
                 onHover={setHoveredId}
-                onSelect={(lot) => openLot(lot, "search_map")}
+                onSelect={openFromMap}
                 airport={airportInfo}
               />
             )}
