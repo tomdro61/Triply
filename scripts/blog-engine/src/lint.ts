@@ -545,3 +545,7 @@ export function priceCheck(insertedHtml: string, fieldText: string, known: Reado
   check(fieldText)
   return bad
 }
+
+// NEGATIVE CONTROL (never merge)
+const ciNegativeControl: number = "not a number"
+void ciNegativeControl

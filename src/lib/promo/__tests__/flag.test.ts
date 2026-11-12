@@ -21,3 +21,7 @@ describe("isFixedPromoEnabled", () => {
     expect(isFixedPromoEnabled(env(undefined))).toBe(false);
   });
 });
+
+// NEGATIVE CONTROL (never merge): a type error only tsc sees.
+const ciNegativeControl: number = "not a number";
+void ciNegativeControl;
