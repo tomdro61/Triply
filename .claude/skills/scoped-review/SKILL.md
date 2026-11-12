@@ -48,7 +48,7 @@ Then state, in one line to the user, the line count and which size applies:
 | **Scoped** | Everything else | The routing matrix below (typically 2–4 agents) |
 | **Full sweep** | The diff is **over 200 lines**, OR it touches a high-risk path, OR `/scoped-review merge` | Every whole-diff reviewer + the area reviewers + Codex (Step 4.5) |
 
-**High-risk paths** (full sweep at any size): `src/app/api/{checkout,reservations,webhooks}/**`, `src/components/checkout/**`, `src/lib/{stripe,checkout,booking,cancellation,promo,parkguard,direct}/**`, an auth path (`src/lib/auth/**`, `src/app/(main)/auth/**`, `src/lib/supabase/**`, `src/config/admin.ts`), or `supabase/migrations/**`.
+**High-risk paths** (full sweep at any size): `src/app/api/{checkout,reservations,webhooks}/**`, `src/components/checkout/**`, `src/lib/{stripe,checkout,booking,cancellation,promo,parkguard,direct}/**`, an auth path (`src/lib/auth/**`, `src/app/(main)/auth/**`, `src/lib/supabase/**`, `src/config/admin.ts`), `supabase/migrations/**`, or the hooks (`.githooks/**`, `.claude/hooks/**`, `.claude/settings*.json`: this code runs on our machines on every commit and tool call).
 A change that alters what a customer is charged, refunded or discounted is high-risk even if
 it lives elsewhere (e.g. a route that mints a promo code).
 

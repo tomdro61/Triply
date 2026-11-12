@@ -9,7 +9,8 @@
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit -p . --incremental false",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepare": "node .githooks/install.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.41",

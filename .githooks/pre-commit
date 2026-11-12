@@ -1,0 +1,6 @@
+#!/bin/sh
+# Pre-commit gate for commits made by Claude Code (docs: CLAUDE.md "Hooks").
+# A commit typed by a person skips it: CLAUDECODE is set only inside Claude
+# Code's shell tools. Installed by `npm install` (.githooks/install.mjs).
+[ "$CLAUDECODE" = "1" ] || exit 0
+exec node "$(dirname "$0")/pre-commit.mjs"
