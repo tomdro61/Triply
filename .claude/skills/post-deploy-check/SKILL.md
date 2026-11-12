@@ -1,6 +1,6 @@
 ---
 name: post-deploy-check
-description: Verify a production deploy actually shipped correctly. Runs after merging staging → main. Checks the Vercel deploy completed, the production URL serves traffic, Sentry hasn't lit up with new errors, and any DB migrations are reflected in production. Use immediately after pushing to main, or to retroactively diagnose a suspect deploy. A merge that returns 200 from `git push` is not the same as a working production app — this closes that gap.
+description: Verify a production deploy actually shipped correctly. Runs after a PR merges to main. Checks the Vercel deploy completed, the production URL serves traffic, Sentry hasn't lit up with new errors, and any DB migrations are reflected in production. Use immediately after pushing to main, or to retroactively diagnose a suspect deploy. A merge that returns 200 from `git push` is not the same as a working production app — this closes that gap.
 ---
 
 # /post-deploy-check — Post-deploy verification gate
@@ -12,8 +12,7 @@ or whether Sentry started seeing crashes. This skill walks through
 those checks.
 
 **When to invoke:**
-- Immediately after `git push origin main` (or after merging
-  `staging → main`)
+- Immediately after a PR merges to `main`
 - Before declaring a release "done"
 - When a customer reports something broken after a recent deploy and
   you want to triage whether the deploy itself is the cause

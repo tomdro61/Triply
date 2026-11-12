@@ -1,6 +1,6 @@
 ---
 name: end-session
-description: End-of-session documentation ritual. Identifies what changed in the session, maps changes against the documentation update table in CLAUDE.md, RECONCILES existing status claims (CLAUDE.md Current Phase, PROGRESS.md, memory) against git/GitHub/the code so stale "open"/"NEXT" lines get fixed, and proposes specific updates to notes/, PROGRESS.md, and the relevant docs/. Run before closing a session that produced commits, schema changes, new skills, or operational procedures.
+description: End-of-session documentation ritual. Identifies what changed in the session, maps changes against the documentation update table in CLAUDE.md, RECONCILES existing status claims (STATUS.md, BACKLOG.md, memory) against git/GitHub/the code so stale "open"/"NEXT" lines get fixed, and proposes specific updates to notes/, STATUS.md, and the relevant docs/. Run before closing a session that produced commits, schema changes, new skills, or operational procedures.
 ---
 
 # /end-session — Documentation update ritual
@@ -20,14 +20,14 @@ CLAUDE.md on go-live day.)
 **When to invoke:**
 - Before closing a session that touched code, ops, or schema
 - After a customer incident is resolved
-- Anytime CLAUDE.md / PROGRESS / docs are out of sync with what just shipped
+- Anytime STATUS.md / docs are out of sync with what just shipped
 
 **Don't invoke for:** sessions that were pure exploration, planning,
 or read-only investigation with no code/commit changes.
 
 **Where things live.** This file (in the `triply` repo) is the one copy;
 the parent wrapper's `.claude/skills/end-session/SKILL.md` only points
-here. The docs it updates (`notes/`, `PROGRESS.md`, `REVIEW-FINDINGS.md`,
+here. The docs it updates (`notes/`, `STATUS.md`, `BACKLOG.md`, `REVIEW-FINDINGS.md`,
 `docs/`, the wrapper `CLAUDE.md`) live in the parent wrapper repo
 `C:\Projects\Triply_claude\` — from a session rooted in `triply/` that is
 `..`. Run `notify-discord.mjs` from this skill's folder. A contributor
@@ -84,7 +84,7 @@ type triggered, propose specific updates to the listed file(s):
 
 | Change type | Update these |
 |---|---|
-| Phase / task completion | `PROGRESS.md` |
+| Something shipped, a switch changed, an item opened or closed | `STATUS.md` (wrapper; parked items → `BACKLOG.md`) |
 | Architecture changes | `docs/triply_architecture_overview.md`, `docs/ARCHITECTURE.md` |
 | New features / implementation details | `docs/triply_solution_design.md` |
 | Build plan changes | `docs/triply_mvp_plan.md` |
@@ -94,7 +94,7 @@ type triggered, propose specific updates to the listed file(s):
 | Operational procedures | `docs/OPERATIONS_RUNBOOK.md` |
 | Data source / content changes | `docs/DATA_SOURCES.md` |
 | Pre-launch task completion | `docs/LAUNCH_CHECKLIST.md` |
-| Quick reference changes | `CLAUDE.md` |
+| A rule every session needs and can't read from the code | `CLAUDE.md`, kept short. **Never history or status.** |
 | New skill / hook / settings | `CLAUDE.md` (the workflow section), and the skill's own SKILL.md |
 | Customer incident | `REVIEW-FINDINGS.md` (incident entry), `notes/YYYY-MM-DD.md` (full session detail) |
 | Schema migration | `docs/triply_solution_design.md` (Database Schema section), `notes/YYYY-MM-DD.md` |
@@ -106,8 +106,15 @@ Always include:
   America/New_York or wherever the user is — ask if unclear). Format
   matches `notes/2026-02-10-session6.md`: header + Tasks Completed +
   Key Decisions + Issues Encountered + Commits Made + Next Steps.
-- A line in `PROGRESS.md` if the change is user-visible or alters
-  project state.
+- **`STATUS.md` (wrapper), every session that shipped or changed anything:**
+  rewrite the affected lines, delete finished items, move parked ones to
+  `BACKLOG.md`, and refresh its single "Last updated" line. Keep it short:
+  it is loaded into every session. `PROGRESS.md` is an archive since
+  2026-11-11; don't add to it.
+- **Never write history into either `CLAUDE.md`** (no "Last updated"
+  footers, no changelog, no status list). That is how the wrapper file
+  reached 1,009 lines. History goes in `notes/YYYY-MM-DD.md`; a lesson that
+  should change future work goes in `docs/review-lessons.md` or memory.
 
 ---
 
@@ -117,8 +124,9 @@ This is the step that catches drift. Read the status claims the next
 session will trust, and verify each one that touches an area this
 session worked in (or that looks old):
 
-- `CLAUDE.md` → "Current Phase" checklist (`[ ]` / `[~]` / `[x]` lines, every "NEXT =")
-- the top of `PROGRESS.md`
+- `STATUS.md` → every line under "Next up", the Switches table, "Owed checks" and
+  "Active work" (check open PRs with `gh pr list --state open`)
+- `BACKLOG.md` → items in the areas this session touched
 - `MEMORY.md` index lines + the memory files for this session's projects —
   the live store is `C:\Users\tomjd\.claude\projects\C--Projects-Triply-claude\memory\`
   (the `C--Users-tomjd-OneDrive-Desktop-Triply-claude` folder is an empty
@@ -158,7 +166,7 @@ For each doc identified in Step 2, propose:
 
 Show the user the proposed updates as a batch — don't write yet. Order:
 
-1. `notes/YYYY-MM-DD.md` + `PROGRESS.md` entries
+1. `notes/YYYY-MM-DD.md` + `STATUS.md` updates
 2. other docs from the Step 2 table
 3. **Stale claims found in Step 3**, each with its evidence
 4. **Memory candidates** — listed, not written; the user picks
@@ -245,7 +253,7 @@ a team-facing digest, not the full notes.
 - Resolved Jill's case (FVSPF765362)
 
 **Categories triggered:**
-- `Schema migration` → triply_solution_design.md (Database Schema), notes/, PROGRESS.md
+- `Schema migration` → triply_solution_design.md (Database Schema), notes/, STATUS.md
 - `API endpoint changes` → API_REFERENCE.md (the endpoint that changed)
 - `API integration changes` → triply_reslab_integration.md (ResLab quirk)
 - `New skill / hook` → CLAUDE.md (workflow section), each SKILL.md self-documents
@@ -253,7 +261,7 @@ a team-facing digest, not the full notes.
 - `Customer incident` → REVIEW-FINDINGS.md, notes/
 
 **Files updated:** 7 (notes/2026-05-04.md, notes/2026-05-05.md,
-PROGRESS.md, OPERATIONS_RUNBOOK.md, API_REFERENCE.md,
+STATUS.md, OPERATIONS_RUNBOOK.md, API_REFERENCE.md,
 triply_reslab_integration.md, triply_solution_design.md).
 
 **Skipped (no trigger):** ARCHITECTURE.md, SYSTEM_MAP.md,

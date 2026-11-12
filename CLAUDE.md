@@ -25,7 +25,7 @@ and **Vin** (blog engine + CMS content).
 | Project | Triply — airport parking aggregator |
 | Domain | triplypro.com · staging: staging.triplypro.com |
 | What it does | Aggregates third-party parking lots; earns commission on bookings |
-| MVP scope | New York (JFK + LGA), Reservations Lab inventory |
+| Scope | 85 airports; Reservations Lab inventory plus direct lots |
 | Stack | Next.js 16 (App Router), TypeScript **strict**, Supabase, Stripe, Payload CMS |
 
 ## The two repos
@@ -144,36 +144,34 @@ Before opening a PR:
 - When a review of your PR finds something, add one line to the **Log** in
   `docs/review-lessons.md` (the reviewer adds it when they fix it on your branch).
 
-### Codex (OpenAI) is part of review — since October 12, 2026
+### When each check is required
 
-`/scoped-review` also runs an **adversarial review from OpenAI's Codex** — a
-second model, not primed by Claude's reasoning — on merge sweeps and on any
-diff touching money, checkout, reservations, webhooks, auth, migrations, or
-what an AI is told to say (rules in Step 4.5 of the skill). Codex findings are
-**verified against the code like any other reviewer's** — never applied blind.
+| When | Run | Applies to |
+|---|---|---|
+| **Before writing code** | `/sketch-flow` | A new async handler in `src/components/checkout/**`, `src/lib/checkout/**`, `src/app/api/{checkout,reservations,webhooks}/**`, or any UI handler that calls Stripe / ResLab / Park Guard / Resend / Supabase. A new `useState` in **any** file with a multi-step state machine. Any async work tied to PaymentIntent state, **anywhere**. Removing ANY safety check (`disabled`, an early `return`, a lock, a validation gate, a try/catch on a money path). |
+| **Before a PR** | `/scoped-review` | Any change under `src/app/api/`, `src/lib/{reslab,stripe,resend,validation}/`, `src/lib/utils/time.ts`, `src/components/{checkout,confirmation,lot,search}/`, the checkout / confirmation / admin pages, or `supabase/migrations/`. Any change over ~50 lines or 3 files. Any new or changed Zod schema, server action or API route. Not for typos, docs or changes under ~10 lines. |
+| **Before calling it done** | `/verify-flow <flow>` | Any change to a customer-facing flow: checkout, payment, confirmation, the emailed links, lot and search pages, a UI state machine, or what the customer sees of money math. Always after fixing a customer-reported bug: walk the exact customer flow. |
+| **After merging to `main`** | `/post-deploy-check` | Every merge. |
 
-One-time setup per machine (each dev, in Claude Code):
+- **`/scoped-review` decides the size; this file doesn't repeat its rules.** The skill counts
+  the diff first and runs its full sweep when the change is over 200 lines or touches money,
+  checkout, reservations, webhooks, auth or a migration. If you think a lighter review is
+  enough, say so before running it.
+- **After review:**
+  - Fix every Critical before merge; triage High/Medium (with Tom).
+  - Re-run the silent-failure reviewer on the fixes (fixes introduce bugs).
+  - Add a Log line in `docs/review-lessons.md`.
+  - If you have the wrapper repo, add a `REVIEW-FINDINGS.md` entry for a Critical or High.
+- **Plans get reviewed too:** plan → review (two Opus agents) → build. Never plan → build.
+- A type-clean, test-green change can still be wrong in the browser. CI does not replace the walk.
 
-```
-/plugin marketplace add openai/codex-plugin-cc
-/plugin install codex@openai-codex
-/codex:setup              # offers to npm-install the Codex CLI
-! codex login             # sign in with your ChatGPT account
-```
+### Codex (OpenAI) is part of review
 
-- **Windows:** also put `[windows]` / `sandbox = "unelevated"` in
-  `~/.codex/config.toml`. Without it Codex can't run any command, reads
-  nothing, and returns "No material findings" — an empty review that looks
-  clean. Add `model_reasoning_effort = "high"` (top level) for reviews.
-- **Model:** reviews use **`gpt-6.1-sol`** at high effort (ChatGPT Plus) —
-  `model = "gpt-6.1-sol"` at the top of `~/.codex/config.toml`. Not `gpt-6-astra`:
-  it drained the Plus weekly allowance in a day (all models share it). List what your
-  account can use with `codex debug models`; confirm with
-  `codex exec "Reply OK" < /dev/null` (the header shows `model:`).
-- No plugin? `/scoped-review` still runs, and says plainly that Codex was skipped.
-- Leave the plugin's **review gate OFF** (it loops and drains usage limits).
-- Reviews spend the signed-in ChatGPT account's Codex allowance.
-- Codex reads `AGENTS.md` (repo root) for our review guidelines.
+`/scoped-review` also runs an adversarial review from OpenAI's Codex (a second model) on full
+sweeps and on any diff touching money, checkout, reservations, webhooks, auth, migrations, or
+what an AI is told to say (Step 4.5 of the skill). Verify every Codex finding against the code.
+A run that never read the code is a FAILED review, not a clean one. No plugin → the review says
+"Codex SKIPPED". **Machine setup: [`docs/codex-setup.md`](docs/codex-setup.md).**
 
 ## Skills (in `.claude/skills/`)
 
@@ -197,6 +195,11 @@ Custom skills committed to this repo — invoke by name (`/<name>`). **Caveat:**
 - **No `any`; no casts through `unknown`.** TypeScript strict. Zod schemas at API boundaries.
 - **Don't remove a safety check** (a `disabled` prop, an early `if (!x) return`, a validation gate, a try/catch around a money path) without understanding what it protected.
 - **Booking times are literal airport-local strings** — never apply `toISOString()` / `new Date()` math / timezone conversion to them. (Checkout/payment code — mostly Tom's area, but know the rule.)
+- **Wall-clock times are stored in `TIMESTAMP`, never `TIMESTAMPTZ`.** A date-only `"YYYY-MM-DD"` parses as UTC midnight: use `parseDateSafe()`.
+- **The one allowed default:** a pricing-only fallback (search "from $X" at the default 10 AM–2 PM window) is on purpose; don't "fix" it. It must carry an inline comment saying why it never reaches a booking. Time props on booking emails and components are required parameters: no `?`, no default value.
+- **Forward auth params end to end.** If a link carries something the API needs, the page's fetch must send it. Trace link → page → fetch → API → render.
+- **Gate the UI on the fetch status before other state**, or stale cached data renders a happy page on a failed request. Unexpected errors go to Sentry (`captureBookingError`, `captureAPIError`, `capturePaymentError`).
+- **Commits:** conventional prefixes (`feat:`, `fix:`, `chore:`, `docs:`, `ci:`), one concern per commit, and the message must match what the commit contains.
 
 ---
 
@@ -204,6 +207,7 @@ Custom skills committed to this repo — invoke by name (`/<name>`). **Caveat:**
 
 - **Never commit secrets.** `.env` files are — and must stay — gitignored. The blog engine's `scripts/blog-engine/.env` holds **real API keys** (Anthropic, Payload). `.env.example` is the only env file that's committed.
 - If you add a new config file that holds a key, add it to `.gitignore` **before** the first commit, and double-check `git status` doesn't show it.
+- **A security fix in a public repo:** apply the database half before the branch is pushed, and ship privacy guards before the secret they protect.
 
 ---
 
@@ -229,4 +233,4 @@ npm run publish          # promote draft/review posts to published
 
 *Shared team CLAUDE.md — committed to the `triply` repo so every contributor's
 Claude Code reads the same rules. Personal/ops notes stay in each dev's own
-environment, not here. Last updated: November 11, 2026 — CI is the merge gate (`.github/workflows/ci.yml`, `npm run typecheck`); rollback = Vercel Instant Rollback. November 6, 2026 — `docs/review-lessons.md`: check every PR against it (Code review). October 12, 2026 — Codex reviews moved to `gpt-6.1-sol` (Astra drained the Plus allowance).*
+environment, not here. Last updated: November 11, 2026 — "When each check is required" table (moved from the wrapper file); `/scoped-review` owns review sizing; Codex machine setup moved to `docs/codex-setup.md`; CI is the merge gate (`.github/workflows/ci.yml`, `npm run typecheck`); rollback = Vercel Instant Rollback. November 6, 2026 — `docs/review-lessons.md`: check every PR against it (Code review). October 12, 2026 — Codex reviews moved to `gpt-6.1-sol` (Astra drained the Plus allowance).*
