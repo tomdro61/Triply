@@ -21,7 +21,6 @@ import {
   Fence,
 } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
-import { trackSelectItem } from "@/lib/analytics/gtag";
 import { customerPerDayFromPricing, customerTotalFromPricing } from "@/lib/utils/service-fee";
 import { TaxesAndFeesIncluded } from "@/components/shared/taxes-fees-included";
 import { LotBadges } from "./lot-badges";
@@ -237,15 +236,7 @@ export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false, ex
           </div>
 
           <button
-            onClick={() => {
-              trackSelectItem({
-                id: lot.id,
-                name: lot.name,
-                price: lot.pricing?.minPrice,
-                airport: lot.airportCode,
-              });
-              onSelect(lot);
-            }}
+            onClick={() => onSelect(lot)}
             className="bg-brand-orange text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors shadow-sm"
           >
             View Details

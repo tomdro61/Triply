@@ -3,8 +3,9 @@
  *
  * Why the funnel is instrumented (2026-10-06): of the people who opened
  * /checkout, 58% never reached the payment step and nothing said where they
- * left — the URL doesn't change between steps, and begin_checkout only fires
- * once the PaymentIntent exists.
+ * left — the URL doesn't change between steps, and begin_checkout then fired
+ * only once the PaymentIntent existed. (Since 2026-11-12 begin_checkout fires
+ * when /checkout loads; add_payment_info marks the payment step.)
  *
  * Privacy rule: these events carry field KEYS and fixed reason buckets only —
  * never what a customer typed and never a raw server message.
@@ -91,4 +92,34 @@ export function deviceToday(now: Date = new Date()): string {
   // YYYY-MM-DD in every browser.
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+/** The parts of the checkout load's cost data the analytics read. */
+interface LoadCostData {
+  costsToken: string | null;
+  grandTotal: number;
+  serviceFee: number;
+  soldOut: boolean;
+  direct?: unknown;
+}
+
+/**
+ * Whether a checkout load came back with a real price. A ResLab lot is priced
+ * when it has a costs token (without one the page fell back to an estimate);
+ * a direct lot never has a token and is priced by its own terms.
+ */
+export function isPricedLoad(costData: LoadCostData | null | undefined): boolean {
+  if (!costData || costData.soldOut) return false;
+  return costData.costsToken != null || costData.direct != null;
+}
+
+/**
+ * The total the customer sees when /checkout loads: the grand total (which
+ * includes any part due at the lot) plus the service fee. No Park Guard and no
+ * promo: neither is chosen yet. Undefined when the load is not priced.
+ */
+export function checkoutLoadValue(costData: LoadCostData | null | undefined): number | undefined {
+  if (!costData || !isPricedLoad(costData)) return undefined;
+  const total = costData.grandTotal + costData.serviceFee;
+  return Number.isFinite(total) ? Math.round(total * 100) / 100 : undefined;
 }

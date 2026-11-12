@@ -9,11 +9,18 @@ import { CheckoutForm } from "@/components/checkout";
 import { UnifiedLot } from "@/types/lot";
 import { CheckoutCostData } from "@/types/checkout";
 import {
+  trackBeginCheckout,
   trackCheckoutLoadFailed,
   trackCheckoutOpen,
   trackCheckoutView,
 } from "@/lib/analytics/gtag";
-import { bucketCheckoutFailure, deviceToday, leadDays } from "@/lib/analytics/checkout-funnel";
+import {
+  bucketCheckoutFailure,
+  checkoutLoadValue,
+  deviceToday,
+  isPricedLoad,
+  leadDays,
+} from "@/lib/analytics/checkout-funnel";
 
 interface CheckoutData {
   lot: UnifiedLot;
@@ -110,7 +117,18 @@ function CheckoutContent() {
               lotId: data.lot.id,
               leadDays: rawCheckin ? leadDays(rawCheckin, deviceToday()) : null,
               loadMs: loadMs(),
-              priced: data.costData?.costsToken ? 1 : 0,
+              priced: isPricedLoad(data.costData) ? 1 : 0,
+            });
+          } catch {
+            // Analytics only — never a checkout failure.
+          }
+          // GA4's standard "checkout started" event, once per load. Its own
+          // try, so neither event can cost the other.
+          try {
+            trackBeginCheckout({
+              lotId: data.lot.id,
+              lotName: data.lot.name,
+              total: checkoutLoadValue(data.costData),
             });
           } catch {
             // Analytics only — never a checkout failure.

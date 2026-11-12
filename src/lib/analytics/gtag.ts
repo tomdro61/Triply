@@ -36,87 +36,103 @@ export function grantAnalyticsConsent() {
 }
 
 /**
- * Track a search event
+ * Fire-and-forget: a failing analytics call must never break a search, a lot
+ * panel or a checkout load. Every funnel event below goes through this.
  */
-export function trackSearch(params: {
-  airportCode: string;
-  checkin: string;
-  checkout: string;
-}) {
-  if (typeof window !== "undefined" && window.gtag) {
-    window.gtag("event", "search", {
-      search_term: params.airportCode,
-      airport_code: params.airportCode,
-      checkin_date: params.checkin,
-      checkout_date: params.checkout,
-    });
+function safeEvent(name: string, params: Record<string, unknown>) {
+  if (typeof window === "undefined" || !window.gtag) return;
+  try {
+    window.gtag("event", name, params);
+  } catch {
+    // Deliberately ignored: analytics only.
   }
 }
 
+// ── The booking funnel's standard events (definitions changed 2026-11-12) ────
+// search → select_item → view_item → begin_checkout → add_payment_info → purchase
+//
+//   search          one per search attempt, with how it ended and what was
+//                   shown (params built by src/lib/analytics/search-event.ts)
+//   select_item     a lot was picked from the results (list card, map pin or
+//                   mobile map card): item_list_name says which
+//   view_item       a lot's details were shown: the panel on /search
+//                   (item_surface "search_panel") or the full lot page
+//                   ("lot_page"). Before 2026-11-12: the lot page only.
+//   begin_checkout  /checkout loaded with a lot. Before 2026-11-12 it fired at
+//                   the payment step, where add_payment_info still fires: use
+//                   add_payment_info for the old series.
+//
+// Price basis: select_item / view_item carry the lot's per-day "from" rate;
+// begin_checkout and purchase carry the stay's total.
+
 /**
- * Track lot view event (lot detail page)
+ * A search attempt and what the searcher saw. Params come from
+ * buildSearchEventParams (search-event.ts).
  */
+export function trackSearch(params: Record<string, string | number | undefined>) {
+  safeEvent("search", params);
+}
+
+/** A lot's details were shown, on the search panel or the full lot page. */
 export function trackLotView(lot: {
   id: string;
   name: string;
+  /** Per-day "from" rate. */
   price?: number;
+  surface: "search_panel" | "lot_page";
 }) {
-  if (typeof window !== "undefined" && window.gtag) {
-    window.gtag("event", "view_item", {
-      item_id: lot.id,
-      item_name: lot.name,
-      price: lot.price,
-    });
-  }
+  safeEvent("view_item", {
+    currency: "USD",
+    items: [{ item_id: lot.id, item_name: lot.name, price: lot.price }],
+    item_surface: lot.surface,
+  });
 }
 
-/**
- * Track lot selection from search results
- */
+/** A lot was picked from the search results. */
 export function trackSelectItem(lot: {
   id: string;
   name: string;
   price?: number;
   airport?: string;
+  /** Which list it was picked from. */
+  list: "search_results" | "search_map";
+  /** 0-based place in the results as sorted on screen. */
   position?: number;
 }) {
-  if (typeof window !== "undefined" && window.gtag) {
-    window.gtag("event", "select_item", {
-      item_list_name: "search_results",
-      items: [
-        {
-          item_id: lot.id,
-          item_name: lot.name,
-          price: lot.price,
-          index: lot.position,
-        },
-      ],
-      airport_code: lot.airport,
-    });
-  }
+  safeEvent("select_item", {
+    item_list_name: lot.list,
+    items: [
+      {
+        item_id: lot.id,
+        item_name: lot.name,
+        price: lot.price,
+        index: lot.position,
+      },
+    ],
+    airport_code: lot.airport,
+  });
 }
 
 /**
- * Track begin checkout event
+ * /checkout loaded with a lot. `total` is what the customer sees at load
+ * (checkoutLoadValue, checkout-funnel.ts); omitted when the load is not priced,
+ * never a made-up figure.
  */
 export function trackBeginCheckout(booking: {
   lotId: string;
   lotName: string;
-  total: number;
+  total?: number;
 }) {
-  if (typeof window !== "undefined" && window.gtag) {
-    window.gtag("event", "begin_checkout", {
-      value: booking.total,
-      currency: "USD",
-      items: [
-        {
-          item_id: booking.lotId,
-          item_name: booking.lotName,
-          price: booking.total,
-        },
-      ],
-    });
-  }
+  safeEvent("begin_checkout", {
+    ...(booking.total !== undefined && { value: booking.total, currency: "USD" }),
+    items: [
+      {
+        item_id: booking.lotId,
+        item_name: booking.lotName,
+        price: booking.total,
+      },
+    ],
+  });
 }
 
 /**

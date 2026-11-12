@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -33,7 +33,7 @@ import { PriceFooter } from "@/components/lot/price-footer";
 import { bookableCheckinTimes, stillBookableCheckinTime } from "@/lib/utils/time";
 import { VehicleSizeModal } from "@/components/lot/vehicle-size-modal";
 import { directReserveQuote, surchargeRangeText } from "@/lib/direct/vehicle-display";
-import { trackBookingTimeChange } from "@/lib/analytics/gtag";
+import { trackBookingTimeChange, trackLotView } from "@/lib/analytics/gtag";
 
 const timeOptions = [
   "12:00 AM", "12:30 AM", "1:00 AM", "1:30 AM", "2:00 AM", "2:30 AM",
@@ -66,6 +66,15 @@ export function ProductDetailSlider({
   onClose,
 }: ProductDetailSliderProps) {
   const router = useRouter();
+  // Analytics: this panel is how most searchers look at a lot, so it counts as
+  // a lot view (view_item), once per opening. The ref keeps React's dev-mode
+  // double effect from counting twice; trackLotView itself never throws.
+  const viewReportedRef = useRef(false);
+  useEffect(() => {
+    if (viewReportedRef.current) return;
+    viewReportedRef.current = true;
+    trackLotView({ id: lot.id, name: lot.name, price: lot.pricing?.minPrice, surface: "search_panel" });
+  }, [lot.id, lot.name, lot.pricing?.minPrice]);
   const [localCheckIn, setLocalCheckIn] = useState(checkIn);
   const [localCheckOut, setLocalCheckOut] = useState(checkOut);
   const [localCheckInTime, setLocalCheckInTime] = useState(checkInTime);

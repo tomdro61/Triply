@@ -99,7 +99,7 @@ export function BookingWidget({
   const router = useRouter();
 
   useEffect(() => {
-    trackLotView({ id: lot.id, name: lot.name, price: lot.pricing?.minPrice });
+    trackLotView({ id: lot.id, name: lot.name, price: lot.pricing?.minPrice, surface: "lot_page" });
   }, [lot.id, lot.name, lot.pricing?.minPrice]);
 
   const [checkIn, setCheckIn] = useState(initialCheckIn);
