@@ -8,6 +8,8 @@
 //
 // The checks run against the working tree, not the exact staged content, so
 // unrelated half-done work can fail a good commit. CI tests the exact commit.
+// Git does not run pre-commit for `git merge`, `cherry-pick` or `revert`, so
+// those commits are checked by CI only.
 // The way past a stuck gate is `git commit --no-verify`, which the Claude
 // guard hook (.claude/hooks/guard.mjs) turns into a prompt for a person.
 
@@ -18,12 +20,16 @@ import { classify, reviewReminder, tail } from "./lib.mjs";
 
 const CHECK_TIMEOUT_MS = 240_000;
 
-function git(args, cwd) {
-  const r = spawnSync("git", args, { cwd, encoding: "utf8" });
-  return r.status === 0 ? r.stdout : "";
-}
-
+const MAX_OUTPUT = 64 * 1024 * 1024;
 const say = (msg) => process.stderr.write(`${msg}\n`);
+
+/** A git query. A failure blocks the commit: an empty answer would read as "nothing to check". */
+function git(args, cwd, { optional = false } = {}) {
+  const r = spawnSync("git", args, { cwd, encoding: "utf8", maxBuffer: MAX_OUTPUT });
+  if (r.status === 0) return r.stdout;
+  if (optional) return "";
+  fail(`\`git ${args.join(" ")}\` could not run (${r.error?.code ?? `exit ${r.status}`}). ${(r.stderr ?? "").trim()}`);
+}
 
 function fail(msg) {
   say(`\n[pre-commit] BLOCKED: ${msg}`);
@@ -35,24 +41,28 @@ function fail(msg) {
 }
 
 const root = git(["rev-parse", "--show-toplevel"], process.cwd()).trim();
-if (!root) process.exit(0);
 
 // 1. Never commit task work to main or staging. (A detached HEAD has no
 // branch and passes on purpose: that is every commit made during a rebase,
 // and it moves neither branch.)
-const branch = git(["symbolic-ref", "--short", "-q", "HEAD"], root).trim();
+const branch = git(["symbolic-ref", "--short", "-q", "HEAD"], root, { optional: true }).trim();
 if (branch === "main" || branch === "staging") {
   fail(`this commit is on \`${branch}\`. Cut a branch first: git checkout -b feat/<name>`);
 }
 
 // 2. What is staged decides what runs. (`git commit -a` has already staged
-// its files by the time git calls this hook.)
-const staged = git(["diff", "--cached", "--name-only", "-z"], root).split("\0").filter(Boolean);
+// its files by the time git calls this hook.) --no-renames lists a moved
+// file's old path too: the files that imported it from there are now broken.
+const staged = git(["diff", "--cached", "--name-only", "--no-renames", "-z"], root).split("\0").filter(Boolean);
 const need = classify(staged);
 
 // Child processes get a clean environment: git exports GIT_INDEX_FILE and
 // friends to hooks, which would confuse any tool that calls git itself.
-const baseEnv = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("GIT_")));
+// NODE_TEST_CONTEXT goes too: with it set, a nested `node --test` reports to a
+// parent runner and exits 0 even when a test fails.
+const baseEnv = Object.fromEntries(
+  Object.entries(process.env).filter(([k]) => !k.startsWith("GIT_") && k !== "NODE_TEST_CONTEXT"),
+);
 
 /** Runs one check with Node directly (no shell, no npx: neither spawns cleanly on Windows). */
 function run(label, cwd, script, args, env = {}) {
@@ -62,18 +72,26 @@ function run(label, cwd, script, args, env = {}) {
     env: { ...baseEnv, ...env },
     encoding: "utf8",
     timeout: CHECK_TIMEOUT_MS,
-    maxBuffer: 64 * 1024 * 1024,
+    maxBuffer: MAX_OUTPUT,
   });
   const secs = Math.round((Date.now() - started) / 1000);
   if (r.status === 0) {
     say(`[pre-commit] ${label}: ok (${secs}s)`);
     return;
   }
-  const why = r.error?.code === "ETIMEDOUT" ? `timed out after ${secs}s` : `failed (${secs}s)`;
+  // Say when the check never finished: that is not a failure of the code.
+  const why =
+    r.error?.code === "ETIMEDOUT"
+      ? `timed out after ${secs}s (the check did not finish)`
+      : r.error
+        ? `could not run (${r.error.code})`
+        : r.signal
+          ? `was killed by ${r.signal} (the check did not finish)`
+          : `failed (exit ${r.status}, ${secs}s)`;
   fail(`${label} ${why}.\n\n${tail(`${r.stdout ?? ""}\n${r.stderr ?? ""}`)}`);
 }
 
-const before = git(["status", "--porcelain"], root);
+const before = git(["status", "--porcelain"], root, { optional: true });
 
 if (need.hooks) {
   const tests = [".githooks", ".claude/hooks"].flatMap((dir) =>
@@ -82,8 +100,7 @@ if (need.hooks) {
           .filter((f) => f.endsWith(".test.mjs"))
           .map((f) => join(root, dir, f))
       : [],
-  );
-  if (tests.length) run("hook tests", root, "--test", tests);
+  );  if (tests.length) run("hook tests", root, "--test", tests);
 }
 
 if (need.app) {
@@ -122,18 +139,17 @@ if (need.blogEngine) {
     run("blog-engine typecheck", dir, tsc, ["--noEmit", "-p", "."]);
     // Dummies, as in CI. The engine loads its own .env (real keys, maybe the
     // production CMS URL) without overriding what is already set, so these win.
-    if (tests.length) {
-      run("blog-engine tests", dir, tsx, ["--test", ...tests], {
-        ANTHROPIC_API_KEY: "hook_dummy",
-        PAYLOAD_API_KEY: "hook_dummy",
-        PAYLOAD_CMS_URL: "http://cms.invalid",
-      });
-    }
+    if (!tests.length) fail("blog-engine tests: no src/*.test.ts files found (CI would fail on this).");
+    run("blog-engine tests", dir, tsx, ["--test", ...tests], {
+      ANTHROPIC_API_KEY: "hook_dummy",
+      PAYLOAD_API_KEY: "hook_dummy",
+      PAYLOAD_CMS_URL: "http://cms.invalid",
+    });
   }
 }
 
 // A check must not change the tree: a later `git add -A` would sweep it in.
-if (git(["status", "--porcelain"], root) !== before) {
+if (git(["status", "--porcelain"], root, { optional: true }) !== before) {
   say("[pre-commit] NOTICE: the checks changed files in the working tree. Run `git status` before the next `git add`.");
 }
 

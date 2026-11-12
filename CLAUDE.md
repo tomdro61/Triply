@@ -180,11 +180,15 @@ Two hooks are committed to this repo. Both have unit tests that CI runs.
 | Hook | When it runs | What it does |
 |---|---|---|
 | **Pre-commit gate** (`.githooks/`) | Every `git commit` made by Claude Code. A commit you type yourself skips it. | Refuses a commit on `main` or `staging`. Runs what the staged files can break: typegen + typecheck + tests for app files, the engine's typecheck + tests for `scripts/blog-engine/`. A docs-only commit runs nothing. Then prints which review the staged paths call for. |
-| **Guard** (`.claude/hooks/guard.mjs`, registered in `.claude/settings.json`) | Before Claude runs a shell command or a Vercel deploy tool | Asks a person to approve, in any permission mode: `git commit --no-verify`, a change to `core.hooksPath`, `gh pr merge` (and the API merge routes), `vercel --prod` / `promote` / `rollback`. |
+| **Guard** (`.claude/hooks/guard.mjs`, registered in `.claude/settings.json`) | Before Claude runs a shell command or a Vercel deploy tool | Asks a person to approve, including in auto mode: skipping the gate (`git commit --no-verify`, a change to `core.hooksPath`, setting or clearing `CLAUDECODE` next to a git command); merging (`gh pr merge`, the API merge routes); changing what production serves (`vercel --prod` / `--target production` / `promote` / `rollback` / `alias` / `redeploy`, and the matching Vercel tools). |
 
-- **Install:** `npm install` sets `core.hooksPath` to `.githooks` for the clone and all its worktrees. Check with `git config core.hooksPath`.
+- **Install:** `npm install` sets `core.hooksPath` to `.githooks` and prints what it did. It won't replace a hooks path you already set. Check with `git config core.hooksPath`.
+- **A branch cut before the hooks has none** until `main` is merged in: git finds no `.githooks/` folder there and runs nothing, without a warning.
+- **A full app commit takes about a minute.** `.claude/settings.json` raises the Bash tool's default timeout to 5 minutes so the commit isn't killed half-way; a session started in a parent folder should pass a timeout of 300000 on commits.
 - **The gate tests the working tree, not the exact staged content.** Unrelated half-done work can fail a good commit. If the failure isn't caused by your commit, `git commit --no-verify` asks a person to approve skipping it. CI still tests the exact commit.
+- **`git merge`, `cherry-pick` and `revert` don't run the gate** (git doesn't call pre-commit for them). CI checks those commits.
 - **A checkout with no `node_modules` skips the checks** and says so. The branch rule still applies.
+- **The guard is a guardrail, not a lock.** A git alias or an edited hook file gets past it. Required CI checks and branch protection are the real gate.
 - **A session started in a parent folder** doesn't load this repo's `.claude/settings.json`; register the guard in that folder's settings too. The pre-commit gate needs nothing extra.
 - **Hook code runs from whatever branch is checked out.** Before checking out someone else's branch, read its diff for `.githooks/`, `.claude/hooks/` and `.claude/settings*.json` (`gh pr diff <n>`). Never check out a fork's branch that changes them.
 - The hooks can't check that a review was run. The rules in **Code review** still apply.

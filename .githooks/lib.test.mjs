@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { test } from "node:test";
-import { classify, reviewReminder, reviewTiers, tail } from "./lib.mjs";
+import { fileURLToPath } from "node:url";
+import { REVIEW_PATHS, classify, reviewReminder, reviewTiers, tail } from "./lib.mjs";
 
 test("docs-only commits need no checks", () => {
   assert.deepEqual(classify(["CLAUDE.md", "docs/review-lessons.md", "public/logo.png", ".claude/skills/x/SKILL.md"]), {
@@ -71,6 +74,27 @@ test("review tiers: a file is listed once, in its strictest group", () => {
   ]);
   assert.deepEqual(t.scopedReview, ["src/app/api/lots/quote/route.ts", "src/lib/reslab/search.ts"]);
   assert.deepEqual(t.verifyFlow, ["src/components/checkout/checkout-form.tsx"]);
+});
+
+test("review tiers accept Windows separators", () => {
+  assert.deepEqual(reviewTiers(["src\\lib\\resend\\send.ts"]), {
+    fullSweep: [],
+    scopedReview: ["src/lib/resend/send.ts"],
+    verifyFlow: ["src/lib/resend/send.ts"],
+  });
+  assert.deepEqual(reviewTiers(["./supabase/migrations/052_x.sql"]).fullSweep, ["supabase/migrations/052_x.sql"]);
+});
+
+// A folder that is renamed would otherwise drop out of the reminders unnoticed.
+test("every listed review path exists in the repo", () => {
+  const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+  for (const [tier, paths] of Object.entries(REVIEW_PATHS)) {
+    for (const p of paths) {
+      // ".claude/settings" is a filename prefix (settings.json, settings.local.json)
+      const target = p === ".claude/settings" ? ".claude/settings.json" : p;
+      assert.ok(existsSync(join(root, target)), `${tier}: ${p}`);
+    }
+  }
 });
 
 test("no reminder when no review path is staged", () => {

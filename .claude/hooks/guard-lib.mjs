@@ -8,39 +8,77 @@
 // git alias, a cleared environment or an edited hook file gets past it. The
 // real gate is on the server (required CI checks and branch protection).
 
-const VERCEL_DEPLOY_TOOLS = new Set([
+// Tools that change what production serves. The matcher in
+// .claude/settings.json must list every name here (a test checks it).
+export const VERCEL_DEPLOY_TOOLS = [
   "mcp__vercel__request_promote",
   "mcp__vercel__request_rollback",
   "mcp__vercel__create_deployment",
-]);
+  "mcp__vercel__deploy_to_vercel",
+  "mcp__vercel__assign_alias",
+  "mcp__vercel__start_rolling_release",
+  "mcp__vercel__approve_rolling_release_stage",
+  "mcp__vercel__complete_rolling_release",
+  "mcp__vercel__pause_project",
+];
 
-/** Drops heredoc bodies and PowerShell here-strings: message text is not a command. */
+/**
+ * Drops heredoc bodies and PowerShell here-strings (message text is not a
+ * command) and joins continued lines, so one command is one line.
+ */
 export function stripHeredocs(command) {
   return command
+    .replace(/\r\n/g, "\n")
     .replace(/<<-?\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1[^\n]*\n[\s\S]*?\n[ \t]*\2[ \t]*(?=\n|$)/g, " ")
     .replace(/@'[\s\S]*?\n'@/g, " ")
-    .replace(/@"[\s\S]*?\n"@/g, " ");
+    .replace(/@"[\s\S]*?\n"@/g, " ")
+    .replace(/[\\`]\n/g, " "); // bash `\` and PowerShell backtick continuations
 }
 
-/** Also drops quoted strings, for rules where a quoted mention is only prose. */
+/**
+ * Also drops quoted strings, for rules where a quoted mention is only prose.
+ * One left-to-right pass, so whichever quote opens first wins: an apostrophe
+ * inside "double quotes" must not pair with a later single quote.
+ */
 export function stripQuoted(command) {
-  return stripHeredocs(command)
-    .replace(/'[^']*'/g, " ")
-    .replace(/"(?:[^"\\]|\\.)*"/g, " ");
+  return stripHeredocs(command).replace(/'[^']*'|"(?:[^"\\]|\\.)*"/g, " ");
 }
 
 // One command of a chain: stop at ; & | and newlines.
 const SEG = "[^;&|\\n]*";
 
+// `git … commit … --no-verify` (or any prefix git accepts: --no-v, --no-ver)
+// or a short-option cluster containing n (-n, -qn). `commit` must be its own
+// word (not a path, not commit-graph); the cluster stops at an option that
+// takes a value (-m, -F, -C, -c, -u, -S, -t), so `-uno` is not `-n`.
+const SKIP_GATE_RE = new RegExp(
+  `\\bgit\\b${SEG}(?<=\\s)commit(?=\\s|$)${SEG}(--no-v[a-z-]*|\\s-(?:(?![mFCcuSt])[a-zA-Z])*n[a-zA-Z]*(?=[\\s;&|)]|$))`,
+);
+
+// A string handed to another shell is still a command: its quoted argument
+// is checked with every rule.
+const SHELL_STRING_RE =
+  /\b(?:bash|sh|zsh|pwsh|powershell|cmd|eval|Invoke-Expression|iex)\b[^;&|\n'"]*?(['"])((?:(?!\1)[\s\S])*)\1/gi;
+
+// `vercel` as a command word (not vercel.json, not notes/vercel-x.md). A
+// local `vercel build` and the read-only subcommands stay quiet.
+const VERCEL_PROD_RE = new RegExp(
+  `(?:^|[\\s;&|(])vercel(?:@[\\w.-]+)?(?=\\s|$)(?!\\s+build\\b)${SEG}` +
+    `(--prod\\b|--target[= ]+production\\b|\\bpromote\\b(?!\\s+status)|\\brollback\\b(?!\\s+status)` +
+    `|\\balias(?:es)?\\b(?!\\s+(?:ls|list)\\b)|\\bredeploy\\b)`,
+);
+
+const SKIP_GATE =
+  "`git commit --no-verify` skips the pre-commit gate (typecheck and tests). Approve only if the failure is not caused by this commit.";
+const PRODUCTION = "This changes what production serves (Vercel deploy, promote, rollback, alias or pause). Tom approves these.";
+
 /**
  * @param {{tool_name?: string, tool_input?: {command?: string}}} input the hook's stdin
  * @returns {string | null} why a person must approve, or null to stay out of the way
  */
-export function reasonToAsk(input) {
-  const tool = input?.tool_name ?? "";
-  if (VERCEL_DEPLOY_TOOLS.has(tool)) {
-    return "This changes what production serves (Vercel promote, rollback or deploy). Tom approves these.";
-  }
+export function reasonToAsk(input, depth = 0) {
+  if (VERCEL_DEPLOY_TOOLS.includes(input?.tool_name ?? "")) return PRODUCTION;
+
   const command = input?.tool_input?.command;
   if (typeof command !== "string" || !command) return null;
 
@@ -48,33 +86,41 @@ export function reasonToAsk(input) {
   const bare = stripQuoted(command);
 
   // Skipping or disabling the pre-commit gate.
-  // (git accepts any unique prefix of a long option: --no-v, --no-ver, …)
-  const SKIP_GATE =
-    "`git commit --no-verify` skips the pre-commit gate (typecheck and tests). Approve only if the failure is not caused by this commit.";
-  if (new RegExp(`\\bgit\\b${SEG}\\bcommit\\b(?!-)${SEG}(--no-v[a-z-]*|\\s-[a-zA-Z]*n[a-zA-Z]*(\\s|$))`).test(bare)) {
-    return SKIP_GATE;
+  if (SKIP_GATE_RE.test(bare)) return SKIP_GATE;
+
+  if (depth < 2) {
+    for (const m of noHeredocs.matchAll(SHELL_STRING_RE)) {
+      const inner = reasonToAsk({ tool_name: "Bash", tool_input: { command: m[2] } }, depth + 1);
+      if (inner) return inner;
+    }
   }
-  // A command handed to another shell as a string is still a command.
-  if (/\b(bash|sh|zsh|pwsh|powershell|cmd|eval|Invoke-Expression|iex)\b/i.test(bare)) {
-    if (/\bcommit\b[^\n]*--no-v/.test(noHeredocs)) return SKIP_GATE;
-    if (/\bgh\s+pr\s+merge\b/.test(noHeredocs)) return "Merging a PR deploys to production. Merge only on Tom's explicit go.";
-  }
-  if (/core\.hooksPath/i.test(noHeredocs)) {
+
+  // Writes to core.hooksPath only: reading it, grepping for it or naming it
+  // in a commit message stays quiet.
+  if (
+    /core\.hooksPath\s*=/i.test(noHeredocs) ||
+    /\bconfig\b[^;&|\n]*\bcore\.hooksPath\b(?![ \t]*(?:$|[;&|\n)]))/i.test(noHeredocs) ||
+    /\bconfig\b[^;&|\n]*(?:--unset(?:-all)?|\bunset)\b[^;&|\n]*\bcore\.hooksPath\b/i.test(noHeredocs)
+  ) {
     return "This changes or overrides core.hooksPath, which is what installs the pre-commit gate.";
   }
-  if (/\bgit\b/.test(bare) && /\bCLAUDECODE\b/.test(noHeredocs)) {
-    return "This touches CLAUDECODE alongside a git command; the pre-commit gate only runs when CLAUDECODE=1.";
+  // Setting or clearing CLAUDECODE next to a git command (not mentioning it).
+  if (
+    /\bgit\b/.test(bare) &&
+    /\bCLAUDECODE[ \t]*=|\benv\b[^;&|\n]*-u[ \t]*CLAUDECODE\b|\bunset\b[^;&|\n]*\bCLAUDECODE\b|Remove-Item\b[^;&|\n]*env:CLAUDECODE/i.test(
+      bare,
+    )
+  ) {
+    return "This sets or clears CLAUDECODE alongside a git command; the pre-commit gate only runs when CLAUDECODE=1.";
   }
 
   // Merging to main, or changing what production serves.
   if (/\bgh\s+pr\s+merge\b/.test(bare)) {
     return "Merging a PR deploys to production. Merge only on Tom's explicit go.";
   }
-  if (/\bgh\s+api\b/.test(bare) && /(\/merge\b|mergePullRequest)/.test(noHeredocs)) {
+  if (/\bgh\s+api\b/.test(bare) && /(\/merge\b|mergePullRequest|enablePullRequestAutoMerge)/.test(noHeredocs)) {
     return "This merges a PR through the GitHub API. Merge only on Tom's explicit go.";
   }
-  if (new RegExp(`\\bvercel\\b${SEG}(--prod\\b|--target[= ]+production\\b|\\bpromote\\b|\\brollback\\b|\\balias\\b|\\bredeploy\\b)`).test(bare)) {
-    return "This changes what production serves (Vercel deploy, promote or rollback). Tom approves these.";
-  }
+  if (VERCEL_PROD_RE.test(bare)) return PRODUCTION;
   return null;
 }

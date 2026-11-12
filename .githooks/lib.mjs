@@ -34,7 +34,7 @@ export function classify(files) {
     if (f === "src/config/airports.ts") need.blogEngine = true;
     if (
       f.startsWith("src/") ||
-      f.startsWith("supabase/migrations/") || // a schema test reads a migration file
+      f.startsWith("supabase/migrations/") || // attribution/schema.test.ts reads one
       TS_FILE.test(f) || // the root tsconfig includes every .ts/.tsx/.mts
       APP_ROOT_FILES.has(f) ||
       APP_ROOT_PATTERNS.some((re) => re.test(f))
@@ -90,8 +90,13 @@ const VERIFY_FLOW = [
   "src/components/search/",
   "src/app/(main)/checkout/",
   "src/app/(main)/confirmation/",
+  "src/app/(main)/search/",
+  "src/app/(main)/[slug]/",
   "src/lib/resend/",
 ];
+
+/** Exported for the test that checks every listed path still exists. */
+export const REVIEW_PATHS = { FULL_SWEEP, SCOPED_REVIEW, VERIFY_FLOW };
 
 const hits = (files, prefixes) => files.filter((f) => prefixes.some((p) => f.startsWith(p)));
 

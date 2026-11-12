@@ -1,8 +1,11 @@
 {
+  "env": {
+    "BASH_DEFAULT_TIMEOUT_MS": "300000"
+  },
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash|PowerShell|mcp__vercel__request_promote|mcp__vercel__request_rollback|mcp__vercel__create_deployment",
+        "matcher": "Bash|PowerShell|mcp__vercel__request_promote|mcp__vercel__request_rollback|mcp__vercel__create_deployment|mcp__vercel__deploy_to_vercel|mcp__vercel__assign_alias|mcp__vercel__start_rolling_release|mcp__vercel__approve_rolling_release_stage|mcp__vercel__complete_rolling_release|mcp__vercel__pause_project",
         "hooks": [
           {
             "type": "command",
