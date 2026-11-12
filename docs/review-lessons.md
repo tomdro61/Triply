@@ -41,6 +41,8 @@ a human.
   never from memory or an older draft.
 - **Rule:** never name or price a lot we don't sell, never print a rival's promo code, and never link a
   competitor as if it were us.
+- **Rule:** read a money figure AFTER the operation that can change it (#132: the "hold" label came
+  from a snapshot taken before fulfilment).
 
 ### 3. Mark something "sent" or "done" only AFTER it succeeded
 
@@ -58,6 +60,8 @@ a human.
 - **Rule:** a "fail open" that depends on a catch block doesn't fail open when the function is killed.
 - **Bounds we use:** DB `.abortSignal(AbortSignal.timeout(3000))`; Resend in a `Promise.race`; Stripe
   steps capped. Count the worst case against the route's `maxDuration`.
+- **A tight timeout on a cold function's first call fails the first customer** after a deploy
+  (TRIPLY-40: a 4 s lot read at payment). Money-path reads retry once on a transient failure.
 
 ### 5. A partial, failed or fallback answer is never treated as complete
 
@@ -129,6 +133,11 @@ a human.
   ECONNRESET, and its own retries can sleep 60 s. Pass your own key.
 - **Stripe disputes:** one evidence submission per dispute.
 - **ResLab:** prices Canadian lots in CAD. Extra fields are mandatory; `flight_number` is validated.
+- **Stripe PaymentIntents:** book what the PaymentIntent was charged (its metadata), never the client
+  payload or a staged row. Branch on `pi.status`, never `capture_method`. A payment that is already
+  captured must book; only one still just authorized can be stopped.
+- **Sentry:** drops an error object it has already captured (a cached rethrow adds no event).
+  Warning-level events never page. Two levels sharing one fingerprint take the first one's priority.
 
 ### 13. A test must be able to fail
 
@@ -148,6 +157,9 @@ a human.
 - In nearly every multi-round review (#143 took 8 rounds, #149 4, #156 4), the next round found bugs in
   the previous round's fixes.
 - A fix adds branches. Ask: *what does this new branch do when its own operation fails?*
+- A review's scope is the system the diff touches, not only the diff (#144: reviewing a data file
+  found TEST lots bookable in production). Re-run the live probe after every fix to a third-party
+  query (#102/#103: a review fix added a GA4 sort that GA4 answers with HTTP 500).
 
 ### 16. When the codebase already computes a figure, reuse its definition
 
@@ -168,6 +180,46 @@ a human.
 - **Rule:** compute the target with the same function the destination page uses (share it, don't
   re-implement it). Check that the destination shows exactly that item and names itself canonical.
   When you can't prove it, render as before.
+
+### 18. Anything on `bookings` is readable by the customer; private data gets its own table
+
+- **#47:** an admin note ("never shown to the customer") was one PostgREST call away from the customer:
+  the RLS policy "Users can view own bookings" has no column restriction.
+- **048:** a `SELECT … USING (true)` policy with no `TO` clause let the public key list every promo
+  code. It had survived a sweep of the write policies.
+- **Rule:** private data goes in a service-role-only table. When sweeping policies, sweep the SELECT
+  policies too. Column-level REVOKE is brittle.
+
+### 19. Nothing that can throw sits between a third party's answer and the idempotency write
+
+- **Direct lots 4a plan:** converting the ResLab reservation ran before `recordReslabNumber`. A throw
+  there leaves the number unrecorded, and the next caller books a second reservation.
+- **Rule:** record the third party's identifier first, then convert, enrich or email.
+
+### 20. A migration is verified by running it, and a constraint applies sooner than you think
+
+- **040:** a SQL function passed `CREATE` and the source check, then failed on every call.
+- **022:** a `NOT VALID` CHECK is still enforced on every UPDATE, so rows written during the deploy
+  window had to be repaired BEFORE adding it, in the same transaction.
+- **Rule:** execute a function migration (PGlite or a transaction that rolls back). Repair rows first.
+  PostgREST loads a new function a moment after the migration commits: wait before calling it a failure.
+
+### 21. Count the supplier calls, and never make them during the build
+
+- **#68:** `next build` prerendered ~85 airport pages and burst hundreds of ResLab calls; failures baked
+  empty pages for an hour after every deploy.
+- **#15 / #17:** a "55 calls, then 0" measurement of one function was presented as system-wide; ResLab's
+  own logs showed the volume unchanged, from a second uncached caller.
+- **Rule:** a build makes zero rate-limited third-party calls. Count the calls a UI re-fetch makes
+  before adding one. A claim about a third party's call volume is verified from THEIR logs.
+
+### 22. A deploy can be rolled back, so new request fields must survive an older server
+
+- **#168:** a new body key would have been refused by a rolled-back deploy's `.strict()` schema. It went
+  in a request header, which an older server ignores.
+- **#167 → #168, #185 → #186:** readers ship before writers, so every deployment a rollback can land on
+  already understands the data that exists.
+- **Rule:** before adding a field or a new kind of row, ask what the previous deployment does with it.
 
 ---
 
@@ -332,6 +384,6 @@ One entry per reviewed PR: what the review found, by lesson number. Newest first
 - **#143 airport data (Nov 2):** lesson 2, stale lot prices in prose. It took 8 rounds, each finding
   bugs in the last round's fixes (lesson 15).
 
-*Updated November 11, 2026: Log entries for the two $5 welcome PRs. November 10, 2026: lesson 17 (redirects, #181) and the #180 / #181 / #183 Log entries.*
+*Updated November 11, 2026: lessons 18–22 and additions to 2, 4, 12 and 15, carried over from the old wrapper CLAUDE.md history; Log entries for the two $5 welcome PRs. November 10, 2026: lesson 17 (redirects, #181) and the #180 / #181 / #183 Log entries.*
 
 *Created November 6, 2026 (lesson 16 added the same day, #161) — from REVIEW-FINDINGS.md (wrapper repo) and the reviews of #143–#160.*

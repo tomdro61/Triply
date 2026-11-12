@@ -1,6 +1,6 @@
 ---
 name: scoped-review
-description: Scoped multi-agent code review for the Triply codebase. Looks at the diff, picks the right reviewers based on what changed, dispatches them in parallel, returns consolidated findings. Use before declaring features done, before commits, and before merging staging → main. Anti-patterns and routing are tuned to Triply's actual shipped bugs (silent default times, timezone storage, query-param forwarding, payment integration).
+description: Scoped multi-agent code review for the Triply codebase. Looks at the diff, picks the right reviewers based on what changed, dispatches them in parallel, returns consolidated findings. Use before declaring features done, before commits, and before a PR merges to main. Counts the diff first: over 200 lines, or any change to money, checkout, reservations, webhooks, auth or a migration, gets the full sweep. Anti-patterns and routing are tuned to Triply's actual shipped bugs (silent default times, timezone storage, query-param forwarding, payment integration).
 ---
 
 # /scoped-review — Scoped multi-agent code review (Triply)
@@ -28,10 +28,32 @@ Parse the user's argument (passed as `$ARGUMENTS`):
 | `/scoped-review` (no arg) | `git diff` (uncommitted working tree) | Most common — "check the work I just did" |
 | `/scoped-review staged` | `git diff --staged` | Pre-commit check |
 | `/scoped-review feature` | `git diff main...HEAD` + uncommitted | "Review everything I've done on this branch" |
-| `/scoped-review merge` | `git diff main...HEAD` + uncommitted, **full sweep** | Pre-merge to main — production deploy gate |
+| `/scoped-review merge` | `git diff main...HEAD` + uncommitted, **full sweep** | Ask for the full sweep by hand, whatever the size |
 | `/scoped-review <ref>` | `git diff <ref>...HEAD` + uncommitted | Custom diff range |
 
 Run `git diff --name-only <scope>` first to get the file list. If empty, tell the user there's nothing to review and stop.
+
+### Count first, then say the size (hard rule since 2026-11-11)
+
+Before dispatching anything, run `git diff --stat <scope>` **now** and read the total changed
+lines (tests included). Never size the review from the task description, an earlier estimate,
+or how big the change felt: review fixes grow a diff, and a "small change" is often several
+hundred lines by the time it is reviewed.
+
+Then state, in one line to the user, the line count and which size applies:
+
+| Size | When | What runs |
+|---|---|---|
+| **None** | Typos, docs only, formatting, under ~10 lines | No agents. CI is the gate. |
+| **Scoped** | Everything else | The routing matrix below (typically 2–4 agents) |
+| **Full sweep** | The diff is **over 200 lines**, OR it touches a high-risk path, OR `/scoped-review merge` | Every whole-diff reviewer + the area reviewers + Codex (Step 4.5) |
+
+**High-risk paths** (full sweep at any size): `src/app/api/{checkout,reservations,webhooks}/**`, `src/components/checkout/**`, `src/lib/{stripe,checkout,booking,cancellation,promo,parkguard,direct}/**`, an auth path (`src/lib/auth/**`, `src/app/(main)/auth/**`, `src/lib/supabase/**`, `src/config/admin.ts`), or `supabase/migrations/**`.
+A change that alters what a customer is charged, refunded or discounted is high-risk even if
+it lives elsewhere (e.g. a route that mints a promo code).
+
+If you believe a lighter review than the table gives is enough, say so and let the user
+choose **before** running it. Don't downsize silently.
 
 ---
 
@@ -122,7 +144,7 @@ Also scan the diff for these *content* triggers (use `git diff <scope>` and grep
 | Refactor patterns (similar code blocks, near-duplicates, copy-paste indicators) | `simplification-candidate` |
 | Modifies `package.json`, `next.config`, `tsconfig`, `globals.css` | `config-or-build` |
 
-Total line count > 200, OR `/scoped-review merge`: trigger `full-sweep`.
+Trigger `full-sweep` when ANY holds: total changed lines > 200 (counted in Step 1); the diff touches a high-risk path (Step 1); `/scoped-review merge`.
 
 ---
 
@@ -155,7 +177,7 @@ For each triggered category, dispatch the matching agents. **Deduplicate** — i
 | `simplification-candidate` | `pr-review-toolkit:code-simplifier` | (Default prompt) |
 | `general` | `feature-dev:code-reviewer` | General correctness, project conventions per CLAUDE.md |
 
-**Special: `full-sweep`** — pre-merge gate. Dispatch ALL of the following in parallel, each with a self-contained prompt referencing this skill's anti-patterns:
+**Special: `full-sweep`** — the gate for large or high-risk changes. Dispatch ALL of the following in parallel, each with a self-contained prompt referencing this skill's anti-patterns:
 
 **Whole-diff reviewers (6 distinct types — one instance each):**
 
@@ -196,7 +218,7 @@ Since 2026-10-12 every qualifying review also gets an **adversarial review from 
 ### When to run it
 
 Run Codex alongside the Claude agents (start it first — it is the slowest) when ANY of these hold:
-- `/scoped-review merge` (always)
+- Any full sweep (always)
 - The diff touches money, checkout, reservations, webhooks, auth, or `supabase/migrations/`
 - The diff changes what an AI/LLM is told or allowed to say (digest read, AI chat prompts)
 - The diff is > ~200 lines
@@ -282,19 +304,20 @@ Based on production patterns in this codebase:
 
 ### Pre-merge gate
 
-For `/scoped-review merge`, if ANY Critical is found, do not let the merge proceed. The merge gate is `pass.findings.critical.length === 0 && pass.findings.high.length === 0` after the most recent pass.
+For a full sweep, if ANY Critical is found, do not let the merge proceed. The merge gate is `pass.findings.critical.length === 0 && pass.findings.high.length === 0` after the most recent pass.
 
 ---
 
 ## Don't
 
 - Don't run agents serially. Always parallel.
-- Don't run `full-sweep` unless the diff is huge (>200 lines) or the user explicitly invoked `/scoped-review merge`.
+- Don't run `full-sweep` unless Step 1 calls for it (over 200 lines, a high-risk path, or `/scoped-review merge`). And don't skip it when Step 1 does call for it.
+- Don't fix every Medium by default. Criticals and Highs are fixed and re-reviewed; Mediums are triaged with the user. A reviewer asked to find problems always finds something, and fixing all of it adds code nobody needed.
 - Don't run agents for empty / trivial diffs (whitespace, doc-only, single-line fixes).
 - Don't summarize findings beyond what the agents reported. You're a router, not a reviewer.
 - Don't forget: agents have no conversation context. Every prompt must be self-contained.
 - Don't skip silent-failure-hunter on customer-facing or auth-adjacent changes. It's the highest-value reviewer for this codebase based on shipped-bug history.
-- Don't let `/scoped-review merge` ship a Critical finding "as a follow-up."
+- Don't let a full sweep ship a Critical finding "as a follow-up."
 - **Don't skip Step 1.5 (scope expansion).** A diff-only scope is the single biggest source of missed findings on this codebase. If a migration is in the diff or money-handling code is touched, expand scope per the rules even if the user just wanted a "quick check."
 - **Don't skip Step 6 (multi-pass discipline).** A single review pass is incomplete. The expectation is 2-4 passes for any non-trivial change.
 - **Don't tell the user "all clean" after pass 1 if any Critical or High was found.** They need pass 2. Tell them so.
@@ -427,3 +450,4 @@ Treat this skill itself as code subject to the same discipline. When a multi-pas
 
 - **2026-05-08** — Added Step 1.5 (scope expansion), elevated multi-pass to Step 6 hard requirement, added money-feature completeness checklist, and added "Common gaps" appendix. Driven by 6-pass review of the Park Guard feature where pass 3 found 4 Critical/High in files outside diff scope and pass 6 found a fix-introduced UI state bug.
 - **2026-10-12** — Added Step 4.5: OpenAI Codex adversarial review as a second-model reviewer (plugin `openai/codex-plugin-cc`) for merge sweeps and money/auth/migration/AI-prompt diffs, with a skip-don't-block rule when the plugin is absent and a check that the run actually read the code (the Windows sandbox gotcha made the first run silently empty). First run found a real AI-prompt overclaim in PR #80 that 3 Claude passes missed.
+- **2026-11-11** — Step 1 counts the diff first and states the size; the full-sweep trigger is rewritten for the PR flow (over 200 lines OR a high-risk path, Tom's decision), replacing "before merging staging → main", which no longer separated anything once every PR merged to main. Driven by PRs #185/#186: sized as "~150 lines" from the task description, they grew past 400 during review fixes and got 2 reviewers each where the threshold asked for the sweep. Also: Mediums are triaged, not fixed by default.
