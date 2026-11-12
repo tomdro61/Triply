@@ -34,6 +34,9 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+      # The Claude Code hooks' own unit tests (docs: CLAUDE.md "Hooks"). Files
+      # are named, not globbed, so a moved or deleted test fails loudly.
+      - run: node --test .githooks/lib.test.mjs .claude/hooks/guard-lib.test.mjs
       - run: npm ci
       # Separate from the build on purpose: `next build` drops type errors in
       # test files, which is how 8 of them sat on main unnoticed.

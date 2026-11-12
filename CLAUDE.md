@@ -149,7 +149,7 @@ Before opening a PR:
 | When | Run | Applies to |
 |---|---|---|
 | **Before writing code** | `/sketch-flow` | A new async handler in `src/components/checkout/**`, `src/lib/checkout/**`, `src/app/api/{checkout,reservations,webhooks}/**`, or any UI handler that calls Stripe / ResLab / Park Guard / Resend / Supabase. A new `useState` in **any** file with a multi-step state machine. Any async work tied to PaymentIntent state, **anywhere**. Removing ANY safety check (`disabled`, an early `return`, a lock, a validation gate, a try/catch on a money path). |
-| **Before a PR** | `/scoped-review` | Any change under `src/app/api/`, `src/lib/{reslab,stripe,resend,validation}/`, `src/lib/utils/time.ts`, `src/components/{checkout,confirmation,lot,search}/`, the checkout / confirmation / admin pages, or `supabase/migrations/`. Any change over ~50 lines or 3 files. Any new or changed Zod schema, server action or API route. Not for typos, docs or changes under ~10 lines. |
+| **Before a PR** | `/scoped-review` | Any change under `src/app/api/`, `src/lib/{reslab,stripe,resend,validation}/`, `src/lib/utils/time.ts`, `src/components/{checkout,confirmation,lot,search}/`, the checkout / confirmation / admin pages, `supabase/migrations/`, or the hooks (`.githooks/`, `.claude/hooks/`, `.claude/settings*.json`). Any change over ~50 lines or 3 files. Any new or changed Zod schema, server action or API route. Not for typos, docs or changes under ~10 lines. |
 | **Before calling it done** | `/verify-flow <flow>` | Any change to a customer-facing flow: checkout, payment, confirmation, the emailed links, lot and search pages, a UI state machine, or what the customer sees of money math. Always after fixing a customer-reported bug: walk the exact customer flow. |
 | **After merging to `main`** | `/post-deploy-check` | Every merge. |
 
@@ -172,6 +172,22 @@ sweeps and on any diff touching money, checkout, reservations, webhooks, auth, m
 what an AI is told to say (Step 4.5 of the skill). Verify every Codex finding against the code.
 A run that never read the code is a FAILED review, not a clean one. No plugin → the review says
 "Codex SKIPPED". **Machine setup: [`docs/codex-setup.md`](docs/codex-setup.md).**
+
+## Hooks (checks that run by themselves)
+
+Two hooks are committed to this repo. Both have unit tests that CI runs.
+
+| Hook | When it runs | What it does |
+|---|---|---|
+| **Pre-commit gate** (`.githooks/`) | Every `git commit` made by Claude Code. A commit you type yourself skips it. | Refuses a commit on `main` or `staging`. Runs what the staged files can break: typegen + typecheck + tests for app files, the engine's typecheck + tests for `scripts/blog-engine/`. A docs-only commit runs nothing. Then prints which review the staged paths call for. |
+| **Guard** (`.claude/hooks/guard.mjs`, registered in `.claude/settings.json`) | Before Claude runs a shell command or a Vercel deploy tool | Asks a person to approve, in any permission mode: `git commit --no-verify`, a change to `core.hooksPath`, `gh pr merge` (and the API merge routes), `vercel --prod` / `promote` / `rollback`. |
+
+- **Install:** `npm install` sets `core.hooksPath` to `.githooks` for the clone and all its worktrees. Check with `git config core.hooksPath`.
+- **The gate tests the working tree, not the exact staged content.** Unrelated half-done work can fail a good commit. If the failure isn't caused by your commit, `git commit --no-verify` asks a person to approve skipping it. CI still tests the exact commit.
+- **A checkout with no `node_modules` skips the checks** and says so. The branch rule still applies.
+- **A session started in a parent folder** doesn't load this repo's `.claude/settings.json`; register the guard in that folder's settings too. The pre-commit gate needs nothing extra.
+- **Hook code runs from whatever branch is checked out.** Before checking out someone else's branch, read its diff for `.githooks/`, `.claude/hooks/` and `.claude/settings*.json` (`gh pr diff <n>`). Never check out a fork's branch that changes them.
+- The hooks can't check that a review was run. The rules in **Code review** still apply.
 
 ## Skills (in `.claude/skills/`)
 

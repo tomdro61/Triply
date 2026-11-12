@@ -51,6 +51,9 @@ public/workbox-*.js.map
 # vercel
 .vercel
 
+# Claude Code: per-machine settings (permission approvals) never go in this public repo
+.claude/settings.local.json
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
