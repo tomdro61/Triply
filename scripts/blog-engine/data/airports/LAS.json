@@ -1,7 +1,7 @@
 {
   "code": "LAS",
   "fullName": "Harry Reid International Airport",
-  "lastVerified": "2026-11-06",
+  "lastVerified": "2026-11-09",
   "overview": {
     "location": "Paradise, unincorporated Clark County, Nevada — 5 miles south of downtown Las Vegas",
     "iataCode": "LAS",
@@ -216,7 +216,7 @@
       "freeCancellation": true,
       "notes": "One of the closest off-site lots. Park-sleep-fly packages include 1 night + up to 7 days parking. Good budget option with hotel amenities available.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-06"
+      "sellableCheckedOn": "2026-11-09"
     },
     {
       "name": "DoubleTree by Hilton Las Vegas Airport",
@@ -233,10 +233,10 @@
       "rating": "4.3/5",
       "notes": "Best option for travelers wanting hotel-quality amenities (pool, restaurant, fitness center). 24/7 shuttle is reliable. Slightly pricier than budget lots but better service.",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-06",
+      "rateVerified": "2026-11-09",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-06",
-      "rateSpreadPct": 24.71,
+      "sellableCheckedOn": "2026-11-09",
+      "rateSpreadPct": 49.43,
       "reslabLocationId": 421
     },
     {
@@ -253,7 +253,7 @@
       "freeCancellation": true,
       "notes": "One of the cheapest pre-book rates at $5.49/day. Verify shuttle hours before booking for early/late flights.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-06"
+      "sellableCheckedOn": "2026-11-09"
     },
     {
       "name": "Fortune Hotel and Suites",
@@ -269,7 +269,7 @@
       "freeCancellation": true,
       "notes": "All-suite hotel means extra space if doing park-sleep-fly. Pool is a nice perk for hot Las Vegas days. Verify shuttle schedule.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-06"
+      "sellableCheckedOn": "2026-11-09"
     },
     {
       "name": "Fairfield Inn & Suites Las Vegas Convention Center",
@@ -278,17 +278,17 @@
       "dailyRate": 7.3,
       "reservationRate": 7.3,
       "parkingType": "Uncovered, self-park (hotel lot)",
-      "amenities": ["Shuttle", "24/7 Front Desk", "Security Cameras", "Breakfast Included with Stay"],
-      "shuttleInfo": "Airport shuttle available, check with hotel for schedule",
-      "overview": "Marriott property near the Convention Center, 1.8 miles from LAS. Convenient for convention attendees needing parking + shuttle.",
+      "amenities": ["24/7 Front Desk", "Security Cameras", "Breakfast Included with Stay"],
+      "shuttleInfo": "NO SHUTTLE (per the lot's listing). Plan a taxi or rideshare to the airport.",
+      "overview": "Marriott property near the Convention Center, 1.8 miles from LAS. Convenient for convention attendees; no airport shuttle.",
       "distanceFromAirport": "1.8 mi",
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
       "notes": "Ideal for convention attendees — close to LVCC. Marriott quality at budget parking rates. Breakfast included with park-sleep-fly.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-06",
+      "sellableCheckedOn": "2026-11-09",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-06"
+      "rateVerified": "2026-11-09"
     },
     {
       "name": "Tahiti All-Suite Resort",
@@ -304,7 +304,7 @@
       "freeCancellation": true,
       "notes": "Suites with kitchenettes are useful for early departures (make breakfast). Slightly farther from airport but competitive rates.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-06"
+      "sellableCheckedOn": "2026-11-09"
     },
     {
       "name": "Super 8 by Wyndham Las Vegas Strip Area",
@@ -320,7 +320,7 @@
       "freeCancellation": true,
       "notes": "Cheapest pre-book rate in the market at ~$5/day. Basic amenities but gets the job done for budget-conscious travelers. Verify shuttle hours.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-06"
+      "sellableCheckedOn": "2026-11-09"
     }
   ],
   "shuttleInfo": "On-airport: Economy lots are a short walk from T1 and T3 (no Economy shuttle described by the airport); FREE shuttles connect the Remote Lot (7150 Gilespie St) to the terminals. FREE rental car shuttle runs every 5 minutes to McCarran Rent-A-Car Center. Off-site: Most hotel-based lots include free airport shuttle — frequency varies. VERIFY shuttle hours before booking — some lots have limited shuttle windows and do not run 24/7. During major conventions (CES, SEMA) and events, allow extra time for shuttle and ground transportation congestion.",
