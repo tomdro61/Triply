@@ -16,7 +16,10 @@ import { MobileMapCard } from "@/components/search/mobile-map-card";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { UnifiedLot, SortOption } from "@/types/lot";
 import { getAirportByCode } from "@/config/airports";
-import { trackSearch } from "@/lib/analytics/gtag";
+import { trackSelectItem } from "@/lib/analytics/gtag";
+import { trackSearch } from "@/lib/analytics/track-search";
+import { searchResultFromResponse, type SearchResult, type SearchTrigger } from "@/lib/analytics/search-event";
+import { deviceToday } from "@/lib/analytics/checkout-funnel";
 import { compareByTotal, compareByTotalDesc } from "@/lib/search/ranking";
 // Park & Stay (admin-only until launch): the hook decides whether to ASK —
 // signed out, it makes no request — and the slots lazy-load the switch and
@@ -80,12 +83,37 @@ function SearchPageContent() {
   // phones paid for a map they could not see. Mount it only on wide screens.
   // Tailwind's lg breakpoint is 1024px.
   const isDesktop = useMediaQuery("(min-width: 1024px)");
+  // Analytics only: whether the visitor chose each date being searched (in the
+  // link or the picker). A link without dates gets today / +7 days filled in
+  // above; those are not a choice, and their lead time and trip length must
+  // not be reported as one. (Known gap: our own links that carry made-up
+  // default dates, e.g. the homepage's "View All Parking Options", count as chosen.)
+  const checkinPickedRef = useRef(Boolean(linked.checkin));
+  const checkoutPickedRef = useRef(Boolean(linked.checkout));
 
   const airportInfo = getAirportByCode(airport);
   const locationName = airportInfo?.city || "New York";
 
+  // One `search` event per attempt, saying how it ended and what was shown.
+  // trackSearch never throws: this runs inside the fetch below, where a throw
+  // would replace good results with the "couldn't load" panel.
+  const reportSearch = (trigger: SearchTrigger, datesPicked: boolean, result: SearchResult) =>
+    trackSearch({
+      airportCode: airport,
+      trigger,
+      sortBy,
+      datesPicked,
+      checkin: departDate,
+      checkout: returnDate,
+      today: deviceToday(),
+      ...result,
+    });
+
   // Fetch search results
-  const fetchResults = async () => {
+  const fetchResults = async (trigger: SearchTrigger) => {
+    // Read now, with the dates this request sends: the visitor can touch the
+    // picker while the request is in flight.
+    const datesPicked = checkinPickedRef.current && checkoutPickedRef.current;
     setLoading(true);
     setLoadError(false);
     setPartialResults(false);
@@ -100,6 +128,7 @@ function SearchPageContent() {
         setDateError(dateProblem);
         setLots([]);
         setLoading(false);
+        reportSearch(trigger, datesPicked, { failure: "date_error" });
         return;
       }
     }
@@ -146,12 +175,15 @@ function SearchPageContent() {
             "No lots near this airport can take a booking for the rest of today. Try a check-in date of tomorrow."
           );
         }
-        trackSearch({ airportCode: airport, checkin: departDate, checkout: returnDate });
       }
+      // Last in the try: if anything above threw, the catch reports instead,
+      // so every attempt sends exactly one event.
+      reportSearch(trigger, datesPicked, searchResultFromResponse(response.ok, response.status, data));
     } catch (err) {
       console.error("Error fetching search results:", err);
       setLoadError(true);
       setLots([]);
+      reportSearch(trigger, datesPicked, { failure: "load_error" });
     } finally {
       setLoading(false);
     }
@@ -159,13 +191,13 @@ function SearchPageContent() {
 
   // Initial fetch
   useEffect(() => {
-    fetchResults();
+    fetchResults("initial");
   }, []);
 
   // Re-fetch when sort changes
   useEffect(() => {
     if (!loading) {
-      fetchResults();
+      fetchResults("sort");
     }
   }, [sortBy]);
 
@@ -204,8 +236,26 @@ function SearchPageContent() {
       checkout: returnDate,
     });
     router.push(`/search?${params.toString()}`);
-    fetchResults();
+    fetchResults("submit");
   };
+
+  // Every way a lot's panel opens (list card, map pin, mobile map card) goes
+  // through here, so each sends one select_item saying which list it came from.
+  const openLot = (lot: UnifiedLot, list: "search_results" | "search_map") => {
+    const position = sortedLots.findIndex((l) => l.id === lot.id);
+    trackSelectItem({
+      id: lot.id,
+      name: lot.name,
+      price: lot.pricing?.minPrice,
+      airport: lot.airportCode,
+      list,
+      position: position >= 0 ? position : undefined,
+    });
+    setSelectedLot(lot);
+  };
+  const openFromList = (lot: UnifiedLot) => openLot(lot, "search_results");
+  const openFromMap = (lot: UnifiedLot) => openLot(lot, "search_map");
+  const retrySearch = () => fetchResults("retry");
 
   // Handle carousel scroll to detect active card
   const handleCarouselScroll = () => {
@@ -236,6 +286,7 @@ function SearchPageContent() {
           onAirportChange={setAirport}
           departDate={departDate}
           onDepartDateChange={(d) => {
+            checkinPickedRef.current = true;
             setDepartDate(d);
             // Keep the range valid: a depart after the current return pulls the
             // return up to it (the customer's newest pick wins, never dropped).
@@ -245,6 +296,7 @@ function SearchPageContent() {
           }}
           returnDate={returnDate}
           onReturnDateChange={(r) => {
+            checkoutPickedRef.current = true;
             setReturnDate(r);
             if (r && departDate && r < departDate) setDepartDate(r);
           }}
@@ -281,7 +333,7 @@ function SearchPageContent() {
                   This is usually temporary. Please try again in a moment.
                 </p>
                 <button
-                  onClick={fetchResults}
+                  onClick={retrySearch}
                   className="bg-brand-orange text-white font-semibold text-sm px-5 py-2.5 rounded-full active:scale-95 transition-transform"
                 >
                   Try again
@@ -297,10 +349,10 @@ function SearchPageContent() {
               onSortChange={setSortBy}
               hoveredId={hoveredId}
               onHover={setHoveredId}
-              onSelect={setSelectedLot}
+              onSelect={openFromList}
               className={mobileView === "map" ? "hidden lg:block" : ""}
               partialResults={partialResults}
-              onRetry={fetchResults}
+              onRetry={retrySearch}
               renderExtraBadge={
                 parkStay
                   ? (lot) => <ParkStayLotBadgeSlot access={parkStay} search={urlSearch} reslabLocationId={lot.reslabLocationId ?? null} />
@@ -316,7 +368,7 @@ function SearchPageContent() {
                 lots={sortedLots}
                 hoveredId={hoveredId}
                 onHover={setHoveredId}
-                onSelect={setSelectedLot}
+                onSelect={openFromMap}
                 showControls={false}
                 airport={airportInfo}
               />
@@ -328,7 +380,7 @@ function SearchPageContent() {
                   className="absolute top-3 left-3 right-3 z-10 flex items-center justify-between gap-3 p-3 bg-amber-50/95 border border-amber-200 rounded-lg text-xs shadow"
                 >
                   <span className="font-semibold text-amber-800">Some lots are temporarily unavailable</span>
-                  <button onClick={fetchResults} className="shrink-0 text-amber-900 font-semibold underline underline-offset-2">
+                  <button onClick={retrySearch} className="shrink-0 text-amber-900 font-semibold underline underline-offset-2">
                     Try again
                   </button>
                 </div>
@@ -346,7 +398,7 @@ function SearchPageContent() {
                       <MobileMapCard
                         key={lot.id}
                         lot={lot}
-                        onSelect={setSelectedLot}
+                        onSelect={openFromMap}
                         extraBadge={
                           parkStay ? <ParkStayLotBadgeSlot access={parkStay} search={urlSearch} reslabLocationId={lot.reslabLocationId ?? null} /> : undefined
                         }
@@ -365,7 +417,7 @@ function SearchPageContent() {
                 lots={sortedLots}
                 hoveredId={hoveredId}
                 onHover={setHoveredId}
-                onSelect={setSelectedLot}
+                onSelect={openFromMap}
                 airport={airportInfo}
               />
             )}

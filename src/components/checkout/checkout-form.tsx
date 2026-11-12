@@ -27,7 +27,6 @@ import { PROMO_PRICING_HEADER, PROMO_PRICING_VERSION, promoDiscountCents, promoR
 import { cartFromCostData, createLatestGate, decideCheckoutPromo, ruleFromValidateResponse } from "@/lib/promo/checkout-promo";
 import { confirmationHandOff } from "@/lib/confirmation/guest-email";
 import {
-  trackBeginCheckout,
   trackAddPaymentInfo,
   trackCheckoutBack,
   trackCheckoutFirstField,
@@ -636,7 +635,6 @@ export function CheckoutForm({
       // customer already chose).
       const trackedTotal =
         typeof data.verifiedTotal === "number" ? data.verifiedTotal : priceBreakdown.total;
-      trackBeginCheckout({ lotId: lot.id, lotName: lot.name, total: trackedTotal });
       trackAddPaymentInfo({ lotId: lot.id, lotName: lot.name, total: trackedTotal });
     } catch (error) {
       console.error("PaymentIntent creation error:", error);

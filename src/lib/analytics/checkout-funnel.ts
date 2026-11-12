@@ -1,15 +1,18 @@
 /**
- * Pure helpers for the checkout-funnel GA4 events (gtag.ts trackCheckout*).
+ * Pure helpers for the funnel GA4 events (gtag.ts): the checkout_* events,
+ * begin_checkout's value, and the date arithmetic the search event reuses.
  *
  * Why the funnel is instrumented (2026-10-06): of the people who opened
  * /checkout, 58% never reached the payment step and nothing said where they
- * left — the URL doesn't change between steps, and begin_checkout only fires
- * once the PaymentIntent exists.
+ * left — the URL doesn't change between steps, and begin_checkout then fired
+ * only once the PaymentIntent existed. (Since 2026-11-12 begin_checkout fires
+ * with checkout_view; add_payment_info marks the payment step.)
  *
  * Privacy rule: these events carry field KEYS and fixed reason buckets only —
  * never what a customer typed and never a raw server message.
  */
 import { STALE_CHECKOUT_MESSAGE } from "@/lib/parkguard/plans";
+import type { CheckoutCostData } from "@/types/checkout";
 
 export type CheckoutFunnelStep = "details" | "vehicle" | "payment";
 
@@ -91,4 +94,54 @@ export function deviceToday(now: Date = new Date()): string {
   // YYYY-MM-DD in every browser.
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+/** The parts of the checkout load's cost data the analytics read. */
+type LoadCostData = Pick<CheckoutCostData, "costsToken" | "grandTotal" | "serviceFee" | "soldOut" | "direct">;
+
+/** How a checkout load that got an HTTP answer is reported. */
+export type CheckoutLoadReport =
+  | { failed: Extract<CheckoutFailureReason, "no_lot" | "sold_out"> }
+  | { lotId: string; lotName: string; priced: 0 | 1; total: number | undefined };
+
+/**
+ * Decides what a loaded /checkout reports: a failure (no lot in the answer, or
+ * sold out) sends checkout_load_failed; anything else sends checkout_view and
+ * begin_checkout, with a total only when the load is priced.
+ */
+export function checkoutLoadReport(
+  data: { lot?: { id: string; name: string } | null; costData?: LoadCostData | null } | null | undefined
+): CheckoutLoadReport {
+  if (!data?.lot) return { failed: "no_lot" };
+  if (data.costData?.soldOut) return { failed: "sold_out" };
+  return {
+    lotId: data.lot.id,
+    lotName: data.lot.name,
+    priced: isPricedLoad(data.costData) ? 1 : 0,
+    total: checkoutLoadValue(data.costData),
+  };
+}
+
+/**
+ * Whether a checkout load came back with a real price. A ResLab lot is priced
+ * when it has a costs token (without one the page fell back to an estimate);
+ * a direct lot never has a token and is priced by its own terms.
+ */
+export function isPricedLoad(costData: LoadCostData | null | undefined): boolean {
+  if (!costData || costData.soldOut) return false;
+  return costData.costsToken != null || costData.direct != null;
+}
+
+/**
+ * The online total the customer sees when /checkout loads (the form's
+ * priceBreakdown.total at that moment): the grand total, which includes any
+ * part of the parking due at the lot, plus the service fee. No Park Guard and
+ * no promo: neither is chosen yet. Not included: a direct lot's oversized-
+ * vehicle surcharge, which is paid at the lot and shown as a separate "trip
+ * total". Undefined when the load is not priced.
+ */
+export function checkoutLoadValue(costData: LoadCostData | null | undefined): number | undefined {
+  if (!costData || !isPricedLoad(costData)) return undefined;
+  const total = costData.grandTotal + costData.serviceFee;
+  return Number.isFinite(total) ? Math.round(total * 100) / 100 : undefined;
 }

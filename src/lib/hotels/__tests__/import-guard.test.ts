@@ -161,7 +161,7 @@ describe("Park & Stay import guards", () => {
     }
   });
 
-  it("…nor reuse the parking search components, which do (LotCard fires trackSelectItem — CX plan v2 §3)", () => {
+  it("…nor reuse the parking search components, which do (the search page and its lot panel fire select_item / view_item — CX plan v2 §3)", () => {
     for (const f of [...pageFiles, ...componentFiles]) {
       const bad = importsOf(f).filter((spec) => spec.startsWith("@/components/search"));
       expect(bad, `${f} imports ${bad.join(", ")}`).toEqual([]);

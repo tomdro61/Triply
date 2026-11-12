@@ -5,7 +5,7 @@
  * the photo with the score on it; the name and a muted meta line; three
  * icon fact rows (room, parking, shuttle); coloured tags for the
  * deal-breakers; a separate price column with the button. A NEW component
- * on purpose — the parking LotCard fires trackSelectItem, and Park & Stay
+ * on purpose — the parking search page fires select_item for its cards, and Park & Stay
  * sends no analytics events. Every line comes from card-facts.ts, which
  * shows only facts we have. The shell (border, radius, shadow, hover and
  * highlight ring, a 192 px photo column, the title, price and button type)
