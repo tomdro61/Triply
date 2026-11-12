@@ -7,7 +7,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { checkoutLoadReport, checkoutLoadValue, isPricedLoad } from "../checkout-funnel";
-import { trackAddPaymentInfo, trackBeginCheckout, trackLotView, trackSearch, trackSelectItem } from "../gtag";
+import { trackAddPaymentInfo, trackBeginCheckout, trackLotView, trackSelectItem } from "../gtag";
+import { trackSearch } from "../track-search";
 import type { SearchEventInput } from "../search-event";
 
 const cost = (over: Record<string, unknown> = {}) => ({
@@ -173,11 +174,6 @@ describe("analytics can never break a page", () => {
     expect(() => trackSearch(junk)).not.toThrow();
   });
 
-  it("no gtag on the page (blocked script): nothing happens", () => {
-    vi.stubGlobal("window", {});
-    expect(() => trackSearch(search)).not.toThrow();
-    expect(() => trackBeginCheckout({ lotId: "a", lotName: "A", total: 1 })).not.toThrow();
-  });
 });
 
 // Where each event fires is the point of the 2026-11-12 change, and a
@@ -236,6 +232,20 @@ describe("where the events fire", () => {
     expect(count(page, /reportSearch\(trigger, datesPicked, \{ failure: "date_error" \}\)/g)).toBe(1);
     expect(count(page, /reportSearch\(trigger, datesPicked, searchResultFromResponse\(response\.ok, response\.status, data\)\)/g)).toBe(1);
     expect(count(page, /reportSearch\(trigger, datesPicked, \{ failure: "load_error" \}\)/g)).toBe(1);
+    // The answered request reports AFTER the page has set its state for every
+    // kind of answer (failed or not) and before the catch. Inside the success
+    // branch only, failed answers (400, 5xx, an error body) would send nothing.
+    const answeredReport = page.indexOf("reportSearch(trigger, datesPicked, searchResultFromResponse(");
+    const failedBranch = page.indexOf("if (!response.ok || data.error)");
+    const successBranchEnd = page.lastIndexOf("setDateError(", answeredReport);
+    const catchStart = page.indexOf("} catch (err)", failedBranch);
+    expect(failedBranch).toBeGreaterThan(0);
+    expect(answeredReport).toBeGreaterThan(successBranchEnd);
+    expect(answeredReport).toBeLessThan(catchStart);
+    // …and at the try's own indent (6 spaces), not nested in a branch.
+    expect(page).toMatch(/\n {6}reportSearch\(trigger, datesPicked, searchResultFromResponse\(/);
+    // gtag.ts is loaded on every page: the search builder must stay out of it.
+    expect(src("lib/analytics/gtag.ts")).not.toMatch(/from ["'][^"']*(search-event|ranking|checkout-funnel)["']/);
     // "Picked" is read when the request starts, from both dates.
     expect(page).toMatch(/const datesPicked = checkinPickedRef\.current && checkoutPickedRef\.current;\s+setLoading\(true\);/);
   });

@@ -5,7 +5,6 @@
  */
 
 import { captureBookingError } from "@/lib/sentry";
-import { buildSearchEventParams, type SearchEventInput } from "@/lib/analytics/search-event";
 
 declare global {
   interface Window {
@@ -42,7 +41,7 @@ export function grantAnalyticsConsent() {
  * begin_checkout, add_payment_info and every checkout_* event. (purchase has
  * its own handling: it reports a failure to Sentry.)
  */
-function safeEvent(name: string, params: Record<string, unknown>) {
+export function safeEvent(name: string, params: Record<string, unknown>) {
   if (typeof window === "undefined" || !window.gtag) return;
   try {
     window.gtag("event", name, params);
@@ -55,7 +54,8 @@ function safeEvent(name: string, params: Record<string, unknown>) {
 // search → select_item → view_item → begin_checkout → add_payment_info → purchase
 //
 //   search          one per search ATTEMPT, with how it ended and what was
-//                   shown (src/lib/analytics/search-event.ts)
+//                   shown (sent by track-search.ts, built by search-event.ts;
+//                   kept out of this file, which every page loads)
 //   select_item     a lot was picked from the results. item_list_name:
 //                   "search_results" (list card) or "search_map" (map pin or
 //                   mobile map card)
@@ -85,20 +85,6 @@ function safeEvent(name: string, params: Record<string, unknown>) {
 // Event-scoped custom dimensions to register in GA4 for these: item_surface,
 // lots_shown, price_band, stay_days, dates_defaulted, search_outcome,
 // search_trigger, sort_by (lead_days is shared with checkout_view).
-
-/**
- * A search attempt and what the searcher saw. Builds its own params, so a
- * search event cannot be sent with hand-made ones, and never throws: it is
- * called from inside the search page's fetch, where a throw would replace good
- * results with the error panel.
- */
-export function trackSearch(input: SearchEventInput) {
-  try {
-    safeEvent("search", buildSearchEventParams(input));
-  } catch {
-    // Analytics only.
-  }
-}
 
 /** A lot's details were shown, on the search panel or the full lot page. */
 export function trackLotView(lot: {
