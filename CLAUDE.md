@@ -229,4 +229,4 @@ npm run publish          # promote draft/review posts to published
 
 *Shared team CLAUDE.md — committed to the `triply` repo so every contributor's
 Claude Code reads the same rules. Personal/ops notes stay in each dev's own
-environment, not here. Last updated: November 6, 2026 — `docs/review-lessons.md`: check every PR against it (Code review). October 12, 2026 — Codex reviews moved to `gpt-6.1-sol` (Astra drained the Plus allowance).*
+environment, not here. Last updated: November 11, 2026 — CI is the merge gate (`.github/workflows/ci.yml`, `npm run typecheck`); rollback = Vercel Instant Rollback. November 6, 2026 — `docs/review-lessons.md`: check every PR against it (Code review). October 12, 2026 — Codex reviews moved to `gpt-6.1-sol` (Astra drained the Plus allowance).*

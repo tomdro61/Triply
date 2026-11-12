@@ -15,8 +15,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }} # never cancel a run on main
+  # A PR's newer push cancels its older run. On main every commit gets its own
+  # group (its SHA): a shared group would let GitHub drop a PENDING main run
+  # when a third merge arrives, and that commit would never get a result.
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   app:
