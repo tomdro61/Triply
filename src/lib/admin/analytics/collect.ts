@@ -173,7 +173,9 @@ export async function collectContent(now: Date, today: string): Promise<Section<
   const { current, previous } = ga4Windows(now);
   return section(async () => {
     const [main, gsc] = await Promise.all([
-      // "-v2": the cached shape gained byAirport; a "content" entry from the
+      // A GA4 cache name changes whenever its query or its shape changes,
+      // because entries outlive a deploy. "-v3" (also funnel-v2, sources-v2):
+      // the queries gained the bot-country exclusion. "-v2": the cached shape gained byAirport; a "content" entry from the
       // previous deploy must not be served without it.
       cached("content-v3", current.end, async () => {
         const [sessions, bookings] = await Promise.all([blogSessions(current, previous), bookingsInWindow(current)]);

@@ -68,16 +68,22 @@ describe("gtag-init: automated browsers are tagged, not dropped", () => {
   afterEach(() => vi.unstubAllGlobals());
   const href = "https://www.triplypro.com/blog/jfk-airport-parking-rates";
 
-  it("navigator.webdriver: every hit is marked traffic_type automation, set before the config that sends the page_view", () => {
+  // Both ways the first page_view can go out: config sends it, or (a URL
+  // carrying a secret) config is told not to and a cleaned page_view follows.
+  it.each([
+    ["a normal page", href],
+    ["an emailed confirmation link", "https://www.triplypro.com/confirmation/RTL1?lot=reslab-2&email=dana%40example.com"],
+  ])("navigator.webdriver on %s: tagged before the config and before any page_view", (_label, url) => {
     vi.stubGlobal("navigator", { webdriver: true });
-    const { calls } = run(gtagInitScript("G-TEST"), { href });
+    const { calls } = run(gtagInitScript("G-TEST"), { href: url });
     const set = calls.findIndex((c) => c[0] === "set");
     const config = calls.findIndex((c) => c[0] === "config");
+    const pageView = calls.findIndex((c) => c[0] === "event" && c[1] === "page_view");
     expect(calls[set]).toEqual(["set", { traffic_type: "automation" }]);
-    expect(set).toBeGreaterThan(-1);
-    expect(set).toBeLessThan(config);
-    // Still measured: the config (and its page_view) goes out as usual.
-    expect(calls).toContainEqual(["config", "G-TEST"]);
+    // Still measured: the config goes out as usual, after the tag.
+    expect(config).toBeGreaterThan(set);
+    if (pageView !== -1) expect(pageView).toBeGreaterThan(set);
+    expect(pageView !== -1).toBe(url.includes("email="));
   });
 
   it.each([
