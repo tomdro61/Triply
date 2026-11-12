@@ -1,8 +1,8 @@
 /**
  * POST /api/newsletter
  *
- * Unauthenticated, visitor-facing: mints a live one-time 10% promo code per
- * new address, so it carries the same guards as /api/attribution —
+ * Unauthenticated, visitor-facing: mints a live one-time welcome promo code
+ * per new address, so it carries the same guards as /api/attribution —
  * same-origin only, a bounded per-IP limiter, a measured body cap, and one
  * Sentry event per rejection class. See src/lib/http/origin.ts and
  * src/lib/attribution/limiter.ts.
@@ -54,6 +54,14 @@ import {
 } from "@/lib/attribution/limiter";
 import { getAirportByCode } from "@/config/airports";
 import { isPromoCodeUsable } from "@/lib/promo/usable";
+import { isFixedPromoEnabled } from "@/lib/promo/flag";
+import {
+  parsePromoRule,
+  promoMinimumLabel,
+  promoRuleAmountLabel,
+  promoRuleLabel,
+  type PromoRule,
+} from "@/lib/promo/discount";
 import { welcomeBookUrl, welcomeBookLabel } from "@/lib/newsletter/welcome-link";
 
 const MAX_BODY_BYTES = 2048;
@@ -91,10 +99,13 @@ const UNEXPECTED_MESSAGE = "Something went wrong. Please try again.";
 // already tells a subscriber who received nothing what to do. Residual,
 // documented above: the mint-tier 429 can still leak state under quota
 // pressure; the response BODY cannot.
+// It names no amount: the same body goes to every caller, and a re-send can
+// carry a code minted under an earlier offer (10% before Nov 2026). The email
+// itself states the code's value, from the code's own row.
 // Exported so tests assert against this directly rather than duplicating
 // (and risking drifting from) the literal copy.
 export const SUCCESS_MESSAGE =
-  "Thanks! If this address is new to us, your 10% code is on its way — check your inbox. If it doesn't arrive within a few minutes, contact support@triplypro.com.";
+  "Thanks! If this address is new to us, your welcome code is on its way — check your inbox. If it doesn't arrive within a few minutes, contact support@triplypro.com.";
 
 const newsletterSchema = z.object({
   // .trim() FIRST: zod runs .email() before any transform, so a pasted address
@@ -149,8 +160,10 @@ let mintRateLimitCount = 0;
 let subscriberLookupFaultCount = 0;
 let promoLookupFaultCount = 0;
 let stampFaultCount = 0;
+let unreadableCodeCount = 0;
 export function __resetNewsletterRouteTelemetryForTests(): void {
   reported.clear();
+  unreadableCodeCount = 0;
   originRejectionCount = 0;
   requestRateLimitCount = 0;
   mintRateLimitCount = 0;
@@ -190,9 +203,63 @@ function reportOnceError(
 
 type AdminClient = Awaited<ReturnType<typeof createAdminClient>>;
 
-async function mintPromoCode(
-  supabase: AdminClient
-): Promise<{ id: string; code: string } | null> {
+/**
+ * The columns the welcome email is worded from: the offer (`parsePromoRule`)
+ * and the expiry. The mint and the re-send lookup both select them.
+ */
+const WELCOME_CODE_SELECT = "code, discount_percent, discount_amount, min_subtotal, expires_at";
+
+// Every column must be PRESENT (null is fine): parsePromoRule reads an absent
+// discount_amount / min_subtotal as "none", so a select that dropped one
+// would email a $5 code without its $25 minimum (Nov 2026 review).
+const welcomeRowSchema = z.object({
+  code: z.string(),
+  discount_percent: z.number().nullable(),
+  discount_amount: z.union([z.number(), z.string()]).nullable(),
+  min_subtotal: z.union([z.number(), z.string()]).nullable(),
+  expires_at: z.string().nullable(),
+});
+
+/** A code as the welcome email states it, read from its own row. */
+type WelcomeCode = { code: string; rule: PromoRule; expiresAt: Date | null };
+
+function readWelcomeCode(row: unknown): { ok: true; welcome: WelcomeCode } | { ok: false; reason: string } {
+  const shape = welcomeRowSchema.safeParse(row);
+  if (!shape.success) {
+    return {
+      ok: false,
+      reason: `promo row unreadable: ${shape.error.issues.map((i) => `${i.path.join(".") || "(row)"} ${i.message}`).join("; ")}`,
+    };
+  }
+  const parsed = parsePromoRule(shape.data);
+  if (!parsed.ok) return parsed;
+  let expiresAt: Date | null = null;
+  if (shape.data.expires_at !== null) {
+    expiresAt = new Date(shape.data.expires_at);
+    if (Number.isNaN(expiresAt.getTime())) {
+      return { ok: false, reason: `promo code ${parsed.rule.code} has an unreadable expires_at` };
+    }
+  }
+  return { ok: true, welcome: { code: shape.data.code, rule: parsed.rule, expiresAt } };
+}
+
+/** "Dec 11, 2026, 1:13 PM EST" — the instant checkout stops accepting the code. */
+function formatExpiry(at: Date): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(at);
+}
+
+/** A freshly minted code, read back from the row as stored. */
+type MintedCode = WelcomeCode & { id: string };
+
+async function mintPromoCode(supabase: AdminClient): Promise<MintedCode | null> {
   const code = generatePromoCode();
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 30);
@@ -207,7 +274,7 @@ async function mintPromoCode(
       max_uses: 1,
       current_uses: 0,
     })
-    .select("id")
+    .select(`id, ${WELCOME_CODE_SELECT}`)
     .single();
 
   if (error || !data) {
@@ -223,13 +290,29 @@ async function mintPromoCode(
     );
     return null;
   }
-  return { id: data.id, code };
+
+  // The email is worded from the row as STORED, not from the values sent, so
+  // what we promise and what checkout applies can't disagree. A row we can't
+  // read is our own fault: remove it and fail like any other mint failure.
+  const read = readWelcomeCode(data);
+  if (!read.ok) {
+    console.error(`Minted newsletter promo code ${data.id} is unreadable: ${read.reason}`);
+    await bestEffortDeleteMintedCode(supabase, data.id, "parse_minted_code");
+    captureAPIError(new Error(`Minted newsletter promo code is unreadable: ${read.reason}`), {
+      endpoint: "/api/newsletter",
+      method: "POST",
+      stage: "mint_parse",
+      extra: { promoCodeId: data.id },
+    });
+    return null;
+  }
+  return { id: data.id, ...read.welcome };
 }
 
 /**
  * Best-effort cleanup for a promo code that was minted but never durably
  * attached to a subscriber row (the follow-up insert/update failed). Without
- * this, every write failure on that path leaves a live, unused, 30-day 10%
+ * this, every write failure on that path leaves a live, unused, 30-day
  * code in the table with nothing pointing at it — not a security hole, but a
  * standing liability (discount inventory) that only grows. Errors here are
  * swallowed except for a Sentry capture: failing to clean up is strictly
@@ -348,18 +431,32 @@ async function stampWelcomeSentAt(supabase: AdminClient, subscriberId: string): 
  */
 async function sendWelcomeEmail(
   email: string,
-  code: string,
+  welcome: WelcomeCode,
   airportCode: string | undefined
 ): Promise<boolean> {
+  const { code, rule, expiresAt } = welcome;
   // The button goes to the signup airport's search (it runs at once with
   // default dates), or the homepage when no sellable airport is known.
   const bookUrl = welcomeBookUrl(airportCode);
-  const bookLabel = welcomeBookLabel(airportCode);
+  // Every figure below is the code's OWN (its row, read), never a constant:
+  // a re-send can carry a code minted under an earlier offer, and days after
+  // it was minted (so "valid for 30 days" would overstate it).
+  const bookLabel = welcomeBookLabel(airportCode, promoRuleAmountLabel(rule));
+  const validity = expiresAt ? `Expires ${formatExpiry(expiresAt)} &bull; One-time use` : "One-time use";
+  const offer = promoRuleLabel(rule); // "$5 off" / "10% off"
+  const minimum = promoMinimumLabel(rule);
+  // The conditions checkout enforces (src/lib/promo/discount.ts), stated where
+  // the code is promised: the minimum, and for a fixed amount the
+  // pay-at-the-lot refusal (decision D1 — it never comes out of the fee).
+  const terms =
+    (minimum ? ` (parking of ${minimum} or more)` : "") +
+    "." +
+    (rule.amountCents !== null ? " Not valid on pay-at-the-lot bookings." : "");
   try {
     const { data, error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: [email],
-      subject: "Welcome to Triply! Here's your 10% off code",
+      subject: `Welcome to Triply! Here's your ${offer} code`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
           <div style="background-color: #1A1A2E; padding: 32px 40px; text-align: center;">
@@ -368,11 +465,11 @@ async function sendWelcomeEmail(
           </div>
           <div style="padding: 40px;">
             <h2 style="margin: 0 0 20px; color: #111827; font-size: 20px; font-weight: 700;">Welcome to Triply!</h2>
-            <p style="font-size: 15px; color: #374151; line-height: 1.6;">Thanks for subscribing! Here's your exclusive 10% discount code:</p>
+            <p style="font-size: 15px; color: #374151; line-height: 1.6;">Thanks for subscribing! Here's your exclusive code for ${offer}:</p>
             <div style="background-color: #f9fafb; padding: 24px; border-radius: 8px; border: 2px dashed #f87356; text-align: center; margin: 24px 0;">
               <p style="font-size: 13px; color: #9ca3af; margin: 0 0 8px;">Your Promo Code</p>
               <p style="font-size: 28px; font-weight: bold; color: #f87356; margin: 0; letter-spacing: 2px;">${code}</p>
-              <p style="font-size: 13px; color: #9ca3af; margin: 8px 0 0;">Valid for 30 days &bull; One-time use</p>
+              <p style="font-size: 13px; color: #9ca3af; margin: 8px 0 0;">${validity}</p>
             </div>
             <div style="text-align: center; margin: 30px 0;">
               <a href="${bookUrl}" style="background-color: #f87356; color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">
@@ -380,7 +477,7 @@ async function sendWelcomeEmail(
               </a>
             </div>
             <p style="font-size: 14px; color: #9ca3af; text-align: center;">
-              Apply this code at checkout to get 10% off your first airport parking reservation.
+              Apply this code at checkout to get ${offer} your first airport parking reservation${terms}
             </p>
           </div>
           <div style="background-color: #f9fafb; padding: 24px 40px; border-top: 1px solid #e5e7eb; text-align: center;">
@@ -648,13 +745,20 @@ export async function POST(request: NextRequest) {
     }
 
     if (existing && !existing.unsubscribed_at) {
-      let usableCode: { current_uses: number; code: string } | null = null;
+      let usableCode: WelcomeCode | null = null;
       let redeemedCode = false;
+      // A live code whose offer we can't read from its row: never re-sent (we
+      // couldn't say what it is worth) and never replaced (a fault in our own
+      // data must not spend codes). It takes the no-send 200 below.
+      let unreadableCode = false;
+      // A live fixed-amount code while the fixed-code switch is off: not
+      // re-sent (checkout would refuse it), not replaced. The no-send 200 below.
+      let heldFixedCode = false;
 
       if (existing.promo_code_id) {
         const { data: promo, error: promoError } = await supabase
           .from("promo_codes")
-          .select("active, current_uses, max_uses, expires_at, code")
+          .select(`active, current_uses, max_uses, ${WELCOME_CODE_SELECT}`)
           .eq("id", existing.promo_code_id)
           .single();
 
@@ -685,10 +789,44 @@ export async function POST(request: NextRequest) {
 
         if (promo) {
           if (isPromoCodeUsable(promo)) {
-            usableCode = promo;
+            const read = readWelcomeCode(promo);
+            if (read.ok) {
+              if (read.welcome.rule.amountCents !== null && !isFixedPromoEnabled()) {
+                // A fixed-amount ($5) code while PROMO_FIXED_ENABLED is off
+                // (a rollback, runbook § 41): checkout answers "isn't
+                // available right now", so don't email it. Held, not
+                // replaced — it works again once the switch is back on.
+                heldFixedCode = true;
+                console.warn(`Newsletter re-send held for subscriber ${existing.id}: fixed code while PROMO_FIXED_ENABLED is off`);
+                reportOnce("resend_held_fixed_code_flag_off", { subscriberId: existing.id });
+              } else {
+                usableCode = read.welcome;
+              }
+            } else {
+              // Migration 049's CHECKs make this near-impossible. Not a 503:
+              // it would repeat for this one address on every request, which
+              // answers exactly the membership question the body withholds.
+              unreadableCodeCount += 1;
+              unreadableCode = true;
+              console.error(
+                `Newsletter promo code for subscriber ${existing.id} is unreadable (#${unreadableCodeCount} this instance): ${read.reason}`
+              );
+              // Keyed per subscriber, not per instance: each one is a person
+              // who can't get their code until the row is fixed.
+              reportOnceError(
+                `promo_row_malformed:${existing.id}`,
+                new Error(`Newsletter promo code for subscriber ${existing.id} is unreadable: ${read.reason}`),
+                {
+                  endpoint: "/api/newsletter",
+                  method: "POST",
+                  stage: "promo_row_malformed",
+                  extra: { faultsThisInstance: unreadableCodeCount },
+                }
+              );
+            }
           } else if (promo.current_uses > 0) {
-            // Already redeemed at least once — the one-time 10% code is not
-            // renewable. Do NOT mint a replacement no matter how it's
+            // Already redeemed at least once — the one-time welcome code is
+            // not renewable. Do NOT mint a replacement no matter how it's
             // otherwise unusable (expired, deactivated).
             redeemedCode = true;
           }
@@ -726,7 +864,7 @@ export async function POST(request: NextRequest) {
 
         if (source) await recordSourceAttribution(supabase, existing.id, source, airportCode, slug);
 
-        const sent = await sendWelcomeEmail(emailLower, usableCode.code, airportCode);
+        const sent = await sendWelcomeEmail(emailLower, usableCode, airportCode);
         if (sent) await stampWelcomeSentAt(supabase, existing.id);
         return NextResponse.json({
           success: true,
@@ -736,14 +874,18 @@ export async function POST(request: NextRequest) {
 
       if (
         redeemedCode ||
+        unreadableCode ||
+        heldFixedCode ||
         withinWelcomeCooldown(existing.welcome_sent_at) ||
         cooldownStateUnknown
       ) {
         // Either the code on file has already been used (a fresh one would
-        // make the discount infinitely renewable), or we emailed this
-        // address within the last 7 days — or we cannot tell, which is
-        // treated the same way rather than as permission to mint. Same body
-        // as every other 200 — see the SUCCESS_MESSAGE comment above.
+        // make the discount infinitely renewable), or it is live but its row
+        // is unreadable (reported above), or it is a $5 code held while the
+        // fixed-code switch is off, or we emailed this address within
+        // the last 7 days — or we cannot tell, which is treated the same way
+        // rather than as permission to mint. Same body as every other 200 —
+        // see the SUCCESS_MESSAGE comment above.
         const exhausted = refuseIfMintQuotaExhausted();
         if (exhausted) return exhausted;
         if (source) await recordSourceAttribution(supabase, existing.id, source, airportCode, slug);
@@ -785,7 +927,7 @@ export async function POST(request: NextRequest) {
       // Past this point nothing in this branch can still 503.
       if (source) await recordSourceAttribution(supabase, existing.id, source, airportCode, slug);
 
-      const sent = await sendWelcomeEmail(emailLower, minted.code, airportCode);
+      const sent = await sendWelcomeEmail(emailLower, minted, airportCode);
       if (sent) await stampWelcomeSentAt(supabase, existing.id);
       return NextResponse.json({
         success: true,
@@ -866,7 +1008,7 @@ export async function POST(request: NextRequest) {
       await recordSourceAttribution(supabase, subscriberId, source, airportCode, slug);
     }
 
-    const sent = await sendWelcomeEmail(emailLower, minted.code, airportCode);
+    const sent = await sendWelcomeEmail(emailLower, minted, airportCode);
     if (sent) await stampWelcomeSentAt(supabase, subscriberId);
 
     return NextResponse.json({

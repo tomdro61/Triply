@@ -17,6 +17,12 @@ const { db, sentry, resendSend } = await vi.hoisted(async () => {
 });
 
 vi.mock("@/lib/supabase/server", () => ({ createAdminClient: async () => db }));
+// The real parser, wrapped so one test can make a minted row unreadable (the
+// fake enforces 049's CHECKs, so no stored row can fail it otherwise).
+vi.mock("@/lib/promo/discount", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/promo/discount")>();
+  return { ...actual, parsePromoRule: vi.fn(actual.parsePromoRule) };
+});
 vi.mock("@/lib/resend/client", () => ({
   resend: { emails: { send: resendSend } },
   FROM_EMAIL: "Triply <bookings@triplypro.com>",
@@ -39,8 +45,27 @@ import {
   __resetNewsletterRateLimitForTests,
   __resetNewsletterRequestRateLimitForTests,
 } from "@/lib/attribution/limiter";
+import { parsePromoRule } from "@/lib/promo/discount";
+
+const { parsePromoRule: realParsePromoRule } = await vi.importActual<typeof import("@/lib/promo/discount")>(
+  "@/lib/promo/discount"
+);
 
 const HOST = "www.triplypro.com";
+
+/** The email's expiry wording, computed the route's way (ET, short zone name). */
+function expiryText(iso: string): string {
+  const at = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(new Date(iso));
+  return `Expires ${at} &bull; One-time use`;
+}
 
 function post(
   body: unknown,
@@ -62,12 +87,19 @@ function post(
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.unstubAllEnvs();
+  // clearAllMocks keeps queued *Once values; a test that queued one and never
+  // reached the parse must not leak it into the next test.
+  vi.mocked(parsePromoRule).mockReset();
+  vi.mocked(parsePromoRule).mockImplementation(realParsePromoRule);
   resendSend.mockResolvedValue({ data: { id: "email_1" }, error: null });
   __resetNewsletterRateLimitForTests();
   __resetNewsletterRequestRateLimitForTests();
   __resetNewsletterRouteTelemetryForTests();
   db.tables = { newsletter_subscribers: [], promo_codes: [] };
   db.log = [];
+  db.selects = [];
+  db.mutationSelects = [];
 });
 
 describe("POST /api/newsletter — origin gate", () => {
@@ -105,9 +137,11 @@ describe("POST /api/newsletter — limits", () => {
     const future = new Date(Date.now() + 1000 * 60 * 60 * 24 * 10).toISOString();
     db.tables.promo_codes.push({
       id: "promo_quota",
+      code: "WELCOME-QUOTA",
       active: true,
       current_uses: 0,
       max_uses: 1,
+      discount_percent: 10,
       expires_at: future,
     });
     db.tables.newsletter_subscribers.push({
@@ -198,6 +232,142 @@ describe("POST /api/newsletter — new signup", () => {
     expect(url.searchParams.has("airport")).toBe(false);
     expect(url.searchParams.get("utm_campaign")).toBe("welcome");
   });
+
+  it("mints today's 10% row exactly (the fake enforces 049's one-kind CHECK) and words the email from it", async () => {
+    const res = await POST(post({ email: "row@example.com", airportCode: "abe" }));
+    expect(res.status).toBe(200);
+    expect(db.tables.promo_codes).toHaveLength(1);
+    const row = db.tables.promo_codes[0];
+    expect(row.discount_percent).toBe(10);
+    expect(row.discount_amount ?? null).toBeNull();
+    expect(row.min_subtotal ?? null).toBeNull();
+    expect(row.max_uses).toBe(1);
+    expect(String(row.code)).toMatch(/^WELCOME-[0-9A-F]{6}$/);
+
+    const sent = resendSend.mock.calls[0][0];
+    expect(sent.subject).toBe("Welcome to Triply! Here's your 10% off code");
+    const html = String(sent.html);
+    expect(html).toContain("Here's your exclusive code for 10% off:");
+    expect(html).toContain("Book ABE parking &amp; save 10%");
+    expect(html).toContain("to get 10% off your first airport parking reservation.");
+    expect(html).toContain(expiryText(String(row.expires_at)));
+    expect(html).not.toContain("Valid for 30 days");
+    expect(html).not.toContain("$");
+    expect(html).not.toContain("pay-at-the-lot");
+
+    // The mint reads back every column the email is worded from (the fake
+    // returns only the selected columns for promo_codes, like PostgREST).
+    const mintSelect = db.mutationSelects.find((s) => s.table === "promo_codes" && s.op === "insert")?.select ?? "";
+    for (const col of ["id", "code", "discount_percent", "discount_amount", "min_subtotal", "expires_at"]) {
+      expect(mintSelect).toContain(col);
+    }
+  });
+
+  it("a minted row that can't be read is deleted and the signup fails honestly (503, nothing sent)", async () => {
+    vi.mocked(parsePromoRule).mockReturnValueOnce({ ok: false, reason: "test: unreadable row" });
+
+    const res = await POST(post({ email: "unreadable@example.com" }));
+    expect(res.status).toBe(503);
+    expect((await res.json()).success).toBeUndefined();
+    expect(db.tables.promo_codes).toHaveLength(0);
+    expect(db.tables.newsletter_subscribers).toHaveLength(0);
+    expect(resendSend).not.toHaveBeenCalled();
+    // The cleanup DELETE asks for the deleted row back, so a 0-row delete is visible.
+    expect(db.mutationSelects).toContainEqual({ table: "promo_codes", op: "delete", select: "id" });
+    expect(sentry.captureException).toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/newsletter — the email states the code's own offer", () => {
+  it("a held $5 code is NOT re-sent while PROMO_FIXED_ENABLED is off (checkout would refuse it): usual 200, nothing minted", async () => {
+    vi.stubEnv("PROMO_FIXED_ENABLED", "false");
+    seedResendable("sub_held", "held@example.com", {
+      discount_percent: null,
+      discount_amount: "5.00",
+      min_subtotal: "25.00",
+    });
+
+    const res = await POST(post({ email: "held@example.com" }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ success: true, message: SUCCESS_MESSAGE });
+    expect(resendSend).not.toHaveBeenCalled();
+    expect(db.tables.promo_codes).toHaveLength(1);
+    expect(sentry.captureMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("a re-sent $5 code ($25 minimum) is worded $5 with its conditions — never 10%", async () => {
+    vi.stubEnv("PROMO_FIXED_ENABLED", "true");
+    seedResendable("sub_fixed", "fixed@example.com", {
+      discount_percent: null,
+      discount_amount: "5.00",
+      min_subtotal: "25.00",
+    });
+
+    const res = await POST(post({ email: "fixed@example.com", airportCode: "abe" }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ success: true, message: SUCCESS_MESSAGE });
+    expect(resendSend).toHaveBeenCalledTimes(1);
+    const sent = resendSend.mock.calls[0][0];
+    expect(sent.subject).toBe("Welcome to Triply! Here's your $5 off code");
+    const html = String(sent.html);
+    expect(html).toContain("WELCOME-SUB_FIXED");
+    expect(html).toContain("Here's your exclusive code for $5 off:");
+    expect(html).toContain("Book ABE parking &amp; save $5");
+    expect(html).toContain(
+      "to get $5 off your first airport parking reservation (parking of $25 or more). Not valid on pay-at-the-lot bookings."
+    );
+    expect(html).not.toContain("10%");
+    // A re-send states the code's real expiry (here 10 days out), not "30 days".
+    expect(html).toContain(expiryText(String(db.tables.promo_codes[0].expires_at)));
+    expect(html).not.toContain("30 days");
+  });
+
+  it("a re-sent 10% code minted before the switch is still worded 10%", async () => {
+    seedResendable("sub_legacy", "legacy@example.com");
+
+    await POST(post({ email: "legacy@example.com" }));
+    expect(resendSend).toHaveBeenCalledTimes(1);
+    const sent = resendSend.mock.calls[0][0];
+    expect(sent.subject).toBe("Welcome to Triply! Here's your 10% off code");
+    expect(String(sent.html)).toContain("Book Now &amp; Save 10%");
+    expect(String(sent.html)).not.toContain("$5");
+  });
+
+  it("the promo lookup reads the offer columns (the fake returns whole rows, so name them explicitly)", async () => {
+    seedResendable("sub_cols", "cols@example.com");
+    await POST(post({ email: "cols@example.com" }));
+    const promoSelect = db.selects.find((s) => s.table === "promo_codes")?.select ?? "";
+    for (const col of ["code", "discount_percent", "discount_amount", "min_subtotal", "active", "expires_at", "max_uses", "current_uses"]) {
+      expect(promoSelect).toContain(col);
+    }
+  });
+
+  it.each([
+    ["both kinds", { discount_percent: 10, discount_amount: "5.00" }],
+    ["neither kind", { discount_percent: null }],
+  ])("a live code whose row is unreadable (%s): no send, no new code, the usual 200, one Sentry event", async (_label, offer) => {
+    seedResendable("sub_bad", "bad@example.com", offer);
+
+    const res = await POST(post({ email: "bad@example.com" }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ success: true, message: SUCCESS_MESSAGE });
+    expect(resendSend).not.toHaveBeenCalled();
+    expect(db.tables.promo_codes).toHaveLength(1);
+    expect(db.tables.newsletter_subscribers[0].welcome_sent_at).toBeNull();
+    expect(sentry.captureException).toHaveBeenCalledTimes(1);
+  });
+
+  it("unreadable codes are reported once per subscriber, not once per instance", async () => {
+    seedResendable("sub_bad_a", "bad-a@example.com", { discount_percent: null });
+    seedResendable("sub_bad_b", "bad-b@example.com", { discount_percent: null });
+
+    await POST(post({ email: "bad-a@example.com" }));
+    await POST(post({ email: "bad-a@example.com" }));
+    await POST(post({ email: "bad-b@example.com" }));
+    expect(resendSend).not.toHaveBeenCalled();
+    // a twice (deduped to one) + b once = two events, one per affected person.
+    expect(sentry.captureException).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("POST /api/newsletter — already subscribed", () => {
@@ -205,9 +375,11 @@ describe("POST /api/newsletter — already subscribed", () => {
     const future = new Date(Date.now() + 1000 * 60 * 60 * 24 * 10).toISOString();
     db.tables.promo_codes.push({
       id: "promo_1",
+      code: "WELCOME-1",
       active: true,
       current_uses: 0,
       max_uses: 1,
+      discount_percent: 10,
       expires_at: future,
     });
     db.tables.newsletter_subscribers.push({
@@ -238,9 +410,11 @@ describe("POST /api/newsletter — already subscribed", () => {
     const past = new Date(Date.now() - 1000).toISOString();
     db.tables.promo_codes.push({
       id: "promo_2",
+      code: "WELCOME-2",
       active: true,
       current_uses: 0,
       max_uses: 1,
+      discount_percent: 10,
       expires_at: past,
     });
     db.tables.newsletter_subscribers.push({
@@ -265,9 +439,11 @@ describe("POST /api/newsletter — already subscribed", () => {
     const past = new Date(Date.now() - 1000).toISOString();
     db.tables.promo_codes.push({
       id: "promo_used",
+      code: "WELCOME-USED",
       active: true,
       current_uses: 1,
       max_uses: 1,
+      discount_percent: 10,
       expires_at: past,
     });
     db.tables.newsletter_subscribers.push({
@@ -296,9 +472,11 @@ describe("POST /api/newsletter — already subscribed", () => {
     const recentlySent = new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString();
     db.tables.promo_codes.push({
       id: "promo_cooldown",
+      code: "WELCOME-COOLDOWN",
       active: true,
       current_uses: 0,
       max_uses: 1,
+      discount_percent: 10,
       expires_at: past,
     });
     db.tables.newsletter_subscribers.push({
@@ -324,9 +502,11 @@ describe("POST /api/newsletter — already subscribed", () => {
     const longAgo = new Date(Date.now() - 1000 * 60 * 60 * 24 * 8).toISOString();
     db.tables.promo_codes.push({
       id: "promo_stale_cooldown",
+      code: "WELCOME-STALECOOLDOWN",
       active: true,
       current_uses: 0,
       max_uses: 1,
+      discount_percent: 10,
       expires_at: past,
     });
     db.tables.newsletter_subscribers.push({
@@ -492,9 +672,10 @@ describe("POST /api/newsletter — a failed welcome email never locks the subscr
 
 /**
  * Helper: an already-subscribed address holding a LIVE code that has never
- * been confirmed as sent (welcome_sent_at null) — the resend branch.
+ * been confirmed as sent (welcome_sent_at null) — the resend branch. The code
+ * is today's 10% unless `offer` overrides its kind columns.
  */
-function seedResendable(id: string, email: string) {
+function seedResendable(id: string, email: string, offer: Record<string, unknown> = { discount_percent: 10 }) {
   const future = new Date(Date.now() + 1000 * 60 * 60 * 24 * 10).toISOString();
   db.tables.promo_codes.push({
     id: `${id}_promo`,
@@ -502,6 +683,7 @@ function seedResendable(id: string, email: string) {
     active: true,
     current_uses: 0,
     max_uses: 1,
+    ...offer,
     expires_at: future,
   });
   db.tables.newsletter_subscribers.push({
@@ -575,6 +757,7 @@ describe("POST /api/newsletter — status parity under mint-quota pressure", () 
       active: true,
       current_uses: 0,
       max_uses: 1,
+      discount_percent: 10,
       expires_at: future,
     });
     db.tables.newsletter_subscribers.push({

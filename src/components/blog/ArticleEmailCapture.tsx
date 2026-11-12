@@ -36,7 +36,7 @@ export function ArticleEmailCapture({ airportCode, slug, placement }: ArticleEma
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submittedMessage, setSubmittedMessage] = useState(
-    "Check your inbox — your 10% code is on its way."
+    "Check your inbox — your welcome code is on its way."
   );
 
   // Only name the airport when it is one we can actually sell — post.airportCode
@@ -91,7 +91,7 @@ export function ArticleEmailCapture({ airportCode, slug, placement }: ArticleEma
         throw new Error("We couldn't confirm your signup. Please try again.");
       }
 
-      setSubmittedMessage(data.message || "Check your inbox — your 10% code is on its way.");
+      setSubmittedMessage(data.message || "Check your inbox — your welcome code is on its way.");
       setIsSubmitted(true);
       // The response no longer says whether this address was already
       // subscribed (that flag was an enumeration oracle — see /api/newsletter's

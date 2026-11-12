@@ -114,7 +114,7 @@ function parseOr(expr: string): (row: Row) => boolean {
 
 /**
  * CHECK constraints the direct-lots engine must respect (migrations 034, 036,
- * 038), evaluated on INSERT only, against the row WITH its column defaults
+ * 038) and promo_codes' kind rules (002, 049), evaluated on INSERT only, against the row WITH its column defaults
  * applied (the stored row is left as the caller wrote it, so recorded snapshots
  * don't change). Returns the violated constraint's name, or null.
  *
@@ -162,6 +162,18 @@ function violatedCheck(table: string, row: Row): string | null {
     if (!Array.isArray(recipients) || recipients.length < 1 || recipients.some((r) => isNull(r))) {
       return "direct_booking_terms_lot_recipients_check";
     }
+  }
+  if (table === "promo_codes") {
+    // 002 + 049: a code is a percent OR a dollar amount, never both or neither.
+    // Without these, a mint that wrote both kinds passed every test and would
+    // have 503'd every real newsletter signup (Nov 2026 plan review).
+    if (typeof v.code !== "string" || v.code !== v.code.trim().toUpperCase()) return "promo_codes_code_normalised";
+    const pct = v.discount_percent;
+    const amt = v.discount_amount;
+    if ([pct, amt].filter((x) => !isNull(x)).length !== 1) return "promo_codes_one_kind";
+    if (!isNull(pct) && !(Number(pct) > 0 && Number(pct) <= 100)) return "promo_codes_discount_percent_check";
+    if (!isNull(amt) && !(Number(amt) > 0 && Number(amt) <= 20)) return "promo_codes_discount_amount_range";
+    if (!isNull(v.min_subtotal) && !(Number(v.min_subtotal) >= 0)) return "promo_codes_min_subtotal_nonneg";
   }
   return null;
 }
@@ -276,6 +288,8 @@ export class FakeSupabase {
    *  change must not churn it. Use this to assert a query never reads a column
    *  (e.g. a customer-facing read touching partner terms). */
   selects: Array<{ table: string; select: string }> = [];
+  /** `.select(...)` strings asked for on an insert / update / delete. */
+  mutationSelects: Array<{ table: string; op: string; select: string }> = [];
 
   seed(table: string, rows: Row[]) {
     this.tables[table] = rows.map((r) => ({ ...r }));
@@ -401,6 +415,9 @@ export class FakeSupabase {
   }
 }
 
+/** Tables whose selects return only the named columns (see FakeQuery.project). */
+const PROJECTED_TABLES = new Set(["promo_codes"]);
+
 class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: number }> {
   private filters: Filter[] = [];
   private op: "select" | "insert" | "update" | "delete" = "select";
@@ -409,6 +426,7 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
   /** `.select()` called AFTER insert/update/delete — PostgREST only returns
    *  the affected rows when it is. */
   private selectOnMutation = false;
+  private mutationSelectStr = "";
   private singleRow = false;
   private requireOne = false;
   private orOnMutation = false;
@@ -435,6 +453,7 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
       if (opts?.head) this.headOnly = true;
     } else {
       this.selectOnMutation = true;
+      this.mutationSelectStr = str;
     }
     return this;
   }
@@ -567,6 +586,21 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
     return { ...row, customers: embed };
   }
 
+  /**
+   * PostgREST returns only the columns a select names. Modelled for the tables
+   * in PROJECTED_TABLES only (other suites lean on whole rows): a select that
+   * forgets a column hands back a row without it, so a reader that needs the
+   * column fails its test instead of passing on the fake's whole row
+   * (newsletter welcome code, Nov 2026 review). A named column the seeded row
+   * lacks comes back null: in Postgres every row has every column.
+   */
+  private project(row: Row, select: string): Row {
+    if (!PROJECTED_TABLES.has(this.table)) return row;
+    const cols = select.split(",").map((c) => c.trim()).filter(Boolean);
+    if (cols.length === 0 || cols.some((c) => !/^[a-z_][a-z0-9_]*$/.test(c))) return row;
+    return Object.fromEntries(cols.map((c) => [c, row[c] ?? null]));
+  }
+
   private matches(row: Row): boolean {
     const withEmbed = this.embeddedCustomer(row);
     return this.filters.every((f) => {
@@ -620,6 +654,7 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
   private run(): { data: unknown; error: unknown; count?: number } {
     this.db.log.push({ table: this.table, op: this.op });
     if (this.op === "select") this.db.selects.push({ table: this.table, select: this.selectStr });
+    else if (this.selectOnMutation) this.db.mutationSelects.push({ table: this.table, op: this.op, select: this.mutationSelectStr });
 
     // Real PostgREST rejects `.or()` on a mutating request. Reproduce it so a
     // regression to `.update(...).or(...)` fails a test instead of silently
@@ -692,7 +727,8 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
       row.updated_at = new Date().toISOString();
       rows.push(row);
       if (!this.selectOnMutation) return { data: null, error: null };
-      return { data: this.singleRow ? row : [row], error: null };
+      const shown = this.project(row, this.mutationSelectStr);
+      return { data: this.singleRow ? shown : [shown], error: null };
     }
 
     const hit = rows.filter((r) => this.matches(r));
@@ -715,7 +751,7 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
         r.updated_at = new Date().toISOString();
       }
       if (!this.selectOnMutation) return { data: null, error: null };
-      const out = hit.map((r) => ({ ...r }));
+      const out = hit.map((r) => this.project({ ...r }, this.mutationSelectStr));
       return { data: this.singleRow ? out[0] ?? null : out, error: null };
     }
 
@@ -728,7 +764,8 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
       // would bless exactly the bug the orphan-cleanup `.select("id")` in
       // /api/newsletter exists to catch.
       if (!this.selectOnMutation) return { data: null, error: null };
-      return { data: this.singleRow ? out[0] ?? null : out, error: null };
+      const shown = out.map((r) => this.project(r, this.mutationSelectStr));
+      return { data: this.singleRow ? shown[0] ?? null : shown, error: null };
     }
 
     const ordered = this.orders.length
@@ -761,7 +798,7 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
         error: null,
       };
     }
-    const out = limited.map((r) => this.embeddedCustomer({ ...r }));
+    const out = limited.map((r) => this.project(this.embeddedCustomer({ ...r }), this.selectStr));
     // Real PostgREST returns a PGRST116 error for .single() on EITHER zero OR
     // multiple matches — the multiple case matters because customers.email is
     // not UNIQUE in prod, so a duplicate-email lookup errors rather than
