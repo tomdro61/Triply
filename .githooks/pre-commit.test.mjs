@@ -27,7 +27,9 @@ function makeRepo() {
     mkdirSync(dirname(join(dir, file)), { recursive: true });
     writeFileSync(join(dir, file), text);
   };
-  git(["init", "-q", "-b", "main"]);
+  // Must succeed: without a repo here, the git calls below would climb out
+  // of the temp folder into whatever repo encloses it.
+  assert.equal(git(["init", "-q", "-b", "main"]).status, 0, "git init failed");
   git(["config", "user.email", "hook-test@example.invalid"]);
   git(["config", "user.name", "Hook Test"]);
   git(["config", "core.hooksPath", ".githooks"]);

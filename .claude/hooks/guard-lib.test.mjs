@@ -32,6 +32,14 @@ test("skipping the pre-commit gate asks", () => {
   asks(`git commit -m "fix: user's cart" --no-verify; Write-Host 'done'`);
 });
 
+test("the rest of a heredoc's opening line is still a command", () => {
+  asks("git commit -F - <<'EOF' && gh pr merge 191 --squash\nfix: x\nEOF");
+  asks("git commit -F - <<'EOF' && vercel --prod\nfix: x\nEOF");
+  asks("cat <<'EOF' | git commit -n -F -\nfix: x\nEOF");
+  asks("git commit -F - <<'EOF' --no-verify\nfix: x\nEOF");
+  quiet("git commit -q -F - <<'EOF' && git push\nfix: mention gh pr merge\nEOF");
+});
+
 test("a command handed to another shell is checked too", () => {
   asks('bash -c "git commit --no-verify -m x"');
   asks('bash -c "git commit -n -m x"');
@@ -40,6 +48,9 @@ test("a command handed to another shell is checked too", () => {
   asks('bash -c "vercel --prod"');
   asks("bash -c 'vercel promote x'");
   asks('bash -c "gh api -X PUT repos/o/r/pulls/1/merge"');
+  // an escaped quote inside the string must not cut it short
+  asks('bash -c "git commit -m \\"x\\" --no-verify"');
+  asks('bash -c "git commit -m \\"x\\" && gh pr merge 1"');
   quiet('git add scripts/setup.sh && git commit -m "chore: setup.sh no longer passes --no-verify"');
   quiet('bash -c "npm test"');
 });
@@ -56,7 +67,16 @@ test("changing the hooks path or CLAUDECODE asks; reading or naming them does no
   asks("$env:CLAUDECODE = ''; git commit -m x");
   asks("env -u CLAUDECODE git commit -m x");
   asks("Remove-Item Env:CLAUDECODE; git commit -m x");
+  asks("Clear-Item Env:\\CLAUDECODE; git commit -m x");
+  asks("[Environment]::SetEnvironmentVariable('CLAUDECODE', $null); git commit -m x");
+  asks("GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/dev/null git commit -m x");
   quiet("git config core.hooksPath");
+  quiet("git config core.hooksPath 2>/dev/null || echo unset");
+  quiet("git config --get core.hooksPath 2>&1");
+  quiet("git config core.hooksPath 2>$null");
+  quiet('git commit -m "docs: npm install runs git config core.hooksPath .githooks"');
+  quiet('git commit -m "docs: the installer sets core.hooksPath=.githooks"');
+  quiet('rg -n "git config core.hooksPath x" .');
   quiet("git config --get core.hooksPath");
   quiet("git config core.hooksPath && git status");
   quiet("git grep -n core.hooksPath");

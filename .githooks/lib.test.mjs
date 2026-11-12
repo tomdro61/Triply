@@ -53,7 +53,8 @@ test("the airports config is read by the engine, so it needs both", () => {
 test("hook files run the hook tests", () => {
   assert.equal(classify([".githooks/pre-commit.mjs"]).hooks, true);
   assert.equal(classify([".claude/hooks/guard-lib.mjs"]).hooks, true);
-  assert.equal(classify([".claude/settings.json"]).hooks, false);
+  assert.equal(classify([".claude/settings.json"]).hooks, true);
+  assert.equal(classify([".claude/skills/x/SKILL.md"]).hooks, false);
 });
 
 test("review tiers: a file is listed once, in its strictest group", () => {

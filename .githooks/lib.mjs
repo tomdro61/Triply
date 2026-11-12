@@ -25,7 +25,10 @@ export function classify(files) {
   for (const raw of files) {
     const f = normalize(raw);
     if (!f) continue;
-    if (f.startsWith(".githooks/") || f.startsWith(".claude/hooks/")) need.hooks = true;
+    // settings.json too: a test checks its matcher still names every guarded tool.
+    if (f.startsWith(".githooks/") || f.startsWith(".claude/hooks/") || f.startsWith(".claude/settings")) {
+      need.hooks = true;
+    }
     if (f.startsWith(BLOG_ENGINE)) {
       need.blogEngine = true;
       continue;

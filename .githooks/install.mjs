@@ -31,7 +31,10 @@ try {
       say("pre-commit hook already installed.");
     } else if (current) {
       // Someone's own hooks (a secret scanner, husky): never replace them silently.
-      say(`NOT installed: core.hooksPath is already "${current}". To use this repo's hook: git config core.hooksPath ${WANT}`);
+      say(
+        `NOT installed: core.hooksPath is already "${current}". To use this repo's hook instead ` +
+          `(your current hooks then stop running in this repo): git config core.hooksPath ${WANT}`,
+      );
     } else {
       git(["config", "core.hooksPath", WANT]);
       say("pre-commit hook installed (core.hooksPath = .githooks).");
