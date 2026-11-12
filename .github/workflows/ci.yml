@@ -1,0 +1,112 @@
+# The merge gate for `main` (docs: CLAUDE.md "Git & dev workflow").
+#
+# The two job NAMES below marked LOAD-BEARING are named in main's branch
+# protection. Renaming or deleting one without updating protection first blocks
+# every PR. To remove CI: take the required checks off the branch, THEN change
+# this file.
+name: CI
+
+on:
+  pull_request: # every PR, any base (a stacked PR retargeted to main keeps its run)
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  # A PR's newer push cancels its older run. On main every commit gets its own
+  # group (its SHA): a shared group would let GitHub drop a PENDING main run
+  # when a third merge arrives, and that commit would never get a result.
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  app:
+    name: app (typecheck, test, build) # LOAD-BEARING
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # Separate from the build on purpose: `next build` drops type errors in
+      # test files, which is how 8 of them sat on main unnoticed.
+      - run: npm run typecheck
+      # No job-level env: the tests run with exactly what vitest.setup.ts gives
+      # them locally (a job-level NEXT_PUBLIC_APP_ENV would change fail-closed
+      # behaviour in every test that doesn't set it).
+      - run: npm test
+      - run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+          # Needed at build time (the build throws without them). Dummies only;
+          # this workflow has no secrets and must never need one.
+          RESEND_API_KEY: re_ci_dummy
+          STRIPE_SECRET_KEY: sk_test_ci_dummy
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_ci_dummy
+          NEXT_PUBLIC_SUPABASE_URL: https://supabase.invalid
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci_dummy
+          # Every outside service points at a dead host, so a future build-time
+          # call fails loudly instead of reaching production ResLab / Park
+          # Guard / the CMS (their clients fall back to production hosts when
+          # the URL is unset).
+          RESLAB_API_URL: https://reslab.invalid/v1
+          RESLAB_API_DOMAIN: ci.invalid
+          PARKGUARD_API_URL: https://parkguard.invalid
+          NEXT_PUBLIC_CMS_URL: http://cms.invalid
+          NEXT_PUBLIC_APP_URL: https://www.triplypro.com
+          # Build the variant that ships.
+          NEXT_PUBLIC_APP_ENV: production
+          # Deliberately unset: SENTRY_AUTH_TOKEN (would upload source maps),
+          # ENABLE_RESLAB_LOCATION_SNAPSHOT / ENABLE_DIRECT_LOTS (would read
+          # Supabase while prerendering).
+
+  blog-engine:
+    name: blog-engine (typecheck, test) # LOAD-BEARING
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: scripts/blog-engine
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: scripts/blog-engine/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit -p .
+      # node:test files; they make no network calls. src/config.ts refuses to
+      # load without these two keys, so they get dummies and a dead CMS host.
+      - run: npx tsx --test src/*.test.ts
+        env:
+          ANTHROPIC_API_KEY: ci_dummy
+          PAYLOAD_API_KEY: ci_dummy
+          PAYLOAD_CMS_URL: http://cms.invalid
+
+  lint:
+    # Advisory until the existing ESLint errors are cleared in a cleanup PR;
+    # then it becomes a required step. NOT in branch protection.
+    name: lint (advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
