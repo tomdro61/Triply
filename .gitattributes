@@ -1,0 +1,3 @@
+# Snapshot files are LF in git. Without this, a Windows checkout rewrites them
+# on every test run and they show as modified.
+*.snap text eol=lf

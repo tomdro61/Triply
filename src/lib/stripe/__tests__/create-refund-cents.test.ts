@@ -25,17 +25,16 @@ describe("createRefundCents", () => {
   it("100×-bug guard: 6601 cents is sent as 6601, not 660100", async () => {
     const spy = okRefund();
     await createRefundCents("pi_123", 6601);
-    const arg = spy.mock.calls[0][0];
-    expect(arg.amount).toBe(6601);
-    expect(arg.amount).not.toBe(660100);
+    expect(spy).toHaveBeenNthCalledWith(1, expect.objectContaining({ amount: 6601 }), undefined);
+    expect(spy).not.toHaveBeenCalledWith(expect.objectContaining({ amount: 660100 }), undefined);
   });
 
   it("agrees with createRefund(dollars) for an equivalent amount", async () => {
     const spy = okRefund();
     await createRefundCents("pi_1", 9707); // cents
     await createRefund("pi_1", 97.07); // dollars → ×100 internally
-    expect(spy.mock.calls[0][0].amount).toBe(9707);
-    expect(spy.mock.calls[1][0].amount).toBe(9707);
+    expect(spy).toHaveBeenNthCalledWith(1, expect.objectContaining({ amount: 9707 }), undefined);
+    expect(spy).toHaveBeenNthCalledWith(2, expect.objectContaining({ amount: 9707 }), undefined);
   });
 
   it("omits the idempotency options when no key is given", async () => {

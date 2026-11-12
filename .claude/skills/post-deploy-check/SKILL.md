@@ -141,8 +141,8 @@ Look for:
 
 If new errors appear that look related to the change, rollback first
 and diagnose second. The rollback path:
-1. `git revert <merge-commit-sha>` on `main`
-2. `git push origin main`
+1. Vercel Instant Rollback: promote the previous production deployment (dashboard → Deployments). It needs neither GitHub nor CI.
+2. Then open a revert PR (`git revert <merge-commit-sha>` on a branch). `main` is protected; never push to it directly.
 3. Vercel auto-deploys the revert
 4. Then debug at leisure on a feature branch
 

@@ -69,7 +69,7 @@ interface OutlineItem {
 // are NOT article sections — we terminate the block there and drop them.
 
 // Read a single-column sheet as an array of trimmed strings (skipping blanks).
-function readColumn(sheet: XLSX.WorkSheet): string[] {
+function readColumn(sheet: import('xlsx').WorkSheet): string[] {
   const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: '' })
   return rows
     .map((r) => String((r as unknown[])[0] ?? '').trim())
@@ -79,7 +79,7 @@ function readColumn(sheet: XLSX.WorkSheet): string[] {
 const SPOKE_KEYWORDS_MARKER = /related spoke keywords/i
 
 // Parse the flat Hub Outline sheet: collect every "H2:" heading after the H1.
-function parseHubOutline(sheet: XLSX.WorkSheet): OutlineItem[] {
+function parseHubOutline(sheet: import('xlsx').WorkSheet): OutlineItem[] {
   const lines = readColumn(sheet)
   const items: OutlineItem[] = []
   let order = 1
@@ -97,7 +97,7 @@ function parseHubOutline(sheet: XLSX.WorkSheet): OutlineItem[] {
 // starts at an "H1:" row; its "H2:" rows become the outline (stopping at the
 // "Related Spoke Keywords" section). Returns blocks in sheet order so main()
 // can zip them to the dashboard's sub-pillars by position.
-function parseSubPillarOutlineBlocks(sheet: XLSX.WorkSheet): { title: string; items: OutlineItem[] }[] {
+function parseSubPillarOutlineBlocks(sheet: import('xlsx').WorkSheet): { title: string; items: OutlineItem[] }[] {
   const lines = readColumn(sheet)
   const blocks: { title: string; items: OutlineItem[] }[] = []
   let current: { title: string; items: OutlineItem[] } | null = null

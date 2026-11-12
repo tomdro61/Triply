@@ -67,7 +67,7 @@ interface OutlineItem {
 // column name and fold "Key Points" into the outline item's `summary`.
 
 // Parse the Hub Outline sheet: one row per H2 section.
-function parseHubOutline(sheet: XLSX.WorkSheet): OutlineItem[] {
+function parseHubOutline(sheet: import('xlsx').WorkSheet): OutlineItem[] {
   const rows = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, { defval: '' })
   const items: OutlineItem[] = []
   let order = 1
@@ -89,7 +89,7 @@ function parseHubOutline(sheet: XLSX.WorkSheet): OutlineItem[] {
 // "Sub-Pillar" title. Returned map is keyed by that title (e.g. "IAH Airport
 // Parking Rates & Pricing"), NOT by the dashboard keyword — main() bridges the
 // two by ordered position.
-function parseSubPillarOutlines(sheet: XLSX.WorkSheet): Map<string, OutlineItem[]> {
+function parseSubPillarOutlines(sheet: import('xlsx').WorkSheet): Map<string, OutlineItem[]> {
   const rows = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, { defval: '' })
   const map = new Map<string, OutlineItem[]>()
   const orderByTitle = new Map<string, number>()

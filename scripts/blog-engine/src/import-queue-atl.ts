@@ -62,7 +62,7 @@ interface OutlineItem {
 }
 
 // Parse the flat Hub Outline sheet: skip H1 rows, take H2 rows in order.
-function parseHubOutline(sheet: XLSX.WorkSheet): OutlineItem[] {
+function parseHubOutline(sheet: import('xlsx').WorkSheet): OutlineItem[] {
   const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: '' })
   const items: OutlineItem[] = []
   let order = 1
@@ -82,7 +82,7 @@ function parseHubOutline(sheet: XLSX.WorkSheet): OutlineItem[] {
 }
 
 // Parse the flat Sub-Pillar Outlines sheet: group H2 rows under each H1 marker.
-function parseSubPillarOutlines(sheet: XLSX.WorkSheet): Map<string, OutlineItem[]> {
+function parseSubPillarOutlines(sheet: import('xlsx').WorkSheet): Map<string, OutlineItem[]> {
   const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: '' })
   const map = new Map<string, OutlineItem[]>()
   let currentSubPillar: string | null = null

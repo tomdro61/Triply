@@ -470,7 +470,9 @@ describe("GET /api/cron/post-trip-review?backfill=…", () => {
     } finally {
       db.maxRows = null;
     }
-  });
+    // 10,001 rows through the fake: ~2 s alone, but past the 10 s default when the
+    // whole suite runs in parallel (failed once under load, Nov 11 2026).
+  }, 30_000);
 
   it("asks a pre-snapshot-era GUEST checkout through its customer record; a signed-in account's and a later one without a snapshot are skipped", async () => {
     booking({ check_out: "2026-05-01T10:00:00", stripe_payment_intent_id: "pi_old", created_at: "2026-05-01T12:00:00+00:00" });

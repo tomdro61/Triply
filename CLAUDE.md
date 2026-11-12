@@ -69,9 +69,26 @@ investigation.)
 7. **Merge the PR** → Vercel deploys to production.
 8. **Delete the branch** (`git branch -d feat/<name>` + `git push origin --delete feat/<name>`).
 
-> **Not set up yet:** CI (tests/typecheck on every PR) + `main` branch
-> protection. Until those exist, the local `build` + `test` + review in steps
-> 2–4 **are** the gate — don't skip them.
+### CI is the merge gate (since November 2026)
+
+Every PR runs `.github/workflows/ci.yml`. `main` is protected: a PR can merge only when
+both required checks are green and the branch includes the latest `main`. This applies to
+everyone, admins included.
+
+| Check | What it runs |
+|---|---|
+| `app (typecheck, test, build)` | `npm run typecheck`, `npm test`, `npm run build` |
+| `blog-engine (typecheck, test)` | in `scripts/blog-engine/`: `tsc --noEmit`, `tsx --test src/*.test.ts` |
+| `lint (advisory)` | `npm run lint`. Not required yet (existing errors need a cleanup PR). |
+
+- **Run the same checks locally before pushing**; CI is the backstop, not the first try.
+- **A red check:** open it on the PR, read the failing step, fix on the branch, push again.
+- **"Branch is out of date":** `git merge origin/main` into your branch and push. The checks re-run.
+- **A check stuck on "Expected":** push an empty commit (`git commit --allow-empty -m "ci: re-run"`).
+- **Red `main` = stop the line.** Fix or roll back before merging anything else.
+- **Production rollback is Vercel Instant Rollback** (promote the previous deployment), then a revert PR. Never a direct push to `main`.
+- **The job names are load-bearing:** branch protection names them. To rename or remove one, change protection first.
+- **CI needs no secrets.** The build uses dummy keys and `.invalid` hosts. Never add a real key to the workflow.
 
 ---
 
@@ -117,7 +134,7 @@ live in two different places and are governed differently:
 
 Before opening a PR:
 
-- `npm run build` + `npm test` (app) — must pass.
+- `npm run typecheck` + `npm test` + `npm run build` (app) — must pass. CI runs the same three.
 - **Check the diff against [`docs/review-lessons.md`](docs/review-lessons.md)** and list the lessons
   you checked in the PR body. Every lesson there is a mistake our reviews keep finding; most PRs
   needed 2–8 review rounds for them.
@@ -195,7 +212,8 @@ Custom skills committed to this repo — invoke by name (`/<name>`). **Caveat:**
 ```bash
 # Main app (triply/)
 npm run dev              # dev server on :3000
-npm run build            # production build (Vercel typechecks the whole project)
+npm run build            # production build (it does NOT type-check test files)
+npm run typecheck        # tsc over everything, test files included
 npm test                 # Vitest unit tests
 
 # CMS (triply-cms/)

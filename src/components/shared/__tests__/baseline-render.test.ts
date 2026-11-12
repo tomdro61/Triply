@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
@@ -41,7 +41,20 @@ vi.mock("@/components/chat", () => ({ HeroChatInput: () => createElement("div", 
 import { Hero } from "../hero";
 import Home from "@/app/(main)/page";
 
+// The homepage renders dates relative to "today" (the featured-parking search
+// link, the footer year). Without a pinned clock the snapshot failed every day
+// after it was recorded. Only Date is faked: timers stay real.
+const FIXED_NOW = new Date("2026-11-11T15:00:00Z");
+
 describe("homepage — baseline markup (PR B must not change it)", () => {
+  beforeAll(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(FIXED_NOW);
+  });
+  afterAll(() => {
+    vi.useRealTimers();
+  });
+
   it("Hero with no props", () => {
     expect(renderToStaticMarkup(createElement(Hero))).toMatchSnapshot();
   });
