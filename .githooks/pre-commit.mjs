@@ -37,7 +37,9 @@ function fail(msg) {
 const root = git(["rev-parse", "--show-toplevel"], process.cwd()).trim();
 if (!root) process.exit(0);
 
-// 1. Never commit task work to main or staging.
+// 1. Never commit task work to main or staging. (A detached HEAD has no
+// branch and passes on purpose: that is every commit made during a rebase,
+// and it moves neither branch.)
 const branch = git(["symbolic-ref", "--short", "-q", "HEAD"], root).trim();
 if (branch === "main" || branch === "staging") {
   fail(`this commit is on \`${branch}\`. Cut a branch first: git checkout -b feat/<name>`);

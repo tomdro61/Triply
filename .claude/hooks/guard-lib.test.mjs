@@ -11,6 +11,11 @@ test("skipping the pre-commit gate asks", () => {
   asks("cd /c/Projects/Triply_claude/triply && git add a.ts && git commit -q --no-verify -F - <<'EOF'\nfix: x\nEOF");
   asks("git -C triply commit -n -m x");
   asks("git commit -qn -m x");
+  asks("git commit --no-v -m x");
+  asks("git commit --no-ver -m x");
+  asks('bash -c "git commit --no-verify -m x"');
+  asks("powershell -Command \"git commit --no-verify -m x\"");
+  asks('bash -c "gh pr merge 191 --merge"');
   asks("git -c core.hooksPath=/dev/null commit -m x");
   asks("git config core.hooksPath .other");
   asks("git config --unset core.hooksPath");
@@ -47,6 +52,10 @@ test("merging and production deploys ask", () => {
   asks("vercel --prod");
   asks("npx vercel promote https://x.vercel.app");
   asks("vercel rollback");
+  asks("vercel deploy --target production");
+  asks("vercel --target=production");
+  asks("vercel alias set x.vercel.app www.triplypro.com");
+  asks("vercel redeploy x.vercel.app");
 });
 
 test("reading PRs and deployments stays quiet", () => {

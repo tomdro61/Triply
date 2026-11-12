@@ -3,6 +3,10 @@
 //
 // It only ever answers "ask" or nothing. It never allows (that would
 // pre-approve everything chained after the command) and never denies.
+//
+// This is a guardrail against taking a shortcut, not a security boundary: a
+// git alias, a cleared environment or an edited hook file gets past it. The
+// real gate is on the server (required CI checks and branch protection).
 
 const VERCEL_DEPLOY_TOOLS = new Set([
   "mcp__vercel__request_promote",
@@ -44,8 +48,16 @@ export function reasonToAsk(input) {
   const bare = stripQuoted(command);
 
   // Skipping or disabling the pre-commit gate.
-  if (new RegExp(`\\bgit\\b${SEG}\\bcommit\\b(?!-)${SEG}(--no-verify\\b|\\s-[a-zA-Z]*n[a-zA-Z]*(\\s|$))`).test(bare)) {
-    return "`git commit --no-verify` skips the pre-commit gate (typecheck and tests). Approve only if the failure is not caused by this commit.";
+  // (git accepts any unique prefix of a long option: --no-v, --no-ver, …)
+  const SKIP_GATE =
+    "`git commit --no-verify` skips the pre-commit gate (typecheck and tests). Approve only if the failure is not caused by this commit.";
+  if (new RegExp(`\\bgit\\b${SEG}\\bcommit\\b(?!-)${SEG}(--no-v[a-z-]*|\\s-[a-zA-Z]*n[a-zA-Z]*(\\s|$))`).test(bare)) {
+    return SKIP_GATE;
+  }
+  // A command handed to another shell as a string is still a command.
+  if (/\b(bash|sh|zsh|pwsh|powershell|cmd|eval|Invoke-Expression|iex)\b/i.test(bare)) {
+    if (/\bcommit\b[^\n]*--no-v/.test(noHeredocs)) return SKIP_GATE;
+    if (/\bgh\s+pr\s+merge\b/.test(noHeredocs)) return "Merging a PR deploys to production. Merge only on Tom's explicit go.";
   }
   if (/core\.hooksPath/i.test(noHeredocs)) {
     return "This changes or overrides core.hooksPath, which is what installs the pre-commit gate.";
@@ -61,7 +73,7 @@ export function reasonToAsk(input) {
   if (/\bgh\s+api\b/.test(bare) && /(\/merge\b|mergePullRequest)/.test(noHeredocs)) {
     return "This merges a PR through the GitHub API. Merge only on Tom's explicit go.";
   }
-  if (new RegExp(`\\bvercel\\b${SEG}(--prod\\b|\\bpromote\\b|\\brollback\\b)`).test(bare)) {
+  if (new RegExp(`\\bvercel\\b${SEG}(--prod\\b|--target[= ]+production\\b|\\bpromote\\b|\\brollback\\b|\\balias\\b|\\bredeploy\\b)`).test(bare)) {
     return "This changes what production serves (Vercel deploy, promote or rollback). Tom approves these.";
   }
   return null;
