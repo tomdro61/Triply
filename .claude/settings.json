@@ -5,7 +5,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash|PowerShell|mcp__vercel__request_promote|mcp__vercel__request_rollback|mcp__vercel__create_deployment|mcp__vercel__assign_alias|mcp__vercel__update_route_versions|mcp__vercel__update_bulk_redirect_version|mcp__vercel__start_rolling_release|mcp__vercel__approve_rolling_release_stage|mcp__vercel__complete_rolling_release|mcp__vercel__pause_project",
+        "matcher": "Bash|PowerShell|mcp__vercel__request_promote|mcp__vercel__request_rollback|mcp__vercel__create_deployment|mcp__vercel__assign_alias|mcp__vercel__update_route_versions|mcp__vercel__update_bulk_redirect_version|mcp__vercel__start_rolling_release|mcp__vercel__approve_rolling_release_stage|mcp__vercel__complete_rolling_release|mcp__vercel__pause_project|mcp__vercel__unpause_project",
         "hooks": [
           {
             "type": "command",

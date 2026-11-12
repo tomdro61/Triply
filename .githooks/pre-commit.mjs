@@ -100,7 +100,8 @@ if (need.hooks) {
           .filter((f) => f.endsWith(".test.mjs"))
           .map((f) => join(root, dir, f))
       : [],
-  );  if (!tests.length) fail("hook tests: no *.test.mjs files found in .githooks or .claude/hooks.");
+  );
+  if (!tests.length) fail("hook tests: no *.test.mjs files found in .githooks or .claude/hooks.");
   run("hook tests", root, "--test", tests);
 }
 

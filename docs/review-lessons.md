@@ -227,6 +227,11 @@ a human.
 
 One entry per reviewed PR: what the review found, by lesson number. Newest first.
 
+- **Claude Code hooks in the repo (Nov 12, #191):**
+  - Lesson 5: the guard read a command with a plain apostrophe in its message (`"Tom's go" && gh pr merge 1`) as nothing to ask about, because quotes were stripped in two passes. Same family: text after a heredoc marker on its own line, continued lines, `-n` before `;`. In the pre-commit hook a failed `git diff --cached` (over 1 MiB of paths) read as "nothing staged", and a renamed file's old path was not listed. Fixed over three passes.
+  - Lesson 13: the first tests only pinned the forms the author thought of; 14 of 15 deliberate breaks still passed. The end-to-end test added in review (real commits in a throwaway repo) caught a real fail-open at once: a nested `node --test` exits 0 on a failing test while `NODE_TEST_CONTEXT` is inherited.
+  - Lesson 15: pass 2 and pass 3 each found a High introduced by the previous pass's fix (an escaped quote inside `bash -c "…"`; a quoted config key hidden by the new placeholder). A text-matching guard needs a regression list run against the previous version after every change.
+
 - **The welcome code is $5 off (Nov 11, PR B of the $5 welcome switch):**
   - Lesson 5: with `PROMO_FIXED_ENABLED` off the route mints the old 10% code, and the only signal was a once-per-instance Sentry *warning*. A typo (`1`, `yes`, unset) also switches off all 23 airport codes, and the only alert rule pages on high-priority issues. Now an error for anything but exactly `false`, with the raw value in the event.
   - Lesson 15: the round-1 fix still shared one Sentry fingerprint between the warning and the error, so a rollback's warning would have created the issue at medium priority and a later typo would group into it unseen. Each case is now its own issue (pass 2).

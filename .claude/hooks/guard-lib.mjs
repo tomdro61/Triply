@@ -21,7 +21,17 @@ export const VERCEL_DEPLOY_TOOLS = [
   "mcp__vercel__approve_rolling_release_stage",
   "mcp__vercel__complete_rolling_release",
   "mcp__vercel__pause_project",
+  "mcp__vercel__unpause_project",
 ];
+
+// A heredoc: the marker, the rest of its line (kept), a body that may be
+// empty, and the closing word on its own line.
+const HEREDOC_RE = /<<-?\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1([^\n]*)\n(?:[\s\S]*?\n)??[ \t]*\2[ \t]*(?=\n|$)/;
+
+// Quoted strings and shell comments, found in ONE left-to-right pass so that
+// whichever opens first wins: an apostrophe inside "double quotes" or inside
+// a # comment must not pair with a later single quote.
+const QUOTED_OR_COMMENT_RE = /'[^']*'|"(?:[^"\\]|\\.)*"|(?<![^\s;&|(])#[^\n]*/g;
 
 /**
  * Drops heredoc bodies and PowerShell here-strings (message text is not a
@@ -30,24 +40,22 @@ export const VERCEL_DEPLOY_TOOLS = [
  * (`<<'EOF' && gh pr merge 1`), so it is kept.
  */
 export function stripHeredocs(command) {
-  return command
-    .replace(/\r\n/g, "\n")
-    .replace(
-      /<<-?\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1([^\n]*)\n[\s\S]*?\n[ \t]*\2[ \t]*(?=\n|$)/g,
-      (_all, _quote, _word, rest) => ` ${rest}`,
-    )
+  let text = command.replace(/\r\n/g, "\n");
+  // One heredoc at a time, until none is left: the kept tail of an opening
+  // line can open a second heredoc (`<<'A' && cat <<'B'`).
+  for (let before; before !== text; ) {
+    before = text;
+    text = text.replace(HEREDOC_RE, (_all, _quote, _word, rest) => ` ${rest}`);
+  }
+  return text
     .replace(/@'[\s\S]*?\n'@/g, " ")
     .replace(/@"[\s\S]*?\n"@/g, " ")
     .replace(/[\\`]\n/g, " "); // bash `\` and PowerShell backtick continuations
 }
 
-/**
- * Also drops quoted strings, for rules where a quoted mention is only prose.
- * One left-to-right pass, so whichever quote opens first wins: an apostrophe
- * inside "double quotes" must not pair with a later single quote.
- */
+/** Also drops quoted strings and comments, for rules where a quoted mention is only prose. */
 export function stripQuoted(command) {
-  return stripHeredocs(command).replace(/'[^']*'|"(?:[^"\\]|\\.)*"/g, " ");
+  return stripHeredocs(command).replace(QUOTED_OR_COMMENT_RE, " ");
 }
 
 // One command of a chain: stop at ; & | and newlines.
@@ -106,22 +114,28 @@ export function reasonToAsk(input, depth = 0) {
   // Writes to core.hooksPath only: reading it, grepping for it or naming it
   // in a message stays quiet. `words` keeps one placeholder per quoted string,
   // so a quoted VALUE still reads as a write and quoted prose disappears.
-  const words = noHeredocs.replace(/'[^']*'|"(?:[^"\\]|\\.)*"/g, " QUOTED ");
+  // (A quoted key, `git config 'core.hooksPath' x`, is unquoted first.)
+  const words = noHeredocs
+    .replace(/(['"])(core\.hooksPath)\1/gi, "$2")
+    .replace(QUOTED_OR_COMMENT_RE, (m) => (m[0] === "#" ? " " : " QUOTED "))
+    .replace(/\d*>>?(?:&\d+|\s*[^\s;&|]+)/g, " "); // redirects (2>/dev/null, 2>&1) are not a value
   if (
     /-c\s+["']?core\.hooksPath\s*=/i.test(noHeredocs) ||
-    (/GIT_CONFIG_/.test(bare) && /core\.hooksPath/i.test(noHeredocs)) ||
-    /\bconfig\b[^;&|\n]*\bcore\.hooksPath\b(?![ \t]*(?:$|[;&|\n)]|\d*>))/i.test(words) ||
+    (/GIT_CONFIG_(?:KEY_\d+|PARAMETERS)/.test(bare) && /core\.hooksPath/i.test(noHeredocs)) ||
+    /\bconfig\b[^;&|\n]*\bcore\.hooksPath\b(?![ \t]*(?:$|[;&|\n)]))/i.test(words) ||
     /\bconfig\b[^;&|\n]*(?:--unset(?:-all)?|\bunset)\b[^;&|\n]*\bcore\.hooksPath\b/i.test(words)
   ) {
     return "This changes or overrides core.hooksPath, which is what installs the pre-commit gate.";
   }
   // Setting or clearing CLAUDECODE next to a git command (not mentioning it).
+  // (A quoted `"env:CLAUDECODE"` path is unquoted first.)
+  const envWords = noHeredocs.replace(/(['"])(env:\\?CLAUDECODE)\1/gi, "$2").replace(QUOTED_OR_COMMENT_RE, " ");
   if (
     /\bgit\b/.test(bare) &&
-    (/\bCLAUDECODE[ \t]*=|\benv\b[^;&|\n]*-u[ \t]*CLAUDECODE\b|\bunset\b[^;&|\n]*\bCLAUDECODE\b|\b(?:Remove-Item|Clear-Item|Set-Item|del|ri|rm)\b[^;&|\n]*env:\\?CLAUDECODE/i.test(
-      bare,
+    (/\bCLAUDECODE[ \t]*=|\benv\b[^;&|\n]*-u[ \t]*CLAUDECODE\b|\bunset\b[^;&|\n]*\bCLAUDECODE\b|\b(?:Remove-Item|Clear-Item|Set-Item|New-Item|del|ri|rm|ni)\b[^;&|\n]*env:\\?CLAUDECODE/i.test(
+      envWords,
     ) ||
-      /SetEnvironmentVariable\([^)]*CLAUDECODE/i.test(noHeredocs))
+      (/SetEnvironmentVariable\s*\(/i.test(bare) && /SetEnvironmentVariable\([^)]*CLAUDECODE/i.test(noHeredocs)))
   ) {
     return "This sets or clears CLAUDECODE alongside a git command; the pre-commit gate only runs when CLAUDECODE=1.";
   }

@@ -38,6 +38,12 @@ test("the rest of a heredoc's opening line is still a command", () => {
   asks("cat <<'EOF' | git commit -n -F -\nfix: x\nEOF");
   asks("git commit -F - <<'EOF' --no-verify\nfix: x\nEOF");
   quiet("git commit -q -F - <<'EOF' && git push\nfix: mention gh pr merge\nEOF");
+  // two heredocs opened on one line, and an empty body
+  asks("cat > a <<'A' && cat > b <<'B'\nx\nA\nit's\nB\ngh pr merge 1 --subject 'y'");
+  quiet("cat > a <<'A' && cat > b <<'B'\nx\nA\nvercel --prod\nB\ngit status");
+  asks("cat > empty.txt <<'EOF'\nEOF\ngh pr merge 1\ncat > b.txt <<'EOF'\nx\nEOF");
+  quiet('git commit -m "$(cat <<\'EOF\'\nfix: mention --no-verify and gh pr merge\nEOF\n)"');
+  asks('git commit -m "$(cat <<\'EOF\'\nfix: x\nEOF\n)" --no-verify');
 });
 
 test("a command handed to another shell is checked too", () => {
@@ -62,6 +68,9 @@ test("changing the hooks path or CLAUDECODE asks; reading or naming them does no
   asks('git config core.hooksPath "/dev/null"');
   asks("git config core.hookspath /dev/null");
   asks("git config --unset core.hooksPath");
+  asks("git config 'core.hooksPath' /dev/null");
+  asks("git config core.hooksPath 2>/dev/null /tmp/none");
+  asks('git config --unset "core.hooksPath"');
   asks("CLAUDECODE= git commit -m x");
   asks('CLAUDECODE="" git commit -m x');
   asks("$env:CLAUDECODE = ''; git commit -m x");
@@ -70,6 +79,17 @@ test("changing the hooks path or CLAUDECODE asks; reading or naming them does no
   asks("Clear-Item Env:\\CLAUDECODE; git commit -m x");
   asks("[Environment]::SetEnvironmentVariable('CLAUDECODE', $null); git commit -m x");
   asks("GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/dev/null git commit -m x");
+  asks('Remove-Item -Path "env:CLAUDECODE"; git commit -m x');
+  asks("Remove-Item 'Env:\\CLAUDECODE'; git commit -m x");
+  asks("New-Item -Path env:CLAUDECODE -Value 0 -Force; git commit -m x");
+  // an apostrophe in a comment must not hide the command on the next line
+  asks("# reset the hooks path (it's broken)\ngit config core.hooksPath ''");
+  asks("# it's fine\ngit commit --no-verify -m 'x'");
+  asks('git commit -m "fix #12" --no-verify');
+  quiet(`git commit -m "guard: [Environment]::SetEnvironmentVariable('CLAUDECODE', '') now asks"`);
+  quiet('git log --grep "SetEnvironmentVariable(CLAUDECODE"');
+  quiet("GIT_CONFIG_GLOBAL=/dev/null git config --get core.hooksPath");
+  quiet("rm -rf dist && git status");
   quiet("git config core.hooksPath");
   quiet("git config core.hooksPath 2>/dev/null || echo unset");
   quiet("git config --get core.hooksPath 2>&1");
