@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { clarityInitScript, gtagInitScript } from "../inline-analytics-scripts";
 
 const window_ = (): Record<string, unknown> => ({});
@@ -60,6 +60,49 @@ describe("gtag-init", () => {
   it("an opt-out sets analytics_storage denied; utm_medium=email is not a secret", () => {
     const { calls } = run(gtagInitScript("G-TEST"), { href: "https://www.triplypro.com/?utm_medium=email", cookie: OPTED_OUT });
     expect(calls).toContainEqual(["consent", "default", expect.objectContaining({ analytics_storage: "denied" })]);
+    expect(calls).toContainEqual(["config", "G-TEST"]);
+  });
+});
+
+describe("gtag-init: automated browsers are tagged, not dropped", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const href = "https://www.triplypro.com/blog/jfk-airport-parking-rates";
+
+  // Both ways the first page_view can go out: config sends it, or (a URL
+  // carrying a secret) config is told not to and a cleaned page_view follows.
+  it.each([
+    ["a normal page", href],
+    ["an emailed confirmation link", "https://www.triplypro.com/confirmation/RTL1?lot=reslab-2&email=dana%40example.com"],
+  ])("navigator.webdriver on %s: tagged before the config and before any page_view", (_label, url) => {
+    vi.stubGlobal("navigator", { webdriver: true });
+    const { calls } = run(gtagInitScript("G-TEST"), { href: url });
+    const set = calls.findIndex((c) => c[0] === "set");
+    const config = calls.findIndex((c) => c[0] === "config");
+    const pageView = calls.findIndex((c) => c[0] === "event" && c[1] === "page_view");
+    expect(calls[set]).toEqual(["set", { traffic_type: "automation" }]);
+    // Still measured: the config goes out as usual, after the tag.
+    expect(config).toBeGreaterThan(set);
+    if (pageView !== -1) expect(pageView).toBeGreaterThan(set);
+    expect(pageView !== -1).toBe(url.includes("email="));
+  });
+
+  it.each([
+    ["an ordinary browser", { webdriver: false }],
+    ["a browser without the flag", {}],
+  ])("%s is not tagged", (_label, nav) => {
+    vi.stubGlobal("navigator", nav);
+    const { calls } = run(gtagInitScript("G-TEST"), { href });
+    expect(calls.some((c) => c[0] === "set")).toBe(false);
+    expect(calls).toContainEqual(["config", "G-TEST"]);
+  });
+
+  it("a navigator that throws does not stop analytics from starting", () => {
+    vi.stubGlobal("navigator", {
+      get webdriver() {
+        throw new Error("blocked");
+      },
+    });
+    const { calls } = run(gtagInitScript("G-TEST"), { href });
     expect(calls).toContainEqual(["config", "G-TEST"]);
   });
 });

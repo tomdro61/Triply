@@ -396,7 +396,8 @@ export default function AdminAnalyticsPage() {
         <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
         <p className="mt-1 text-sm text-gray-500">
           Last 28 days from Google Analytics, Search Console and our booking records. Revenue, airports, Park Guard,
-          promo codes and cancellations are on the Dashboard.
+          promo codes and cancellations are on the Dashboard. Google Analytics figures leave out visits from
+          Singapore and China, which are almost all automated.
         </p>
       </div>
       {error ? (

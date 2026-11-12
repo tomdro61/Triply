@@ -37,6 +37,22 @@ const CACHE_S = 3600;
 /** Live site only: our production host, never /admin. */
 const hostFilter = { filter: { fieldName: "hostName", stringFilter: { matchType: "EXACT", value: SITE_HOST } } };
 
+/**
+ * Countries whose GA4 sessions are almost all automated (Oct 13 to Nov 11,
+ * 2026: 6,540 of 27,369 sessions, desktop Chrome, near-zero engagement,
+ * landing on blog posts as "Direct", 11 searches, no bookings). Left in, they
+ * inflate visits by about a quarter and halve the blog's rates. A fixed list
+ * goes stale when the traffic moves: re-check top countries by sessions with
+ * under 5% engagement now and then. The admin page names these countries in its
+ * intro (admin/analytics/page.tsx): change both together.
+ */
+const BOT_TRAFFIC_COUNTRIES = ["Singapore", "China"];
+const notBotCountry = {
+  notExpression: { filter: { fieldName: "country", inListFilter: { values: BOT_TRAFFIC_COUNTRIES } } },
+};
+/** What every GA4 query here is limited to. */
+const siteFilters = [hostFilter, notBotCountry];
+
 function cached<T>(name: string, key: string, fn: () => Promise<T>): Promise<T> {
   return unstable_cache(fn, ["admin-analytics", name, key], { revalidate: CACHE_S })();
 }
@@ -83,7 +99,7 @@ async function blogSessionsIn(w: DateWindow): Promise<Map<string, number>> {
     dimensionFilter: {
       andGroup: {
         expressions: [
-          hostFilter,
+          ...siteFilters,
           { filter: { fieldName: "landingPage", stringFilter: { matchType: "BEGINS_WITH", value: "/blog/" } } },
         ],
       },
@@ -157,9 +173,11 @@ export async function collectContent(now: Date, today: string): Promise<Section<
   const { current, previous } = ga4Windows(now);
   return section(async () => {
     const [main, gsc] = await Promise.all([
-      // "-v2": the cached shape gained byAirport; a "content" entry from the
+      // A GA4 cache name changes whenever its query or its shape changes,
+      // because entries outlive a deploy. "-v3" (also funnel-v2, sources-v2):
+      // the queries gained the bot-country exclusion. "-v2": the cached shape gained byAirport; a "content" entry from the
       // previous deploy must not be served without it.
-      cached("content-v2", current.end, async () => {
+      cached("content-v3", current.end, async () => {
         const [sessions, bookings] = await Promise.all([blogSessions(current, previous), bookingsInWindow(current)]);
         // The blog never has zero visits in 28 days: zero means a filter or
         // property problem, not a quiet month — fail rather than cache zeros.
@@ -236,7 +254,7 @@ async function funnelSessions(w: DateWindow): Promise<Map<string, number>> {
     dimensionFilter: {
       andGroup: {
         expressions: [
-          hostFilter,
+          ...siteFilters,
           {
             filter: {
               fieldName: "eventName",
@@ -262,7 +280,7 @@ export async function collectFunnel(now: Date): Promise<Section<FunnelSection>> 
   if (!funnelWindow) return { ok: false, error: "Checkout events cover less than a week of this window" };
   const pw = purchaseWindow(funnelWindow);
   return section(() =>
-    cached("funnel", funnelWindow.end, async () => {
+    cached("funnel-v2", funnelWindow.end, async () => {
       const current = funnelWindow;
       const [all, clean] = await Promise.all([funnelSessions(current), pw ? funnelSessions(pw) : Promise.resolve(null)]);
       if ((all.get("checkout_view") ?? 0) === 0) throw new Error("GA4 returned no checkouts for the window (check the host filter / events)");
@@ -316,7 +334,7 @@ async function byChannel(w: DateWindow, metric: "sessions" | "ecommercePurchases
     dateRanges: [{ startDate: w.start, endDate: w.end }],
     dimensions: [{ name: "sessionDefaultChannelGroup" }],
     metrics: [{ name: metric }],
-    dimensionFilter: hostFilter,
+    dimensionFilter: { andGroup: { expressions: siteFilters } },
   });
   const out = new Map<string, number>();
   for (const r of rows) {
@@ -330,7 +348,7 @@ export async function collectSources(now: Date): Promise<Section<SourcesSection>
   const { current } = ga4Windows(now);
   const pw = purchaseWindow(current);
   return section(() =>
-    cached("sources", current.end, async () => {
+    cached("sources-v2", current.end, async () => {
       // Sessions over the whole window; the rate only over the clean-purchase
       // window, both sides from GA4.
       const [sessions, pwSessions, pwPurchases] = await Promise.all([

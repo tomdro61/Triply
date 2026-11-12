@@ -29,6 +29,12 @@ const READ_OPT_OUT = `
  * original location — GA4's "Redact data" property setting covers those
  * (email, and the URL query parameters payment_intent_client_secret and
  * booking_key; runbook § 38).
+ *
+ * Automated browsers (navigator.webdriver: Playwright, Puppeteer, Selenium,
+ * headless Chrome) are TAGGED, not dropped: every hit they send carries
+ * traffic_type "automation", the value a GA4 "internal traffic" data filter
+ * matches on. Kept so the tagging can be measured before anything is
+ * filtered; stealth bots that clear the flag are not caught.
  */
 export function gtagInitScript(measurementId: string): string {
   return `
@@ -42,6 +48,11 @@ export function gtagInitScript(measurementId: string): string {
       ad_personalization: 'denied',
     });
     gtag('js', new Date());
+    try {
+      if (typeof navigator !== 'undefined' && navigator.webdriver === true) {
+        gtag('set', { traffic_type: 'automation' });
+      }
+    } catch(e) {}
     var _pl = null;
     try {
       var _u = new URL(location.href), _hit = false;
