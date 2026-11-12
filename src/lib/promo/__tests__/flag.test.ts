@@ -25,3 +25,8 @@ describe("isFixedPromoEnabled", () => {
 // NEGATIVE CONTROL (never merge): a type error only tsc sees.
 const ciNegativeControl: number = "not a number";
 void ciNegativeControl;
+
+import { it as ciIt, expect as ciExpect } from "vitest";
+ciIt("NEGATIVE CONTROL (never merge): a failing assertion", () => {
+  ciExpect(1 + 1).toBe(3);
+});
