@@ -227,6 +227,13 @@ a human.
 
 One entry per reviewed PR: what the review found, by lesson number. Newest first.
 
+- **Funnel events mean what they say (Nov 12, #193):**
+  - Lesson 2: the standard GA4 events did not hold what reports claimed from them. `begin_checkout` fired at the payment step, `view_item` only on the full lot page (most people use the panel on search), and `search` said nothing of what was shown. A funnel page built on them read "85% of checkouts finish" (39%) and "97.7% never open a lot". An event's name is a claim: check where it fires before quoting it.
+  - Lesson 5: the first version reported a search as "partial" off a server flag that is also set when a hidden other-airport lot fails to price, and reported zero lots from an unreachable supplier as "empty". The outcome now follows what the page showed (review, 3 reviewers).
+  - Lesson 13: the first tests pinned call sites by counting matches: 4 of 19 deliberate call-site breaks failed a test. The decisions moved into pure functions with tests, and the remaining source checks pin arguments and position.
+  - Lesson 15: the pass-1 fix (the tracker builds its own params) pulled the ranking and price helpers into the JavaScript of every page, through the shared analytics module. Found in pass 2; the search sender now has its own module.
+  - Plan review: a guard test (`hotels/import-guard`) refused a type import from the server's search module that a reviewer had suggested. A repo guard outranks a review suggestion.
+
 - **Claude Code hooks in the repo (Nov 12, #191):**
   - Lesson 5: the guard read a command with a plain apostrophe in its message (`"Tom's go" && gh pr merge 1`) as nothing to ask about, because quotes were stripped in two passes. Same family: text after a heredoc marker on its own line, continued lines, `-n` before `;`. In the pre-commit hook a failed `git diff --cached` (over 1 MiB of paths) read as "nothing staged", and a renamed file's old path was not listed. Fixed over three passes.
   - Lesson 13: the first tests only pinned the forms the author thought of; 14 of 15 deliberate breaks still passed. The end-to-end test added in review (real commits in a throwaway repo) caught a real fail-open at once: a nested `node --test` exits 0 on a failing test while `NODE_TEST_CONTEXT` is inherited.
