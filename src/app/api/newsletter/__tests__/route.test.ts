@@ -11,7 +11,7 @@ const { db, sentry, resendSend } = await vi.hoisted(async () => {
   const { FakeSupabase } = await import("@/lib/booking/__tests__/supabase-fake");
   return {
     db: new FakeSupabase(),
-    sentry: { captureMessage: vi.fn(), withScope: vi.fn(), captureException: vi.fn() },
+    sentry: { captureMessage: vi.fn(), withScope: vi.fn(), captureException: vi.fn(), setFingerprint: vi.fn() },
     resendSend: vi.fn().mockResolvedValue({ data: { id: "email_1" }, error: null }),
   };
 });
@@ -32,7 +32,7 @@ vi.mock("@sentry/nextjs", () => ({
   captureException: sentry.captureException,
   withScope: (fn: (scope: unknown) => void) => {
     sentry.withScope();
-    fn({ setFingerprint: vi.fn(), setTag: vi.fn(), setContext: vi.fn() });
+    fn({ setFingerprint: sentry.setFingerprint, setTag: vi.fn(), setContext: vi.fn() });
   },
 }));
 
@@ -88,6 +88,8 @@ function post(
 beforeEach(() => {
   vi.clearAllMocks();
   vi.unstubAllEnvs();
+  // Production's setting (on since Nov 7, 2026); tests of the off state stub "false".
+  vi.stubEnv("PROMO_FIXED_ENABLED", "true");
   // clearAllMocks keeps queued *Once values; a test that queued one and never
   // reached the parse must not leak it into the next test.
   vi.mocked(parsePromoRule).mockReset();
@@ -233,16 +235,72 @@ describe("POST /api/newsletter — new signup", () => {
     expect(url.searchParams.get("utm_campaign")).toBe("welcome");
   });
 
-  it("mints today's 10% row exactly (the fake enforces 049's one-kind CHECK) and words the email from it", async () => {
+  it("mints the $5 / $25-minimum row exactly (the fake enforces 049's one-kind CHECK) and words the email from it", async () => {
+    const before = Date.now();
+    const res = await POST(post({ email: "five@example.com", airportCode: "abe" }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ success: true, message: SUCCESS_MESSAGE });
+    expect(db.tables.promo_codes).toHaveLength(1);
+    const row = db.tables.promo_codes[0];
+    expect(row.discount_percent).toBeNull();
+    expect(row.discount_amount).toBe(5);
+    expect(row.min_subtotal).toBe(25);
+    expect(row.max_uses).toBe(1);
+    expect(row.current_uses).toBe(0);
+    expect(row.active).toBe(true);
+    expect(String(row.code)).toMatch(/^WELCOME-[0-9A-F]{6}$/);
+    // 30 days out (setDate keeps the wall-clock time across a DST change, so allow ±1 h).
+    const days = (Date.parse(String(row.expires_at)) - before) / 86_400_000;
+    expect(days).toBeGreaterThan(30 - 1 / 24 - 0.001);
+    expect(days).toBeLessThan(30 + 1 / 24 + 0.001);
+
+    const sent = resendSend.mock.calls[0][0];
+    expect(sent.subject).toBe("Welcome to Triply! Here's your $5 off code");
+    const html = String(sent.html);
+    expect(html).toContain("Here's your exclusive code for $5 off:");
+    expect(html).toContain("Book ABE parking &amp; save $5");
+    expect(html).toContain(
+      "to get $5 off your first airport parking reservation (parking of $25 or more). Not valid on pay-at-the-lot bookings."
+    );
+    expect(html).toContain(expiryText(String(row.expires_at)));
+    expect(html).not.toContain("10%");
+    // No fallback warning while the switch is on.
+    expect(sentry.captureMessage).not.toHaveBeenCalled();
+  });
+
+  it.each([["1"], ["yes"], [undefined]])(
+    "PROMO_FIXED_ENABLED=%j (not a deliberate \"false\") still mints 10%, but reports an ERROR naming the raw value",
+    async (raw) => {
+      vi.stubEnv("PROMO_FIXED_ENABLED", raw);
+
+      expect((await POST(post({ email: "typo@example.com" }))).status).toBe(200);
+      expect(db.tables.promo_codes[0].discount_percent).toBe(10);
+      expect(sentry.captureMessage).toHaveBeenCalledTimes(1);
+      expect(sentry.captureMessage.mock.calls[0][1]).toBe("error");
+      expect(sentry.captureMessage.mock.calls[0][0]).toContain(JSON.stringify(raw ?? null));
+      // Its own Sentry issue: grouped with a rollback's warning it would never page.
+      expect(sentry.setFingerprint).toHaveBeenLastCalledWith(["newsletter_post_mint_percent_fallback_flag_invalid"]);
+    }
+  );
+
+  it("while PROMO_FIXED_ENABLED is off, mints the old 10% code (checkout would refuse a $5 one), words it 10%, and warns once", async () => {
+    vi.stubEnv("PROMO_FIXED_ENABLED", "false");
     const res = await POST(post({ email: "row@example.com", airportCode: "abe" }));
     expect(res.status).toBe(200);
-    expect(db.tables.promo_codes).toHaveLength(1);
+    expect(await res.json()).toEqual({ success: true, message: SUCCESS_MESSAGE });
+    await POST(post({ email: "row2@example.com" }));
+    expect(db.tables.promo_codes).toHaveLength(2);
     const row = db.tables.promo_codes[0];
     expect(row.discount_percent).toBe(10);
     expect(row.discount_amount ?? null).toBeNull();
     expect(row.min_subtotal ?? null).toBeNull();
     expect(row.max_uses).toBe(1);
     expect(String(row.code)).toMatch(/^WELCOME-[0-9A-F]{6}$/);
+    expect(sentry.captureMessage).toHaveBeenCalledTimes(1);
+    expect(sentry.captureMessage.mock.calls[0][0]).toContain("welcome codes minted as 10%");
+    // Exactly "false" = a deliberate rollback → warning, in its own issue.
+    expect(sentry.captureMessage.mock.calls[0][1]).toBe("warning");
+    expect(sentry.setFingerprint).toHaveBeenLastCalledWith(["newsletter_post_mint_percent_fallback_flag_off"]);
 
     const sent = resendSend.mock.calls[0][0];
     expect(sent.subject).toBe("Welcome to Triply! Here's your 10% off code");

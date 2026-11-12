@@ -2,7 +2,8 @@
  * POST /api/newsletter
  *
  * Unauthenticated, visitor-facing: mints a live one-time welcome promo code
- * per new address, so it carries the same guards as /api/attribution —
+ * per new address ($5 off parking of $25+ since Nov 11, 2026 — see
+ * src/lib/newsletter/welcome-offer.ts), so it carries the same guards as /api/attribution —
  * same-origin only, a bounded per-IP limiter, a measured body cap, and one
  * Sentry event per rejection class. See src/lib/http/origin.ts and
  * src/lib/attribution/limiter.ts.
@@ -63,6 +64,7 @@ import {
   type PromoRule,
 } from "@/lib/promo/discount";
 import { welcomeBookUrl, welcomeBookLabel } from "@/lib/newsletter/welcome-link";
+import { WELCOME_FALLBACK_PERCENT, WELCOME_OFFER } from "@/lib/newsletter/welcome-offer";
 
 const MAX_BODY_BYTES = 2048;
 
@@ -171,14 +173,19 @@ export function __resetNewsletterRouteTelemetryForTests(): void {
   stampFaultCount = 0;
   promoLookupFaultCount = 0;
 }
-function reportOnce(kind: string, context: Record<string, unknown>) {
+function reportOnce(
+  kind: string,
+  context: Record<string, unknown>,
+  message = `POST /api/newsletter rejected: ${kind}`,
+  level: "warning" | "error" = "warning"
+) {
   if (reported.has(kind)) return;
   reported.add(kind);
   try {
     Sentry.withScope((scope) => {
       scope.setFingerprint([`newsletter_post_${kind}`]);
       scope.setContext("newsletter", context);
-      Sentry.captureMessage(`POST /api/newsletter rejected: ${kind}`, "warning");
+      Sentry.captureMessage(message, level);
     });
   } catch {
     /* never let telemetry affect the response */
@@ -262,13 +269,48 @@ type MintedCode = WelcomeCode & { id: string };
 async function mintPromoCode(supabase: AdminClient): Promise<MintedCode | null> {
   const code = generatePromoCode();
   const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 30);
+  expiresAt.setDate(expiresAt.getDate() + WELCOME_OFFER.validDays);
+
+  // The offer (src/lib/newsletter/welcome-offer.ts): $5 off, $25 minimum. A
+  // code is a percent OR an amount, never both (049's one-kind CHECK), so the
+  // other kind is written as an explicit null. While PROMO_FIXED_ENABLED is off
+  // (a rollback, runbook § 41) checkout refuses fixed codes, so mint the old
+  // percent code rather than email one that can't be used; the email words
+  // whichever was stored.
+  const fixedEnabled = isFixedPromoEnabled();
+  if (!fixedEnabled) {
+    // Only exactly "false" is a deliberate rollback. Anything else ("1",
+    // "yes", unset) reads as off too, and also switches off all 23 <IATA>5
+    // codes at checkout, so it is an error, not a warning: the only alert rule
+    // pages on high-priority issues (Nov 2026 review).
+    const raw = process.env.PROMO_FIXED_ENABLED ?? null;
+    const deliberate = (raw ?? "").trim().toLowerCase() === "false";
+    console.warn(
+      `Newsletter mint: PROMO_FIXED_ENABLED is ${JSON.stringify(raw)}, minting ${WELCOME_FALLBACK_PERCENT}% instead of the $ offer`
+    );
+    // Two kinds = two Sentry fingerprints = two issues. One shared issue would
+    // let a rollback's "false" warning create it at medium priority, and a
+    // later typo's error would then group into it and page nobody.
+    reportOnce(
+      deliberate ? "mint_percent_fallback_flag_off" : "mint_percent_fallback_flag_invalid",
+      { fallbackPercent: WELCOME_FALLBACK_PERCENT, promoFixedEnabledRaw: raw, deliberate },
+      `POST /api/newsletter: PROMO_FIXED_ENABLED is ${deliberate ? "off" : `not "true" (${JSON.stringify(raw)})`}, welcome codes minted as ${WELCOME_FALLBACK_PERCENT}%`,
+      deliberate ? "warning" : "error"
+    );
+  }
+  const offer = fixedEnabled
+    ? {
+        discount_percent: null,
+        discount_amount: WELCOME_OFFER.amountDollars,
+        min_subtotal: WELCOME_OFFER.minParkingDollars,
+      }
+    : { discount_percent: WELCOME_FALLBACK_PERCENT, discount_amount: null, min_subtotal: null };
 
   const { data, error } = await supabase
     .from("promo_codes")
     .insert({
       code,
-      discount_percent: 10,
+      ...offer,
       active: true,
       expires_at: expiresAt.toISOString(),
       max_uses: 1,
@@ -798,7 +840,11 @@ export async function POST(request: NextRequest) {
                 // replaced — it works again once the switch is back on.
                 heldFixedCode = true;
                 console.warn(`Newsletter re-send held for subscriber ${existing.id}: fixed code while PROMO_FIXED_ENABLED is off`);
-                reportOnce("resend_held_fixed_code_flag_off", { subscriberId: existing.id });
+                reportOnce(
+                  "resend_held_fixed_code_flag_off",
+                  { subscriberId: existing.id },
+                  "POST /api/newsletter: a $ welcome code was not re-sent because PROMO_FIXED_ENABLED is off"
+                );
               } else {
                 usableCode = read.welcome;
               }

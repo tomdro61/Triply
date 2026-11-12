@@ -175,7 +175,12 @@ a human.
 
 One entry per reviewed PR: what the review found, by lesson number. Newest first.
 
-- **Welcome email worded from the code's own row (Nov 11, PR A of the $5 welcome switch):**
+- **The welcome code is $5 off (Nov 11, PR B of the $5 welcome switch):**
+  - Lesson 5: with `PROMO_FIXED_ENABLED` off the route mints the old 10% code, and the only signal was a once-per-instance Sentry *warning*. A typo (`1`, `yes`, unset) also switches off all 23 airport codes, and the only alert rule pages on high-priority issues. Now an error for anything but exactly `false`, with the raw value in the event.
+  - Lesson 15: the round-1 fix still shared one Sentry fingerprint between the warning and the error, so a rollback's warning would have created the issue at medium priority and a later typo would group into it unseen. Each case is now its own issue (pass 2).
+  - Lesson 1: the boxes promised "unsubscribe anytime" (there is no newsletter unsubscribe), "5,000+ travelers" and "weekly deals". Removed. A re-signup re-sends the original code, so the small print says "one code per email address" (Codex). During a rollback the boxes still say $5 while new codes are 10%; documented in runbook § 41, not plumbed.
+  - Lesson 13: `flag.ts` had no test of which values read as on; pinned.
+ (Nov 11, PR A of the $5 welcome switch):**
   - Lesson 13: the test fake returned whole `promo_codes` rows whatever the select named and enforced none of 049's CHECKs, so a mint writing both kinds (a 503 on every real signup) or a select dropping `min_subtotal` (a $5 code emailed without its $25 minimum) passed every test. The fake now projects `promo_codes` selects and enforces the kind CHECKs; the route requires every column present.
   - Lesson 2: the email said "Valid for 30 days" on re-sends of codes minted days earlier. It now states the row's `expires_at` (ET).
   - Lesson 10: a re-send of a held $5 code while `PROMO_FIXED_ENABLED` is off would have emailed a code checkout refuses. It is held, not sent.
@@ -327,6 +332,6 @@ One entry per reviewed PR: what the review found, by lesson number. Newest first
 - **#143 airport data (Nov 2):** lesson 2, stale lot prices in prose. It took 8 rounds, each finding
   bugs in the last round's fixes (lesson 15).
 
-*Updated November 11, 2026: Log entry for the welcome-email wording PR. November 10, 2026: lesson 17 (redirects, #181) and the #180 / #181 / #183 Log entries.*
+*Updated November 11, 2026: Log entries for the two $5 welcome PRs. November 10, 2026: lesson 17 (redirects, #181) and the #180 / #181 / #183 Log entries.*
 
 *Created November 6, 2026 (lesson 16 added the same day, #161) — from REVIEW-FINDINGS.md (wrapper repo) and the reviews of #143–#160.*

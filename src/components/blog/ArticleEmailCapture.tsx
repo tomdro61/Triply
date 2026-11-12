@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getAirportByCode } from "@/config/airports";
 import { trackNewsletterSignup, markAndShouldTrackNewsletterSignup } from "@/lib/analytics/gtag";
+import { WELCOME_OFFER, WELCOME_OFFER_AMOUNT, WELCOME_OFFER_MINIMUM } from "@/lib/newsletter/welcome-offer";
 
 interface ArticleEmailCaptureProps {
   airportCode?: string | null;
@@ -27,7 +28,8 @@ interface ArticleEmailCaptureProps {
  * CTA that sits above and below it.
  *
  * The copy only promises what /api/newsletter actually does: mint a one-time
- * 10% promo code, valid 30 days, emailed to the address given. No claims
+ * welcome code (WELCOME_OFFER: $5 off parking of $25 or more, valid 30 days,
+ * not on pay-at-the-lot bookings), emailed to the address given. No claims
  * about list size or "weekly deals" — nothing verifies those.
  */
 export function ArticleEmailCapture({ airportCode, slug, placement }: ArticleEmailCaptureProps) {
@@ -138,10 +140,11 @@ export function ArticleEmailCapture({ airportCode, slug, placement }: ArticleEma
             id="email-capture-heading"
             className={isPromo ? "mt-1 text-xl font-heading font-bold text-navy" : "text-xl font-heading font-bold text-navy"}
           >
-            Get 10% off your first {code ? `${code} ` : ""}parking booking
+            Get {WELCOME_OFFER_AMOUNT} off your first {code ? `${code} ` : ""}parking booking
           </h2>
           <p className="mt-2 text-gray-600">
-            Drop your email and we&apos;ll send a one-time 10% code, good for 30 days.
+            Drop your email and we&apos;ll send a one-time {WELCOME_OFFER_AMOUNT} code for parking of{" "}
+            {WELCOME_OFFER_MINIMUM} or more, good for {WELCOME_OFFER.validDays} days.
             {isPromo && " Use it at checkout on Triply (it doesn't apply at the airport's own garages)."}
           </p>
 
@@ -156,7 +159,7 @@ export function ArticleEmailCapture({ airportCode, slug, placement }: ArticleEma
           ) : (
             <form
               onSubmit={handleSubmit}
-              aria-label="Email me a 10% off code"
+              aria-label={`Email me a ${WELCOME_OFFER_AMOUNT} off code`}
               className="mt-4 flex flex-col sm:flex-row gap-3"
             >
               <label htmlFor="email-capture-input" className="sr-only">
@@ -182,7 +185,6 @@ export function ArticleEmailCapture({ airportCode, slug, placement }: ArticleEma
               <Button
                 type="submit"
                 disabled={isLoading}
-                aria-label="Send my 10% off code"
                 className="h-11 px-6 bg-navy text-white font-semibold hover:bg-navy/90"
               >
                 {isLoading ? (
@@ -204,7 +206,7 @@ export function ArticleEmailCapture({ airportCode, slug, placement }: ArticleEma
           )}
 
           {!isSubmitted && (
-            <p className="mt-3 text-xs text-gray-500">No spam. Unsubscribe anytime.</p>
+            <p className="mt-3 text-xs text-gray-500">One code per email address. Not valid on pay-at-the-lot bookings.</p>
           )}
         </div>
       </div>
