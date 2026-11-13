@@ -134,7 +134,7 @@ Run all three searches. Each catches something the others miss.
    sorted by event count. Compare each one's rate before and after the
    deploy: a jump is a spike.
 3. **Regressions:** issues that were resolved and came back
-   (`issue.substatus:regressed`), last seen since the deploy.
+   (`is:regressed`), last seen since the deploy.
 
 No Sentry tools in this session? Ask the user to check the same three
 filters in the Sentry dashboard, and say so in the report.
