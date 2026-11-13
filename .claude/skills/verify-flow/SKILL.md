@@ -278,15 +278,22 @@ run `checkout` scenario 3.
 - Find the fixture's row. Columns are: Confirmation #, Customer,
   Location, Inventory, Dates, Total, Status, Source, Actions. "Dates"
   shows dates only.
-- Assert: the dates match the fixture.
+- Assert: the dates, lot and total match the fixture.
+- The Customer column shows the customer record for that **email**, so
+  the name and phone can differ from what was typed on this booking.
+  That is not a failure.
 
 **2 — The detail window**
-- Click the row.
+- Click the row's "View Details" button (in Actions). Clicking the row
+  itself does nothing.
 - Assert: "Check-in:" shows weekday, date and time, for example
   `Sun, May 10, 2026, 8:00 AM`, with the fixture's own date and time.
   A time several hours off means a time-zone conversion crept in.
+- The same window holds the cancel form. Don't touch it.
 
-**3 — Sign out.** Close the context.
+**3 — Sign out.** Dismiss the cookie banner first ("Got it"; it covers
+the button), click "Sign out", then confirm `/admin/bookings` sends you
+back to the sign-in page. Close the context.
 
 ---
 
