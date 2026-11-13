@@ -213,14 +213,15 @@ shows "Booking Cancelled".
 **1 — Reserve stays off until both times are picked**
 - Open `BASE/search?airport=JFK&checkin=CHECKIN&checkout=CHECKOUT`.
 - Click a lot: the side panel opens.
-- Assert: Reserve is disabled. Pick a check-in time, then a check-out
-  time. Assert: Reserve is enabled.
+- Assert: "Reserve Now" is disabled. Pick a check-in time, then a
+  check-out time. Assert: "Reserve Now" is enabled.
 
 **2 — Checkout without times**
 - Open `BASE/checkout?lot=reslab-194&checkin=CHECKIN&checkout=CHECKOUT`
   (no `checkinTime` / `checkoutTime`).
 - Assert: "Unable to Load Checkout", "Please select check-in and
-  check-out times before continuing.", and a "Go Back" button that works.
+  check-out times before continuing.", and a "Go Back" button that leaves
+  the page (to the previous page, or the home page when there is none).
 
 **3 — A full booking** (only when checkout or payment code changed, only
 with the user's OK for this run, only on a test lot, only if the `admin`
