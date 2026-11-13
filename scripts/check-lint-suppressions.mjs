@@ -51,13 +51,10 @@ if (missing.length) {
   ]);
 }
 
-// Any git error here throws and fails the run; an empty listing means the file
-// is not on the base commit (only true for the PR that introduces it).
-if (!git("ls-tree", "--name-only", baseRef, "--", FILE).trim()) {
-  console.log(`${FILE} is not on ${baseRef} yet: nothing to compare.`);
-  process.exit(0);
-}
-const base = load(git("show", `${baseRef}:${FILE}`), `${baseRef}:${FILE}`);
+// Any git error here throws and fails the run. A base commit without the file
+// counts as an empty list, so every entry would be "new" (fail closed).
+const onBase = git("ls-tree", "--name-only", baseRef, "--", FILE).trim();
+const base = onBase ? load(git("show", `${baseRef}:${FILE}`), `${baseRef}:${FILE}`) : {};
 
 // new path -> old path, for files renamed since the base commit.
 const renamedFrom = {};

@@ -162,8 +162,25 @@ export function LotGallery({ photos, lotName, tag }: LotGalleryProps) {
   // Only use photos from the API
   const galleryImages = photos.map((p) => p.url);
 
+  const hasPhotos = galleryImages.length > 0;
+
+  // Lock body scroll when lightbox is open. Declared before the early return
+  // below so the hook order is the same on every render; with no photos it
+  // leaves the body alone, as before.
+  useEffect(() => {
+    if (!hasPhotos) return;
+    if (lightboxOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [lightboxOpen, hasPhotos]);
+
   // If no photos, don't render the gallery
-  if (galleryImages.length === 0) {
+  if (!hasPhotos) {
     return null;
   }
 
@@ -177,18 +194,6 @@ export function LotGallery({ photos, lotName, tag }: LotGalleryProps) {
   const closeLightbox = () => {
     setLightboxOpen(false);
   };
-
-  // Lock body scroll when lightbox is open
-  useEffect(() => {
-    if (lightboxOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [lightboxOpen]);
 
   const nextImage = () => {
     setCurrentIndex((prev) => (prev + 1) % galleryImages.length);
