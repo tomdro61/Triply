@@ -52,9 +52,14 @@ if (missing.length) {
 }
 
 // Any git error here throws and fails the run. A base commit without the file
-// counts as an empty list, so every entry would be "new" (fail closed).
-const onBase = git("ls-tree", "--name-only", baseRef, "--", FILE).trim();
-const base = onBase ? load(git("show", `${baseRef}:${FILE}`), `${baseRef}:${FILE}`) : {};
+// fails too (fail closed): otherwise a PR onto such a base could add anything.
+if (!git("ls-tree", "--name-only", baseRef, "--", FILE).trim()) {
+  fail(1, [
+    `${baseRef} has no ${FILE} (it predates the lint gate).`,
+    "Merge main into the base branch or retarget the PR to main; for a local run, `git fetch origin main`.",
+  ]);
+}
+const base = load(git("show", `${baseRef}:${FILE}`), `${baseRef}:${FILE}`);
 
 // new path -> old path, for files renamed since the base commit.
 const renamedFrom = {};
