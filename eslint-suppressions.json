@@ -303,11 +303,6 @@
       "count": 1
     }
   },
-  "src/components/lot/lot-gallery.tsx": {
-    "react-hooks/rules-of-hooks": {
-      "count": 1
-    }
-  },
   "src/components/lot/vehicle-size-modal.tsx": {
     "react-hooks/set-state-in-effect": {
       "count": 1

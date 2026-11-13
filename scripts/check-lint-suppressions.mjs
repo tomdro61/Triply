@@ -51,11 +51,13 @@ if (missing.length) {
   ]);
 }
 
-// Any git error here throws and fails the run; an empty listing means the file
-// is not on the base commit (only true for the PR that introduces it).
+// Any git error here throws and fails the run. A base commit without the file
+// fails too (fail closed): otherwise a PR onto such a base could add anything.
 if (!git("ls-tree", "--name-only", baseRef, "--", FILE).trim()) {
-  console.log(`${FILE} is not on ${baseRef} yet: nothing to compare.`);
-  process.exit(0);
+  fail(1, [
+    `${baseRef} has no ${FILE} (it predates the lint gate).`,
+    "Merge main into the base branch or retarget the PR to main; for a local run, `git fetch origin main`.",
+  ]);
 }
 const base = load(git("show", `${baseRef}:${FILE}`), `${baseRef}:${FILE}`);
 
