@@ -1,7 +1,7 @@
 {
   "code": "SFO",
   "fullName": "San Francisco International Airport",
-  "lastVerified": "2026-11-06",
+  "lastVerified": "2026-11-09",
   "overview": {
     "location": "Unincorporated San Mateo County, California — 12 miles south of downtown San Francisco",
     "passengerVolume": "54.5 million passengers per year (2025) — 13th busiest in the U.S., 2nd busiest in California after LAX",
@@ -217,7 +217,7 @@
       }
     }
   },
-  "parkingRates": "On-airport: Domestic Garage $39/day, International Garage $37/day, Long-Term Garage $27/day, ParkFAST $60/day, ParkVALET $45/day. Off-site: from $8/day with free shuttle. Cell Phone Waiting Lot: free (up to 60 minutes). BART from downtown SF: $8.95 one-way (~30 min).",
+  "parkingRates": "On-airport: Domestic Garage $39/day, International Garage $37/day, Long-Term Garage $27/day, ParkFAST $70/day, ParkVALET $45/day (drop-off at Grand Hyatt at SFO). Booking Long-Term online is about $25/day. Off-site: from $8/day with free shuttle. Cell Phone Waiting Lot: free (up to 60 minutes). BART from downtown SF: $8.95 one-way (~30 min).",
   "onAirportParking": {
     "domesticGarage": {
       "rate": "$2 per 15 minutes",
@@ -229,6 +229,9 @@
     "internationalGarage": {
       "rate": "$2 per 15 minutes",
       "dailyMax": 37,
+      "lastVerified": "2026-11-10",
+      "source": "https://parking.flysfo.com/book/SFO/Parking (7-day quote, read by Vin)",
+
       "terminals": "International Terminal (Boarding Areas A & G)",
       "heightClearance": "8'2\" max",
       "features": "Direct access to International Terminal. EV charging in Green Vehicle Parking Zones."
@@ -236,19 +239,28 @@
     "longTermGarage": {
       "rate": "$2 per 15 minutes",
       "dailyMax": 27,
+      "onlineRate": "about $25/day booked online ($175 for 7 days vs $189 drive-up)",
+      "lastVerified": "2026-11-10",
+      "source": "https://parking.flysfo.com/book/SFO/Parking (7-day quote, read by Vin)",
+
       "address": "794 South Airport Boulevard, San Francisco, CA 94128",
       "connection": "Free AirTrain Blue Line to all terminals (Level 5 access)",
       "heightClearance": "Garage 1: 6'10\" max, Garage 2: 8'2\" max",
       "features": "Most affordable on-airport option. Best for trips of 3+ days."
     },
     "parkFast": {
-      "dailyMax": 60,
+      "dailyMax": 70,
+      "lastVerified": "2026-11-10",
+      "source": "https://parking.flysfo.com/book/SFO/Parking (7-day quote, read by Vin)",
+
       "terminals": "Domestic terminals",
       "features": "Premium reserved spots closest to terminal entrances. Guaranteed spot."
     },
     "parkValet": {
       "dailyMax": 45,
-      "features": "Drop off your car at the terminal curbside, valet parks it for you. No online reservations."
+      "lastVerified": "2026-11-10",
+      "source": "https://parking.flysfo.com/book/SFO/Parking (7-day quote, read by Vin)",
+      "features": "Drop off and pick up at the Grand Hyatt at SFO, connected to all terminals by AirTrain. Bookable online, 24/7."
     },
     "cellPhoneLot": {
       "location": "North Access Road, near airport entrance",
@@ -814,11 +826,11 @@
       "freeCancellation": true,
       "notes": "Budget option. Hotel parking lot available to non-guests.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-06",
+      "sellableCheckedOn": "2026-11-09",
       "reslabLocationId": 432,
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-06",
-      "rateSpreadPct": 23.4
+      "rateVerified": "2026-11-09",
+      "rateSpreadPct": 46.79
     },
     {
       "name": "Travelodge SFO Airport Parking",
@@ -835,7 +847,7 @@
       "knownCoupons": [],
       "notes": "Budget-friendly option with strong reviews. Hotel parking lot.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-06"
+      "sellableCheckedOn": "2026-11-09"
     },
     {
       "name": "Aloft Westin SFO Airport Parking",
@@ -852,7 +864,7 @@
       "knownCoupons": [],
       "notes": "Closest off-site lot at 0.8 mi. Best seller on multiple platforms. Minimum 2-day booking.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-06"
+      "sellableCheckedOn": "2026-11-09"
     },
     {
       "name": "Burlingame Airport Parking",
@@ -865,7 +877,7 @@
       "knownCoupons": [],
       "notes": "Mid-range option in Burlingame.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-06"
+      "sellableCheckedOn": "2026-11-09"
     },
     {
       "name": "Hyatt Regency SFO Parking",
@@ -878,7 +890,7 @@
       "knownCoupons": [],
       "notes": "Hotel parking with upscale amenities. Park-sleep-fly packages available (5 days self-parking included with overnight stay).",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-06"
+      "sellableCheckedOn": "2026-11-09"
     },
     {
       "name": "The Westin SFO Parking",
@@ -895,7 +907,7 @@
       "knownCoupons": [],
       "notes": "Close proximity (0.9 mi). Frequently sells out — book in advance. Minimum 2-day booking.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-06"
+      "sellableCheckedOn": "2026-11-09"
     },
     {
       "name": "Park N Fly SFO",
@@ -912,7 +924,7 @@
       "knownCoupons": [],
       "notes": "Highest-rated SFO lot (5.0/5 with 971 reviews). Premium pricing but excellent service. Established airport parking operator with locations nationwide.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-06"
+      "sellableCheckedOn": "2026-11-09"
     },
     {
       "name": "Crowne Plaza SFO Parking",
@@ -925,7 +937,7 @@
       "knownCoupons": [],
       "notes": "Premium hotel parking. Park-sleep-fly packages available (7 days complimentary parking with overnight stay). Highest off-site rate — only worth it with hotel package.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-06"
+      "sellableCheckedOn": "2026-11-09"
     },
     {
       "name": "Best Western Grosvenor Hotel (SFO)",
@@ -945,9 +957,9 @@
       "bookableOnTriply": true,
       "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 111). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-06",
+      "sellableCheckedOn": "2026-11-09",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-06"
+      "rateVerified": "2026-11-09"
     },
     {
       "name": "Hampton Inn (SFO)",
@@ -966,9 +978,9 @@
       "bookableOnTriply": true,
       "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 55). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-06",
+      "sellableCheckedOn": "2026-11-09",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-06"
+      "rateVerified": "2026-11-09"
     },
     {
       "name": "Courtyard San Francisco Airport (SFO)",
@@ -987,9 +999,9 @@
       "bookableOnTriply": true,
       "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 400). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-06",
+      "sellableCheckedOn": "2026-11-09",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-06"
+      "rateVerified": "2026-11-09"
     },
     {
       "name": "Home2Suites by Hilton (SFO)",
@@ -1009,9 +1021,9 @@
       "bookableOnTriply": true,
       "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 44). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-06",
+      "sellableCheckedOn": "2026-11-09",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-06"
+      "rateVerified": "2026-11-09"
     }
   ],
   "shuttleInfo": "All off-site lots include free shuttle service to SFO terminals. On-airport Long-Term Garage connects via free AirTrain Blue Line (24/7 service, every 4 minutes). Rental Car Center also connected via AirTrain Blue Line.",
