@@ -82,7 +82,7 @@ git checkout -- '*.snap'           # npm test rewrites 4 .snap files to LF: rest
 npx --yes knip@6.41.0 --no-progress   # unused files, exports, dependencies, types
 npx --yes jscpd@5.4.1 src scripts/blog-engine/src --min-lines 12 --reporters console --silent \
   --ignore "**/__tests__/**,**/*.snap"   # copy-paste blocks
-npm run lint -- --max-warnings=0 || true   # lint debt count (don't fix yet)
+npm run lint -- --max-warnings=0 || true   # warnings only; the known errors are counted in eslint-suppressions.json
 ```
 
 Then the size and type checks (plain shell, works in Git Bash):

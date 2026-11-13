@@ -13,14 +13,14 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
-  // One-off analysis scripts for the blog engine: loose typing is accepted there.
-  {
-    files: ["scripts/blog-engine/reports/**"],
-    rules: { "@typescript-eslint/no-explicit-any": "off" },
-  },
   // A destructuring where only some names are reassigned may stay `let`.
+  // No `files`: this also turns prefer-const on for .js/.mjs scripts.
   {
-    rules: { "prefer-const": ["error", { destructuring: "all" }] },
+    rules: {
+      "prefer-const": ["error", { destructuring: "all" }],
+      // An async client component fails at runtime; no hits today.
+      "@next/next/no-async-client-component": "error",
+    },
   },
 ]);
 

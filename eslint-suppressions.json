@@ -4,6 +4,56 @@
       "count": 1
     }
   },
+  "scripts/blog-engine/reports/lot-rewrite/api-rewrite.mts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 16
+    }
+  },
+  "scripts/blog-engine/reports/lot-rewrite/export.mts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 8
+    }
+  },
+  "scripts/blog-engine/reports/lot-rewrite/preview.mts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 6
+    }
+  },
+  "scripts/blog-engine/reports/lot-rewrite/publish.mts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 10
+    }
+  },
+  "scripts/blog-engine/reports/lot-rewrite/stale-swap.mts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 15
+    }
+  },
+  "scripts/blog-engine/reports/new-airports/create.mts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 4
+    }
+  },
+  "scripts/blog-engine/reports/new-airports/fix.mts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 4
+    }
+  },
+  "scripts/blog-engine/reports/new-airports/inbound.mts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 4
+    }
+  },
+  "scripts/blog-engine/reports/new-airports/relink.mts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 6
+    }
+  },
+  "scripts/blog-engine/reports/new-airports/update-hub.mts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
   "scripts/blog-engine/src/analyze-logs.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 5
