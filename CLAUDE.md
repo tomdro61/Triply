@@ -201,7 +201,7 @@ Custom skills committed to this repo — invoke by name (`/<name>`). **Caveat:**
 |---|---|
 | `/scoped-review` | Multi-agent code review scoped to what changed, plus a Codex (OpenAI) second opinion on risky diffs. Before declaring a feature done / before a PR. |
 | `/sketch-flow` | Required state-machine sketch **before** writing any new async handler touching Stripe / ResLab / Supabase / Park Guard from a UI handler. |
-| `/verify-flow <flow>` | End-to-end verification of a customer flow (checkout, confirmation) via local dev + Playwright — after a customer-facing change. |
+| `/verify-flow <flow>` | End-to-end verification of a customer flow (emailed link, checkout, confirmation, admin) in a real browser on the PR's preview, never localhost — after a customer-facing change. |
 | `/post-deploy-check` | Verify a prod deploy actually landed (Vercel Ready, URL 200, Sentry quiet, migrations applied) — after merging to `main`. |
 | `/code-audit` | Senior-dev health audit of the whole repo or a folder: dead code, unused exports/deps, duplication, oversized files, type holes, slow patterns. Report only by default; `fix` ships the top batch as one small behaviour-preserving PR. Monthly, or when a folder feels messy. |
 | `/end-session` | Session-wrap ritual: update docs/notes + post a team digest to Discord. |
