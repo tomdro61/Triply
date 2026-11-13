@@ -72,14 +72,14 @@ investigation.)
 ### CI is the merge gate (since November 2026)
 
 Every PR runs `.github/workflows/ci.yml`. `main` is protected: a PR can merge only when
-both required checks are green and the branch includes the latest `main`. This applies to
+the required checks are green and the branch includes the latest `main`. This applies to
 everyone, admins included.
 
 | Check | What it runs |
 |---|---|
 | `app (typecheck, test, build)` | `npm run typecheck`, `npm test`, `npm run build` |
 | `blog-engine (typecheck, test)` | in `scripts/blog-engine/`: `tsc --noEmit`, `tsx --test src/*.test.ts` |
-| `lint (advisory)` | `npm run lint`. Not required yet (existing errors need a cleanup PR). |
+| `lint` | `npm run lint`, which fails on any new ESLint error. The errors that already existed are listed in `eslint-suppressions.json`; on a PR a second step fails if a file's count there goes up. Fixed an old one? Run `npx eslint --prune-suppressions` and commit the file. Renamed a file that has entries? Rename its key in that file. Never run `--suppress-all` or `--suppress-rule`: they record new errors as known. A change to `eslint.config.mjs`, or a new `eslint-disable` comment, also gets past this check, so say so in the PR. |
 
 - **Run the same checks locally before pushing**; CI is the backstop, not the first try.
 - **A red check:** open it on the PR, read the failing step, fix on the branch, push again.
@@ -134,7 +134,7 @@ live in two different places and are governed differently:
 
 Before opening a PR:
 
-- `npm run typecheck` + `npm test` + `npm run build` (app) — must pass. CI runs the same three.
+- `npm run typecheck` + `npm test` + `npm run build` + `npm run lint` (app) — must pass. CI runs the same four.
 - **Check the diff against [`docs/review-lessons.md`](docs/review-lessons.md)** and list the lessons
   you checked in the PR body. Every lesson there is a mistake our reviews keep finding; most PRs
   needed 2–8 review rounds for them.

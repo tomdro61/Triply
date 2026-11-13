@@ -1,6 +1,6 @@
 # The merge gate for `main` (docs: CLAUDE.md "Git & dev workflow").
 #
-# The two job NAMES below marked LOAD-BEARING are named in main's branch
+# The job NAMES below marked LOAD-BEARING are named in main's branch
 # protection. Renaming or deleting one without updating protection first blocks
 # every PR. To remove CI: take the required checks off the branch, THEN change
 # this file.
@@ -97,19 +97,24 @@ jobs:
           PAYLOAD_CMS_URL: http://cms.invalid
 
   lint:
-    # Advisory until the existing ESLint errors are cleared in a cleanup PR;
-    # then it becomes a required step. NOT in branch protection.
-    name: lint (advisory)
+    # Fails on any NEW ESLint error. The errors that existed when this became a
+    # gate are listed in eslint-suppressions.json; the last step stops that
+    # list from growing.
+    name: lint # LOAD-BEARING once it is added to branch protection
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    continue-on-error: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 2 # the merge commit and its parents (HEAD^1 = the base)
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
       - run: npm run lint
+      # On a PR, HEAD is the merge commit and HEAD^1 is the base it was built on.
+      - name: Known-error counts must not rise
+        if: github.event_name == 'pull_request'
+        run: node scripts/check-lint-suppressions.mjs HEAD^1

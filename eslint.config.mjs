@@ -13,6 +13,15 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  // A destructuring where only some names are reassigned may stay `let`.
+  // No `files`: this also turns prefer-const on for .js/.mjs scripts.
+  {
+    rules: {
+      "prefer-const": ["error", { destructuring: "all" }],
+      // An async client component fails at runtime; no hits today.
+      "@next/next/no-async-client-component": "error",
+    },
+  },
 ]);
 
 export default eslintConfig;
