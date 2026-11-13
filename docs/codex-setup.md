@@ -26,3 +26,6 @@ One-time setup per machine (each dev, in Claude Code):
 - Leave the plugin's **review gate OFF** (it loops and drains usage limits).
 - Reviews spend the signed-in ChatGPT account's Codex allowance.
 - Codex reads `AGENTS.md` (repo root) for our review guidelines.
+- Each review leaves an idle Codex server running that holds its folder open until the Claude
+  session ends. Before deleting a temporary worktree a review ran in, stop that one process by
+  its PID (never by image name: that kills Claude Code too).

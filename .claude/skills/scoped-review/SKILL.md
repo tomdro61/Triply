@@ -1,6 +1,6 @@
 ---
 name: scoped-review
-description: Scoped multi-agent code review for the Triply codebase. Looks at the diff, picks the right reviewers based on what changed, dispatches them in parallel, returns consolidated findings. Use before declaring features done, before commits, and before a PR merges to main. Counts the diff first: over 200 lines, or any change to money, checkout, reservations, webhooks, auth or a migration, gets the full sweep. Anti-patterns and routing are tuned to Triply's actual shipped bugs (silent default times, timezone storage, query-param forwarding, payment integration).
+description: "Scoped multi-agent code review for the Triply codebase. Looks at the diff, picks the right reviewers based on what changed, dispatches them in parallel, returns consolidated findings. Use before declaring features done, before commits, and before a PR merges to main. Counts the diff first: over 200 lines, or any change to money, checkout, reservations, webhooks, auth or a migration, gets the full sweep. Anti-patterns and routing are tuned to Triply's actual shipped bugs (silent default times, timezone storage, query-param forwarding, payment integration)."
 ---
 
 # /scoped-review — Scoped multi-agent code review (Triply)

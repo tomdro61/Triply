@@ -1,3 +1,8 @@
+---
+name: triply-frontend
+description: "Triply frontend design system: the patterns, components, colours and spacing to follow for any UI work in the Triply codebase. Read before building or changing a page or component."
+---
+
 # Triply Frontend Design System
 
 > Reference for all UI work in the Triply codebase. Follow these patterns exactly to maintain visual and structural consistency.

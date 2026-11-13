@@ -26,8 +26,9 @@ CLAUDE.md on go-live day.)
 or read-only investigation with no code/commit changes.
 
 **Where things live.** This file (in the `triply` repo) is the one copy;
-the parent wrapper's `.claude/skills/end-session/SKILL.md` only points
-here. The docs it updates (`notes/`, `STATUS.md`, `BACKLOG.md`, `REVIEW-FINDINGS.md`,
+the parent wrapper's `.claude/skills/` holds only short pointers to the
+skills in this folder (so each command exists at the start of a session
+rooted in the wrapper). The docs it updates (`notes/`, `STATUS.md`, `BACKLOG.md`, `REVIEW-FINDINGS.md`,
 `docs/`, the wrapper `CLAUDE.md`) live in the parent wrapper repo
 `C:\Projects\Triply_claude\` — from a session rooted in `triply/` that is
 `..`. Run `notify-discord.mjs` from this skill's folder. A contributor
@@ -250,7 +251,7 @@ a team-facing digest, not the full notes.
 **Session content:**
 - Fixed customer bug; 4 commits to triply main; migration 007 applied
 - Built 3 new skills, 1 hook, REVIEW-FINDINGS.md
-- Resolved Jill's case (FVSPF765362)
+- Resolved a customer's case (booking EXAMPLE12345)
 
 **Categories triggered:**
 - `Schema migration` → triply_solution_design.md (Database Schema), notes/, STATUS.md
