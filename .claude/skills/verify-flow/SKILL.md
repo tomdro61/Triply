@@ -19,7 +19,9 @@ reviewers in this session. This skill closes that gap.
   dev server reads real bookings. `EXAMPLE12345` below is a placeholder:
   replace it (and its email) with **one of our own test bookings**, never
   a customer's, and never write a real booking number, name or email
-  into this file. With no test booking to hand, say which scenarios
+  into this file. The names, dates and times in the asserts below
+  ("Example Customer", "8:00 AM", "11:30 PM", "May 10, 2026") are examples:
+  assert the values the test booking was actually created with. With no test booking to hand, say which scenarios
   could not run instead of passing them.
 - Stripe is in **test mode** locally — use card `4242 4242 4242 4242`
   for any flow that touches payment.
@@ -48,11 +50,11 @@ to the flow-mapping table below). If still ambiguous, ask the user.
 ## Step 2 — Confirm the dev server is up
 
 Run `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/` (or
-3000) and check for a 200. If it's down, ask the user to start it via
+the port `npm run dev` printed) and check for a 200. If it's down, ask the user to start it via
 `npm run dev` in the `triply/` directory before continuing. Don't try to
 start it yourself — long-running processes need user oversight.
 
-If both ports return non-200, stop and tell the user the server isn't
+If the app's port returns non-200, stop and tell the user the server isn't
 running. Don't fake the verification.
 
 ---

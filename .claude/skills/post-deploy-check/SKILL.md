@@ -25,7 +25,7 @@ those checks.
 ```
 gh pr view <n> --json state,mergedAt,mergeCommit   # state MERGED + the merge commit
 git fetch origin
-git rev-parse origin/main                          # should be that merge commit (or a later one)
+git merge-base --is-ancestor <merge commit> origin/main && echo "on main"
 ```
 
 If the PR is not `MERGED`, or `origin/main` does not contain its merge
@@ -47,8 +47,10 @@ production one whose commit is the SHA from Step 1, and confirm:
 - ✅ Target: production, and it is the current production deployment
 - ✅ Build duration is reasonable (typically 60-180s for this project;
   much longer suggests something stuck)
+- ✅ No build warnings about `next build` failures or missing env vars
+  (read the build log; a `READY` build can still carry them)
 
-No Vercel tools in this session? Ask the user to check the same three
+No Vercel tools in this session? Ask the user to check the same four
 things in the Vercel dashboard. Say in the report which way it was checked.
 
 If the state is `ERROR`, read the build logs (deployment events) and
@@ -120,14 +122,22 @@ confirm:
 
 With the Sentry MCP tools, search issues in organization `triply-dp`,
 project `triply` (the main app):
-- Unresolved issues **first seen in the last 24 hours** (`firstSeen:-24h`).
-  Not a shorter window: on November 12, 2026 two 1-hour checks reported
-  clean and a 24-hour re-check found an issue they had missed.
-- For each one, read its release and first-seen time: is it from this
-  deploy, or an earlier one today?
+Run all three searches. Each catches something the others miss.
 
-No Sentry tools in this session? Ask the user to check the same filter
-in the Sentry dashboard, and say so in the report.
+1. **New issues:** unresolved, **first seen in the last 24 hours**
+   (`is:unresolved firstSeen:-24h`). Not a shorter window: on November 12,
+   2026 two 1-hour checks reported clean and a 24-hour re-check found an
+   issue they had missed. For each one, read its release and first-seen
+   time: is it from this deploy, or an earlier one today?
+2. **Old issues that are active since the deploy:** unresolved, last seen
+   since the deploy time (`is:unresolved lastSeen:-<minutes since deploy>m`),
+   sorted by event count. Compare each one's rate before and after the
+   deploy: a jump is a spike.
+3. **Regressions:** issues that were resolved and came back
+   (`issue.substatus:regressed`), last seen since the deploy.
+
+No Sentry tools in this session? Ask the user to check the same three
+filters in the Sentry dashboard, and say so in the report.
 
 Look for:
 - ❌ NEW error events that didn't exist on the previous deploy. New
@@ -151,14 +161,15 @@ If the change includes `supabase/migrations/*.sql`:
 - Was the migration applied **before** the code deploy? Migrations are
   not applied by CI. Development, previews and production share one
   database, so a migration is applied **once**: by Claude's migration
-  script, only after the owner's explicit OK naming that migration
-  number ("apply 044"), or by the owner.
+  script, only after **Tom's** explicit OK naming that migration number
+  ("apply 044"), or by Tom himself. Nobody else's OK counts, whoever's
+  session this is.
 - If the migration wasn't applied first, the new code may be hitting
   schema it expects but doesn't exist (or vice versa). Roll back, or
-  get the owner's OK and apply it. Never apply one unasked.
+  get Tom's OK and apply it. Never apply one unasked.
 
-Verify against the production DB. Production reads are the owner's:
-write a read-only script, the owner runs it. The check is:
+Verify against the production DB. Production reads are Tom's: write a
+read-only script, Tom runs it. The check is:
 ```sql
 SELECT column_name, data_type
 FROM information_schema.columns
