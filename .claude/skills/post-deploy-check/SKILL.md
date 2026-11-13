@@ -1,13 +1,12 @@
 ---
 name: post-deploy-check
-description: Verify a production deploy actually shipped correctly. Runs after a PR merges to main. Checks the Vercel deploy completed, the production URL serves traffic, Sentry hasn't lit up with new errors, and any DB migrations are reflected in production. Use immediately after pushing to main, or to retroactively diagnose a suspect deploy. A merge that returns 200 from `git push` is not the same as a working production app — this closes that gap.
+description: "Verify a production deploy actually shipped correctly. Run immediately after a PR merges to main, or to diagnose a suspect deploy. Checks the Vercel deploy completed, the production URLs serve the new code, Sentry has no new errors, and any migrations are in place. A merged PR is not the same as a working production app; this closes that gap."
 ---
 
 # /post-deploy-check — Post-deploy verification gate
 
-A `git push origin main` returning success means GitHub accepted the
-push. It says nothing about whether Vercel built it, whether the build
-errored on a typecheck, whether the prod URL is serving the new code,
+A merged PR means GitHub accepted the merge. It says nothing about
+whether Vercel built it, whether the prod URL is serving the new code,
 or whether Sentry started seeing crashes. This skill walks through
 those checks.
 
@@ -19,42 +18,40 @@ those checks.
 
 ---
 
-## Step 1 — Confirm the merge actually pushed
+## Step 1 — Confirm the merge is on `main`
 
-Run these in parallel:
+`main` is protected: nothing is pushed to it, a PR is merged. Run:
 
 ```
-git rev-parse main                    # Current main commit on local
-git rev-parse origin/main             # Current main commit on remote
-git log -1 --format="%h %s" main      # Subject of latest commit
+gh pr view <n> --json state,mergedAt,mergeCommit   # state MERGED + the merge commit
+git fetch origin
+git rev-parse origin/main                          # should be that merge commit (or a later one)
 ```
 
-If local and remote diverge, the push didn't take. Stop and tell the
-user — re-push or investigate.
+If the PR is not `MERGED`, or `origin/main` does not contain its merge
+commit, stop and tell the user. Never "re-push".
 
-If they match, capture the commit SHA — we'll reference it through the
-rest of the checks.
+Capture the merge commit SHA — the rest of the checks reference it.
 
 ---
 
 ## Step 2 — Vercel deploy status
 
-Triply auto-deploys via Vercel's GitHub integration. The deploy:
+Triply auto-deploys via Vercel's GitHub integration, under the `triply`
+project (not `triply-cms`). A deployment should appear within about 30
+seconds of the merge.
 
-1. Is listed at `https://vercel.com/dashboard` under the `triply`
-   project (not `triply-cms`)
-2. Should show "Building" or "Ready" within ~30 seconds of the push
-3. Status is queryable via Vercel API once we have a token
-
-**Until Vercel API integration is wired up:**
-Tell the user to open the Vercel dashboard, find the deploy matching
-the SHA from Step 1, and confirm:
-- ✅ Status: "Ready" (not "Error" or "Canceled")
+With the Vercel MCP tools: list the project's deployments, find the
+production one whose commit is the SHA from Step 1, and confirm:
+- ✅ State: `READY` (not `ERROR` or `CANCELED`)
+- ✅ Target: production, and it is the current production deployment
 - ✅ Build duration is reasonable (typically 60-180s for this project;
   much longer suggests something stuck)
-- ✅ No build warnings related to `next build` failures or missing env vars
 
-If "Error" — fetch the Vercel build logs (user will paste) and
+No Vercel tools in this session? Ask the user to check the same three
+things in the Vercel dashboard. Say in the report which way it was checked.
+
+If the state is `ERROR`, read the build logs (deployment events) and
 diagnose. Common failure modes seen in this project:
 - TypeScript error from a code path not exercised in `npx tsc --noEmit`
   locally
@@ -62,10 +59,6 @@ diagnose. Common failure modes seen in this project:
 - ESLint error from `react-hooks/purity` triggering on a `Date.now()`
   call (we have several pre-existing — they shouldn't fail builds, but
   flag if a NEW one is the cause)
-
-**Future enhancement:** add Vercel API token to `.env.local`
-(`VERCEL_TOKEN`), then this step can be automated via `curl` to
-`https://api.vercel.com/v6/deployments?projectId=<id>&sha=<sha>`.
 
 ---
 
@@ -87,14 +80,15 @@ broken — pull Sentry errors (Step 5) and rollback if necessary.
 
 If the change touched a specific page, also verify THAT page returns
 200:
-- Touched `confirmation/`? Hit `/confirmation/EXAMPLE12345?email=customer@example.com`
-  and check for 200 + the expected content (search the response body
-  for "EXAMPLE" or "8:00 AM" — substring match is fine).
+- Touched `confirmation/`? A confirmation page can only be opened with
+  a real booking's own link. Never put a customer's booking number or
+  email in a command or in this file: ask the user to open one of our
+  own test bookings in their browser and confirm.
 - Touched `admin/`? Don't verify with curl — admin needs auth. Tell
   the user to open it in their browser and confirm.
 
 For the CMS (`https://cms.triplypro.com/admin`) — only verify if the
-CMS deploy was triggered by this push (CMS lives in a separate repo,
+CMS deploy was triggered by this change (CMS lives in a separate repo,
 usually NOT in the same change).
 
 ---
@@ -124,17 +118,20 @@ confirm:
 
 ## Step 5 — Sentry error scan
 
-Open `https://sentry.io/organizations/triply/issues/` (or whatever
-the org URL is — `SENTRY_ORG` in `.env.local`).
+With the Sentry MCP tools, search issues in organization `triply-dp`,
+project `triply` (the main app):
+- Unresolved issues **first seen in the last 24 hours** (`firstSeen:-24h`).
+  Not a shorter window: on November 12, 2026 two 1-hour checks reported
+  clean and a 24-hour re-check found an issue they had missed.
+- For each one, read its release and first-seen time: is it from this
+  deploy, or an earlier one today?
 
-Filter:
-- Project: `triply` (the main app)
-- Time range: "Last 15 minutes" or since deploy timestamp
-- Status: Unresolved
+No Sentry tools in this session? Ask the user to check the same filter
+in the Sentry dashboard, and say so in the report.
 
 Look for:
 - ❌ NEW error events that didn't exist on the previous deploy. New
-  events tied to files that changed in this push are especially
+  events tied to files that changed in this merge are especially
   suspect.
 - ⚠️ Spike in existing errors (event count jumps after deploy time).
 
@@ -145,24 +142,23 @@ and diagnose second. The rollback path:
 3. Vercel auto-deploys the revert
 4. Then debug at leisure on a feature branch
 
-**Future enhancement:** add Sentry API integration via
-`SENTRY_AUTH_TOKEN` (already exists for source maps) — this step can
-auto-query for new issues since the last release.
-
 ---
 
 ## Step 6 — DB migration verification (if applicable)
 
 If the change includes `supabase/migrations/*.sql`:
 
-- Was the migration applied to production Supabase **before** the
-  code deploy? (For Triply, migrations are applied manually via
-  Supabase dashboard SQL editor — not auto-applied by CI.)
+- Was the migration applied **before** the code deploy? Migrations are
+  not applied by CI. Development, previews and production share one
+  database, so a migration is applied **once**: by Claude's migration
+  script, only after the owner's explicit OK naming that migration
+  number ("apply 044"), or by the owner.
 - If the migration wasn't applied first, the new code may be hitting
-  schema it expects but doesn't exist (or vice versa). Rollback or
-  apply the migration immediately.
+  schema it expects but doesn't exist (or vice versa). Roll back, or
+  get the owner's OK and apply it. Never apply one unasked.
 
-Verify by querying the production DB:
+Verify against the production DB. Production reads are the owner's:
+write a read-only script, the owner runs it. The check is:
 ```sql
 SELECT column_name, data_type
 FROM information_schema.columns

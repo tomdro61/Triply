@@ -129,6 +129,8 @@ a human.
   text blocked a customer's second message. Free plan: 100 emails a day.
 - **Supabase Auth and Resend** return `{ error }` and never throw, so a try/catch alone catches nothing.
 - **PostgREST:** rejects `.or()` on UPDATE; use two conditional updates.
+- **Stripe metadata:** setting a key to `""` deletes the key. Store a value that can be empty as
+  `"none"`, and read it back that way.
 - **stripe-node at `maxNetworkRetries: 0`:** sends no idempotency key yet still retries a first
   ECONNRESET, and its own retries can sleep 60 s. Pass your own key.
 - **Stripe disputes:** one evidence submission per dispute.
@@ -144,6 +146,10 @@ a human.
 - **#160:** an `every(...)` assertion passed on an empty map.
 - **#158:** a test could not fail.
 - **How to check:** for each test of a fix, remove the fix and watch the test fail.
+- **A fake must reject what the real thing rejects.** A fake database that accepted `.or()` on an
+  UPDATE let code pass its tests that the real database refuses (lesson 12).
+- **Vitest runs a function returned from `beforeEach` as teardown.** `beforeEach(() => mock.mockReset())`
+  returns one; write braces: `beforeEach(() => { mock.mockReset() })`.
 
 ### 14. A commit (and generated data) matches its message and the final code
 
@@ -396,6 +402,6 @@ One entry per reviewed PR: what the review found, by lesson number. Newest first
 - **#143 airport data (Nov 2):** lesson 2, stale lot prices in prose. It took 8 rounds, each finding
   bugs in the last round's fixes (lesson 15).
 
-*Updated November 11, 2026: lessons 18–22 and additions to 2, 4, 12 and 15, carried over from the old wrapper CLAUDE.md history; Log entries for the two $5 welcome PRs. November 10, 2026: lesson 17 (redirects, #181) and the #180 / #181 / #183 Log entries.*
+*Updated November 12, 2026: additions to lessons 12 (Stripe empty metadata) and 13 (fakes, the Vitest `beforeEach` trap). November 11, 2026: lessons 18–22 and additions to 2, 4, 12 and 15, carried over from the old wrapper CLAUDE.md history; Log entries for the two $5 welcome PRs. November 10, 2026: lesson 17 (redirects, #181) and the #180 / #181 / #183 Log entries.*
 
 *Created November 6, 2026 (lesson 16 added the same day, #161) — from REVIEW-FINDINGS.md (wrapper repo) and the reviews of #143–#160.*

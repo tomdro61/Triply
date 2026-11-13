@@ -38,7 +38,8 @@ token-heavy; invoking this skill is the explicit opt-in to run the Workflow.
      args: { doc: "<absolute path to the plan>", repo: "<repo root, usually cwd>", focus: "<optional>" }
    })
    ```
-   (On the user's machine this skill lives at `~/.claude/skills/harden-plan/`. `args` also
+   (This folder is the current copy; a user-level copy in `~/.claude/skills/harden-plan/`, if
+   one exists, should match it. `args` also
    accepts a bare string = the doc path.) It runs in the background; you'll be notified on
    completion. Watch live with `/workflows`.
 
