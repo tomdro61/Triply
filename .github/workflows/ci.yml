@@ -97,12 +97,12 @@ jobs:
           PAYLOAD_CMS_URL: http://cms.invalid
 
   lint:
-    # Advisory until the existing ESLint errors are cleared in a cleanup PR;
-    # then it becomes a required step. NOT in branch protection.
-    name: lint (advisory)
+    # Fails on any NEW ESLint error. The errors that existed when this became a
+    # gate are listed in eslint-suppressions.json; the last step stops that
+    # list from growing.
+    name: lint
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    continue-on-error: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -113,3 +113,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint
+      - name: Known-error counts must not rise
+        env:
+          BASE_REF: ${{ github.base_ref || 'main' }}
+        run: |
+          git fetch --no-tags --depth=1 origin "refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
+          node scripts/check-lint-suppressions.mjs "origin/$BASE_REF"

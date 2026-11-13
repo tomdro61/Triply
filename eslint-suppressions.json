@@ -1,0 +1,306 @@
+{
+  "scripts/apply-migration-043.mjs": {
+    "prefer-const": {
+      "count": 1
+    }
+  },
+  "scripts/blog-engine/src/analyze-logs.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 5
+    }
+  },
+  "scripts/blog-engine/src/backlinks.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 2
+    }
+  },
+  "scripts/blog-engine/src/batch.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 5
+    }
+  },
+  "scripts/blog-engine/src/bing.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 4
+    }
+  },
+  "scripts/blog-engine/src/changelog.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 9
+    }
+  },
+  "scripts/blog-engine/src/check-sv-global.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "scripts/blog-engine/src/ctr-rescue.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 5
+    }
+  },
+  "scripts/blog-engine/src/dashboard.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 7
+    }
+  },
+  "scripts/blog-engine/src/differentiate-titles.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 4
+    }
+  },
+  "scripts/blog-engine/src/generate-batch.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "scripts/blog-engine/src/geo-tracker.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 5
+    }
+  },
+  "scripts/blog-engine/src/gsc.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 2
+    }
+  },
+  "scripts/blog-engine/src/monthly-prices.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 16
+    }
+  },
+  "scripts/blog-engine/src/perf-control.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 4
+    }
+  },
+  "scripts/blog-engine/src/perf-recommend.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 2
+    }
+  },
+  "scripts/blog-engine/src/perf-serp.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 4
+    }
+  },
+  "scripts/blog-engine/src/perf-snapshot.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "scripts/blog-engine/src/refresh-candidates.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 2
+    }
+  },
+  "scripts/blog-engine/src/seo-scorer.ts": {
+    "prefer-const": {
+      "count": 1
+    }
+  },
+  "scripts/blog-engine/src/serpapi.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 3
+    }
+  },
+  "scripts/blog-engine/src/track-all.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 2
+    }
+  },
+  "scripts/blog-engine/src/weekly-report.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 9
+    }
+  },
+  "src/app/(main)/[slug]/airport-parking/[lot]/page.tsx": {
+    "react-hooks/purity": {
+      "count": 2
+    }
+  },
+  "src/app/(main)/about/page.tsx": {
+    "react/no-unescaped-entities": {
+      "count": 3
+    }
+  },
+  "src/app/(main)/admin/accounting/page.tsx": {
+    "react/no-unescaped-entities": {
+      "count": 1
+    }
+  },
+  "src/app/(main)/admin/layout.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/app/(main)/blog/[slug]/page.tsx": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 2
+    }
+  },
+  "src/app/(main)/blog/airport/[code]/page.tsx": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 3
+    }
+  },
+  "src/app/(main)/blog/category/[slug]/page.tsx": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 1
+    }
+  },
+  "src/app/(main)/blog/page.tsx": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 3
+    }
+  },
+  "src/app/(main)/checkout/complete/complete-client.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    },
+    "react/no-unescaped-entities": {
+      "count": 4
+    }
+  },
+  "src/app/(main)/confirmation/[id]/page.tsx": {
+    "react/no-unescaped-entities": {
+      "count": 1
+    }
+  },
+  "src/app/(main)/error.tsx": {
+    "react/no-unescaped-entities": {
+      "count": 1
+    }
+  },
+  "src/app/(main)/help/page.tsx": {
+    "react/no-unescaped-entities": {
+      "count": 5
+    }
+  },
+  "src/app/(main)/privacy/page.tsx": {
+    "react/no-unescaped-entities": {
+      "count": 9
+    }
+  },
+  "src/app/(main)/reservations/page.tsx": {
+    "react/no-unescaped-entities": {
+      "count": 1
+    }
+  },
+  "src/app/(main)/terms/page.tsx": {
+    "@next/next/no-html-link-for-pages": {
+      "count": 1
+    },
+    "react/no-unescaped-entities": {
+      "count": 11
+    }
+  },
+  "src/app/api/admin/chats/route.ts": {
+    "prefer-const": {
+      "count": 1
+    }
+  },
+  "src/components/blog/HubLayout.tsx": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 2
+    }
+  },
+  "src/components/blog/RichText.tsx": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 5
+    }
+  },
+  "src/components/blog/SpokeLayout.tsx": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 3
+    }
+  },
+  "src/components/blog/SubPillarLayout.tsx": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 2
+    }
+  },
+  "src/components/chat/chat-context.tsx": {
+    "react-hooks/refs": {
+      "count": 7
+    }
+  },
+  "src/components/checkout/customer-details-step.tsx": {
+    "react/no-unescaped-entities": {
+      "count": 1
+    }
+  },
+  "src/components/confirmation/create-account-prompt.tsx": {
+    "react/no-unescaped-entities": {
+      "count": 1
+    }
+  },
+  "src/components/confirmation/whats-next.tsx": {
+    "@next/next/no-html-link-for-pages": {
+      "count": 1
+    },
+    "react/no-unescaped-entities": {
+      "count": 1
+    }
+  },
+  "src/components/lot/booking-widget.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 2
+    }
+  },
+  "src/components/lot/lot-amenities.tsx": {
+    "react/no-unescaped-entities": {
+      "count": 1
+    }
+  },
+  "src/components/lot/lot-gallery.tsx": {
+    "react-hooks/rules-of-hooks": {
+      "count": 1
+    }
+  },
+  "src/components/lot/vehicle-size-modal.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/reservations/cancel-reservation-button.tsx": {
+    "@next/next/no-html-link-for-pages": {
+      "count": 2
+    }
+  },
+  "src/components/search/product-detail-slider.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/shared/airport-combobox.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 2
+    }
+  },
+  "src/components/shared/comparison.tsx": {
+    "@next/next/no-html-link-for-pages": {
+      "count": 1
+    }
+  },
+  "src/components/shared/cookie-banner.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/components/shared/cookie-settings.tsx": {
+    "react-hooks/set-state-in-effect": {
+      "count": 1
+    }
+  },
+  "src/lib/cms.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 4
+    }
+  },
+  "src/lib/resend/templates/cancellation-confirmation.tsx": {
+    "react/no-unescaped-entities": {
+      "count": 1
+    }
+  }
+}
