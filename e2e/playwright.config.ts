@@ -16,7 +16,8 @@ export default defineConfig({
   workers: 1,
   fullyParallel: false,
   retries: process.env.CI ? 1 : 0,
-  timeout: 120_000,
+  // Longer than the waits the spec allows a cold preview, added up.
+  timeout: 300_000,
   expect: { timeout: 20_000 },
   forbidOnly: !!process.env.CI,
   outputDir: "test-results",

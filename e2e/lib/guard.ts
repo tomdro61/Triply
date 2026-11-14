@@ -45,7 +45,26 @@ const FORBIDDEN_PREVIEW_PATHS = [
 ];
 
 /** Our own hosts other than the preview under test: a write to one is never expected. */
-const isOurOtherHost = (host: string) => host.endsWith("triplypro.com") || host.endsWith(".vercel.app");
+const isOurOtherHost = (host: string) =>
+  host === "triplypro.com" || host.endsWith(".triplypro.com") || host.endsWith(".vercel.app");
+
+/** Longer than any wait in the spec: the spec's own waits decide what is too slow. */
+const PREVIEW_FETCH_TIMEOUT_MS = 90_000;
+
+/** The path as the server will route it, or null when it cannot be judged. */
+function routedPath(pathname: string): string | null {
+  // Next.js answers `/api//search` with a redirect to `/api/search`, and an
+  // encoded letter (`/%61pi/search`) may be decoded before routing.
+  if (/%2f|%5c/i.test(pathname)) return null;
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(pathname);
+  } catch {
+    return null;
+  }
+  if (decoded.includes("..") || decoded.includes("//") || decoded.includes("\\")) return null;
+  return decoded;
+}
 
 const READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
@@ -66,13 +85,22 @@ function carriesLiveKey(request: Request): boolean {
 export interface Guard {
   /** Violations seen so far in this context. */
   violations: string[];
+  /** Failures that are not violations (a redirect that was not followed), each labelled [APP] or [CONFIG]. */
+  problems: string[];
+  /** Why a preview request the guard forwarded did not complete: "timeout" or "network". Never the error text. */
+  fetchFailure: (pathname: string) => "timeout" | "network" | null;
+  /** Stops all requests, closes the pages, then removes the handlers. Call once, when the test is over. */
+  close: () => Promise<void>;
   /** The Stripe publishable key the page used (test mode, or the guard has already failed the run). */
   publishableKey: () => string | null;
 }
 
 export async function installGuard(context: BrowserContext, preview: URL): Promise<Guard> {
   const violations: string[] = [];
+  const problems: string[] = [];
+  const fetchFailures = new Map<string, "timeout" | "network">();
   let publishableKey: string | null = null;
+  let closing = false;
 
   const violate = (what: string) => {
     violations.push(what);
@@ -86,28 +114,25 @@ export async function installGuard(context: BrowserContext, preview: URL): Promi
     // Path only: a query string can carry a customer's details.
     const label = `${method} ${url.hostname}${url.pathname}`;
 
+    // The test is over: nothing more leaves the browser.
+    if (closing) return route.abort("blockedbyclient").catch(() => {});
+
     if (url.protocol === "data:" || url.protocol === "blob:") return route.continue();
 
     if (url.hostname === preview.hostname) {
-      // Only plain paths. Next.js answers `/api//search` with a redirect to
-      // `/api/search`, which would slip past the path rules below.
-      // (Encoded characters are fine in a chunk name, except an encoded slash.)
-      const plainPath =
-        /^(\/[A-Za-z0-9._~@:+,=()\[\]%-]+)*\/?$/.test(url.pathname) &&
-        !url.pathname.includes("..") &&
-        !/%2f|%5c/i.test(url.pathname);
-      if (!plainPath) {
+      const pathname = routedPath(url.pathname);
+      if (pathname === null) {
         violate(`a preview path this guard cannot judge: ${label}`);
         return route.abort("blockedbyclient");
       }
-      if (FORBIDDEN_PREVIEW_PATHS.some((pattern) => pattern.test(url.pathname))) {
+      if (FORBIDDEN_PREVIEW_PATHS.some((pattern) => pattern.test(pathname))) {
         violate(`forbidden request: ${label}`);
         return route.abort("blockedbyclient");
       }
-      if (QUIET_PREVIEW_PATHS.some((pattern) => pattern.test(url.pathname))) {
+      if (QUIET_PREVIEW_PATHS.some((pattern) => pattern.test(pathname))) {
         return route.abort("blockedbyclient");
       }
-      if (!READ_METHODS.has(method) && !ALLOWED_MUTATING.has(`${method} ${url.pathname}`)) {
+      if (!READ_METHODS.has(method) && !ALLOWED_MUTATING.has(`${method} ${pathname}`)) {
         violate(`unlisted write to the preview: ${label}`);
         return route.abort("blockedbyclient");
       }
@@ -120,18 +145,37 @@ export async function installGuard(context: BrowserContext, preview: URL): Promi
         const response = await route.fetch({
           headers: { ...request.headers(), [TRUSTED_TOKEN_HEADER]: token },
           maxRedirects: 0,
+          // Without this the fetch inherits the 15 s action timeout and a
+          // slow, healthy cold start would be cut off here, unseen.
+          timeout: PREVIEW_FETCH_TIMEOUT_MS,
         });
         if (response.status() >= 300 && response.status() < 400) {
-          // Vercel refusing the token also looks like this (a redirect to its sign-in).
-          violate(`the preview answered with a redirect (HTTP ${response.status()}): ${label}`);
+          // Not followed, so nothing unsafe happened; but this walk expects
+          // no redirect. Only the Location's host and path are kept.
+          let target: URL | null = null;
+          try {
+            target = new URL(response.headers()["location"] ?? "", url);
+          } catch {
+            target = null;
+          }
+          const targetPath = target && target.hostname === preview.hostname ? routedPath(target.pathname) : null;
+          if (target && target.hostname.endsWith("vercel.com")) {
+            problems.push(`[CONFIG] Vercel stopped accepting this job's identity mid-run (redirect to its sign-in): ${label}`);
+          } else if (targetPath !== null && FORBIDDEN_PREVIEW_PATHS.some((pattern) => pattern.test(targetPath))) {
+            violate(`a redirect to a forbidden path was refused: ${label}`);
+          } else {
+            problems.push(`[APP] the preview answered with a redirect (HTTP ${response.status()}) to ${target?.hostname ?? "an unreadable address"}: ${label}`);
+          }
           return await route.abort("blockedbyclient");
         }
         return await route.fulfill({ response });
-      } catch {
-        // NEVER rethrow or print this error: Playwright's text for a failed
-        // fetch lists the request headers, token included, and this
-        // repository's CI logs are public. The request simply fails; the
-        // test then fails on whatever it was waiting for.
+      } catch (error) {
+        // NEVER rethrow or print this error's message: Playwright's text for
+        // a failed fetch lists the request headers, token included, and this
+        // repository's CI logs are public. Only its kind is kept.
+        if (!closing) {
+          fetchFailures.set(pathname, error instanceof Error && error.name === "TimeoutError" ? "timeout" : "network");
+        }
         return route.abort("failed").catch(() => {});
       }
     }
@@ -173,5 +217,18 @@ export async function installGuard(context: BrowserContext, preview: URL): Promi
     void socket.close();
   });
 
-  return { violations, publishableKey: () => publishableKey };
+  return {
+    violations,
+    problems,
+    fetchFailure: (pathname) => fetchFailures.get(pathname) ?? null,
+    publishableKey: () => publishableKey,
+    close: async () => {
+      // In this order: a page left open after the handlers are removed could
+      // send requests the guard no longer sees. ignoreErrors: a request still
+      // in flight must not surface its error (its text can list headers).
+      closing = true;
+      await Promise.all(context.pages().map((page) => page.close().catch(() => {})));
+      await context.unrouteAll({ behavior: "ignoreErrors" });
+    },
+  };
 }

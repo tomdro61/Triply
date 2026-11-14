@@ -15,7 +15,7 @@
  * Not covered (still the manual `/verify-flow checkout` walk): authorization,
  * the reservation, capture, the confirmation page, emails, wallets.
  */
-import { test as base, expect, type Page, type Response } from "@playwright/test";
+import { test as base, expect, errors, type Page, type Response } from "@playwright/test";
 import { installGuard, type Guard } from "./lib/guard";
 import { failure, previewOrigin, previewToken, TRUSTED_TOKEN_HEADER } from "./lib/preview-access";
 
@@ -57,10 +57,32 @@ function str(value: unknown, what: string): string {
   return value;
 }
 
-/** A wait that ran out is almost always a slow staging ResLab on a cold preview. */
-const slow = (what: string) => () => {
-  throw failure("UPSTREAM", `${what} did not answer within 60 s (a slow staging ResLab is the usual cause; if it keeps failing, read the preview's logs)`);
-};
+/**
+ * Wait for the page's own call to one of our API routes, and say WHY when it
+ * does not arrive. Only "the request was sent and the server was still
+ * working at the deadline" is UPSTREAM: a page that never asks is our bug,
+ * and UPSTREAM is the one label a retry is allowed to clear.
+ */
+function apiResponse(page: Page, guard: Guard, method: "GET" | "POST", pathname: string, what: string): Promise<Response> {
+  let sent = false;
+  const matches = (candidate: { method(): string; url(): string }) =>
+    candidate.method() === method && new URL(candidate.url()).pathname === pathname;
+  page.on("request", (request) => {
+    if (matches(request)) sent = true;
+  });
+  return page
+    .waitForResponse((response) => matches(response.request()), { timeout: 60_000 })
+    .catch((error: unknown) => {
+      if (!(error instanceof errors.TimeoutError)) throw error;
+      if (!sent) throw failure("APP", `the page never asked for ${what} (${method} ${pathname})`);
+      const cut = guard.fetchFailure(pathname);
+      if (cut === "network") throw failure("UPSTREAM", `the connection to the preview failed while ${what}`);
+      throw failure(
+        "UPSTREAM",
+        `${what} did not finish within 60 s (a slow staging ResLab is the usual cause; if it keeps failing, read the preview's logs)`
+      );
+    });
+}
 
 /** ResLab TEST lot (src/config/admin.ts). Loads on previews, refused in production. */
 const TEST_LOT = "reslab-194";
@@ -72,9 +94,10 @@ const test = base.extend<{ guard: Guard }>({
       await assertPreviewAccess();
       const guard = await installGuard(context, previewOrigin());
       await provide(guard);
-      // Requests still in flight when the test ends must not surface their
-      // errors: Playwright's text for them can include request headers.
-      await context.unrouteAll({ behavior: "ignoreErrors" });
+      await guard.close();
+      // A redirect the guard refused: a failure with its own label, so the
+      // retry and labelling rules apply to it.
+      if (guard.problems.length > 0) throw new Error(guard.problems[0]);
       expect(guard.violations, "the page tried something this test must never do").toEqual([]);
     },
     { auto: true },
@@ -160,12 +183,7 @@ test("checkout reaches the payment form and the amount agrees three ways", async
   // ── 1. The lot and a price load ────────────────────────────────────────
   // A cold preview renders, hydrates and asks staging ResLab (sign-in, the
   // lot, its price, its cost) inside this wait.
-  const lotLoad = page
-    .waitForResponse(
-      (response) => response.request().method() === "GET" && new URL(response.url()).pathname === "/api/checkout/lot",
-      { timeout: 60_000 }
-    )
-    .catch(slow("loading the test lot"));
+  const lotLoad = apiResponse(page, guard, "GET", "/api/checkout/lot", "loading the test lot");
   await page.goto(checkoutUrl(true));
   const lotResponse = await lotLoad;
   // The route answers 503 when an upstream is down and 500 for anything else.
@@ -225,9 +243,7 @@ test("checkout reaches the payment form and the amount agrees three ways", async
     await extra.fill(isFlight ? "UA123" : inputType === "number" ? "1" : "N/A");
   }
 
-  const intentCreated = page
-    .waitForResponse((response) => isPost(response, "/api/checkout/lot"), { timeout: 60_000 })
-    .catch(slow("creating the PaymentIntent"));
+  const intentCreated = apiResponse(page, guard, "POST", "/api/checkout/lot", "creating the PaymentIntent");
   await page.getByRole("button", { name: "Continue to Payment" }).click();
   const intentResponse = await intentCreated;
   if ([502, 503, 504].includes(intentResponse.status())) {

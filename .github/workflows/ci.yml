@@ -165,7 +165,7 @@ jobs:
           cache-dependency-path: e2e/package-lock.json
       - run: npm ci --ignore-scripts
       - run: npm run typecheck
-      - run: npx playwright install --with-deps chromium
+      - run: npx --no-install playwright install --with-deps chromium
       - name: Find this commit's preview
         id: preview
         run: node find-preview.mjs

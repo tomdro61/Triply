@@ -58,9 +58,12 @@ if (!existsSync("smoke-report.json")) {
       // upstream one. An APP failure that comes and goes is still a failure.
       const acceptable = ranAndPassed && (test.status === "expected" || kind === "UPSTREAM");
       if (acceptable) passedTitles.add(spec.title);
+      // Any test in the file, not only the required ones below.
+      else failed = true;
       if (ranAndPassed && test.status === "expected") lines.push(`- PASS: ${spec.title}`);
       else if (acceptable) lines.push(`- PASSED ON RETRY (UPSTREAM): ${spec.title}: ${reason}`);
       else if (ranAndPassed) lines.push(`- FAIL (${kind}, passed only on retry): ${spec.title}: ${reason}`);
+      else if (last?.status === "interrupted") lines.push(`- INTERRUPTED (CONFIG): ${spec.title}`);
       else if (test.status === "skipped" || last?.status === "skipped") lines.push(`- SKIPPED (CONFIG): ${spec.title}`);
       else lines.push(`- FAIL (${kind}, last attempt ${last?.status ?? "unknown"}): ${spec.title}: ${reason}`);
     }

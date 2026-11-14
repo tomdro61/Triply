@@ -63,17 +63,20 @@ async function mintToken(): Promise<string> {
   return value;
 }
 
-/** A deployment URL of this Vercel project: `triply-<id>-<team>.vercel.app`. */
-export const PREVIEW_HOST = /^triply-[a-z0-9-]+\.vercel\.app$/;
+/** The shape of this project's deployment URLs, `triply-<id>-<team>.vercel.app`
+ *  (and not the CMS project's). A shape check only: which deployment it is
+ *  comes from find-preview.mjs, and the Vercel rule accepts the token for
+ *  this project's previews alone. */
+export const PREVIEW_HOST = /^triply-(?!cms-)[a-z0-9-]+\.vercel\.app$/;
 
-/** The preview this run tests. Refuses anything that is not one of this project's deployment URLs. */
+/** The preview this run tests. Refuses anything that does not look like one of this project's deployment URLs. */
 export function previewOrigin(): URL {
   const raw = process.env.SMOKE_BASE_URL;
   if (!raw) throw failure("CONFIG", "SMOKE_BASE_URL is not set");
   const url = new URL(raw);
   if (url.protocol !== "https:" || !PREVIEW_HOST.test(url.hostname)) {
-    // Not localhost (it books against production ResLab), never the live site,
-    // and never another project's host: the access token is sent to this host.
+    // Not localhost (it books against production ResLab) and never the live
+    // site: the access token is sent to this host.
     throw failure("CONFIG", "SMOKE_BASE_URL must be an https triply-*.vercel.app preview URL");
   }
   return url;

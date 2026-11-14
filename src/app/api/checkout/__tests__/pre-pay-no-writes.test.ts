@@ -22,7 +22,8 @@
  *
  * Limits (say so in a PR that leans on this test):
  * - Stripe's client module is mocked, and a call made with node:http instead
- *   of `fetch` is not seen.
+ *   of `fetch` is not seen. A write that waits on a timer longer than 50 ms
+ *   after the handler returns is not seen either.
  * - Only the paths the smoke test drives are run: a ResLab lot, with and
  *   without a promo code or a protection plan, and the price-estimate
  *   fallback. Direct lots are not: the smoke test never opens one.
@@ -31,7 +32,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const { writes, reads, makeClient, createPI, stripeMock, reslabMock, reslabOther, emails, fetches } = vi.hoisted(() => {
+const { writes, reads, makeClient, createPI, stripeMock, reslabMock, reslabOther, emails, fetches, afterTasks } = vi.hoisted(() => {
   const writes: string[] = [];
   /** What a read returns, by table or RPC name. Anything else reads as "no row". */
   const reads: Record<string, unknown> = {};
@@ -89,8 +90,19 @@ const { writes, reads, makeClient, createPI, stripeMock, reslabMock, reslabOther
     reslabOther,
     emails: vi.fn(),
     fetches: vi.fn(),
+    afterTasks: [] as unknown[],
   };
 });
+
+// On Vercel, work passed to after() runs once the response is sent. Outside a
+// request it throws, so a write deferred this way would never run here: the
+// tasks are collected and run by expectNoSideEffects.
+vi.mock("next/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/server")>()),
+  after: (task: unknown) => {
+    afterTasks.push(task);
+  },
+}));
 
 vi.mock("@supabase/ssr", () => ({
   createServerClient: (_url: string, key: string) => makeClient(key === "service" ? "admin" : "session"),
@@ -162,10 +174,10 @@ const postIntent = (over: Record<string, unknown> = {}) =>
 
 /** Nothing left the process except through the mocks this file handed out. */
 async function expectNoSideEffects() {
-  // A write started but not awaited by the handler (`void insert()`) lands a
-  // few ticks after it returns.
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  // Work the handler deferred with after(), then anything it started and did
+  // not await (`void insert()`), which lands shortly after it returns.
+  await Promise.allSettled(afterTasks.splice(0).map((task) => (typeof task === "function" ? task() : task)));
+  await new Promise((resolve) => setTimeout(resolve, 50));
   expect(writes, "a database write before Pay").toEqual([]);
   expect(reslabOther, "a ResLab call that is not a read before Pay").toEqual([]);
   expect(emails, "an email before Pay").not.toHaveBeenCalled();
@@ -176,6 +188,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   writes.length = 0;
   reslabOther.length = 0;
+  afterTasks.length = 0;
   for (const key of Object.keys(reads)) delete reads[key];
   // The direct-lot read the real lot lookup makes: no direct lots.
   reads.direct_lots_v2 = [];

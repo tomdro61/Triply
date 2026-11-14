@@ -57,7 +57,7 @@ while (Date.now() < deadline) {
     if (latest?.state === "success") {
       const url = new URL(latest.environment_url || latest.target_url);
       // Same rule as e2e/lib/preview-access.ts (PREVIEW_HOST).
-      if (url.protocol !== "https:" || !/^triply-[a-z0-9-]+\.vercel\.app$/.test(url.hostname)) {
+      if (url.protocol !== "https:" || !/^triply-(?!cms-)[a-z0-9-]+\.vercel\.app$/.test(url.hostname)) {
         stop("CONFIG", "the Preview deployment's URL is not an https triply-*.vercel.app address");
       }
       console.log(`Preview for ${HEAD_SHA.slice(0, 7)}: ${url.origin}`);
