@@ -4,10 +4,12 @@
 // that only passed on its retry is reported, not hidden.
 //
 // Text only: no request data, no headers. Exits 1 if the guard recorded a
-// violation, whatever the tests say.
+// violation, or if any required test did not run and pass (skipped counts as
+// not run), whatever Playwright's own exit code was.
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 
 const lines = [];
+const passedTitles = new Set();
 let failed = false;
 
 const violations = existsSync("guard-violations.txt") ? readFileSync("guard-violations.txt", "utf8").trim() : "";
@@ -17,9 +19,14 @@ if (violations) {
 }
 
 if (!existsSync("smoke-report.json")) {
-  lines.push("No test report: the run stopped before the tests (see the earlier steps).");
+  failed = true;
+  lines.push("No test report: the run stopped before the tests (the failing step above says why).");
 } else {
   const report = JSON.parse(readFileSync("smoke-report.json", "utf8"));
+  for (const error of report.errors ?? []) {
+    failed = true;
+    lines.push(`- ERROR outside a test: ${String(error.message ?? "").split("\n")[0].slice(0, 300)}`);
+  }
   const specs = [];
   const walk = (suite) => {
     specs.push(...(suite.specs ?? []));
@@ -31,15 +38,46 @@ if (!existsSync("smoke-report.json")) {
     for (const test of spec.tests ?? []) {
       const results = test.results ?? [];
       const last = results[results.length - 1];
-      const firstError = results.flatMap((r) => r.errors ?? []).map((e) => String(e.message ?? ""))[0] ?? "";
-      // First line only, colour codes removed.
-      const reason = firstError.replace(/\u001b\[[0-9;]*m/g, "").split("\n")[0].slice(0, 300);
-      const kind = /\[(UPSTREAM|CONFIG|APP)\]/.exec(firstError)?.[1] ?? "APP";
-      if (test.status === "expected") lines.push(`- PASS: ${spec.title}`);
-      else if (test.status === "flaky") lines.push(`- PASSED ON RETRY (${kind}): ${spec.title}: ${reason}`);
-      else if (test.status === "skipped") lines.push(`- SKIPPED: ${spec.title}`);
+      // Each failed attempt is labelled by its own first error (no label =
+      // APP). The line shows the worst label of any attempt, so an UPSTREAM
+      // first attempt cannot hide an APP failure on the retry.
+      const failedAttempts = results
+        .filter((r) => r.status !== "passed" && r.status !== "skipped")
+        .map((r) => String(r.errors?.[0]?.message ?? ""));
+      const kinds = failedAttempts.map((message) => /\[(UPSTREAM|CONFIG|APP)\]/.exec(message)?.[1] ?? "APP");
+      const kind = ["APP", "CONFIG", "UPSTREAM"].find((k) => kinds.includes(k)) ?? "APP";
+      // The latest failure's first line, colour codes removed.
+      const reason = (failedAttempts[failedAttempts.length - 1] ?? "")
+        .replace(/\u001b\[[0-9;]*m/g, "")
+        .split("\n")[0]
+        .slice(0, 300);
+      // "Ran and passed" means the last attempt really passed: a skipped test,
+      // or one marked as an expected failure, has tested nothing.
+      const ranAndPassed = last?.status === "passed" && (test.status === "expected" || test.status === "flaky");
+      // Passing on a retry is only accepted when every failed attempt was an
+      // upstream one. An APP failure that comes and goes is still a failure.
+      const acceptable = ranAndPassed && (test.status === "expected" || kind === "UPSTREAM");
+      if (acceptable) passedTitles.add(spec.title);
+      if (ranAndPassed && test.status === "expected") lines.push(`- PASS: ${spec.title}`);
+      else if (acceptable) lines.push(`- PASSED ON RETRY (UPSTREAM): ${spec.title}: ${reason}`);
+      else if (ranAndPassed) lines.push(`- FAIL (${kind}, passed only on retry): ${spec.title}: ${reason}`);
+      else if (test.status === "skipped" || last?.status === "skipped") lines.push(`- SKIPPED (CONFIG): ${spec.title}`);
       else lines.push(`- FAIL (${kind}, last attempt ${last?.status ?? "unknown"}): ${spec.title}: ${reason}`);
     }
+  }
+}
+
+// Green means all of these ran and passed. Renaming one here and in the spec
+// is fine; a run where one is missing or skipped is red.
+const REQUIRED = [
+  "the preview is reachable with this job's credential and serves a static page",
+  "checkout refuses a link with no times, before asking the server",
+  "checkout reaches the payment form and the amount agrees three ways",
+];
+for (const title of REQUIRED) {
+  if (!passedTitles.has(title)) {
+    failed = true;
+    lines.push(`- NOT PROVEN: "${title}" did not run and pass`);
   }
 }
 

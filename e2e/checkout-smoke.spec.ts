@@ -6,9 +6,11 @@
  * mounts, and the amount on the pay button equals what the server computed
  * and what Stripe holds, before and after a protection plan is picked.
  *
- * What it never does: type a card, click Pay, call /api/search, or reach
- * anything that writes to the (production) database. lib/guard.ts enforces
- * that; do not loosen it to make a test pass.
+ * What it never does: type a card or click Pay. lib/guard.ts aborts, and
+ * fails the run on, any write request it does not list, /api/search,
+ * /api/reservations*, /checkout/complete and a Stripe confirm; do not loosen
+ * it to make a test pass. What the allowed requests do on the server is
+ * checked by src/app/api/checkout/__tests__/pre-pay-no-writes.test.ts.
  *
  * Not covered (still the manual `/verify-flow checkout` walk): authorization,
  * the reservation, capture, the confirmation page, emails, wallets.
@@ -17,6 +19,49 @@ import { test as base, expect, type Page, type Response } from "@playwright/test
 import { installGuard, type Guard } from "./lib/guard";
 import { failure, previewOrigin, previewToken, TRUSTED_TOKEN_HEADER } from "./lib/preview-access";
 
+let access: Promise<void> | undefined;
+/** Asked once, from Node, before any test touches the browser: a refused
+ *  credential fails EVERY test as CONFIG, not as a broken page. */
+function assertPreviewAccess(): Promise<void> {
+  access ??= (async () => {
+    const probe = await fetch(new URL("/terms", previewOrigin()), {
+      headers: { [TRUSTED_TOKEN_HEADER]: await previewToken() },
+      redirect: "manual",
+    });
+    if (probe.status === 401 || probe.status === 403 || (probe.status >= 300 && probe.status < 400)) {
+      throw failure(
+        "CONFIG",
+        `Vercel did not accept this job's identity (HTTP ${probe.status}). Check the project's Trusted Sources rule for this repository (Preview).`
+      );
+    }
+    if (probe.status !== 200) throw failure("APP", `/terms returned HTTP ${probe.status} on the preview`);
+  })();
+  return access;
+}
+
+/** Response.json() is typed `any`: take it as `unknown` and read one path. */
+function at(body: unknown, ...path: string[]): unknown {
+  let value = body;
+  for (const key of path) {
+    if (typeof value !== "object" || value === null || !Object.hasOwn(value, key)) return undefined;
+    value = Object.getOwnPropertyDescriptor(value, key)?.value;
+  }
+  return value;
+}
+function num(value: unknown, what: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) throw failure("APP", `${what} is not a number`);
+  return value;
+}
+function str(value: unknown, what: string): string {
+  if (typeof value !== "string" || value === "") throw failure("APP", `${what} is not a string`);
+  return value;
+}
+
+/** A wait that ran out is almost always a slow staging ResLab on a cold preview. */
+const slow = (what: string) => () => {
+  throw failure("UPSTREAM", `${what} did not answer within 60 s (a slow staging ResLab is the usual cause; if it keeps failing, read the preview's logs)`);
+};
+
 /** ResLab TEST lot (src/config/admin.ts). Loads on previews, refused in production. */
 const TEST_LOT = "reslab-194";
 
@@ -24,8 +69,12 @@ const test = base.extend<{ guard: Guard }>({
   // Every test gets the guard before its first navigation, and fails on a violation.
   guard: [
     async ({ context }, provide) => {
+      await assertPreviewAccess();
       const guard = await installGuard(context, previewOrigin());
       await provide(guard);
+      // Requests still in flight when the test ends must not surface their
+      // errors: Playwright's text for them can include request headers.
+      await context.unrouteAll({ behavior: "ignoreErrors" });
       expect(guard.violations, "the page tried something this test must never do").toEqual([]);
     },
     { auto: true },
@@ -54,50 +103,45 @@ function checkoutUrl(withTimes: boolean): string {
 
 const cents = (dollars: number) => Math.round(dollars * 100);
 
-/** The dollar amount on the pay button, in cents. Waits for a settled label. */
-async function payButtonCents(page: Page): Promise<number> {
-  const button = page.getByRole("button", { name: /(Pay Now|Complete Booking) - \$/ });
-  await expect(button).toBeVisible();
-  const text = (await button.textContent()) ?? "";
-  const match = /\$([\d,]+\.\d{2})/.exec(text);
-  if (!match) throw failure("APP", `the pay button shows no amount: "${text.trim()}"`);
-  return cents(Number(match[1].replace(/,/g, "")));
+/** The dollar amount on the pay button, in cents; null while it shows no amount ("Updating total…"). */
+async function payButtonCents(page: Page): Promise<number | null> {
+  const labels = await page.getByRole("button", { name: /(Pay Now|Complete Booking) - \$/ }).allTextContents();
+  const match = /\$([\d,]+\.\d{2})/.exec(labels[0] ?? "");
+  return match ? cents(Number(match[1].replace(/,/g, ""))) : null;
 }
 
 /** What Stripe itself holds for the PaymentIntent, read with the page's own publishable (test) key. */
-async function stripeAmountCents(publishableKey: string, paymentIntentId: string, clientSecret: string): Promise<number> {
+async function stripeHolds(
+  publishableKey: string,
+  paymentIntentId: string,
+  clientSecret: string
+): Promise<{ amountCents: number; status: string }> {
   const response = await fetch(
     `https://api.stripe.com/v1/payment_intents/${paymentIntentId}?client_secret=${encodeURIComponent(clientSecret)}`,
     { headers: { authorization: `Bearer ${publishableKey}` } }
   );
-  if (!response.ok) throw failure("UPSTREAM", `Stripe would not return the PaymentIntent (HTTP ${response.status})`);
-  const body: unknown = await response.json();
-  if (typeof body !== "object" || body === null || !("amount" in body) || typeof body.amount !== "number") {
-    throw failure("UPSTREAM", "Stripe's PaymentIntent had no amount");
+  if (response.status >= 500 || response.status === 429) {
+    throw failure("UPSTREAM", `Stripe returned HTTP ${response.status} for the PaymentIntent`);
   }
-  return body.amount;
+  if (!response.ok) {
+    throw failure(
+      "APP",
+      `Stripe refused the PaymentIntent read (HTTP ${response.status}): wrong id or client secret, or the page's key and the server's key belong to different Stripe accounts`
+    );
+  }
+  const body: unknown = await response.json();
+  return { amountCents: num(at(body, "amount"), "Stripe's amount"), status: str(at(body, "status"), "Stripe's status") };
 }
 
 const isPost = (response: Response, pathname: string) =>
   response.request().method() === "POST" && new URL(response.url()).pathname === pathname;
 
 test("the preview is reachable with this job's credential and serves a static page", async ({ page }) => {
-  // Asked from Node first, so a credential problem reads as CONFIG, not as a broken page.
-  const probe = await fetch(new URL("/terms", previewOrigin()), {
-    headers: { [TRUSTED_TOKEN_HEADER]: await previewToken() },
-    redirect: "manual",
-  });
-  if (probe.status === 401 || probe.status === 403 || (probe.status >= 300 && probe.status < 400)) {
-    throw failure(
-      "CONFIG",
-      `Vercel did not accept this job's identity (HTTP ${probe.status}). Check the project's Trusted Sources rule for this repository (Preview).`
-    );
-  }
-  if (probe.status >= 500) throw failure("APP", `/terms returned HTTP ${probe.status} on the preview`);
-
+  // The credential itself is checked before every test (assertPreviewAccess).
   // /terms, not the home page: the home page's featured lots call /api/search.
-  await page.goto("/terms");
-  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  const response = await page.goto("/terms");
+  expect(response?.status(), "/terms loads in the browser").toBe(200);
+  await expect(page.getByRole("heading", { level: 1, name: "Terms of Service" })).toBeVisible();
 });
 
 test("checkout refuses a link with no times, before asking the server", async ({ page }) => {
@@ -114,24 +158,46 @@ test("checkout reaches the payment form and the amount agrees three ways", async
   const runId = process.env.GITHUB_RUN_ID ?? "local";
 
   // ── 1. The lot and a price load ────────────────────────────────────────
-  const lotLoad = page.waitForResponse(
-    (response) => response.request().method() === "GET" && new URL(response.url()).pathname === "/api/checkout/lot"
-  );
+  // A cold preview renders, hydrates and asks staging ResLab (sign-in, the
+  // lot, its price, its cost) inside this wait.
+  const lotLoad = page
+    .waitForResponse(
+      (response) => response.request().method() === "GET" && new URL(response.url()).pathname === "/api/checkout/lot",
+      { timeout: 60_000 }
+    )
+    .catch(slow("loading the test lot"));
   await page.goto(checkoutUrl(true));
   const lotResponse = await lotLoad;
-  if (lotResponse.status() >= 500) {
+  // The route answers 503 when an upstream is down and 500 for anything else.
+  if ([502, 503, 504].includes(lotResponse.status())) {
+    throw failure("UPSTREAM", `/api/checkout/lot returned HTTP ${lotResponse.status()} (staging ResLab or the location list is unavailable)`);
+  }
+  if (!lotResponse.ok()) {
     throw failure(
-      "UPSTREAM",
-      `/api/checkout/lot returned HTTP ${lotResponse.status()}: staging ResLab is the usual cause; if it is up, this is ours (read the preview's logs)`
+      "APP",
+      `/api/checkout/lot returned HTTP ${lotResponse.status()} for the test lot (read the preview's logs; a ResLab sign-in failure, or the lot missing from staging ResLab, also lands here)`
     );
   }
-  if (!lotResponse.ok()) throw failure("APP", `/api/checkout/lot returned HTTP ${lotResponse.status()} for the test lot`);
-  const lotData = await lotResponse.json();
-  const lotName: string = lotData?.lot?.name ?? "";
+  const lotData: unknown = await lotResponse.json();
   // Also proves this is a preview: production refuses the test lots.
-  expect(lotName, "the test lot's name starts with TEST").toMatch(/^TEST/i);
-  if (lotData?.costData?.soldOut) throw failure("UPSTREAM", "test lot 194 is sold out on staging ResLab for these dates");
-  expect(lotData?.costData?.dueNow, "the server priced the stay").toBeGreaterThan(0);
+  expect(str(at(lotData, "lot", "name"), "the lot's name"), "the test lot's name starts with TEST").toMatch(/^TEST/i);
+  if (at(lotData, "costData", "soldOut") === true) {
+    throw failure("UPSTREAM", "test lot 194 is sold out on staging ResLab for these dates");
+  }
+  if (typeof at(lotData, "costData", "costsToken") !== "string") {
+    // The page shows an estimate when ResLab cannot price the stay: not a real quote.
+    throw failure("UPSTREAM", "staging ResLab did not price the stay (the page fell back to an estimate)");
+  }
+  const quotedCents = cents(num(at(lotData, "costData", "dueNow"), "the quoted amount due now"));
+  expect(quotedCents, "the server priced the stay").toBeGreaterThan(0);
+  // How the app decides what a lot-specific field must hold: by its input type.
+  const extraFieldTypes = new Map<string, string>();
+  const declared = at(lotData, "lot", "extraFields");
+  for (const extraField of Array.isArray(declared) ? declared : []) {
+    const name = at(extraField, "name");
+    const inputType = at(extraField, "inputType");
+    if (typeof name === "string") extraFieldTypes.set(name, typeof inputType === "string" ? inputType : "");
+  }
 
   // ── 2. Both form steps advance ─────────────────────────────────────────
   const field = (name: string) => page.locator(`[data-funnel-field="${name}"]`);
@@ -153,49 +219,59 @@ test("checkout reaches the payment form and the amount agrees three ways", async
   const extras = page.locator('[data-funnel-field^="extra:"]');
   for (let i = 0; i < (await extras.count()); i++) {
     const extra = extras.nth(i);
-    const name = ((await extra.getAttribute("data-funnel-field")) ?? "").toLowerCase();
-    const type = await extra.getAttribute("type");
-    await extra.fill(name.includes("flight") ? "UA123" : type === "number" ? "1" : "N/A");
+    const name = ((await extra.getAttribute("data-funnel-field")) ?? "").slice("extra:".length);
+    const inputType = extraFieldTypes.get(name) ?? "";
+    const isFlight = inputType === "flight_number" || name.toLowerCase().includes("flight");
+    await extra.fill(isFlight ? "UA123" : inputType === "number" ? "1" : "N/A");
   }
 
-  const intentCreated = page.waitForResponse((response) => isPost(response, "/api/checkout/lot"));
+  const intentCreated = page
+    .waitForResponse((response) => isPost(response, "/api/checkout/lot"), { timeout: 60_000 })
+    .catch(slow("creating the PaymentIntent"));
   await page.getByRole("button", { name: "Continue to Payment" }).click();
   const intentResponse = await intentCreated;
-  if (intentResponse.status() >= 500) {
-    throw failure(
-      "UPSTREAM",
-      `creating the PaymentIntent returned HTTP ${intentResponse.status()}: staging ResLab or Stripe is the usual cause; if both are up, this is ours`
-    );
+  if ([502, 503, 504].includes(intentResponse.status())) {
+    throw failure("UPSTREAM", `creating the PaymentIntent returned HTTP ${intentResponse.status()} (staging ResLab or Stripe is unavailable)`);
   }
-  if (!intentResponse.ok()) throw failure("APP", `creating the PaymentIntent returned HTTP ${intentResponse.status()}`);
-  const intent = await intentResponse.json();
-  const parkingOnlyCents: number = intent.chargeCents;
+  if (intentResponse.status() === 409) {
+    throw failure("UPSTREAM", "test lot 194 sold out on staging ResLab between loading and Continue to Payment");
+  }
+  if (!intentResponse.ok()) {
+    // A 500 here is ours until shown otherwise: the route also returns it when ResLab or Stripe refuses our request.
+    throw failure("APP", `creating the PaymentIntent returned HTTP ${intentResponse.status()} (read the preview's logs)`);
+  }
+  const intent: unknown = await intentResponse.json();
+  const parkingOnlyCents = num(at(intent, "chargeCents"), "chargeCents");
+  const paymentIntentId = str(at(intent, "paymentIntentId"), "paymentIntentId");
+  const clientSecret = str(at(intent, "clientSecret"), "clientSecret");
   expect(Number.isInteger(parkingOnlyCents) && parkingOnlyCents > 0, "the server returned a charge in cents").toBe(true);
-  expect(String(intent.paymentIntentId)).toMatch(/^pi_/);
+  expect(paymentIntentId).toMatch(/^pi_/);
+  expect(parkingOnlyCents, "the charge is the amount the page quoted when it loaded").toBe(quotedCents);
 
   // ── 3. Stripe's form mounts; the amount agrees three ways ──────────────
-  await expect(page.getByRole("heading", { name: "Payment" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Payment", exact: true })).toBeVisible();
   await expect(page.locator('iframe[title="Secure payment input frame"]').first()).toBeAttached({ timeout: 30_000 });
   // Nothing is pre-selected: no amount on the button until the customer chooses.
   await expect(page.getByRole("button", { name: "Select a protection option above" })).toBeDisabled();
 
-  const stripeHolds = async () => {
+  const atStripe = async () => {
     await expect
       .poll(() => guard.publishableKey(), { message: "the page calls Stripe with a test publishable key" })
       .not.toBeNull();
     const key = guard.publishableKey();
     if (!key) throw failure("APP", "the page never called Stripe with a test publishable key");
-    return stripeAmountCents(key, intent.paymentIntentId, intent.clientSecret);
+    return stripeHolds(key, paymentIntentId, clientSecret);
   };
-  expect(await stripeHolds(), "Stripe holds what the server said it would charge").toBe(parkingOnlyCents);
+  expect((await atStripe()).amountCents, "Stripe holds what the server said it would charge").toBe(parkingOnlyCents);
 
   /** Pick an option; return the server's new amount once Stripe has it. */
   const choose = async (value: "A" | "B" | "C" | "none") => {
-    const updated = page.waitForResponse((response) => isPost(response, "/api/checkout/lot/update-pi"));
+    const updated = page.waitForResponse((response) => isPost(response, "/api/checkout/lot/update-pi"), { timeout: 30_000 });
     await page.locator(`input[type="radio"][value="${value}"]`).check();
     const response = await updated;
     if (!response.ok()) throw failure("APP", `update-pi returned HTTP ${response.status()} for "${value}"`);
-    return cents((await response.json()).amount);
+    const body: unknown = await response.json();
+    return cents(num(at(body, "amount"), "update-pi amount"));
   };
 
   // A plan: the charge rises by exactly the price printed on its card.
@@ -207,7 +283,7 @@ test("checkout reaches the payment form and the amount agrees three ways", async
   await expect
     .poll(() => payButtonCents(page), { message: "the pay button shows the amount with the plan" })
     .toBe(withPlanCents);
-  expect(await stripeHolds(), "Stripe holds the amount with the plan").toBe(withPlanCents);
+  expect((await atStripe()).amountCents, "Stripe holds the amount with the plan").toBe(withPlanCents);
 
   // No protection: back to the parking-only charge, everywhere.
   const withoutPlanCents = await choose("none");
@@ -215,10 +291,13 @@ test("checkout reaches the payment form and the amount agrees three ways", async
   await expect
     .poll(() => payButtonCents(page), { message: "the pay button shows the parking-only amount" })
     .toBe(parkingOnlyCents);
-  expect(await stripeHolds(), "Stripe holds the parking-only amount").toBe(parkingOnlyCents);
+  expect((await atStripe()).amountCents, "Stripe holds the parking-only amount").toBe(parkingOnlyCents);
 
   // Pay becomes available once the terms are accepted (no card needed for that).
   // It is checked, never clicked.
   await page.locator("label", { hasText: "I agree to the" }).getByRole("checkbox").check();
   await expect(page.getByRole("button", { name: /(Pay Now|Complete Booking) - \$/ })).toBeEnabled();
+
+  // And nothing was paid: the PaymentIntent is still waiting for a card.
+  expect((await atStripe()).status, "the PaymentIntent was never confirmed").toBe("requires_payment_method");
 });

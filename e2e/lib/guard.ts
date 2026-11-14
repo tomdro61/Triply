@@ -19,11 +19,13 @@ import path from "node:path";
 import type { BrowserContext, Request } from "@playwright/test";
 import { TRUSTED_TOKEN_HEADER, previewToken } from "./preview-access";
 
-export const VIOLATIONS_FILE = path.join(__dirname, "..", "guard-violations.txt");
+/** Read by summarize.mjs (same folder), which fails the job if it is not empty. */
+const VIOLATIONS_FILE = path.join(__dirname, "..", "guard-violations.txt");
 
-/** The only requests to the preview that may change anything. Verified at
- *  `a155e39`: none of them writes to Supabase, sends mail or books (the
- *  server-side half of this is src/app/api/checkout/__tests__/pre-pay-no-writes.test.ts). */
+/** The only non-GET requests the page may send to the preview. None of them
+ *  writes to Supabase, sends mail or books: pre-pay-no-writes.test.ts
+ *  (src/app/api/checkout/__tests__/) fails if one starts to, and also covers
+ *  GET /api/checkout/lot. */
 const ALLOWED_MUTATING = new Set([
   "POST /api/checkout/lot", // creates a Stripe TEST PaymentIntent
   "POST /api/checkout/lot/update-pi", // changes that PaymentIntent's amount
@@ -33,9 +35,17 @@ const ALLOWED_MUTATING = new Set([
 /** First-party telemetry: dropped quietly. */
 const QUIET_PREVIEW_PATHS = [/^\/monitoring/, /^\/_vercel\//];
 
-/** Never, by any method. `/api/search` logs rows to the production database;
- *  the rest is the booking itself. */
-const FORBIDDEN_PREVIEW_PATHS = [/^\/api\/search/, /^\/api\/reservations/, /^\/checkout\/complete/];
+/** Never, by any method. A search logs rows to the production database, and
+ *  airport and lot pages run one while rendering; the rest is the booking itself. */
+const FORBIDDEN_PREVIEW_PATHS = [
+  /^\/api\/search/,
+  /^\/[^/]+\/airport-parking/,
+  /^\/api\/reservations/,
+  /^\/checkout\/complete/,
+];
+
+/** Our own hosts other than the preview under test: a write to one is never expected. */
+const isOurOtherHost = (host: string) => host.endsWith("triplypro.com") || host.endsWith(".vercel.app");
 
 const READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
@@ -79,6 +89,17 @@ export async function installGuard(context: BrowserContext, preview: URL): Promi
     if (url.protocol === "data:" || url.protocol === "blob:") return route.continue();
 
     if (url.hostname === preview.hostname) {
+      // Only plain paths. Next.js answers `/api//search` with a redirect to
+      // `/api/search`, which would slip past the path rules below.
+      // (Encoded characters are fine in a chunk name, except an encoded slash.)
+      const plainPath =
+        /^(\/[A-Za-z0-9._~@:+,=()\[\]%-]+)*\/?$/.test(url.pathname) &&
+        !url.pathname.includes("..") &&
+        !/%2f|%5c/i.test(url.pathname);
+      if (!plainPath) {
+        violate(`a preview path this guard cannot judge: ${label}`);
+        return route.abort("blockedbyclient");
+      }
       if (FORBIDDEN_PREVIEW_PATHS.some((pattern) => pattern.test(url.pathname))) {
         violate(`forbidden request: ${label}`);
         return route.abort("blockedbyclient");
@@ -91,7 +112,28 @@ export async function installGuard(context: BrowserContext, preview: URL): Promi
         return route.abort("blockedbyclient");
       }
       // The access token goes on preview requests only, and only from here.
-      return route.continue({ headers: { ...request.headers(), [TRUSTED_TOKEN_HEADER]: await previewToken() } });
+      // Fetched from Node with redirects OFF: a redirect followed by the
+      // browser is not shown to this handler again and keeps the headers, so
+      // it could reach a forbidden path, or carry the token to another host.
+      const token = await previewToken();
+      try {
+        const response = await route.fetch({
+          headers: { ...request.headers(), [TRUSTED_TOKEN_HEADER]: token },
+          maxRedirects: 0,
+        });
+        if (response.status() >= 300 && response.status() < 400) {
+          // Vercel refusing the token also looks like this (a redirect to its sign-in).
+          violate(`the preview answered with a redirect (HTTP ${response.status()}): ${label}`);
+          return await route.abort("blockedbyclient");
+        }
+        return await route.fulfill({ response });
+      } catch {
+        // NEVER rethrow or print this error: Playwright's text for a failed
+        // fetch lists the request headers, token included, and this
+        // repository's CI logs are public. The request simply fails; the
+        // test then fails on whatever it was waiting for.
+        return route.abort("failed").catch(() => {});
+      }
     }
 
     if (isStripeHost(url.hostname)) {
@@ -99,7 +141,7 @@ export async function installGuard(context: BrowserContext, preview: URL): Promi
         violate(`a LIVE Stripe key was used: ${label}`);
         return route.abort("blockedbyclient");
       }
-      if (/\/confirm(\b|$)/.test(url.pathname)) {
+      if (url.hostname === "api.stripe.com" && /^\/v1\/(payment|setup)_intents\/[^/]+\/confirm$/.test(url.pathname)) {
         violate(`a Stripe confirmation was attempted: ${label}`);
         return route.abort("blockedbyclient");
       }
@@ -116,8 +158,19 @@ export async function installGuard(context: BrowserContext, preview: URL): Promi
       return route.continue();
     }
 
+    if (isOurOtherHost(url.hostname) && !READ_METHODS.has(method)) {
+      violate(`a write to another of our hosts: ${label}`);
+      return route.abort("blockedbyclient");
+    }
+
     // Analytics, session recording, fonts, anything else: not needed.
     return route.abort("blockedbyclient");
+  });
+
+  // context.route does not see WebSockets. The checkout page opens none.
+  await context.routeWebSocket(/.*/, (socket) => {
+    violate(`a WebSocket was opened: ${new URL(socket.url()).host}`);
+    void socket.close();
   });
 
   return { violations, publishableKey: () => publishableKey };

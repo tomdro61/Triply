@@ -121,8 +121,9 @@ jobs:
 
   checkout-smoke:
     # A browser walks checkout on THIS PR's preview and stops before Pay
-    # (e2e/checkout-smoke.spec.ts). ADVISORY: not in branch protection yet;
-    # the date to review that is in the team's status notes.
+    # (e2e/checkout-smoke.spec.ts). ADVISORY: not in branch protection. It
+    # becomes required after 30 runs with no unexplained APP red and at most
+    # 2 UPSTREAM reds, once an override for UPSTREAM reds exists.
     #
     # The one job that can open protected previews. Rules for editing it:
     # - No stored secret. It proves its identity to Vercel with a GitHub OIDC
@@ -134,6 +135,10 @@ jobs:
     # - A run that cannot test is RED (CONFIG), never a silent pass.
     name: checkout-smoke
     if: github.event_name == 'pull_request'
+    # After `app`: its unit tests include the contract that the routes this
+    # job calls write nothing (pre-pay-no-writes.test.ts). If that is red, the
+    # browser must not call them on a preview.
+    needs: app
     runs-on: ubuntu-latest
     timeout-minutes: 35
     permissions:
@@ -170,7 +175,7 @@ jobs:
           # commit, which Vercel never built.
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       - name: Walk checkout, stop before Pay
-        run: npx playwright test
+        run: npx --no-install playwright test
         env:
           SMOKE_BASE_URL: ${{ steps.preview.outputs.url }}
       # Fails the job on a guard violation even if a retry passed.

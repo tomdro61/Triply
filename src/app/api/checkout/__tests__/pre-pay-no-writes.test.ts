@@ -1,76 +1,105 @@
 /**
- * CONTRACT: nothing a customer does BEFORE clicking Pay writes to the
- * database, sends an email, or calls a service this test does not hand it.
+ * CONTRACT: what a customer does BEFORE clicking Pay writes nothing to the
+ * database, sends no email, and calls no service this test does not hand it.
  *
  * Why it is a contract: the checkout smoke test (e2e/, the `checkout-smoke`
- * CI job) drives these three handlers on every PR's preview, and a preview
- * uses the PRODUCTION database. The browser test can only see the requests
- * the page makes; this is the half that sees what the server does with them.
+ * CI job) calls GET and POST /api/checkout/lot, POST
+ * /api/checkout/lot/update-pi and POST /api/attribution on every PR's
+ * preview, and a preview uses the PRODUCTION database. The browser test can
+ * only see the requests the page makes; this is the half that sees what the
+ * server does with them. The CI job runs only after this test has passed.
  *
- * If this test fails because you added a write to one of these handlers:
- * do not relax it. Either move the write to the Pay step, or take the
- * handler off the smoke test's allowlist (e2e/lib/guard.ts) in the same PR.
+ * If this test fails because you added a write to one of these handlers: do
+ * not relax it. Move the write to the Pay step, or stop the smoke test
+ * calling the route in the same PR (a POST: remove it from ALLOWED_MUTATING
+ * in e2e/lib/guard.ts; GET /api/checkout/lot: the walk cannot run without it).
  *
- * What it watches: every Supabase client the app can build (the SDK
- * factories are replaced, so the app's own wrappers are real), Resend, and
- * `fetch`. Limits: `getLotById` and the ResLab client are mocked, so a write
- * added INSIDE them is not seen here.
+ * What it watches, fail-closed:
+ * - Supabase: the SDK factories are replaced, so the app's own wrappers are
+ *   real. Every call on a client counts as a write unless it is a known read.
+ * - ResLab: any client method other than the three read calls.
+ * - Resend, and global `fetch`.
+ *
+ * Limits (say so in a PR that leans on this test):
+ * - Stripe's client module is mocked, and a call made with node:http instead
+ *   of `fetch` is not seen.
+ * - Only the paths the smoke test drives are run: a ResLab lot, with and
+ *   without a promo code or a protection plan, and the price-estimate
+ *   fallback. Direct lots are not: the smoke test never opens one.
+ * - The ResLab location snapshot is off here (as when its switch is off).
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const { writes, makeClient, createPI, stripeMock, getLotById, getCost, getLocation, emails, fetches } = vi.hoisted(() => {
+const { writes, reads, makeClient, createPI, stripeMock, reslabMock, reslabOther, emails, fetches } = vi.hoisted(() => {
   const writes: string[] = [];
-  // No read-only RPC is needed before Pay, so every RPC counts as a write.
-  const WRITE_CALLS = new Set(["insert", "update", "upsert", "delete", "rpc", "remove", "upload"]);
+  /** What a read returns, by table or RPC name. Anything else reads as "no row". */
+  const reads: Record<string, unknown> = {};
 
-  /** A query chain: every call is recorded if it writes; awaiting it reads nothing. */
-  const chain = (path: string): unknown =>
+  // An allowlist, like e2e/lib/guard.ts: a method this list does not know is a write.
+  const READ_CALLS = new Set([
+    "from", "schema", "select", "eq", "neq", "in", "is", "gt", "gte", "lt", "lte", "like", "ilike",
+    "match", "filter", "not", "or", "order", "limit", "range", "single", "maybeSingle", "abortSignal",
+  ]);
+  /** Database functions that only read (src/lib/direct/store.ts). */
+  const READ_RPCS = new Set(["direct_lots_v2"]);
+
+  /** A query chain: awaiting it reads `reads[target]`; any call that is not a read is recorded. */
+  const chain = (path: string, target: string): unknown =>
     new Proxy(function () {}, {
       get(_target, prop) {
         if (prop === "then") {
-          return (resolve: (value: { data: null; error: null }) => void) => resolve({ data: null, error: null });
+          return (resolve: (value: { data: unknown; error: null }) => void) =>
+            resolve({ data: reads[target] ?? null, error: null });
         }
-        return chain(`${path}.${String(prop)}`);
+        return chain(`${path}.${String(prop)}`, target);
       },
       apply(_target, _self, args: unknown[]) {
         const name = path.split(".").pop() ?? "";
-        if (WRITE_CALLS.has(name)) writes.push(path);
-        const shown = typeof args[0] === "string" ? args[0] : "";
-        return chain(`${path}(${shown})`);
+        const first = typeof args[0] === "string" ? args[0] : "";
+        const called = `${path}(${first})`;
+        const isRead = name === "rpc" ? READ_RPCS.has(first) : READ_CALLS.has(name);
+        if (!isRead) writes.push(called);
+        return chain(called, name === "from" || name === "rpc" ? first : target);
       },
     });
 
-  /** A client is not awaitable (an async factory returns it), its queries are. */
+  /** A client is not awaitable (an async factory returns it); its queries are. */
   const makeClient = (kind: string) =>
     new Proxy(
       {},
       {
         get(_target, prop) {
           if (prop === "then") return undefined;
-          return chain(`${kind}.${String(prop)}`);
+          return chain(`${kind}.${String(prop)}`, "");
         },
       }
     );
 
+  const reslabMock = { getCost: vi.fn(), getLocation: vi.fn(), getMinPrice: vi.fn() };
+  const reslabOther: string[] = [];
+
   return {
     writes,
+    reads,
     makeClient,
     createPI: vi.fn(),
     stripeMock: { paymentIntents: { retrieve: vi.fn(), update: vi.fn() } },
-    getLotById: vi.fn(),
-    getCost: vi.fn(),
-    getLocation: vi.fn(),
+    reslabMock,
+    reslabOther,
     emails: vi.fn(),
     fetches: vi.fn(),
   };
 });
 
 vi.mock("@supabase/ssr", () => ({
-  createServerClient: () => makeClient("server"),
+  createServerClient: (_url: string, key: string) => makeClient(key === "service" ? "admin" : "session"),
   createBrowserClient: () => makeClient("browser"),
 }));
 vi.mock("@supabase/supabase-js", () => ({ createClient: () => makeClient("js") }));
+// The session client reads cookies first; outside a request that would throw
+// before the client exists, and a write inside a try/catch would go unseen.
+vi.mock("next/headers", () => ({ cookies: async () => ({ getAll: () => [], set: () => {} }) }));
 vi.mock("resend", () => ({
   Resend: class {
     emails = { send: emails };
@@ -78,18 +107,22 @@ vi.mock("resend", () => ({
   },
 }));
 vi.mock("@/lib/stripe/client", () => ({ createPaymentIntent: createPI, stripe: stripeMock }));
-vi.mock("@/lib/reslab/get-lot", () => ({ getLotById }));
 vi.mock("@/lib/reslab/client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/reslab/client")>()),
-  // Only the two read calls exist: a reservation call would throw and fail the status check.
-  reslab: { getCost, getLocation },
-}));
-vi.mock("@/lib/reslab/search", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/reslab/search")>()),
-  getChannelLocationsNoSweep: async () => [{ id: 42, currency: { code: "USD" } }],
+  // Three read calls exist. Anything else (a reservation, a cancellation) is
+  // recorded, so it is caught even inside a try/catch.
+  reslab: new Proxy(reslabMock, {
+    get(target, prop) {
+      if (prop in target) return Reflect.get(target, prop);
+      return async () => {
+        reslabOther.push(String(prop));
+        throw new Error(`reslab.${String(prop)} is not a pre-Pay call`);
+      };
+    },
+  }),
 }));
 vi.mock("@/lib/sentry", () => ({ captureAPIError: vi.fn(), capturePaymentError: vi.fn() }));
-vi.mock("@sentry/nextjs", () => ({ captureMessage: vi.fn(), withScope: vi.fn() }));
+vi.mock("@sentry/nextjs", () => ({ captureMessage: vi.fn(), captureException: vi.fn(), withScope: vi.fn() }));
 
 import { GET as getLot, POST as createIntent } from "../lot/route";
 import { POST as updateIntent } from "../lot/update-pi/route";
@@ -99,6 +132,11 @@ import { PROMO_PRICING_HEADER, PROMO_PRICING_VERSION } from "@/lib/promo/discoun
 import { __resetAttributionRateLimitForTests } from "@/lib/attribution/limiter";
 
 const STAY = { checkin: "2026-10-10", checkout: "2026-10-15", checkinTime: "10:00 AM", checkoutTime: "10:00 AM" };
+const COST = {
+  costs_token: "tok",
+  reservation: { sold_out: false, sub_total: 50, fees_total: 0, tax_total: 5, grand_total: 55, due_at_location: 0 },
+};
+const PROMO_ROW = { code: "TEN", discount_percent: 10, discount_amount: null, min_subtotal: null, active: true, expires_at: null, max_uses: null, current_uses: 0 };
 
 const jsonPost = (url: string, body: unknown, headers: Record<string, string> = {}) =>
   new NextRequest(url, {
@@ -107,9 +145,29 @@ const jsonPost = (url: string, body: unknown, headers: Record<string, string> = 
     headers: { "content-type": "application/json", ...headers },
   });
 
+const lotQuery = () => new NextRequest(`http://localhost/api/checkout/lot?${new URLSearchParams({ lotId: "reslab-42", ...STAY })}`);
+
+const intentBody = (over: Record<string, unknown> = {}) => ({
+  lotId: "reslab-42",
+  locationId: 42,
+  ...STAY,
+  parkingTypeId: 7,
+  customerEmail: "ada@example.com",
+  protectionPlanCode: null,
+  termsVersion: TERMS_VERSION,
+  ...over,
+});
+const postIntent = (over: Record<string, unknown> = {}) =>
+  createIntent(jsonPost("http://localhost/api/checkout/lot", intentBody(over), { [PROMO_PRICING_HEADER]: String(PROMO_PRICING_VERSION) }));
+
 /** Nothing left the process except through the mocks this file handed out. */
-function expectNoSideEffects() {
+async function expectNoSideEffects() {
+  // A write started but not awaited by the handler (`void insert()`) lands a
+  // few ticks after it returns.
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await new Promise((resolve) => setTimeout(resolve, 0));
   expect(writes, "a database write before Pay").toEqual([]);
+  expect(reslabOther, "a ResLab call that is not a read before Pay").toEqual([]);
   expect(emails, "an email before Pay").not.toHaveBeenCalled();
   expect(fetches, "an outside call before Pay").not.toHaveBeenCalled();
 }
@@ -117,26 +175,37 @@ function expectNoSideEffects() {
 beforeEach(() => {
   vi.clearAllMocks();
   writes.length = 0;
+  reslabOther.length = 0;
+  for (const key of Object.keys(reads)) delete reads[key];
+  // The direct-lot read the real lot lookup makes: no direct lots.
+  reads.direct_lots_v2 = [];
   __resetAttributionRateLimitForTests();
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-10-09T16:00:00Z"));
   vi.stubEnv("NEXT_PUBLIC_APP_ENV", "staging");
+  vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "service");
+  vi.stubEnv("ENABLE_DIRECT_LOTS", "true");
+  vi.stubEnv("ENABLE_RESLAB_LOCATION_SNAPSHOT", "");
   vi.stubGlobal("fetch", fetches.mockRejectedValue(new Error("no network in this test")));
 
-  getLotById.mockResolvedValue({
-    id: "reslab-42",
-    source: "reslab",
-    sourceId: "42",
-    reslabLocationId: 42,
+  reslabMock.getLocation.mockImplementation(async (id: number) => ({
+    id,
     name: "TEST Lot",
-    availability: "available",
-    pricing: { numberOfDays: 5, parkingTypes: [{ id: 7 }] },
+    address: "1 Airport Way",
+    city: "Queens",
+    latitude: "40.64",
+    longitude: "-73.77",
+    currency: { code: "USD" },
+    photos: [],
+    amenities: [],
+    extra_fields: [],
+    cancellation_policies: [],
+  }));
+  reslabMock.getMinPrice.mockResolvedValue({
+    rates: [{ id: 1, location_parking_type_id: 7, price: 10, from_date: "", to_date: "", number_of_days: 5 }],
+    reservation: { ...COST.reservation, totals: { parking: { number_of_days: 5, sub_total: 50 } } },
   });
-  getLocation.mockImplementation(async (id: number) => ({ id, currency: { code: "USD" } }));
-  getCost.mockResolvedValue({
-    costs_token: "tok",
-    reservation: { sold_out: false, sub_total: 50, fees_total: 0, tax_total: 5, grand_total: 55, due_at_location: 0 },
-  });
+  reslabMock.getCost.mockResolvedValue(COST);
   createPI.mockResolvedValue({ id: "pi_smoke", client_secret: "cs_smoke" });
   stripeMock.paymentIntents.retrieve.mockResolvedValue({
     id: "pi_smoke",
@@ -150,46 +219,78 @@ beforeEach(() => {
   }));
 });
 
-describe("the recorder itself", () => {
-  it("sees a write and ignores a read (or the tests below prove nothing)", async () => {
+describe("the recorder itself (or the tests below prove nothing)", () => {
+  it("on every client the app can build: a read is quiet, anything else is recorded", async () => {
+    const server = await import("@/lib/supabase/server");
+    const { createClient: createBrowser } = await import("@/lib/supabase/client");
+    const clients = [await server.createAdminClient(), await server.createClient(), createBrowser()];
+    for (const client of clients) {
+      writes.length = 0;
+      // The real promo read, and the real direct-lot read.
+      await client.from("promo_codes").select("*").eq("code", "X").abortSignal(AbortSignal.timeout(1000)).maybeSingle();
+      await client.rpc("direct_lots_v2", {}).abortSignal(AbortSignal.timeout(1000));
+      expect(writes).toEqual([]);
+
+      await client.from("pending_bookings").insert({});
+      await client.from("promo_codes").update({}).eq("code", "X");
+      await client.rpc("increment_promo_use", {});
+      await client.auth.signInWithOtp({ email: "ada@example.com" });
+      await client.functions.invoke("anything");
+      await client.storage.from("bucket").move("a", "b");
+      expect(writes).toHaveLength(6);
+      expect(writes.join("\n")).toContain("rpc(increment_promo_use)");
+    }
+  });
+
+  it("a read returns the row the test planted", async () => {
+    reads.promo_codes = PROMO_ROW;
     const { createAdminClient } = await import("@/lib/supabase/server");
-    const client = await createAdminClient();
-    await client.from("promo_codes").select("*").eq("code", "X").maybeSingle();
-    expect(writes).toEqual([]);
-    await client.from("pending_bookings").insert({});
-    await client.rpc("anything");
-    expect(writes).toHaveLength(2);
+    const { data } = await (await createAdminClient()).from("promo_codes").select("*").eq("code", "TEN").maybeSingle();
+    expect(data).toEqual(PROMO_ROW);
   });
 });
 
 describe("before Pay: no database write, no email, no outside call", () => {
-  it("GET /api/checkout/lot (loading checkout)", async () => {
-    const query = new URLSearchParams({ lotId: "reslab-42", ...STAY });
-    const res = await getLot(new NextRequest(`http://localhost/api/checkout/lot?${query}`));
+  it("GET /api/checkout/lot (loading checkout), through the real lot lookup", async () => {
+    const res = await getLot(lotQuery());
     expect(res.status).toBe(200);
-    expect((await res.json()).costData.costsToken).toBe("tok");
-    expectNoSideEffects();
+    const body = await res.json();
+    expect(body.lot.name).toBe("TEST Lot");
+    expect(body.costData.costsToken).toBe("tok");
+    await expectNoSideEffects();
   });
 
-  it("POST /api/checkout/lot (Continue to Payment), with and without a promo code", async () => {
-    const body = {
-      lotId: "reslab-42",
-      locationId: 42,
-      ...STAY,
-      parkingTypeId: 7,
-      customerEmail: "ada@example.com",
-      protectionPlanCode: null,
-      termsVersion: TERMS_VERSION,
-    };
-    const headers = { [PROMO_PRICING_HEADER]: String(PROMO_PRICING_VERSION) };
-    const plain = await createIntent(jsonPost("http://localhost/api/checkout/lot", body, headers));
+  it("GET /api/checkout/lot when ResLab cannot price the stay (the estimate fallback)", async () => {
+    reslabMock.getCost.mockRejectedValueOnce(new Error("staging ResLab is down"));
+    const res = await getLot(lotQuery());
+    expect(res.status).toBe(200);
+    expect((await res.json()).costData.costsToken).toBeNull();
+    await expectNoSideEffects();
+  });
+
+  it("POST /api/checkout/lot (Continue to Payment), with and without a protection plan", async () => {
+    const plain = await postIntent();
     expect(plain.status).toBe(200);
     expect((await plain.json()).chargeCents).toBe(6095);
-    // A code the database does not know: looked up (a read), refused, still a PaymentIntent.
-    const withCode = await createIntent(jsonPost("http://localhost/api/checkout/lot", { ...body, promoCode: "NOPE" }, headers));
-    expect(withCode.status).toBe(200);
+    // The form sends the kept choice when the customer comes back to this step.
+    const withPlan = await postIntent({ protectionPlanCode: "A" });
+    expect(withPlan.status).toBe(200);
+    expect((await withPlan.json()).chargeCents).toBe(6095 + 1299);
     expect(createPI).toHaveBeenCalledTimes(2);
-    expectNoSideEffects();
+    await expectNoSideEffects();
+  });
+
+  it("POST /api/checkout/lot with a promo code: refused when unknown, applied when found, never counted here", async () => {
+    const unknown = await postIntent({ promoCode: "NOPE" });
+    expect(unknown.status).toBe(200);
+    expect((await unknown.json()).chargeCents).toBe(6095);
+
+    reads.promo_codes = PROMO_ROW;
+    const applied = await postIntent({ promoCode: "TEN" });
+    expect(applied.status).toBe(200);
+    // 10 % off the $50 of parking: the code's use is counted at Pay, not here.
+    expect((await applied.json()).chargeCents).toBe(5595);
+    await expectNoSideEffects();
   });
 
   it("POST /api/checkout/lot/update-pi (picking and declining a protection plan)", async () => {
@@ -200,7 +301,7 @@ describe("before Pay: no database write, no email, no outside call", () => {
       expect(res.status).toBe(200);
     }
     expect(stripeMock.paymentIntents.update).toHaveBeenCalledTimes(2);
-    expectNoSideEffects();
+    await expectNoSideEffects();
   });
 
   it("POST /api/attribution (the page's first-touch cookie)", async () => {
@@ -213,6 +314,6 @@ describe("before Pay: no database write, no email, no outside call", () => {
       )
     );
     expect(res.status).toBe(204);
-    expectNoSideEffects();
+    await expectNoSideEffects();
   });
 });

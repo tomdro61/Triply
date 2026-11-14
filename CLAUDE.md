@@ -85,12 +85,16 @@ everyone, admins included.
 that PR's own preview with a ResLab test lot, fills both steps, reaches the payment form and checks
 that the pay button, the server and Stripe agree on the amount. It **stops before Pay**: no card, no
 booking, no database row (a preview writes to the production database).
-- A red is labelled in the job summary: **APP** (ours: fix it), **UPSTREAM** (staging ResLab or
-  Stripe, or the test lot sold out: re-run later), **CONFIG** (the job could not test).
+- A red is labelled **APP** (ours: fix it), **UPSTREAM** (staging ResLab or Stripe, or the test lot
+  sold out: re-run later) or **CONFIG** (the job could not test): in the job summary, or, when the
+  run stopped before the tests, in the failing step's error.
 - The test may only make the requests listed in `e2e/lib/guard.ts`. Never widen that list to get a
-  green. If you add a database write, an email or a third-party call to `/api/checkout/lot`,
-  `/api/checkout/lot/update-pi` or `/api/attribution`, `pre-pay-no-writes.test.ts` fails: move the
-  write to the Pay step, or take the route off the smoke test in the same PR.
+  green. `pre-pay-no-writes.test.ts` runs `/api/checkout/lot` (GET and POST),
+  `/api/checkout/lot/update-pi` and `/api/attribution` on the paths the smoke test takes, and fails
+  on a database write, an email or a `fetch` there. If you add one, move it to the Pay step, or take
+  the route off the smoke test in the same PR. The job runs only after the `app` check passes.
+- A change under `e2e/` runs in CI with the preview credential before anyone reviews it. Read a
+  PR's `e2e/` and `.github/` diff before pushing to its branch or re-running its checks.
 - It reaches protected previews with a GitHub OIDC token (a Vercel "Trusted Sources" rule for this
   repo, Preview only). No secret is stored. Never upload a Playwright trace, HAR or HTML report from
   it: this repo is public and those files record the token.

@@ -3,16 +3,16 @@ import { defineConfig, devices } from "@playwright/test";
 /**
  * Checkout smoke test (docs: CLAUDE.md "CI is the merge gate", `checkout-smoke`).
  *
- * No trace, no HAR, no video, no HTML report: this repository is public, its
- * CI artifacts are downloadable, and all of those record request headers,
- * which here include the token that opens protected previews. Screenshots
- * and a text summary only.
+ * No trace, no HAR, no HTML report: this repository is public, its CI
+ * artifacts are downloadable, and traces and HARs record request headers,
+ * which here include the token that opens protected previews. No video
+ * either. Screenshots and a text summary only.
  */
 export default defineConfig({
   testDir: ".",
   testMatch: "checkout-smoke.spec.ts",
-  // One browser, one test at a time: each attempt creates one Stripe test
-  // PaymentIntent, and the steps depend on each other.
+  // One test at a time: the checkout test creates one Stripe test
+  // PaymentIntent per attempt. The three tests do not depend on each other.
   workers: 1,
   fullyParallel: false,
   retries: process.env.CI ? 1 : 0,

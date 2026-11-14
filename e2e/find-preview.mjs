@@ -43,16 +43,22 @@ while (Date.now() < deadline) {
     (d) => d.creator?.login === "vercel[bot]" && d.environment === "Preview" && d.sha === HEAD_SHA
   );
 
-  if (previews.length > 1) stop("CONFIG", `${previews.length} Preview deployments for this commit; expected one`);
-  if (previews.length === 1) {
-    const statuses = await github(`/repos/${GITHUB_REPOSITORY}/deployments/${previews[0].id}/statuses?per_page=10`);
-    const latest = statuses[0]; // newest first
+  if (previews.length > 0) {
+    // More than one when the commit was redeployed: the list is newest first.
+    // Only statuses Vercel itself posted count: anyone who can write
+    // deployments could otherwise point this job (and its token) elsewhere.
+    const statuses = (
+      await github(`/repos/${GITHUB_REPOSITORY}/deployments/${previews[0].id}/statuses?per_page=30`)
+    ).filter((status) => status.creator?.login === "vercel[bot]");
+    // A later "inactive" only means a newer deployment exists; this one is still served.
+    const latest = statuses.find((status) => status.state === "success") ?? statuses[0];
     lastSeen = latest ? `deployment is "${latest.state}"` : "deployment has no status yet";
 
     if (latest?.state === "success") {
       const url = new URL(latest.environment_url || latest.target_url);
-      if (url.protocol !== "https:" || !url.hostname.endsWith(".vercel.app")) {
-        stop("CONFIG", "the Preview deployment's URL is not an https *.vercel.app address");
+      // Same rule as e2e/lib/preview-access.ts (PREVIEW_HOST).
+      if (url.protocol !== "https:" || !/^triply-[a-z0-9-]+\.vercel\.app$/.test(url.hostname)) {
+        stop("CONFIG", "the Preview deployment's URL is not an https triply-*.vercel.app address");
       }
       console.log(`Preview for ${HEAD_SHA.slice(0, 7)}: ${url.origin}`);
       if (GITHUB_OUTPUT) appendFileSync(GITHUB_OUTPUT, `url=${url.origin}\n`);
@@ -60,9 +66,6 @@ while (Date.now() < deadline) {
     }
     if (latest?.state === "failure" || latest?.state === "error") {
       stop("APP", "the preview build failed on Vercel (the `app` check usually shows why)");
-    }
-    if (latest?.state === "inactive") {
-      stop("CONFIG", "this commit's preview was superseded by a newer deployment; push again or re-run");
     }
   }
   await new Promise((resolve) => setTimeout(resolve, POLL_SECONDS * 1000));
