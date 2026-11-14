@@ -81,6 +81,22 @@ everyone, admins included.
 | `blog-engine (typecheck, test)` | in `scripts/blog-engine/`: `tsc --noEmit`, `tsx --test src/*.test.ts` |
 | `lint` | `npm run lint`, which fails on any new ESLint error. The errors that already existed are listed in `eslint-suppressions.json`; on a PR a second step fails if a file's count there goes up. Fixed an old one? Run `npx eslint --prune-suppressions` and commit the file. Renamed a file that has entries? Rename its key in that file. Never run `--suppress-all` or `--suppress-rule`: they record new errors as known. A change to `eslint.config.mjs`, or a new `eslint-disable` comment, also gets past this check, so say so in the PR. |
 
+**`checkout-smoke` (advisory, not required yet).** On every same-repo PR a browser opens checkout on
+that PR's own preview with a ResLab test lot, fills both steps, reaches the payment form and checks
+that the pay button, the server and Stripe agree on the amount. It **stops before Pay**: no card, no
+booking, no database row (a preview writes to the production database).
+- A red is labelled in the job summary: **APP** (ours: fix it), **UPSTREAM** (staging ResLab or
+  Stripe, or the test lot sold out: re-run later), **CONFIG** (the job could not test).
+- The test may only make the requests listed in `e2e/lib/guard.ts`. Never widen that list to get a
+  green. If you add a database write, an email or a third-party call to `/api/checkout/lot`,
+  `/api/checkout/lot/update-pi` or `/api/attribution`, `pre-pay-no-writes.test.ts` fails: move the
+  write to the Pay step, or take the route off the smoke test in the same PR.
+- It reaches protected previews with a GitHub OIDC token (a Vercel "Trusted Sources" rule for this
+  repo, Preview only). No secret is stored. Never upload a Playwright trace, HAR or HTML report from
+  it: this repo is public and those files record the token.
+- It does not replace `/verify-flow checkout`: payment, the reservation, the confirmation page and
+  emails are still walked by hand.
+
 - **Run the same checks locally before pushing**; CI is the backstop, not the first try.
 - **A red check:** open it on the PR, read the failing step, fix on the branch, push again.
 - **"Branch is out of date":** `git merge origin/main` into your branch and push. The checks re-run.
@@ -88,7 +104,7 @@ everyone, admins included.
 - **Red `main` = stop the line.** Fix or roll back before merging anything else.
 - **Production rollback is Vercel Instant Rollback** (promote the previous deployment), then a revert PR. Never a direct push to `main`.
 - **The job names are load-bearing:** branch protection names them. To rename or remove one, change protection first.
-- **CI needs no secrets.** The build uses dummy keys and `.invalid` hosts. Never add a real key to the workflow.
+- **CI needs no secrets.** The build uses dummy keys and `.invalid` hosts; `checkout-smoke` uses a short-lived OIDC token, not a stored key. Never add a real key to the workflow.
 
 ---
 
