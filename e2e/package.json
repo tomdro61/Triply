@@ -1,0 +1,14 @@
+{
+  "name": "triply-e2e",
+  "private": true,
+  "description": "Checkout smoke test. Its own package so the app's dependencies never install in the CI job that can open previews.",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p .",
+    "smoke": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.1",
+    "@types/node": "24.19.2",
+    "typescript": "7.0.2"
+  }
+}

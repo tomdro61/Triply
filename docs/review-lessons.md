@@ -233,6 +233,10 @@ a human.
 
 One entry per reviewed PR: what the review found, by lesson number. Newest first.
 
+- **Checkout smoke test (Nov 13, #199):**
+  - Lesson 13: the "no writes before Pay" test listed the writes it knew (15 of 35 deliberate writes got past it: `auth.*`, a write behind a found row, the session client, a branch never driven). It is now a list of allowed reads, and it runs the real lot lookup.
+  - Lesson 15: the fix for "a browser-followed redirect skips the network guard" fetched requests from Node, and Playwright's error text for a failed fetch lists every request header, the access token included, in a public CI log. Found in pass 1's security review; the pass-2 review then found that same fetch had a hidden 15 s limit.
+  - Lesson 5: a job that labels its failures must not let the label hide them. Any 5xx was "UPSTREAM", a retry took its label from the first attempt, and a skipped test left the job green.
 - **Funnel events mean what they say (Nov 12, #193):**
   - Lesson 2: the standard GA4 events did not hold what reports claimed from them. `begin_checkout` fired at the payment step, `view_item` only on the full lot page (most people use the panel on search), and `search` said nothing of what was shown. A funnel page built on them read "85% of checkouts finish" (39%) and "97.7% never open a lot". An event's name is a claim: check where it fires before quoting it.
   - Lesson 5: the first version reported a search as "partial" off a server flag that is also set when a hidden other-airport lot fails to price, and reported zero lots from an unreachable supplier as "empty". The outcome now follows what the page showed (review, 3 reviewers).

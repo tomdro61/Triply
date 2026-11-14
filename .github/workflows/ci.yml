@@ -118,3 +118,76 @@ jobs:
       - name: Known-error counts must not rise
         if: github.event_name == 'pull_request'
         run: node scripts/check-lint-suppressions.mjs HEAD^1
+
+  checkout-smoke:
+    # A browser walks checkout on THIS PR's preview and stops before Pay
+    # (e2e/checkout-smoke.spec.ts). ADVISORY: not in branch protection. It
+    # becomes required after 30 runs with no unexplained APP red and at most
+    # 2 UPSTREAM reds, once an override for UPSTREAM reds exists.
+    #
+    # The one job that can open protected previews. Rules for editing it:
+    # - No stored secret. It proves its identity to Vercel with a GitHub OIDC
+    #   token (Vercel > Deployment Protection > Trusted Sources, Preview only).
+    # - Never upload a Playwright trace, HAR or HTML report: this repo is
+    #   public and those record the access token. Screenshots and text only.
+    # - It installs e2e/ only (its own lockfile, scripts off), never the app's
+    #   dependencies.
+    # - A run that cannot test is RED (CONFIG), never a silent pass.
+    name: checkout-smoke
+    if: github.event_name == 'pull_request'
+    # After `app`: its unit tests include the contract that the routes this
+    # job calls write nothing (pre-pay-no-writes.test.ts). If that is red, the
+    # browser must not call them on a preview.
+    needs: app
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      deployments: read # find this commit's Vercel preview
+      id-token: write # the OIDC token Vercel trusts
+    defaults:
+      run:
+        working-directory: e2e
+    steps:
+      - name: Same-repository PRs only
+        if: github.event.pull_request.head.repo.full_name != github.repository
+        working-directory: .
+        run: |
+          echo "::error title=checkout-smoke CONFIG::[CONFIG] cannot run on a fork's PR: forks get no credential for protected previews"
+          exit 1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npx --no-install playwright install --with-deps chromium
+      - name: Find this commit's preview
+        id: preview
+        run: node find-preview.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          # The PR's own head commit: on pull_request, github.sha is the merge
+          # commit, which Vercel never built.
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      - name: Walk checkout, stop before Pay
+        run: npx --no-install playwright test
+        env:
+          SMOKE_BASE_URL: ${{ steps.preview.outputs.url }}
+      # Fails the job on a guard violation even if a retry passed.
+      - name: Summary
+        if: always()
+        run: node summarize.mjs
+      - name: Screenshots of a failure
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: checkout-smoke-screenshots
+          path: e2e/test-results/**/*.png
+          retention-days: 7
+          if-no-files-found: ignore
+
