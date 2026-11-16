@@ -80,6 +80,10 @@ const nextConfig = {
   // Use webpack for PWA support (PWA library uses webpack plugins)
   turbopack: {},
 
+  // `next dev` (16.3+) writes a managed block into AGENTS.md when it detects a
+  // coding agent. Our agent rules live in CLAUDE.md; keep Next out of the repo's files.
+  agentRules: false,
+
   // Googlebot gets title/robots/canonical in <head>, not streamed into <body>
   // (src/config/html-limited-bots.mjs).
   htmlLimitedBots: HTML_LIMITED_BOTS,
