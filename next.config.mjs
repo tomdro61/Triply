@@ -1,4 +1,4 @@
-import { withSentryConfig } from "@sentry/nextjs";
+import { withSentryConfig } from "@sentry/nextjs/config";
 import withPWAInit from "@ducanh2912/next-pwa";
 import blogRedirectMap from "./src/config/blog-redirects.json" with { type: "json" };
 import { buildBlogRedirects } from "./src/lib/blog/blog-redirects.mjs";
