@@ -55,8 +55,14 @@ vi.mock("@/lib/stripe/client", () => ({
         return pi;
       }),
     },
+    disputes: { list: vi.fn(async () => ({ data: [{ id: "dp_1", status: "won", amount: 5212 }], has_more: false })) },
   },
 }));
+
+vi.mock("@/lib/accounting/direct-detail", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@/lib/accounting/direct-detail")>();
+  return { ...mod, buildDirectDetail: vi.fn(mod.buildDirectDetail) };
+});
 
 import {
   reconcileRevenue,
@@ -64,6 +70,7 @@ import {
   STRIPE_RETRY_BUDGET_MS,
 } from "../reconcile";
 import { stripe } from "@/lib/stripe/client";
+import { buildDirectDetail, directTotals } from "@/lib/accounting/direct-detail";
 
 const OPTS: ReconcileOptions = {
   from: "2026-07-01",
@@ -687,6 +694,49 @@ describe("reconcileRevenue — direct lots + recorded livemode", () => {
     });
   });
 
+  it("the direct detail is worked out only when asked for; other callers get no extra read", async () => {
+    registerLivePI("pi_real");
+    registerReservation("RTL_REAL");
+    pushRow("RTL_REAL", "pi_real", { inventory_source: "reslab", livemode: true });
+    registerLivePI("pi_direct", 5595);
+    pushDirect("TRP-ABCD1234", "pi_direct");
+    const { createAdminClient } = await import("@/lib/supabase/server");
+    vi.mocked(createAdminClient).mockClear();
+
+    const r = await reconcileRevenue(OPTS);
+
+    expect(r.direct.detail).toBeUndefined();
+    // One client, for the bookings read: the dashboard, /admin/numbers and
+    // /admin/blog-bookings call this same function and must stay as they were.
+    expect(vi.mocked(createAdminClient)).toHaveBeenCalledTimes(1);
+  });
+
+  it("a failed direct-detail read is reported in the result and never breaks the ResLab report", async () => {
+    registerLivePI("pi_real");
+    registerReservation("RTL_REAL");
+    pushRow("RTL_REAL", "pi_real", { inventory_source: "reslab", livemode: true });
+    registerLivePI("pi_direct", 5595);
+    pushDirect("TRP-ABCD1234", "pi_direct");
+
+    // This file's Supabase stand-in has no `.in()`: the detail's reads throw.
+    const r = await reconcileRevenue({ ...OPTS, includeDirectDetail: true });
+
+    expect(r.direct.detail).toEqual({ error: expect.stringContaining("could not be worked out") });
+    expect(r.triplyNet.total).toBe(22);
+    expect(r.direct.grossOnlineCharge).toBe(55.95);
+    expect(r.bookings.map((b) => b.reslab_reservation_number)).toEqual(["RTL_REAL"]);
+  });
+
+  it("with no direct rows the detail is empty and reads nothing", async () => {
+    registerLivePI("pi_real");
+    registerReservation("RTL_REAL");
+    pushRow("RTL_REAL", "pi_real", { inventory_source: "reslab", livemode: true });
+
+    const r = await reconcileRevenue({ ...OPTS, includeDirectDetail: true });
+
+    expect(r.direct.detail).toMatchObject({ bookings: [] });
+  });
+
   it("a month of ONLY direct rows never calls ResLab (not even to authenticate)", async () => {
     registerLivePI("pi_d1", 5595);
     pushDirect("TRP-ONLY0001", "pi_d1");
@@ -1141,5 +1191,68 @@ describe("Stripe 429 rate-limit retry (Oct 2026: 14 of 187 live PIs refused in o
 
     expect(vi.mocked(stripe.paymentIntents.retrieve)).toHaveBeenCalledTimes(1);
     expect(r.stripeFetch.errors.map((e) => e.resNum)).toEqual(["RTL_ERR"]);
+  });
+});
+
+function pushDirect(num: string, pi: string | null, over: Record<string, unknown> = {}) {
+  pushRow(num, pi, { inventory_source: "direct", direct_lot_id: "1", reslab_location_id: null, livemode: true, due_at_location: 0, discount_amount: 0, ...over });
+}
+beforeEach(() => { vi.mocked(buildDirectDetail).mockClear(); vi.mocked(stripe.disputes.list).mockClear(); });
+/** A direct PI the strict reader can read: charge expanded, dispute flag present, fee known. */
+function registerDirectPI(pi: string, received: number, refunded = 0, fee = 181, disputed = false) {
+  h.pis.set(pi, { id: pi, status: "succeeded", amount_received: received, latest_charge: { amount_refunded: refunded, disputed, balance_transaction: { fee } } });
+}
+const noDetail = { bookings: [], totals: directTotals([]) };
+
+describe("reconcileRevenue — direct detail wiring (additions)", () => {
+  it("E1 hands the detail each direct row's strict Stripe reading, in row order; a failed read as an error", async () => {
+    registerDirectPI("pi_d1", 5212);
+    registerDirectPI("pi_d3", 9000, 500, 300);
+    pushDirect("TRP-D1", "pi_d1");
+    pushDirect("TRP-D2", "pi_gone"); // not in Stripe → resource_missing
+    pushDirect("TRP-D3", "pi_d3");
+    vi.mocked(buildDirectDetail).mockResolvedValueOnce(noDetail);
+
+    await reconcileRevenue({ ...OPTS, includeDirectDetail: true });
+
+    const [rows, reads, notRead] = vi.mocked(buildDirectDetail).mock.calls[0];
+    expect(rows.map((r) => r.reslab_reservation_number)).toEqual(["TRP-D1", "TRP-D2", "TRP-D3"]);
+    expect(reads).toEqual([
+      { error: null, amountReceivedCents: 5212, amountRefundedCents: 0, piStatus: "succeeded", disputed: false, disputes: "", feeCents: 181 },
+      expect.objectContaining({ error: "No such payment_intent: pi_gone", amountReceivedCents: null, feeCents: null }),
+      { error: null, amountReceivedCents: 9000, amountRefundedCents: 500, piStatus: "succeeded", disputed: false, disputes: "", feeCents: 300 },
+    ]);
+    expect(notRead).toBe("payment not read from Stripe");
+  });
+
+  it("E2 without includeDirectDetail the strict reader never runs (no dispute lookups for the dashboard)", async () => {
+    registerDirectPI("pi_d1", 5212, 0, 181, true);
+    pushDirect("TRP-D1", "pi_d1");
+
+    await reconcileRevenue(OPTS);
+
+    expect(vi.mocked(stripe.disputes.list)).not.toHaveBeenCalled();
+  });
+
+  it("E3 a reply the strict reader cannot use is that row's read error, never a fetch error for the report", async () => {
+    registerDirectPI("pi_d1", 5212, 0, 181, true);
+    pushDirect("TRP-D1", "pi_d1");
+    vi.mocked(stripe.disputes.list).mockResolvedValueOnce(undefined as never); // payoutReadFromPi throws on it
+    vi.mocked(buildDirectDetail).mockResolvedValueOnce(noDetail);
+
+    const r = await reconcileRevenue({ ...OPTS, includeDirectDetail: true });
+
+    expect(vi.mocked(buildDirectDetail).mock.calls[0][1]).toEqual([expect.objectContaining({ error: "unreadable reply (TypeError)", amountReceivedCents: null })]);
+    expect(r.direct.stripeErrors).toEqual([]);
+    expect(r.direct).toMatchObject({ grossOnlineCharge: 52.12, grossOnlineChargeIsDerived: false });
+  });
+
+  it("E4 with the Stripe cross-check off, every row is 'not read' and says why", async () => {
+    pushDirect("TRP-D1", "pi_d1");
+    vi.mocked(buildDirectDetail).mockResolvedValueOnce(noDetail);
+
+    await reconcileRevenue({ ...OPTS, includeStripe: false, includeDirectDetail: true });
+
+    expect(vi.mocked(buildDirectDetail).mock.calls[0].slice(1)).toEqual([[null], "Stripe cross-check is off"]);
   });
 });

@@ -523,7 +523,7 @@ export default function MonthlyNumbersPage() {
 
       <Card
         title="What we keep"
-        note={`The same two figures as /admin/accounting with its Date field set to "${DATE_AXIS_LABELS[by]}". 'Triply revenue (gross)' = channel commission − ResLab fee − promo discounts + service fee + Park Guard margin (includes the service fee kept on refunded bookings); 'Net cash' = gross − Stripe processing fees. Per booking = gross ÷ confirmed bookings.`}
+        note={`ResLab lots only (direct lots are in the All lots table on /admin/accounting). The same two ResLab figures as /admin/accounting with its Date field set to "${DATE_AXIS_LABELS[by]}". 'Triply revenue (gross)' = channel commission − ResLab fee − promo discounts + service fee + Park Guard margin (includes the service fee kept on refunded bookings); 'Net cash' = gross − Stripe processing fees. Per booking = gross ÷ confirmed bookings.`}
       >
         {!historyRequested && (
           <p className="text-sm text-gray-600 mb-3">

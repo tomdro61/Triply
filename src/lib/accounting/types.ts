@@ -42,6 +42,66 @@ export interface ReconcileOptions {
    * reads as incomplete rather than as a figure.
    */
   deadline?: number;
+  /**
+   * Also work out what Triply made on each direct-lot booking
+   * (`result.direct.detail`): three more database reads for the direct rows and
+   * the payout rules. Only the accounting page sets it; every other caller gets
+   * exactly the reads it always had.
+   */
+  includeDirectDetail?: boolean;
+}
+
+/** A sum over the direct bookings whose figure is known: `known` of `of` rows are in `cents`. */
+export interface DirectSum {
+  cents: number;
+  known: number;
+  of: number;
+}
+
+/** One direct-lot booking in the report. Integer cents; null = unknown, never $0. */
+export interface DirectBookingDetail {
+  reservationNumber: string;
+  status: string;
+  /** Literal airport-local wall clock, "YYYY-MM-DD HH:MM:SS". */
+  checkIn: string;
+  checkOut: string;
+  lotName: string;
+  /**
+   * ok                  every figure below is known
+   * needs_decision      only a person can decide what the lot is owed (payout statement)
+   * adjustment_pending  paid, and something changed since: waiting on a person
+   * not_read            the payment was not read from Stripe: no figure, never an estimate
+   * no_figure           a figure it needs is unknown, the booking was disputed, or it was decided
+   *                     by hand where Triply remits the tax
+   * blocked             cannot be worked out at all (no PaymentIntent, no terms, a broken ledger,
+   *                     its booking columns could not be read)
+   */
+  state: "ok" | "needs_decision" | "adjustment_pending" | "not_read" | "no_figure" | "blocked";
+  reason: string | null;
+  receivedCents: number | null;
+  /** Capped at what was received (Stripe reports a released hold as refunded). */
+  refundedCents: number | null;
+  owedToLotCents: number | null;
+  /** ledger = what was recorded as paid to the lot; rule = what the rules say is due, not paid yet. */
+  owedSource: "rule" | "ledger" | null;
+  stripeFeeCents: number | null;
+  /** Triply revenue before Stripe fees (like for like with the ResLab "Triply revenue (gross)"). */
+  grossCents: number | null;
+  /** After Stripe fees, by the payout statement's rule; on a paid booking, against what the lot was actually paid. */
+  netCents: number | null;
+}
+
+export interface DirectDetail {
+  bookings: DirectBookingDetail[];
+  totals: {
+    /** Received − refunded, over confirmed, refunded and cancelled bookings: a disputed booking is left out, as in the ResLab column. `of` counts only those bookings. */
+    collected: DirectSum;
+    /** Over the same bookings as `net` (those with a full figure), so gross − stripeFees = net. */
+    owedToLots: DirectSum;
+    gross: DirectSum;
+    stripeFees: DirectSum;
+    net: DirectSum;
+  };
 }
 
 export interface BookingDetail {
@@ -193,6 +253,11 @@ export interface ReconcileResult {
     // live direct row's PI). Separate from stripeFetch.errors, whose rows are
     // in the CSV; these are not.
     stripeErrors: Array<{ resNum: string; err: string }>;
+    /**
+     * Per-booking profit, only when `options.includeDirectDetail` was set.
+     * `{ error }` = its reads failed: the rest of the report is still good.
+     */
+    detail?: DirectDetail | { error: string };
   };
   // Reservation numbers of the rows counted in `counts.stagingExcluded` — the
   // audit trail for the exclusion (which specific bookings were dropped as

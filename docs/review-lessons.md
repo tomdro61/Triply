@@ -233,6 +233,12 @@ a human.
 
 One entry per reviewed PR: what the review found, by lesson number. Newest first.
 
+- **Direct lots in the accounting report (Nov 16, #203):**
+  - Lessons 1 / 2: two sentences on the page were false as written ("the sections further down are ResLab lots only", with two direct sections below; "left out of the direct and total columns", when the collected row included them). A tooltip said "the same figure as the payout statement" for rows the statement never shows.
+  - Lesson 5: "Collected online" added two different sets of bookings (Codex): the ResLab figure leaves disputed bookings out, the direct one counted them. Same scope now, and the page says what happens to a disputed booking.
+  - Lesson 4: the optional reads had a timeout per request but none overall, so many slow chunks could outlast the route and lose the whole report (Codex). One budget for the three reads.
+  - Silent failure: a catch with no binding threw away why the strict Stripe reading failed, where the function it was split from kept the error label.
+  - Lesson 13: 21 of 53 mutations survived. The new `owedCents` argument was never tested with a value different from the rule, each half of the dispute guard was untested alone, and nothing tested what reconcile hands to the detail (the stand-in threw before it got there). A pass-through spy on the detail function covers the wiring.
 - **Direct-lot statement totals (Nov 16, #202):**
   - Lessons 1 / 2: the tooltip and the doc comment said a cancelled booking shows "the service fee kept". Only a standard admin cancel keeps the fee; a self-cancel and a policy refund return it, so the usual figure is minus the Stripe fee. The plan carried the same wrong sentence. The maths was right; the words were not.
   - Lesson 5: the totals row said "for the rows shown" while three columns left rows out by rule, and the refunded total printed a figure with no "n of m" when a Stripe read had failed (Codex). Each column now says what it leaves out.

@@ -61,6 +61,8 @@ const querySchema = z
       .optional(),
     reslab: z.enum(["0", "1"]).optional(),
     stripe: z.enum(["0", "1"]).optional(),
+    // Per-booking direct-lot profit. Only the accounting page asks for it.
+    direct: z.enum(["0", "1"]).optional(),
   })
   .refine((q) => q.from <= q.to, { message: "from must be ≤ to" });
 
@@ -79,6 +81,7 @@ export async function GET(request: NextRequest) {
     invoice: params.get("invoice") ?? undefined,
     reslab: params.get("reslab") ?? undefined,
     stripe: params.get("stripe") ?? undefined,
+    direct: params.get("direct") ?? undefined,
   });
 
   if (!parsed.success) {
@@ -88,7 +91,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const { from, to, by, invoice, reslab, stripe } = parsed.data;
+  const { from, to, by, invoice, reslab, stripe, direct } = parsed.data;
   const includeReslab = reslab !== "0";
   const includeStripe = stripe !== "0";
   const invoiceAmount = invoice ?? 0;
@@ -110,6 +113,7 @@ export async function GET(request: NextRequest) {
       invoiceAmount,
       includeReslab,
       includeStripe,
+      includeDirectDetail: direct === "1",
     });
 
     return NextResponse.json(result);

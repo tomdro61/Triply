@@ -9,6 +9,7 @@
  * succeeded PI must have an expanded charge with a readable refund figure) and
  * also returns the processing fee for the internal margin column.
  */
+import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe/client";
 import type { PayoutStripe } from "./payout";
 
@@ -23,7 +24,8 @@ export interface PayoutStripeRead extends PayoutStripe {
   feeCents: number | null;
 }
 
-const failed = (error: string): PayoutStripeRead => ({
+/** A read that could not be trusted: every figure unknown, so the booking goes to a person. */
+export const failedPayoutRead = (error: string): PayoutStripeRead => ({
   error,
   amountReceivedCents: null,
   amountRefundedCents: null,
@@ -33,7 +35,8 @@ const failed = (error: string): PayoutStripeRead => ({
   feeCents: null,
 });
 
-function errorLabel(error: unknown): string {
+/** "StripeConnectionError/code" or the error's name: enough to tell failures apart, no message text. */
+export function errorLabel(error: unknown): string {
   if (!(error instanceof Error)) return "unknown error";
   const type = "type" in error && typeof error.type === "string" ? error.type : error.name;
   const code = "code" in error && typeof error.code === "string" ? error.code : null;
@@ -50,19 +53,30 @@ export async function readPayoutStripe(piId: string): Promise<PayoutStripeRead> 
       { timeout: PAYOUT_PI_TIMEOUT_MS, maxNetworkRetries: 1 }
     );
   } catch (error) {
-    return failed(`read failed (${errorLabel(error)})`);
+    return failedPayoutRead(`read failed (${errorLabel(error)})`);
   }
-  if (!Number.isSafeInteger(pi.amount_received) || pi.amount_received < 0) return failed("amount received unreadable");
+  return payoutReadFromPi(pi);
+}
+
+/**
+ * The strict reading of a PaymentIntent retrieved with
+ * `expand: ["latest_charge.balance_transaction"]`. Shared with the accounting
+ * report, which retrieves with its own 429 retry. Lists the disputes (one more
+ * Stripe call) only when the charge is flagged disputed.
+ */
+export async function payoutReadFromPi(pi: Stripe.PaymentIntent): Promise<PayoutStripeRead> {
+  const piId = pi.id;
+  if (!Number.isSafeInteger(pi.amount_received) || pi.amount_received < 0) return failedPayoutRead("amount received unreadable");
   const charge = pi.latest_charge;
   if (charge === null) {
     // No charge: only sensible when nothing was received (a released hold) — nothing to dispute either.
-    if (pi.amount_received !== 0) return failed("money received but no charge");
+    if (pi.amount_received !== 0) return failedPayoutRead("money received but no charge");
     return { error: null, amountReceivedCents: 0, amountRefundedCents: 0, piStatus: pi.status, disputed: false, disputes: "", feeCents: null };
   }
-  if (charge === undefined) return failed("charge missing from the reply");
-  if (typeof charge === "string") return failed("charge was not expanded");
-  if (!Number.isSafeInteger(charge.amount_refunded) || charge.amount_refunded < 0) return failed("refund amount unreadable");
-  if (typeof charge.disputed !== "boolean") return failed("dispute flag unreadable");
+  if (charge === undefined) return failedPayoutRead("charge missing from the reply");
+  if (typeof charge === "string") return failedPayoutRead("charge was not expanded");
+  if (!Number.isSafeInteger(charge.amount_refunded) || charge.amount_refunded < 0) return failedPayoutRead("refund amount unreadable");
+  if (typeof charge.disputed !== "boolean") return failedPayoutRead("dispute flag unreadable");
   // The flag stays true once a dispute is won, so read the disputes themselves:
   // their status is what a person's decision on a disputed booking is bound to.
   let disputes = "";
@@ -74,10 +88,10 @@ export async function readPayoutStripe(piId: string): Promise<PayoutStripeRead> 
         { timeout: PAYOUT_PI_TIMEOUT_MS, maxNetworkRetries: 1 }
       );
     } catch (error) {
-      return failed(`disputes unreadable (${errorLabel(error)})`);
+      return failedPayoutRead(`disputes unreadable (${errorLabel(error)})`);
     }
-    if (list.has_more) return failed(`more than ${MAX_DISPUTES} disputes`);
-    if (list.data.length === 0) return failed("disputed, but no dispute found");
+    if (list.has_more) return failedPayoutRead(`more than ${MAX_DISPUTES} disputes`);
+    if (list.data.length === 0) return failedPayoutRead("disputed, but no dispute found");
     disputes = list.data.map((d) => `${d.id}:${d.status}:${d.amount}`).sort().join(",");
   }
   const bt = charge.balance_transaction;
@@ -106,7 +120,7 @@ export async function readPayoutStripeMany(piIds: string[]): Promise<Map<string,
         read = await readPayoutStripe(piIds[idx]);
       } catch (error) {
         // A reply shaped unlike the SDK's types — that booking only goes to a person.
-        read = failed(`unreadable reply (${errorLabel(error)})`);
+        read = failedPayoutRead(`unreadable reply (${errorLabel(error)})`);
       }
       out.set(piIds[idx], read);
     }

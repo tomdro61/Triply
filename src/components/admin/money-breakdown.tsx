@@ -277,8 +277,8 @@ export function MoneyBreakdown({
       {paidNote && <p className="mt-5 text-xs text-gray-500">{paidNote}</p>}
       {directConfirmed !== null && directConfirmed > 0 && (
         <p className="mt-5 text-xs text-gray-500">
-          {directConfirmed} direct-lot booking{directConfirmed === 1 ? " is" : "s are"} not in these figures yet —
-          their payouts are tracked on Accounting.
+          {directConfirmed} direct-lot booking{directConfirmed === 1 ? " is" : "s are"} not in these figures. Their
+          profit is in the All lots table on Accounting.
         </p>
       )}
     </div>

@@ -43,6 +43,9 @@
  */
 
 import type Stripe from "stripe";
+import * as Sentry from "@sentry/nextjs";
+import { buildDirectDetail } from "./direct-detail";
+import { payoutReadFromPi, failedPayoutRead, errorLabel, type PayoutStripeRead } from "@/lib/direct/payout-stripe";
 import { stripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/server";
 import { isAtTestLot, isTestBooking } from "@/config/admin";
@@ -467,6 +470,10 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     // (promo PR 1/2 — verified at fulfilment, so check #3 skips it).
     discountPercent: number | null;
     discountStamped: boolean;
+    // The payout rules' strict reading of the same PaymentIntent (integer
+    // cents, dispute state). Only for direct rows with `includeDirectDetail`;
+    // null everywhere else and whenever the PI was not read.
+    payout: PayoutStripeRead | null;
   };
   const emptyStripe: StripeSlice = {
     amountReceived: null,
@@ -475,6 +482,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     status: null,
     error: null,
     notFound: false,
+    payout: null,
     discountPercent: null,
     discountStamped: false,
   };
@@ -547,7 +555,8 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   const fetchStripeSlices = async (
     rows: SupabaseRow[],
     errors: Array<{ resNum: string; err: string }>,
-    reportNotFound: boolean
+    reportNotFound: boolean,
+    withPayout = false
   ): Promise<StripeSlice[]> => {
     if (!opts.includeStripe || rows.length === 0) return rows.map(() => ({ ...emptyStripe }));
     if (!process.env.STRIPE_SECRET_KEY) {
@@ -563,7 +572,19 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
           charge?.balance_transaction && typeof charge.balance_transaction === "object"
             ? charge.balance_transaction
             : null;
+        // Its own try: a reply the strict reader cannot use must not turn the
+        // figures above into a fetch error.
+        let payout: PayoutStripeRead | null = null;
+        if (withPayout) {
+          try {
+            payout = await payoutReadFromPi(pi);
+          } catch (e) {
+            Sentry.captureException(e, { tags: { area: "accounting-direct-payout-read" }, extra: { reservation: b.reslab_reservation_number } });
+            payout = failedPayoutRead(`unreadable reply (${errorLabel(e)})`);
+          }
+        }
         return {
+          payout,
           amountReceived: (pi.amount_received || 0) / 100,
           amountRefunded: charge ? (charge.amount_refunded || 0) / 100 : 0,
           fee: bt ? (bt.fee || 0) / 100 : null,
@@ -590,7 +611,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   const [reslabSlices, stripeSlices, directStripeSlices] = await Promise.all([
     reslabPromise,
     fetchStripeSlices(real, stripeFetchErrors, false),
-    fetchStripeSlices(directRows, directStripeErrors, stripeIsLive),
+    fetchStripeSlices(directRows, directStripeErrors, stripeIsLive, opts.includeDirectDetail === true),
   ]);
 
   // Staging/test bookings pollute the SHARED prod DB (a staging soak writes a real
@@ -1281,6 +1302,29 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       direct.cancelled++;
     } else {
       direct.other++;
+    }
+  }
+
+  // Per-booking direct profit: only for the accounting page. A failure here
+  // (a database read, an unreadable ledger amount) is reported in the result
+  // and to Sentry: it must never take the ResLab report down with it.
+  if (opts.includeDirectDetail) {
+    try {
+      direct.detail = await buildDirectDetail(
+        directRows,
+        // The strict reading; a row whose read failed carries the error; null = not read at all.
+        directRows.map((_, i) => {
+          const slice = directStripeSlices[i];
+          return slice?.payout ?? (slice?.error ? failedPayoutRead(slice.error) : null);
+        }),
+        opts.includeStripe ? "payment not read from Stripe" : "Stripe cross-check is off"
+      );
+    } catch (e) {
+      Sentry.captureException(e, {
+        tags: { area: "accounting-direct-detail" },
+        extra: { from: opts.from, to: opts.to, by: opts.by, directRows: directRows.length, includeStripe: opts.includeStripe },
+      });
+      direct.detail = { error: "The direct-lot figures could not be worked out (see Sentry). The rest of this report is not affected." };
     }
   }
 
