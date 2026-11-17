@@ -36,6 +36,8 @@ const fr = (money: Partial<ReslabFulfilledReservation["money"]> = {}): ReslabFul
   cancelled: false,
   historyId: 1,
   money: { subtotal: 80, taxTotal: 5, feesTotal: 3, grandTotal: 88, dueAtLocation: 20, longTermDiscount: null, ...money },
+  sourceCurrency: null,
+  fx: null,
   dates: null,
   location: null,
 });

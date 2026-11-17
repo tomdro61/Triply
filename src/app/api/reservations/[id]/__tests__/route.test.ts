@@ -1817,3 +1817,144 @@ describe("ResLab booking — a stamped discountCents (promo plan Part 1)", () =>
     ]);
   });
 });
+
+describe("ResLab booking on a lot priced in Canadian dollars (migration 052)", () => {
+  const RTL = "RTL900100";
+  // Stored at fulfilment: US dollars at 0.725 (107.55 / 5.38 / 12.88 = 125.81 CAD).
+  const row = (over: Record<string, unknown> = {}) => ({
+    vehicle_info: { make: "Volvo", model: "XC60", color: "Blue", licensePlate: "ABC123", state: "QC" },
+    triply_service_fee: "5.95",
+    check_in: "2026-12-02T10:00:00",
+    check_out: "2026-12-10T10:00:00",
+    protection_plan: null,
+    protection_plan_code: null,
+    protection_plan_price: null,
+    pg_identifier: null,
+    pg_sync_status: null,
+    airport_code: "YUL",
+    inventory_source: "reslab",
+    direct_lot_id: null,
+    lot_snapshot: null,
+    vehicle_size: null,
+    vehicle_size_label: null,
+    vehicle_surcharge_cents: null,
+    vehicle_surcharge_tax_cents: null,
+    status: "confirmed",
+    subtotal: "77.97",
+    tax_total: "9.34",
+    fees_total: "3.90",
+    grand_total: "91.21",
+    discount_amount: null,
+    promo_code: null,
+    due_at_location: "0",
+    stripe_payment_intent_id: "pi_cad",
+    reslab_currency: "CAD",
+    fx_rate: "0.725000",
+    customers: { first_name: "Dana", last_name: "Rivera", email: EMAIL, phone: "5551234567" },
+    ...over,
+  });
+  const reservation = (history: Record<string, unknown> = {}, currency: string | null = "CAD") => ({
+    reservation_number: RTL,
+    reserved_by: "Dana Rivera",
+    cancelled: 0,
+    history: [
+      {
+        id: 77,
+        reserved_for: "Dana Rivera",
+        email: EMAIL,
+        phone: "5551234567",
+        subtotal: 107.55,
+        total_fees: 5.38,
+        total_tax: 12.88,
+        long_term_discount: 0,
+        grand_total: 125.81,
+        due_at_location_total: 0,
+        location: { id: 330, name: "Lot M", address: "1 Rue", city: "Dorval", state: { code: "QC" }, zip_code: "H4Y", ...(currency && { currency: { code: currency } }) },
+        dates: [{ from_date: "2026-12-02 00:00:00", to_date: "2026-12-10 00:00:00", number_of_days: 8, parking_rates: [] }],
+        ...history,
+      },
+    ],
+  });
+  // 91.21 parking + 5.95 service fee.
+  const CHARGED = 9716;
+  beforeEach(() => {
+    h.retrievePi.mockResolvedValue(settledPi(CHARGED));
+    h.getReservation.mockResolvedValue(reservation());
+  });
+
+  it("the row's currency and rate are part of the read", async () => {
+    h.state.detailRow = { data: row(), error: null };
+    await call(RTL);
+    expect(h.state.detailSelect).toContain("reslab_currency");
+    expect(h.state.detailSelect).toContain("fx_rate");
+  });
+
+  it("shows US dollars at the booking's own rate, and the summary adds up to what Stripe charged", async () => {
+    h.state.detailRow = { data: row(), error: null };
+    const res = await call(RTL);
+    expect(res.status).toBe(200);
+    const { reservation: r } = await res.json();
+    expect(r).toMatchObject({ subtotal: 77.97, feesTotal: 3.9, taxTotal: 9.34, dueAtLocation: 0, serviceFee: 5.95 });
+    expect(Math.round(r.grandTotal * 100)).toBe(CHARGED);
+    expect(Math.round(r.dueNow * 100)).toBe(CHARGED);
+    expect(r.costBreakdown).toMatchObject({ ok: true, paidOnlineCents: CHARGED });
+    expect(h.captureBookingError).not.toHaveBeenCalled();
+    // No Canadian-dollar figure anywhere in the answer.
+    expect(JSON.stringify(r)).not.toMatch(/107\.55|125\.81|12\.88|5\.38|12581|10755/);
+  });
+
+  it("a later rate change does not move a booking: it is read with ITS rate", async () => {
+    h.state.detailRow = { data: row({ fx_rate: "0.700000", subtotal: "75.29", fees_total: "3.77", tax_total: "9.02", grand_total: "88.08" }), error: null };
+    h.retrievePi.mockResolvedValue(settledPi(9403));
+    const { reservation: r } = await (await call(RTL)).json();
+    expect(r).toMatchObject({ subtotal: 75.29, feesTotal: 3.77, taxTotal: 9.02 });
+    expect(r.costBreakdown).toMatchObject({ ok: true, paidOnlineCents: 9403 });
+  });
+
+  it.each([
+    ["the stored rate is unusable", row({ fx_rate: "1.380000" }), reservation()],
+    ["the reservation's figures no longer add up", row(), reservation({ grand_total: 130 })],
+    ["the reservation is now priced in another currency", row(), reservation({}, "USD")],
+    ["the row has an unknown currency", row({ reslab_currency: "EUR" }), reservation()],
+  ])("amounts are withheld (never raw Canadian dollars) when %s", async (_n, detail, live) => {
+    h.state.detailRow = { data: detail, error: null };
+    h.getReservation.mockResolvedValue(live);
+    const res = await call(RTL);
+    expect(res.status).toBe(200);
+    const { reservation: r } = await res.json();
+    expect(r).toMatchObject({ subtotal: 0, feesTotal: 0, taxTotal: 0, dueAtLocation: 0 });
+    expect(r.costBreakdown.ok).toBe(false);
+    // What Stripe charged is still shown.
+    expect(r.cardPayment).toMatchObject({ status: "charged", chargedCents: CHARGED });
+    expect(JSON.stringify(r)).not.toMatch(/107\.55|125\.81|12\.88/);
+    expect(h.captureBookingError.mock.calls.some((c) => String(c[0]).includes("amounts withheld"))).toBe(true);
+  });
+
+  it("the row could not be read and the reservation is in CAD → amounts withheld", async () => {
+    h.state.detailRow = { data: null, error: { message: "timeout", code: "57014" } };
+    const { reservation: r } = await (await call(RTL)).json();
+    expect(r).toMatchObject({ subtotal: 0, feesTotal: 0, taxTotal: 0 });
+    expect(JSON.stringify(r)).not.toMatch(/107\.55|125\.81/);
+  });
+
+  it("a long-stay discount and a pay-at-lot share on the reservation are converted too (never the Canadian figure)", async () => {
+    // CAD 200 + 10 − 20 + 26 = 216, 50 at the lot → USD 145 + 7.25 − 14.5 + 18.85 = 156.60, 36.25 at the lot.
+    h.state.detailRow = { data: row({ subtotal: "145.00", fees_total: "7.25", tax_total: "18.85", grand_total: "156.60", due_at_location: "36.25" }), error: null };
+    h.getReservation.mockResolvedValue(reservation({ subtotal: 200, total_fees: 10, total_tax: 26, long_term_discount: 20, grand_total: 216, due_at_location_total: 50 }));
+    h.retrievePi.mockResolvedValue(settledPi(15660 - 3625 + 595));
+    const { reservation: r } = await (await call(RTL)).json();
+    expect(r).toMatchObject({ subtotal: 145, feesTotal: 7.25, taxTotal: 18.85, dueAtLocation: 36.25 });
+    expect(r.fallbackDue).toEqual({ kind: "amount", cents: 3625 });
+    expect(r.costBreakdown).toMatchObject({ ok: true, paidOnlineCents: 15660 - 3625 + 595 });
+  });
+
+  it("a booking charged one for one before conversion existed (no currency on the row, or marked rate 1) shows as it was charged", async () => {
+    for (const legacy of [{ reslab_currency: null, fx_rate: null }, { reslab_currency: "CAD", fx_rate: "1.000000" }]) {
+      h.state.detailRow = { data: row({ ...legacy, subtotal: "107.55", fees_total: "5.38", tax_total: "12.88", grand_total: "125.81" }), error: null };
+      h.retrievePi.mockResolvedValue(settledPi(12581 + 595));
+      const { reservation: r } = await (await call(RTL)).json();
+      expect(r).toMatchObject({ subtotal: 107.55, feesTotal: 5.38, taxTotal: 12.88 });
+      expect(r.costBreakdown).toMatchObject({ ok: true, paidOnlineCents: 13176 });
+    }
+  });
+});

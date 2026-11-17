@@ -9,12 +9,27 @@
  *     cent on 5 stays across 3 airports, 2026-10-22). /api/checkout/lot GET
  *     would cost three calls (/locations/{id}, min-price, /costs).
  *   - Direct lot: quoteDirectCheckout, the function checkout charges from.
+ *   - A lot ResLab prices in Canadian dollars: the page sends `fx` (the lot's
+ *     `fxRateId`) and the quote is converted to US dollars at that rate. The
+ *     location list this instance holds (never a ResLab call) overrules the
+ *     page both ways: with `fx`, a lot that is not sold in CAD is not found;
+ *     with no `fx`, a lot the list knows is not a US-dollar lot is not
+ *     answered with ResLab's raw figures (and is reported: our own pages
+ *     always send `fx` for such a lot). A request without `fx` only looks at
+ *     the list already in memory, so a US lot's quote never waits on a list
+ *     read; when this instance holds no list, such a request is answered as
+ *     before. Display only — checkout decides the currency itself from
+ *     ResLab's own record.
  *
  *   200 { quote }  the price for this stay
  *   422 { code }   this stay can't be booked: reversed or beyond the booking
  *                  window (checked here, before any upstream call), or ResLab /
  *                  the direct lot said no (400/404/422) — expected, not reported
  *   404            no such lot
+ *   409 { code: "price_changed" }  the page's exchange rate is not the
+ *                  current one (or the page did not know the lot is
+ *                  converted): the page shows "total at checkout" and Reserve
+ *                  stays on — checkout prices at the current rate
  *   400            malformed request (not a real date or time)
  *   503            upstream unavailable — incl. ResLab auth failures and
  *                  timeouts; ResLab failures reported to Sentry, throttled
@@ -22,7 +37,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { reslab, ReslabError } from "@/lib/reslab/client";
-import { isHiddenReslabLocation } from "@/lib/reslab/search";
+import { getChannelLocationsNoSweep, isHiddenReslabLocation, peekChannelLocations } from "@/lib/reslab/search";
+import { convertMinPrice, lotCurrency } from "@/lib/reslab/currency";
+import { currentCadRate, type FxRate } from "@/lib/fx/cad-usd";
 import { quoteDirectCheckout } from "@/lib/direct/checkout-quote";
 import { isDirectCheckoutOpen } from "@/lib/direct/flag";
 import { parseDirectLotUnifiedId } from "@/lib/direct/store";
@@ -56,6 +73,7 @@ const querySchema = z.object({
   checkout: date,
   checkinTime: time,
   checkoutTime: time,
+  fx: z.string().min(1).max(40).optional(),
 });
 
 /** "YYYY-MM-DD" n days after today in UTC — a loose, timezone-safe bound
@@ -94,6 +112,7 @@ export async function GET(request: NextRequest) {
     checkout: sp.get("checkout") ?? undefined,
     checkinTime: sp.get("checkinTime") ?? undefined,
     checkoutTime: sp.get("checkoutTime") ?? undefined,
+    fx: sp.get("fx") ?? undefined,
   });
   if (!parsed.success) {
     // Our own page sends only picker values, so a 400 means page and server
@@ -104,7 +123,7 @@ export async function GET(request: NextRequest) {
     });
     return NextResponse.json({ error: issue?.message ?? "Invalid request" }, { status: 400, headers: NO_STORE });
   }
-  const { lotId, checkin, checkout, checkinTime, checkoutTime } = parsed.data;
+  const { lotId, checkin, checkout, checkinTime, checkoutTime, fx } = parsed.data;
   const fromDate = `${checkin} ${convertTo24Hour(checkinTime)}:00`;
   const toDate = `${checkout} ${convertTo24Hour(checkoutTime)}:00`;
   // Stays no customer can book, refused before any upstream call: ResLab
@@ -142,14 +161,59 @@ export async function GET(request: NextRequest) {
   if (isHiddenReslabLocation(locationId)) {
     return NextResponse.json({ error: "Lot not found" }, { status: 404, headers: NO_STORE });
   }
+  // The lot's currency, from the list this instance holds (never a ResLab
+  // call); it overrules the page. With `fx` the list is warmed from the
+  // shared snapshot if need be. Without it — every US-dollar lot's quote —
+  // only what is already in memory is looked at: nothing is awaited.
+  const list = fx !== undefined ? await getChannelLocationsNoSweep() : peekChannelLocations();
+  const listed = list?.find((loc) => loc.id === locationId);
+  const listedCurrency = listed ? lotCurrency(listed) : null;
+  // The stay CAN be booked — the page is only out of date. 409, not 422: the
+  // box then says the total is shown at checkout and Reserve stays on.
+  const priceChanged = () => NextResponse.json({ code: "price_changed" }, { status: 409, headers: NO_STORE });
+  let cadRate: FxRate | null = null;
+  if (fx !== undefined) {
+    // A converted (Canadian-dollar) lot. The rate must be the one the page's
+    // price was converted with: after a rate change the page is stale, and it
+    // is never answered at a second rate.
+    cadRate = currentCadRate();
+    if (cadRate === null || cadRate.id !== fx) return priceChanged();
+    if (listedCurrency && listedCurrency.kind !== "cad") {
+      return NextResponse.json({ error: "Lot not found" }, { status: 404, headers: NO_STORE });
+    }
+  } else if (listedCurrency && listedCurrency.kind !== "usd") {
+    // No `fx`, but the lot is not a US-dollar lot: the raw figures below would
+    // be Canadian dollars shown under a "$". Our own pages send `fx` for
+    // every converted lot (lot.fxRateId), so this is the page and the server
+    // disagreeing: reported, like the 400 above.
+    captureThrottled(new Error(`/api/lots/quote: lot ${locationId} is ${listedCurrency.kind === "cad" ? "priced in CAD" : `not sold (${listedCurrency.reason})`} but the request carried no fx`), {
+      lotId,
+    });
+    return listedCurrency.kind === "cad"
+      ? priceChanged()
+      : NextResponse.json({ error: "Lot not found" }, { status: 404, headers: NO_STORE });
+  }
   try {
-    const { reservation: r } = await reslab.getMinPrice(locationId, {
+    const minPrice = await reslab.getMinPrice(locationId, {
       type: "parking",
       reservation_type: "parking",
       from_date: fromDate,
       to_date: toDate,
       number_of_spots: 1,
     });
+    let r = minPrice.reservation;
+    if (cadRate !== null) {
+      const converted = convertMinPrice(minPrice, cadRate);
+      if (!converted.ok) {
+        captureThrottled(new Error(`ResLab min-price answer for lot ${locationId} could not be converted (${converted.reason})`), {
+          lotId,
+          fromDate,
+          toDate,
+        });
+        return NextResponse.json({ error: "Pricing is temporarily unavailable" }, { status: 503, headers: NO_STORE });
+      }
+      r = converted.value.reservation;
+    }
     const quote: LotQuote = {
       grandTotal: r.grand_total,
       subtotal: r.sub_total,

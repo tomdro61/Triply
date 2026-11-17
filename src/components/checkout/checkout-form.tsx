@@ -51,6 +51,8 @@ import { isVehicleFieldName } from "@/lib/booking/vehicle-field-aliases";
 import { checkoutExtraFields, extraFieldStepErrors } from "@/lib/booking/required-extra-fields";
 import { VehicleSizeSelector } from "./vehicle-size-selector";
 import { TERMS_VERSION } from "@/lib/checkout/terms-acceptance";
+import { PARK_GUARD_ON_CONVERTED_LOTS } from "@/lib/fx/cad-usd";
+import { CONVERTED_DRIFT_FIELDS, DIRECT_DRIFT_FIELDS, pricedDifferently } from "@/lib/checkout/price-drift";
 import {
   atLotEstimate,
   initialVehicleChoice,
@@ -119,6 +121,8 @@ export function CheckoutForm({
   // surcharge is paid AT THE LOT: nothing here ever changes an online amount
   // or the PaymentIntent, so a change needs no network call.
   const isDirect = lot.source === "direct";
+  // Park Guard is not offered on a lot whose price we convert (Canada).
+  const protectionHidden = !PARK_GUARD_ON_CONVERTED_LOTS && !!(costData?.fxRateId || lot.fxRateId);
   const [directTerms, setDirectTerms] = useState<DirectCheckoutTerms | null>(
     isDirect ? (costData?.direct ?? null) : null
   );
@@ -531,6 +535,9 @@ export function CheckoutForm({
           // The checkbox version this bundle renders (dispute evidence quotes it).
           termsVersion: TERMS_VERSION,
           ...(sentPromo && { promoCode: sentPromo.code }),
+          // A lot priced in Canadian dollars: the rate this page's figures
+          // were converted with. The server refuses a different current rate.
+          ...(costData?.fxRateId && { fxRateId: costData.fxRateId }),
         };
       }
       const response = await fetch("/api/checkout/lot", {
@@ -568,12 +575,7 @@ export function CheckoutForm({
         // rather than charge an amount the customer was never shown. Parking,
         // tax and the service fee are computed before any discount, so a
         // promo cannot move them; the promo is checked below, for both paths.
-        const toCents = (n: unknown): number => (typeof n === "number" ? Math.round(n * 100) : NaN);
-        const priceDrift =
-          toCents(data.subtotal) !== toCents(costData.subtotal) ||
-          toCents(data.taxTotal) !== toCents(costData.taxTotal) ||
-          toCents(data.serviceFee) !== toCents(costData.serviceFee);
-        if (priceDrift) {
+        if (pricedDifferently(costData, data, DIRECT_DRIFT_FIELDS)) {
           captureAPIError(new Error("Direct checkout PaymentIntent priced differently from the checkout page"), {
             endpoint: "/api/checkout/lot",
             method: "POST",
@@ -586,6 +588,22 @@ export function CheckoutForm({
             },
           });
           // The page's prices are from load and never refresh: only a reload fixes it.
+          setDirectPriceStale(true);
+          throw new Error(DIRECT_PRICE_STALE_MESSAGE);
+        }
+      } else if (costData?.fxRateId) {
+        // A converted (Canadian-dollar) lot: the same rule as a direct lot.
+        // The Pay button shows this page's figures; if the PaymentIntent was
+        // priced differently (the lot's price moved since the page loaded),
+        // stop before the card is confirmed. Every part AND the total: a
+        // changed long-stay discount moves only the total.
+        if (pricedDifferently(costData, data, CONVERTED_DRIFT_FIELDS)) {
+          captureAPIError(new Error("Converted-lot PaymentIntent priced differently from the checkout page"), {
+            endpoint: "/api/checkout/lot",
+            method: "POST",
+            stage: "fx_price_drift",
+            extra: { lotId: lot.id, paymentIntentId: data.paymentIntentId, fxRateId: costData.fxRateId },
+          });
           setDirectPriceStale(true);
           throw new Error(DIRECT_PRICE_STALE_MESSAGE);
         }
@@ -630,6 +648,9 @@ export function CheckoutForm({
       }
       // No pre-selection: an undecided customer stays undecided (Pay Now is
       // gated on a pick), and the PI above is parking-only until they choose.
+      // A converted lot offers no protection plan (the selector is hidden and
+      // the server refuses one), so its answer is "none".
+      if (protectionHidden) setProtectionPlanChoice("none");
       setCurrentStep("payment");
       // Report the SERVER-verified total (it includes any premium a returning
       // customer already chose).
@@ -1449,6 +1470,7 @@ export function CheckoutForm({
                   submitError={submitError}
                   dueAtLocation={lot.dueAtLocation}
                   protectionPlanChoice={protectionPlanChoice}
+                  protectionHidden={protectionHidden}
                   onProtectionPlanChange={handleProtectionPlanChange}
                   protectionPlanUpdating={protectionPlanUpdating}
                   protectionChoiceError={protectionChoiceError}

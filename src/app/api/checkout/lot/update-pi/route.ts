@@ -10,6 +10,7 @@ import {
   STALE_CHECKOUT_MESSAGE,
 } from "@/lib/parkguard/client";
 import { protectionPlanCodeSchema } from "@/lib/validation/schemas";
+import { PARK_GUARD_ON_CONVERTED_LOTS, readFxStamp } from "@/lib/fx/cad-usd";
 
 // Updates an existing PaymentIntent's amount when the customer picks a Parking
 // Protection tier (Plan A / B / C) or "no protection" on the payment step.
@@ -90,6 +91,17 @@ export async function POST(request: NextRequest) {
       );
       return NextResponse.json(
         { error: "Cannot update this payment — baseline amount invalid. Please restart checkout." },
+        { status: 422 }
+      );
+    }
+
+    // No protection plan on a lot whose price we convert (see the constant):
+    // the page hides the selector, this is the rule. Declining stays allowed.
+    // An unusable stamp is refused with it: fulfilment will not book it either.
+    const fxStamp = readFxStamp(pi.metadata);
+    if (protectionPlan && !PARK_GUARD_ON_CONVERTED_LOTS && (fxStamp.kind === "cad" || fxStamp.kind === "invalid")) {
+      return NextResponse.json(
+        { error: "Parking protection isn't available for this lot." },
         { status: 422 }
       );
     }

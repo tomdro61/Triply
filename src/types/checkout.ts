@@ -56,6 +56,9 @@ export interface CheckoutCostData {
   numberOfDays?: number;
   soldOut: boolean;
   parkingTypeId?: number | null;
+  /** Set only for a lot ResLab prices in Canadian dollars: the exchange rate
+   *  every figure here was converted with. Sent back with the payment request. */
+  fxRateId?: string;
   /** DIRECT lots only: the terms this checkout was priced with (quoteDirectCheckout). */
   direct?: DirectCheckoutTerms;
 }

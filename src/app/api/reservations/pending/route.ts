@@ -49,6 +49,8 @@ import { chargedServiceFeeCents, checkStampAgainstCharge, readStampedDiscount } 
 import { readAttributionFromRequest } from "@/lib/attribution/read-request";
 import { sessionIdentityFromRequest } from "@/lib/booking/customer-link";
 import { reslab, ReslabError } from "@/lib/reslab/client";
+import { lotCurrency, stampedCurrencyProblem, type LotCurrency } from "@/lib/reslab/currency";
+import { readFxStamp } from "@/lib/fx/cad-usd";
 import {
   declaredExtraFieldsSchema,
   missingRequiredExtraFields,
@@ -316,6 +318,44 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    // --- The lot's currency against the PaymentIntent's stamp ----------------
+    // The same fresh ResLab read says which currency the lot is priced in. If
+    // that is not what the PaymentIntent was priced (and stamped) for, the
+    // amount about to be authorised is not known to be right: stop here,
+    // before the card is confirmed. This is also the off switch: with no
+    // exchange rate set, a Canadian-dollar PaymentIntent still open stops here.
+    //
+    // When the read did not succeed (timeout, ResLab error) the currency is
+    // unknown. A US-dollar or unstamped PaymentIntent goes on exactly as
+    // before (fulfilment's before-capture check is its backstop). A
+    // PaymentIntent stamped for a converted lot does NOT: fulfilment books at
+    // the stamped rate and never asks whether the lot is still on sale, so
+    // the off switch would not hold. It is asked to try again instead.
+    const stamp = readFxStamp(meta);
+    const currencyProblem =
+      lookup.currency !== null
+        ? stampedCurrencyProblem(stamp, lookup.currency)
+        : stamp.kind === "cad" || stamp.kind === "invalid"
+          ? "the lot's currency could not be read for a PaymentIntent stamped for a converted lot"
+          : null;
+    if (currencyProblem) {
+      capturePaymentError(
+        new Error(`Pending-booking staging refused: ${currencyProblem}`),
+        { stripePaymentIntentId: piId, amount: pi.amount / 100 }
+      );
+      return lookup.currency !== null
+        ? NextResponse.json(
+            {
+              error:
+                "This lot's price has been updated. Please reload the page and try again — you have not been charged.",
+            },
+            { status: 400 }
+          )
+        : NextResponse.json(
+            { error: "We couldn't confirm this lot's price right now. Please try again in a moment — you have not been charged." },
+            { status: 503, headers: { "Cache-Control": "no-store" } }
+          );
+    }
     if (lookup.kind === "declared") {
       const sentValues = reslabExtraFieldValues(payload.vehicle, payload.extraFields);
       const missing = missingRequiredExtraFields(lookup.fields, sentValues);
@@ -465,10 +505,11 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/** `currency`: the lot's currency from the same read; null only when the read itself did not succeed. */
 type DeclaredFieldLookup =
-  | { kind: "declared"; fields: DeclaredExtraField[] }
+  | { kind: "declared"; fields: DeclaredExtraField[]; currency: LotCurrency }
   | { kind: "lot_not_found" }
-  | { kind: "skipped" };
+  | { kind: "skipped"; currency: LotCurrency | null };
 
 const LOOKUP_TIMED_OUT = Symbol("required-field-lookup-timeout");
 
@@ -484,6 +525,11 @@ const RESLAB_REQUEST_FAILED_PREFIX = "API request failed";
  * still runs, and blocking every checkout during a ResLab blip would lose more
  * sales than it saves. It is never silent: every skip is captured with its
  * reason. A 404 is not a blip — the lot is gone — and is refused.
+ *
+ * The lot's currency rides along from the same read (the caller's check
+ * against the PaymentIntent's stamp). It is null only when the read did not
+ * succeed; the caller then lets a US-dollar PaymentIntent through and asks a
+ * converted-lot one to try again.
  */
 async function declaredExtraFieldsFor(
   locationId: number,
@@ -491,6 +537,9 @@ async function declaredExtraFieldsFor(
 ): Promise<DeclaredFieldLookup> {
   const context = { stripePaymentIntentId: piId, locationId };
   let raw: unknown;
+  // Read as soon as the location is in hand: a skip for the extra fields'
+  // shape must not also skip the caller's currency check.
+  let currency: LotCurrency;
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     // When the deadline wins, the ResLab call is still in flight and settles
@@ -507,8 +556,9 @@ async function declaredExtraFieldsFor(
         "Pending-booking required-field check skipped: ResLab lookup timed out",
         { ...context, detail: { reason: "timeout", timeoutMs: REQUIRED_FIELD_LOOKUP_TIMEOUT_MS } }
       );
-      return { kind: "skipped" };
+      return { kind: "skipped", currency: null };
     }
+    currency = lotCurrency(result);
     if (!("extra_fields" in result)) {
       // An explicit null or [] is a lot that declares nothing. NO key at all is
       // a response we do not recognise: the gate must not switch itself off
@@ -518,7 +568,7 @@ async function declaredExtraFieldsFor(
         "Pending-booking required-field check skipped: unexpected extra_fields shape",
         { ...context, detail: { issue: "extra_fields key absent from the location" } }
       );
-      return { kind: "skipped" };
+      return { kind: "skipped", currency };
     }
     raw = result.extra_fields ?? [];
   } catch (error) {
@@ -549,7 +599,7 @@ async function declaredExtraFieldsFor(
         },
       }
     );
-    return { kind: "skipped" };
+    return { kind: "skipped", currency: null };
   } finally {
     if (timer) clearTimeout(timer);
   }
@@ -560,9 +610,9 @@ async function declaredExtraFieldsFor(
       "Pending-booking required-field check skipped: unexpected extra_fields shape",
       { ...context, detail: { issue: parsed.error.issues[0]?.message ?? "unknown" } }
     );
-    return { kind: "skipped" };
+    return { kind: "skipped", currency };
   }
-  return { kind: "declared", fields: parsed.data };
+  return { kind: "declared", fields: parsed.data, currency };
 }
 
 /** Customer-facing suffix on every refusal: staging runs BEFORE the card is confirmed. */

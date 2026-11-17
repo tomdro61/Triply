@@ -6,6 +6,7 @@ import { isAdminEmail } from "@/config/admin";
 import { cancelSource } from "@/lib/cancellation/source-guard";
 import { buildDirectReservation, type GuestContact } from "@/lib/direct/reservation-view";
 import { buildCostBreakdown, fallbackDue, type CostBreakdownResult } from "@/lib/booking/cost-breakdown";
+import { reslabHistoryMoney } from "@/lib/booking/confirmation-money";
 import {
   cardSummary,
   describeFallback,
@@ -439,7 +440,7 @@ async function getReservation(
         vehicle_info, triply_service_fee, check_in, check_out, protection_plan, protection_plan_code, protection_plan_price, pg_identifier, pg_sync_status, airport_code,
         inventory_source, direct_lot_id, lot_snapshot, vehicle_size, vehicle_size_label, vehicle_surcharge_cents, vehicle_surcharge_tax_cents,
         status, subtotal, tax_total, fees_total, grand_total, discount_amount, promo_code, due_at_location, cancel_state,
-        stripe_payment_intent_id,
+        stripe_payment_intent_id, reslab_currency, fx_rate,
         customers(first_name, last_name, email, phone)
       `)
       .eq("reslab_reservation_number", id)
@@ -594,6 +595,19 @@ async function getReservation(
     // ResLab returns data nested in history[0]
     const history = reservation.history?.[0];
     const location = history?.location;
+    // ResLab's money, in US dollars. A lot priced in Canadian dollars is
+    // converted with the rate stored on the booking row (the one the customer
+    // was charged at); figures we cannot convert reliably are WITHHELD — every
+    // amount undefined, so the summary below falls back to what Stripe
+    // charged — never shown as raw Canadian dollars under a "$". Every money
+    // read below goes through `money`, never `history`.
+    const money = reslabHistoryMoney(history, bookingData ?? null);
+    if (money.basis === "withheld") {
+      captureBookingError(
+        new Error(`Confirmation for ${id}: ResLab amounts withheld — ${money.withheldReason}`),
+        { step: "confirmation", confirmationNumber: id }
+      );
+    }
 
     // Cancelled if EITHER side says so. Our row is cancelled/refunded only by a
     // cancel or a full refund, and two shipped paths write it while ResLab's
@@ -656,13 +670,13 @@ async function getReservation(
     built = buildCostBreakdown({
       source: "reslab",
       days: billedDays,
-      subtotal: history?.subtotal,
-      fees: history?.total_fees,
-      longTermDiscount: history?.long_term_discount,
-      tax: history?.total_tax,
-      grandTotal: history?.grand_total,
+      subtotal: money.subtotal,
+      fees: money.total_fees,
+      longTermDiscount: money.long_term_discount,
+      tax: money.total_tax,
+      grandTotal: money.grand_total,
       // As read: a missing due-at-location is unknown, never "nothing due".
-      dueAtLocation: history?.due_at_location_total,
+      dueAtLocation: money.due_at_location_total,
       storedGrandTotal: rowRead ? rowRead.grand_total : null,
       serviceFee: rowRead ? rowRead.triply_service_fee : null,
       promoDiscount: rowRead ? (rowRead.discount_amount ?? 0) : null,
@@ -672,7 +686,7 @@ async function getReservation(
       expectedPromoCents: rowRead
         ? expectedPromoCents({
             discountPercent: payment.discountPercent,
-            base: history?.subtotal,
+            base: money.subtotal,
           })
         : null,
       // The discount checkout stamped in cents (`discountCents`): when
@@ -722,13 +736,13 @@ async function getReservation(
     // split the refusal puts in doubt is "unconfirmed", never silently 0.
     const dueForFallback = fallbackDue({
       source: "reslab",
-      recordedDue: history?.due_at_location_total,
-      grandTotal: history?.grand_total,
+      recordedDue: money.due_at_location_total,
+      grandTotal: money.grand_total,
       parts: {
-        subtotal: history?.subtotal,
-        fees: history?.total_fees,
-        longTermDiscount: history?.long_term_discount ?? 0,
-        tax: history?.total_tax,
+        subtotal: money.subtotal,
+        fees: money.total_fees,
+        longTermDiscount: money.long_term_discount ?? 0,
+        tax: money.total_tax,
       },
       refusal: built.ok ? null : built.reason,
       cancelled,
@@ -740,10 +754,10 @@ async function getReservation(
         reservationNumber: reservation.reservation_number,
         inventorySource: "reslab",
         status: cancelled ? "cancelled" : "confirmed",
-        grandTotal: (history?.grand_total || 0) + triplyServiceFee + protectionPlanPrice,
-        subtotal: history?.subtotal || 0,
-        taxTotal: history?.total_tax || 0,
-        feesTotal: history?.total_fees || 0,
+        grandTotal: (money.grand_total || 0) + triplyServiceFee + protectionPlanPrice,
+        subtotal: money.subtotal || 0,
+        taxTotal: money.total_tax || 0,
+        feesTotal: money.total_fees || 0,
         serviceFee: triplyServiceFee,
         protectionPlan: resolvedProtectionPlan,
         protectionPlanPrice,
@@ -756,8 +770,8 @@ async function getReservation(
         // plan D3): from the row; null when the row couldn't be read.
         promoDiscount: rowRead && Number.isFinite(Number(rowRead.discount_amount ?? 0)) ? Number(rowRead.discount_amount ?? 0) : null,
         promoCode: rowRead?.promo_code || null,
-        dueNow: (history?.grand_total || 0) + triplyServiceFee + protectionPlanPrice - (history?.due_at_location_total || 0),
-        dueAtLocation: history?.due_at_location_total || 0,
+        dueNow: (money.grand_total || 0) + triplyServiceFee + protectionPlanPrice - (money.due_at_location_total || 0),
+        dueAtLocation: money.due_at_location_total || 0,
         costBreakdown,
         cardPayment,
         fallbackDue: dueForFallback,

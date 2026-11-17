@@ -17,7 +17,7 @@ import { fromReslab } from "../fulfilled-reservation";
  * body, may make it throw. ResLab bodies are cast, never validated, so these
  * come in through JSON.parse exactly as a wire body would.
  */
-const wire = (json: string) => fromReslab(JSON.parse(json));
+const wire = (json: string) => fromReslab(JSON.parse(json), null);
 
 describe("fromReslab — never throws", () => {
   const hostile = [

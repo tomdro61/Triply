@@ -42,6 +42,14 @@ import {
 } from "@/lib/availability/log";
 import { logSearchEvent, type SearchEventSource } from "@/lib/search-events/log";
 import { deriveAvailability } from "@/lib/reslab/availability";
+import {
+  isSellableLocation,
+  lotCurrency,
+  lotFxFields,
+  minPriceInUsd,
+  pricingCurrencyFields,
+  type LotCurrency,
+} from "@/lib/reslab/currency";
 import { DIRECT_BOOKING_OPEN, isDirectLotsEnabled } from "@/lib/direct/flag";
 import { fetchListableDirectLots, type DirectLot, type DirectLotsResult } from "@/lib/direct/store";
 import { directLotToUnified } from "@/lib/direct/adapter";
@@ -94,25 +102,16 @@ export function isHiddenReslabLocation(locationId: number): boolean {
 }
 
 /**
- * Only lots priced in US dollars are sold. ResLab prices our Canadian lots
- * (YYZ, YUL, YYC, YOW) in CAD, and checkout charges in USD with no conversion,
- * so a C$100 stay was shown as "$100" and charged US$100 (5 bookings,
- * Oct 18 – Nov 2, 2026). Hidden like a blocked lot — out of search, lot page
- * and checkout not found — until checkout converts. A location with no
- * currency is USD, as transformLocation reads it.
- */
-export function isUsdPricedLocation(location: { currency?: { code?: string } | null }): boolean {
-  return (location.currency?.code || "USD").toUpperCase() === "USD";
-}
-
-/**
  * Transform ResLab location to UnifiedLot format
  */
 export function transformLocation(
   location: ReslabLocation,
   minPriceData: ReslabMinPriceResponse | null,
   airportLat: number,
-  airportLng: number
+  airportLng: number,
+  // Required: the caller converts `minPriceData` with this same value, so the
+  // figures and the currency they are labelled with cannot disagree.
+  currency: LotCurrency
 ): UnifiedLot {
   const lat = parseFloat(location.latitude);
   const lng = parseFloat(location.longitude);
@@ -140,14 +139,12 @@ export function transformLocation(
   // Shared with the lot detail page (get-lot.ts) so the two can't drift.
   const availability = deriveAvailability(minPriceData?.reservation);
 
-  // Get currency code
-  const currencyCode = location.currency?.code || "USD";
-
   return {
     id: `reslab-${location.id}`,
     source: "reslab",
     sourceId: String(location.id),
     reslabLocationId: location.id,
+    ...lotFxFields(currency),
 
     name: location.name,
     slug: generateSlug(location.name),
@@ -196,8 +193,7 @@ export function transformLocation(
           minPrice:
             (minPriceData.reservation.sub_total + minPriceData.reservation.fees_total) /
             (minPriceData.reservation.totals?.parking?.number_of_days || 1),
-          currency: currencyCode === "USD" ? "$" : currencyCode,
-          currencyCode,
+          ...pricingCurrencyFields(location, currency),
           parkingTypes: [],
           grandTotal: minPriceData.reservation.grand_total,
           subtotal: minPriceData.reservation.sub_total,
@@ -1203,6 +1199,16 @@ export async function getChannelLocationsNoSweep(): Promise<readonly ReslabLocat
   // maybeWarmFromSnapshot catches internally; the .catch is belt-and-braces,
   // as in getChannelLocationsCached — a throw here would fail a build.
   await maybeWarmFromSnapshot().catch(() => {});
+  return peekChannelLocations();
+}
+
+/**
+ * The complete, fresh-enough location list this instance ALREADY holds in
+ * memory, or null. Synchronous: no snapshot read, no ResLab call, no wait.
+ * For a hot path that must not get slower for want of the list (the live
+ * price quote of a US-dollar lot).
+ */
+export function peekChannelLocations(): readonly ReslabLocation[] | null {
   const mem = cachedLocationList;
   if (!mem || !mem.complete) return null;
   if (Date.now() - mem.builtAt > LOCATION_LIST_MAX_AGE_MS) return null;
@@ -1574,9 +1580,10 @@ export async function searchParking(
   );
 
   // Drop lots we've deliberately hidden (blocked list + test lots in production — see hiddenReslabLocationIds)
-  // and lots not priced in USD (isUsdPricedLocation).
+  // and lots we cannot sell in US dollars (isSellableLocation: a currency other
+  // than USD, or CAD while no exchange rate is set).
   locations = locations.filter(
-    (loc) => !isHiddenReslabLocation(loc.id) && isUsdPricedLocation(loc) && !suppressedReslabIds.has(loc.id)
+    (loc) => !isHiddenReslabLocation(loc.id) && isSellableLocation(loc) && !suppressedReslabIds.has(loc.id)
   );
   const locationsConsidered = locations.length + directLots.length;
 
@@ -1630,13 +1637,15 @@ export async function searchParking(
   const allPricedLots = await Promise.all(
     locations.map(async (location) => {
       let minPriceData: ReslabMinPriceResponse | null = null;
+      // Read once per lot: the conversion and the label below use this value.
+      const currency = lotCurrency(location);
       const window = pricingWindowFor(location);
       if (window === null) {
         // Can't take a booking today in the lot's own zone (notice period, or
         // the date has already passed there). No ResLab call and no pricing
         // error; removed before the results and the telemetry below.
         return {
-          lot: transformLocation(location, null, airportInfo.latitude, airportInfo.longitude),
+          lot: transformLocation(location, null, airportInfo.latitude, airportInfo.longitude, currency),
           location,
           minPriceData,
           closedToday: true,
@@ -1659,13 +1668,23 @@ export async function searchParking(
         const reason = pricingFailureReason(err);
         pricingFailureReasons.set(reason, (pricingFailureReasons.get(reason) ?? 0) + 1);
       }
+      // A lot priced in Canadian dollars: every figure below this line is US
+      // dollars. A price that cannot be converted (its parts do not add up, a
+      // pay-at-lot share) is an unpriced lot, counted like a pricing failure.
+      const inUsd = minPriceInUsd(minPriceData, currency);
+      if (inUsd.unusable !== null) {
+        pricingErrors++;
+        pricingFailureReasons.set(inUsd.unusable, (pricingFailureReasons.get(inUsd.unusable) ?? 0) + 1);
+      }
+      minPriceData = inUsd.data;
 
       return {
         lot: transformLocation(
           location,
           minPriceData,
           airportInfo.latitude,
-          airportInfo.longitude
+          airportInfo.longitude,
+          currency
         ),
         location,
         minPriceData,

@@ -84,6 +84,8 @@ import {
   type StampRefusalCause,
 } from "@/lib/promo/stamped-discount";
 import { fromReslab, fromSnapshot, type DirectFulfilledReservation, type ReslabFulfilledReservation } from "./fulfilled-reservation";
+import { readFxStamp, type FxRate, type FxStamp } from "@/lib/fx/cad-usd";
+import { convertCost } from "@/lib/reslab/currency";
 import { DIRECT_ENGINE_READY } from "@/lib/direct/flag";
 import { issueConfirmationNumber } from "@/lib/direct/confirmation-number";
 import { readDirectMetadataMoney, type DirectMetadataMoney } from "@/lib/direct/metadata-money";
@@ -1806,12 +1808,51 @@ async function fulfilClaimed(
   }
   const charged = chargedResolution.charged;
 
+  // --- Step 7.8: the lot's currency, as stamped on the PaymentIntent ---------
+  // A lot ResLab prices in Canadian dollars was charged in US dollars at the
+  // rate stamped at checkout; every ResLab figure below is converted with THAT
+  // rate, never the current one. "absent" is a PaymentIntent from before the
+  // stamp existed (only US lots were sold then): no conversion, as before. A
+  // stamp that cannot be trusted is never guessed at. On a first attempt it is
+  // refused here, before ResLab is called, while refusing still costs the
+  // customer nothing; on a resume the reservation already exists, so it
+  // goes to reconciliation instead.
+  const fxStamp = readFxStamp(pi.metadata);
+  if (fxStamp.kind === "invalid") {
+    const detail = "PaymentIntent currency stamp is unusable";
+    if (resuming) {
+      // A reservation already exists; releasing the money now would strand it.
+      throw new Error(`${detail} (on resume)`);
+    }
+    const release = await releasePayment(pi);
+    if (release.released === "deferred") return { kind: "deferred" };
+    // Alert first, then write: markTerminal can throw DurableStateError.
+    capturePaymentError(new Error(`Fulfilment blocked before booking: ${detail}`), {
+      stripePaymentIntentId: piId,
+      amount: pi.amount / 100,
+    });
+    await markTerminal(
+      piId,
+      release.released === "refunded" ? "refunded_failed" : "released_failed",
+      detail
+    );
+    await releaseCart(piId);
+    return {
+      kind: "failed",
+      reason: detail,
+      userMessage: `We couldn't verify this booking's price. ${
+        release.released === "refunded" ? RESTART_REFUNDED : RESTART_NOT_CHARGED
+      }`,
+    };
+  }
+  const fxRate: FxRate | null = fxStamp.kind === "cad" ? fxStamp.rate : null;
+
   // --- Step 8: price + inventory refresh --------------------------------------
   // Whether a promo stamp was checked against a fresh price here; when not,
   // Step 9.5 checks it against the reservation before capture.
   let stampChecked = false;
   if (!resuming) {
-    const check = await refreshCost(pi, payload, charged);
+    const check = await refreshCost(pi, payload, charged, fxRate);
     if (check.blocked) {
       const release = await releasePayment(pi);
       if (release.released === "deferred") return { kind: "deferred" };
@@ -1966,8 +2007,47 @@ async function fulfilClaimed(
   // now — after the number is recorded and outside both try blocks — so nothing
   // between createReservation and recordReslabNumber can throw (a throw there
   // leaves a live reservation unrecorded, and the next caller would book a
-  // second one). fromReslab itself never throws.
-  const fr = fromReslab(reservation);
+  // second one). fromReslab itself never throws — with a rate it converts the
+  // reservation's Canadian-dollar figures; when it cannot, it nulls the money
+  // and says so in `fx` (Step 9.4 reports it).
+  let fr = fromReslab(reservation, fxRate);
+
+  // --- Step 9.4: the reservation's currency against the stamp — BEFORE capture
+  // The reservation says which currency its lot is priced in. If that is not
+  // the currency the PaymentIntent was stamped (and charged) for, or the
+  // figures of a converted lot would not convert, the amount on the card is
+  // not known to be right: the reservation is live, so it goes to the
+  // reconciliation queue with the authorization intact, like a refused promo
+  // stamp below. A payment that is already captured (Link always is) has no
+  // hold left to keep: it books, the problem is reported per PaymentIntent,
+  // and the reservation's figures — known to be in the wrong currency — are
+  // NOT written anywhere: the row and the emails fall back to the checkout
+  // page's figures, which are what the card was charged. (The create
+  // response's `dueNow`, which nothing reads, then leaves out the parking.)
+  const currencyProblem = currencyMismatch(fxStamp, fr);
+  if (currencyProblem) {
+    const detail = `reservation currency check failed before capture: ${currencyProblem}`;
+    capturePaymentError(
+      new Error(
+        pi.status === "requires_capture"
+          ? `${detail}. ResLab reservation ${fr.number} is LIVE; payment NOT captured — authorization left intact. Reconcile by hand.`
+          : `${detail}. ResLab reservation ${fr.number} is live and the payment was ALREADY captured — check the amount charged by hand.`
+      ),
+      {
+        stripePaymentIntentId: piId,
+        amount: pi.amount / 100,
+        fingerprint: ["reslab-currency", "before-capture", piId],
+      }
+    );
+    if (pi.status === "requires_capture") {
+      await markTerminal(piId, "needs_reconciliation", detail);
+      return { kind: "needs_reconciliation", reason: detail, retryable: false };
+    }
+    fr = {
+      ...fr,
+      money: { subtotal: null, taxTotal: null, feesTotal: null, grandTotal: null, dueAtLocation: null, longTermDiscount: null },
+    };
+  }
 
   // --- Step 9.5: a promo stamp Step 8 did not check — BEFORE the capture -----
   // A resume skips Step 8, and Step 8 proceeds when ResLab is unreachable or
@@ -2327,18 +2407,52 @@ function reportStampPriceDrop(pi: Stripe.PaymentIntent, payload: BookingPayload,
 }
 
 /**
+ * Step 9.4. Why the reservation's own currency disagrees with the stamp the
+ * PaymentIntent was charged under, or null when they agree. A reservation that
+ * does not state its currency (null) is not a disagreement.
+ */
+export function currencyMismatch(stamp: FxStamp, fr: ReslabFulfilledReservation): string | null {
+  const actual = fr.sourceCurrency;
+  if (stamp.kind === "cad") {
+    if (actual !== null && actual !== "CAD") return `charged as a CAD lot at rate ${stamp.rate.id}, but the reservation is priced in ${actual}`;
+    if (fr.fx === null) return `the reservation was not converted, though the PaymentIntent is stamped CAD at rate ${stamp.rate.id}`;
+    if (!fr.fx.converted) return `the reservation's CAD figures could not be converted at rate ${stamp.rate.id} (${fr.fx.reason})`;
+    // A converted lot is sold only with everything paid online: an amount the
+    // lot collects (in Canadian dollars) was never shown to the customer.
+    if ((fr.money.dueAtLocation ?? 0) > 0) return `the reservation has an amount due at the lot (${fr.money.dueAtLocation} USD converted), which a converted lot is never sold with`;
+    return null;
+  }
+  if (stamp.kind === "invalid") return "the PaymentIntent's currency stamp is unusable";
+  // "usd", or "absent" (a PaymentIntent from before the stamp): charged one for one.
+  if (actual !== null && actual !== "USD") return `charged as a USD lot with no conversion, but the reservation is priced in ${actual}`;
+  return null;
+}
+
+/** What the customer is told when the price moved (or stopped converting) between checkout and booking. */
+const PRICE_CHANGED: BlockedMessages = {
+  released:
+    "The price for this parking option changed while you were checking out. You have not been charged — please search again.",
+  refunded:
+    "The price for this parking option changed while you were checking out. We've refunded your payment in full — refunds take 5–10 business days to appear on your statement. Please search again.",
+};
+
+/**
  * Price and inventory revalidation before we commit.
  *
  * Non-blocking when ResLab is merely unreachable and the existing costs token is
  * still usable — a ResLab wobble shouldn't reject an otherwise-good booking that
  * the customer has already authorized. Blocking when ResLab positively tells us
- * the option is gone, or when the price has risen ABOVE what we authorized:
- * booking at a higher price than the customer agreed to is never acceptable.
+ * the option is gone, when the price has risen ABOVE what we authorized
+ * (booking at a higher price than the customer agreed to is never acceptable),
+ * or, for a lot priced in Canadian dollars, when the fresh price will not
+ * convert at the stamped rate.
  */
 async function refreshCost(
   pi: Stripe.PaymentIntent,
   payload: BookingPayload,
-  charged: ChargedProtection | null
+  charged: ChargedProtection | null,
+  // The rate stamped on the PaymentIntent for a lot priced in Canadian dollars; null for a US lot.
+  fxRate: FxRate | null
 ): Promise<RefreshResult> {
   // What we would charge now, in the same shape /api/checkout/lot computed it.
   // The premium is the one the PaymentIntent was CHARGED (from its metadata),
@@ -2364,7 +2478,7 @@ async function refreshCost(
   }
 
   try {
-    const cost = await reslab.getCost(payload.locationId, [
+    const rawCost = await reslab.getCost(payload.locationId, [
       {
         type: "parking",
         reservation_type: "parking",
@@ -2375,7 +2489,7 @@ async function refreshCost(
       },
     ]);
 
-    if (cost.reservation.sold_out) {
+    if (rawCost.reservation.sold_out) {
       const soldOut = "This parking option sold out while you were checking out. You have not been charged.";
       return {
         blocked: true,
@@ -2383,6 +2497,25 @@ async function refreshCost(
         reason: "ResLab reports the option sold out at fulfilment time",
         userMessage: { released: soldOut, refunded: soldOut },
       };
+    }
+
+    // A lot priced in Canadian dollars: the fresh price in US dollars at the
+    // rate the customer was CHARGED at. A fresh price that will not convert
+    // (its parts no longer add up, or the lot now collects at the counter) is
+    // not a price we can book at: blocked before any reservation exists, the
+    // same way as a price that rose.
+    let cost = rawCost;
+    if (fxRate !== null) {
+      const converted = convertCost(rawCost, fxRate);
+      if (!converted.ok) {
+        return {
+          blocked: true,
+          soldOut: false,
+          reason: `fresh ResLab price could not be converted to USD at fulfilment (${converted.reason})`,
+          userMessage: PRICE_CHANGED,
+        };
+      }
+      cost = converted.value;
     }
 
     // The promo discount MUST be reapplied here. /api/checkout/lot validates a
@@ -2472,12 +2605,7 @@ async function refreshCost(
         blocked: true,
         soldOut: false,
         reason: `price drift: fresh ${freshCents} cents exceeds authorized ${pi.amount} cents`,
-        userMessage: {
-          released:
-            "The price for this parking option changed while you were checking out. You have not been charged — please search again.",
-          refunded:
-            "The price for this parking option changed while you were checking out. We've refunded your payment in full — refunds take 5–10 business days to appear on your statement. Please search again.",
-        },
+        userMessage: PRICE_CHANGED,
       };
     }
 
@@ -2576,7 +2704,9 @@ async function fulfilOnly(
   // only price there is on this dev-only path.
   const plan = getProtectionPlan(payload.protectionPlanCode);
   const charged: ChargedProtection | null = plan ? { plan, premium: plan.price } : null;
-  const fr = fromReslab(await createReslabReservation(payload));
+  // No PaymentIntent, so no stamped rate: this dev-only path does not sell
+  // lots priced in Canadian dollars (their figures would be stored raw).
+  const fr = fromReslab(await createReslabReservation(payload), null);
   // livemode false: no charge exists on this dev-only path, but the row lands in
   // the shared prod table, so it must not count as live revenue.
   const persisted = await persistBooking(payload, fr, charged, false);

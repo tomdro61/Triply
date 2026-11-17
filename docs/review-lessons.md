@@ -233,6 +233,14 @@ a human.
 
 One entry per reviewed PR: what the review found, by lesson number. Newest first.
 
+- **CAD to USD conversion, dark (Nov 17):** full sweep (10 reviewers + Codex), then a second pass. No finding could charge a customer a different amount; the gaps were all in what is shown and in fail-open paths.
+  - Lessons 1 / 2 (the Nov 3 bug class, found by five reviewers and Codex): the "this lot is converted" marker lived inside `lot.pricing`, which does not exist when a lot loads without a price, so that lot's live quote came back in Canadian dollars under a "$". The marker is on the lot now, and the quote route refuses a non-USD lot quoted without it.
+  - Lesson 5: the page's price check compared the parts but not the total, so a changed long-stay discount passed (Codex). The check before the card is confirmed ran only when another check's lookup succeeded, so the off switch failed open on a ResLab timeout.
+  - Lesson 10: the confirmation route selected the new columns, so the migration had to be applied before the branch reached a preview (previews read the production database). The header said "safe to apply before", which read as optional.
+  - Lesson 20: the dry run tested the constraint with real inserts and found it accepted a rate with no currency (`NULL = 'CAD'` is NULL, and a CHECK passes on NULL). Evaluating the expression by hand had not shown it.
+  - Lesson 13: 100 of 115 mutations were killed. The misses: a refusal that only worked because another guard happened to fire first, the already-captured branch, a resume with an unusable stamp, and rounding edges the property test's generator never drew.
+  - Lesson 15 (second pass): a "tidy-up" to the create response changed five golden snapshots for US bookings and was reverted; a quote for a US lot had started waiting on a list read and now only looks at memory.
+  - Types: a default parameter (`currency = lotCurrency(location)`, `fx = null`) let a caller forget the one value that matters and still type-check. Required now.
 - **Direct lots in the accounting report (Nov 16, #203):**
   - Lessons 1 / 2: two sentences on the page were false as written ("the sections further down are ResLab lots only", with two direct sections below; "left out of the direct and total columns", when the collected row included them). A tooltip said "the same figure as the payout statement" for rows the statement never shows.
   - Lesson 5: "Collected online" added two different sets of bookings (Codex): the ResLab figure leaves disputed bookings out, the direct one counted them. Same scope now, and the page says what happens to a disputed booking.

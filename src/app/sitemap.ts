@@ -6,10 +6,10 @@ import {
   AIRPORT_SEARCH_RADIUS_KM,
   getChannelLocationsNoSweep,
   isHiddenReslabLocation,
-  isUsdPricedLocation,
   locationsNearPoint,
 } from "@/lib/reslab/search";
 import { isSnapshotEnabled } from "@/lib/reslab/location-snapshot";
+import { isSellableLocation } from "@/lib/reslab/currency";
 import { isOwnAirportFilterEnabled, locationBelongsToAirport } from "@/lib/search/airport-ownership";
 import { resolveEnv } from "@/lib/env";
 import { captureAPIError } from "@/lib/sentry";
@@ -121,7 +121,7 @@ function reslabLocationsFor(channel: readonly ReslabLocation[], airport: Airport
       : locationsNearPoint(channel, airport.latitude, airport.longitude, AIRPORT_SEARCH_RADIUS_KM).filter(
           (loc) => !isOwnAirportFilterEnabled() || locationBelongsToAirport(loc, airport)
         );
-  return near.filter((loc) => !isHiddenReslabLocation(loc.id) && isUsdPricedLocation(loc));
+  return near.filter((loc) => !isHiddenReslabLocation(loc.id) && isSellableLocation(loc));
 }
 
 async function blogAirportHubPages(): Promise<MetadataRoute.Sitemap> {

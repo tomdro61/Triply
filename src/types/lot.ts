@@ -39,6 +39,14 @@ export interface UnifiedLot {
   sourceId: string;
   reslabLocationId?: number; // ResLab location ID for API calls
   /**
+   * Set for a lot ResLab prices in Canadian dollars: the id of the exchange
+   * rate its prices are converted to US dollars with. On the LOT, not inside
+   * `pricing`, so a lot that loaded without a price still says it is
+   * converted: the live quote and checkout send this id back, and a request
+   * without it for such a lot is never answered with raw Canadian figures.
+   */
+  fxRateId?: string;
+  /**
    * IATA code of the airport this lot was found for. Set by searchParking on
    * every result and by the direct-lot adapter always; a lot loaded by id
    * alone (the checkout API) may not carry it. Replaces the old

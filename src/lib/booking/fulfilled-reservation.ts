@@ -2,6 +2,8 @@ import type { ReslabReservation } from "@/lib/reslab/client";
 import { validCoords } from "@/lib/attribution/airport";
 import type { LotSnapshotV2 } from "@/lib/direct/lot-snapshot";
 import type { DirectMetadataMoney } from "@/lib/direct/metadata-money";
+import { toUsd, type FxRate, type FxUnusable } from "@/lib/fx/cad-usd";
+import { historyMoneyParts, reslabCurrencyCode } from "@/lib/reslab/currency";
 
 /**
  * The reservation fulfilment has just created (or adopted), in a shape that
@@ -38,9 +40,10 @@ interface FulfilledLocation {
 }
 
 /**
- * ResLab arm. Values are carried RAW: no coercion, no defaults. `??` / `||`
- * fallbacks stay in the callers, exactly where they were, so every number,
- * string and absent key comes out as it did before this type existed.
+ * ResLab arm. For a US lot (`fx` null) values are carried RAW: no coercion, no
+ * defaults. `??` / `||` fallbacks stay in the callers, exactly where they
+ * were, so every number, string and absent key comes out as it did before
+ * this type existed. For a lot ResLab prices in Canadian dollars see `fx`.
  */
 export interface ReslabFulfilledReservation {
   /** The confirmation number ("RTL…"). */
@@ -50,7 +53,10 @@ export interface ReslabFulfilledReservation {
   /** ResLab's history row id; the response falls back to `number` when falsy. */
   historyId: number | null;
   /**
-   * DOLLARS, exactly as the source returned them — never cents, never coerced.
+   * DOLLARS, never cents. US lot: exactly as the source returned them, never
+   * coerced. Converted lot (`fx.converted`): ResLab's figures in US dollars at
+   * the stamped rate (a missing long-stay discount or pay-at-lot amount counts
+   * as 0); all null when they would not convert.
    * `dueAtLocation` is the STORED / settlement value (`bookings.due_at_location`).
    */
   money: {
@@ -64,6 +70,21 @@ export interface ReslabFulfilledReservation {
      *  reads it; nothing persists it. */
     longTermDiscount: number | null;
   };
+  /**
+   * The currency ResLab says this reservation's lot is priced in (upper-case,
+   * e.g. "USD", "CAD"), or null when the reservation does not say. Read by the
+   * before-capture check: a reservation in another currency than the
+   * PaymentIntent was stamped with is never captured.
+   */
+  sourceCurrency: string | null;
+  /**
+   * null for a US lot. Otherwise the caller asked for a conversion (a
+   * PaymentIntent stamped CAD). `converted: true` — every figure in `money`
+   * is US dollars at `rate`. `converted: false` — ResLab's figures could not
+   * be converted (`reason`): every figure in `money` is null, NEVER the raw
+   * Canadian-dollar number.
+   */
+  fx: { rate: FxRate; converted: true } | { rate: FxRate; converted: false; reason: FxUnusable } | null;
   /** null when the source sent no date list. */
   dates: { fromDate: string | undefined; toDate: string | undefined }[] | null;
   /** null when the source sent no location. Fields the create response copies
@@ -128,25 +149,50 @@ function safeCoords(lat: unknown, lng: unknown): { lat: number; lng: number } | 
  * JSON ResLab sent (the body is cast, not validated). It runs on the money path
  * after the reservation number is recorded, and a throw there would strand a
  * live, unrecorded-in-bookings reservation.
+ *
+ * `fx` is the exchange rate STAMPED ON THE PAYMENTINTENT for a lot ResLab
+ * prices in Canadian dollars (never the current rate); null for a US lot,
+ * whose figures are carried raw exactly as before. Required, so no caller can
+ * forget it. toUsd never throws.
  */
-export function fromReslab(r: ReslabReservation): ReslabFulfilledReservation {
+export function fromReslab(r: ReslabReservation, fx: FxRate | null): ReslabFulfilledReservation {
   const h = r?.history?.[0];
   const loc = h?.location;
   const dates = h?.dates;
+
+  let money: ReslabFulfilledReservation["money"] = {
+    subtotal: h?.subtotal ?? null,
+    taxTotal: h?.total_tax ?? null,
+    feesTotal: h?.total_fees ?? null,
+    grandTotal: h?.grand_total ?? null,
+    dueAtLocation: h?.due_at_location_total ?? null,
+    longTermDiscount: h?.long_term_discount ?? null,
+  };
+  let fxResult: ReslabFulfilledReservation["fx"] = null;
+  if (fx !== null) {
+    // The same reading of the history as the confirmation page's (historyMoneyParts).
+    const converted = toUsd(historyMoneyParts(h), fx);
+    money = converted.ok
+      ? {
+          subtotal: converted.usd.subtotal,
+          taxTotal: converted.usd.taxTotal,
+          feesTotal: converted.usd.feesTotal,
+          grandTotal: converted.usd.grandTotal,
+          dueAtLocation: converted.usd.dueAtLocation,
+          longTermDiscount: converted.usd.longTermDiscount,
+        }
+      : { subtotal: null, taxTotal: null, feesTotal: null, grandTotal: null, dueAtLocation: null, longTermDiscount: null };
+    fxResult = converted.ok ? { rate: fx, converted: true } : { rate: fx, converted: false, reason: converted.reason };
+  }
 
   return {
     number: r?.reservation_number,
     source: "reslab",
     cancelled: !!r?.cancelled,
     historyId: h?.id ?? null,
-    money: {
-      subtotal: h?.subtotal ?? null,
-      taxTotal: h?.total_tax ?? null,
-      feesTotal: h?.total_fees ?? null,
-      grandTotal: h?.grand_total ?? null,
-      dueAtLocation: h?.due_at_location_total ?? null,
-      longTermDiscount: h?.long_term_discount ?? null,
-    },
+    money,
+    sourceCurrency: reslabCurrencyCode(loc?.currency?.code),
+    fx: fxResult,
     dates: Array.isArray(dates)
       ? dates.map((d) => ({ fromDate: d?.from_date, toDate: d?.to_date }))
       : null,

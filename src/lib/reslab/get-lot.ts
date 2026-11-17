@@ -11,11 +11,12 @@ import type { PricingWindow } from "@/lib/reslab/pricing-window";
 import { calculateDistance } from "@/lib/utils/geo";
 import { generateSlug } from "@/lib/utils/slug";
 import { deriveAvailability } from "./availability";
+import { isSellableLocation, lotCurrency, lotFxFields, minPriceInUsd, pricingCurrencyFields, type LotCurrency } from "./currency";
+import { captureAPIError } from "@/lib/sentry";
 // One-way dependency: search.ts does NOT import get-lot.ts, so no cycle.
 import {
   getChannelLocationsCached,
   isHiddenReslabLocation,
-  isUsdPricedLocation,
 } from "./search";
 import { cache } from "react";
 import { getAirportByCode } from "@/config/airports";
@@ -46,7 +47,9 @@ interface AirportCoords {
 function transformLocationToLot(
   location: ReslabLocation,
   minPriceData: ReslabMinPriceResponse | null,
-  airportCoords?: AirportCoords
+  airportCoords: AirportCoords | undefined,
+  // Required: the caller converts `minPriceData` with this same value.
+  currency: LotCurrency
 ): UnifiedLot {
   const lat = parseFloat(location.latitude);
   const lng = parseFloat(location.longitude);
@@ -74,9 +77,6 @@ function transformLocationToLot(
     icon: a.icon,
   }));
 
-  // Get currency code
-  const currencyCode = location.currency?.code || "USD";
-
   // Get parking type info from minPriceData rates
   // The rates array contains location_parking_type_id
   const parkingTypeId = minPriceData?.rates?.[0]?.location_parking_type_id || 0;
@@ -101,6 +101,7 @@ function transformLocationToLot(
     source: "reslab",
     sourceId: String(location.id),
     reslabLocationId: location.id,
+    ...lotFxFields(currency),
 
     name: location.name,
     slug: generateSlug(location.name),
@@ -144,8 +145,7 @@ function transformLocationToLot(
     pricing: minPriceData
       ? {
           minPrice: dailyRate,
-          currency: currencyCode === "USD" ? "$" : currencyCode,
-          currencyCode,
+          ...pricingCurrencyFields(location, currency),
           parkingTypes: pricingParkingTypes,
           grandTotal: minPriceData.reservation.grand_total,
           subtotal: minPriceData.reservation.sub_total,
@@ -195,6 +195,22 @@ function transformLocationToLot(
  */
 export type ReslabPricingWindowFn = (location: ReslabLocation) => PricingWindow | null;
 
+// One event per lot per warm instance every 5 minutes: a lot whose price
+// will not convert fails the same way on every render, the lot page renders
+// it twice per view (page + metadata), and crawlers visit these pages.
+const UNCONVERTIBLE_REPORT_EVERY_MS = 5 * 60_000;
+const lastUnconvertibleReportAt = new Map<number, number>();
+function reportUnconvertiblePrice(locationId: number, reason: string) {
+  const now = Date.now();
+  const last = lastUnconvertibleReportAt.get(locationId);
+  if (last !== undefined && now - last < UNCONVERTIBLE_REPORT_EVERY_MS) return;
+  lastUnconvertibleReportAt.set(locationId, now);
+  captureAPIError(new Error(`ResLab price for lot ${locationId} could not be converted (${reason})`), {
+    endpoint: "getLotFromReslab",
+    method: "GET",
+  });
+}
+
 /**
  * Fetch lot details from ResLab API
  * Uses getMinPrice instead of getLocationTypes (which has API issues)
@@ -214,9 +230,10 @@ export async function getLotFromReslab(
   try {
     // Get location details
     const location = await reslab.getLocation(locationId);
-    // Not priced in USD (our Canadian lots): not sold until checkout converts
-    // — not found, like a blocked lot (isUsdPricedLocation).
-    if (!isUsdPricedLocation(location)) return null;
+    // A lot we cannot sell in US dollars (a third currency, or Canadian
+    // dollars while no exchange rate is set) is not found, like a blocked lot.
+    const currency = lotCurrency(location);
+    if (currency.kind === "hidden") return null;
 
     // Get minimum price (which also returns parking type info)
     let minPriceData: ReslabMinPriceResponse | null = null;
@@ -235,8 +252,14 @@ export async function getLotFromReslab(
         // Continue without pricing - we can still show the lot
       }
     }
+    // Priced in Canadian dollars: every figure from here on is US dollars. A
+    // price that cannot be converted shows the lot without a price, like a
+    // failed min-price call.
+    const inUsd = minPriceInUsd(minPriceData, currency);
+    if (inUsd.unusable !== null) reportUnconvertiblePrice(locationId, inUsd.unusable);
+    minPriceData = inUsd.data;
 
-    return transformLocationToLot(location, minPriceData, airportCoords);
+    return transformLocationToLot(location, minPriceData, airportCoords, currency);
   } catch (error) {
     // `null` from this function means "this lot does not exist" — the page turns
     // it into notFound() and /api/checkout/lot into a 404. ONLY a genuine 404
@@ -304,7 +327,7 @@ export async function findLotBySlug(
   // a deliberately hidden lot must stay a 404, never a retryable 503, during
   // exactly the degraded windows where a thin list would otherwise 503 it.
   const allMatches = locations.filter((loc) => generateSlug(loc.name) === slug);
-  const matches = allMatches.filter((loc) => !isHiddenReslabLocation(loc.id) && isUsdPricedLocation(loc));
+  const matches = allMatches.filter((loc) => !isHiddenReslabLocation(loc.id) && isSellableLocation(loc));
   if (allMatches.length > 0 && matches.length === 0) return null;
   const match = airportCoords ? pickSameNameLot(matches, airportCoords) : matches[0];
   if (!match) {
@@ -402,7 +425,7 @@ async function channelForPrecheck(
   }
 }
 
-const isVisible = (loc: ReslabLocation) => !isHiddenReslabLocation(loc.id) && isUsdPricedLocation(loc);
+const isVisible = (loc: ReslabLocation) => !isHiddenReslabLocation(loc.id) && isSellableLocation(loc);
 
 export async function lotSlugLookup(slug: string, airportCode: string): Promise<LotLookup> {
   if (/^(reslab-)?\d+$/.test(slug)) return UNKNOWN;
