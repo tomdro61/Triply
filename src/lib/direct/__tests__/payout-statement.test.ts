@@ -280,6 +280,86 @@ describe("review pass 1 fixes", () => {
   });
 });
 
+describe("Triply keeps (margin)", () => {
+  const cancelled = { status: "refunded", cancel_state: "refund_issued", cancel_claimed_at: "2026-10-19T12:00:00Z" };
+  const marginOf = async () => (await build()).items[0].margin.marginCents;
+
+  it("tax Triply remits is a liability, not margin", async () => {
+    db.seed("bookings", [booking("pi_a")]).seed("direct_booking_terms", [terms("pi_a", { tax_collected_by: "triply" })]);
+    stripeReads.set("pi_a", okRead());
+    // lot is owed 3184 (80 % of 3980, no tax): 5212 − 3184 − 181 fee − 637 tax
+    expect((await build()).items[0].suggestedCents).toBe(3184);
+    expect(await marginOf()).toBe(1210);
+  });
+
+  it("Park Guard wholesale comes off", async () => {
+    db.seed("bookings", [booking("pi_a", { protection_plan_wholesale: "4.00" })]).seed("direct_booking_terms", [terms("pi_a")]);
+    stripeReads.set("pi_a", okRead({ amountReceivedCents: 6211 }));
+    expect(await marginOf()).toBe(6211 - 3821 - 181 - 400);
+  });
+
+  it("an unknown Stripe fee gives no figure, never a fee of $0", async () => {
+    db.seed("bookings", [booking("pi_a")]).seed("direct_booking_terms", [terms("pi_a")]);
+    stripeReads.set("pi_a", okRead({ feeCents: null }));
+    expect(await marginOf()).toBeNull();
+  });
+
+  it("a row waiting on a person has no figure", async () => {
+    db.seed("bookings", [booking("pi_a", { status: "disputed" })]).seed("direct_booking_terms", [terms("pi_a")]);
+    stripeReads.set("pi_a", okRead());
+    expect(await marginOf()).toBeNull();
+  });
+
+  it("an adjustment row has no figure", async () => {
+    db.seed("bookings", [booking("pi_a", cancelled)]).seed("direct_booking_terms", [terms("pi_a")]);
+    db.seed("direct_lot_payout_lines", [{ stripe_payment_intent_id: "pi_a", kind: "payout", amount_cents: 3821, direct_lot_id: "1", livemode: true }]);
+    stripeReads.set("pi_a", okRead({ amountRefundedCents: 5212 }));
+    expect(await marginOf()).toBeNull();
+  });
+
+  it("a standard admin cancel before check-in: the service fee kept, less the Stripe fee", async () => {
+    db.seed("bookings", [booking("pi_a", { ...cancelled, cancel_state: "admin_claimed" })]).seed("direct_booking_terms", [terms("pi_a")]);
+    stripeReads.set("pi_a", okRead({ amountRefundedCents: 5212 - 595 }));
+    const v = await build();
+    expect(v.items[0]).toMatchObject({ class: "zero", suggestedCents: 0 });
+    expect(v.items[0].margin.marginCents).toBe(595 - 181);
+  });
+
+  it("a standard admin cancel with Park Guard: the wholesale kept is owed on to Park Guard", async () => {
+    db.seed("bookings", [booking("pi_a", { ...cancelled, cancel_state: "admin_claimed", protection_plan_wholesale: "4.00" })]).seed("direct_booking_terms", [terms("pi_a")]);
+    stripeReads.set("pi_a", okRead({ amountReceivedCents: 6211, amountRefundedCents: 6211 - 595 - 400 }));
+    expect(await marginOf()).toBe(595 - 181);
+  });
+
+  it("a self-cancel with Park Guard (everything back but the wholesale): Triply is out the Stripe fee", async () => {
+    db.seed("bookings", [booking("pi_a", { ...cancelled, protection_plan_wholesale: "4.00" })]).seed("direct_booking_terms", [terms("pi_a")]);
+    stripeReads.set("pi_a", okRead({ amountReceivedCents: 6211, amountRefundedCents: 6211 - 400 }));
+    expect(await marginOf()).toBe(-181);
+  });
+
+  it("cancelled and refunded in full: Triply is out the Stripe fee", async () => {
+    db.seed("bookings", [booking("pi_a", cancelled)]).seed("direct_booking_terms", [terms("pi_a")]);
+    stripeReads.set("pi_a", okRead({ amountRefundedCents: 5212 }));
+    expect(await marginOf()).toBe(-181);
+  });
+
+  it("cancelled with nothing received (a released hold, which Stripe reports as refunded): $0, no fee needed", async () => {
+    db.seed("bookings", [booking("pi_a", cancelled)]).seed("direct_booking_terms", [terms("pi_a")]);
+    stripeReads.set("pi_a", okRead({ amountReceivedCents: 0, amountRefundedCents: 5212, piStatus: "canceled", feeCents: null }));
+    const v = await build();
+    expect(v.items[0].class).toBe("zero");
+    expect(v.items[0].margin.marginCents).toBe(0);
+  });
+
+  it("the margin is not part of the hash mark-paid checks", async () => {
+    db.seed("bookings", [booking("pi_a")]).seed("direct_booking_terms", [terms("pi_a")]);
+    stripeReads.set("pi_a", okRead());
+    const before = (await build()).viewHash;
+    stripeReads.set("pi_a", okRead({ feeCents: 999 }));
+    expect((await build()).viewHash).toBe(before);
+  });
+});
+
 describe("month helpers", () => {
   it("nextMonthStart rolls the year", () => {
     expect(nextMonthStart("2026-12")).toBe("2027-01-01");

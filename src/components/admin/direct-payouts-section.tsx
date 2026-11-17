@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, Download, Loader2, Mail, RefreshCw } from "lucide-react";
 import type { StatementItem, StatementView } from "@/lib/direct/payout-statement";
 import type { StatementEmailResult } from "@/lib/direct/payout-email";
-import { needsPerson, prepareMarkPaid, previousMonth, type DecisionDraft } from "@/lib/direct/payout-form";
+import { needsPerson, prepareMarkPaid, previousMonth, statementTotals, type DecisionDraft, type KnownSum } from "@/lib/direct/payout-form";
 
 /**
  * "Triply lots" — direct-lot payout statements (Phase 6a, plan §3). Mounted
@@ -18,6 +18,29 @@ type Lot = { id: string; name: string };
 
 const money = (cents: number | null) =>
   cents === null ? "—" : `${cents < 0 ? "−" : ""}$${(Math.abs(cents) / 100).toFixed(2)}`;
+
+/**
+ * A totals cell: the sum of the rows that have a figure. Says so when some rows have none
+ * (`missing`), and when rows shown in the table are left out of this column by rule (`leftOut`).
+ */
+function Total({ sum, missing, leftOut }: { sum: KnownSum; missing?: string; leftOut?: string }) {
+  return (
+    <>
+      {/* No row with a figure: "—" (unknown) when rows are waiting on one, $0.00 when the column has no rows at all. */}
+      {sum.known > 0 || sum.of === 0 ? money(sum.cents) : "—"}
+      {sum.known < sum.of && (
+        <div className="text-xs font-normal text-amber-700">
+          {sum.known} of {sum.of} rows{missing ? ` — ${missing}` : ""}
+        </div>
+      )}
+      {leftOut && sum.excluded > 0 && (
+        <div className="text-xs font-normal text-gray-500">
+          not counting {sum.excluded} {leftOut} row{sum.excluded === 1 ? "" : "s"}
+        </div>
+      )}
+    </>
+  );
+}
 
 const CLASS_LABEL: Record<StatementItem["class"], string> = { payable: "Pay", zero: "Nothing owed", manual: "Needs your decision" };
 const TAX_TO: Record<string, string> = { lot: "passed to lot", triply: "Triply remits" };
@@ -139,6 +162,7 @@ export function DirectPayoutsSection() {
     });
 
   const prepared = view && !view.paid ? prepareMarkPaid(view.items, drafts) : null;
+  const columnTotals = view && view.items.length > 0 ? statementTotals(view.items) : null;
   const canPay =
     !!view && !view.paid && !stale && view.blocked.length === 0 && (view.monthClosed || !view.livemode) && !!prepared?.ok && busy === "";
 
@@ -383,7 +407,7 @@ export function DirectPayoutsSection() {
                     <th className="px-3 py-2 text-right">Tax</th>
                     <th className="px-3 py-2 text-right">Customer paid / refunded</th>
                     <th className="px-3 py-2 text-right">Owed to lot</th>
-                    <th className="px-3 py-2 text-right" title="Internal: received − refunded − payout − Stripe fee − PG wholesale − tax Triply owes">Triply keeps</th>
+                    <th className="px-3 py-2 text-right" title="Internal, after Stripe fees: received − refunded − owed to lot − Stripe fee − Park Guard wholesale − tax Triply remits. A booking cancelled before check-in shows what Triply kept after the refund, less the Stripe fee and Park Guard wholesale: usually minus the Stripe fee, because a customer cancel refunds the service fee too.">Triply keeps</th>
                     <th className="px-3 py-2 text-left">Decision</th>
                   </tr>
                 </thead>
@@ -408,7 +432,11 @@ export function DirectPayoutsSection() {
                         </td>
                         <td className="px-3 py-2 text-right font-mono">
                           {money(i.basis.amountReceivedCents)}
-                          <div className="text-xs text-gray-500">refunded {money(i.basis.amountRefundedCents)}</div>
+                          <div className="text-xs text-gray-500">
+                            {i.basis.amountReceivedCents === 0 && (i.basis.amountRefundedCents ?? 0) > 0
+                              ? "hold released, no money moved"
+                              : `refunded ${money(i.basis.amountRefundedCents)}`}
+                          </div>
                         </td>
                         <td className="px-3 py-2 text-right font-mono">
                           {i.lineKind === "adjustment" && i.priorLinesCents !== null && <div className="text-xs text-gray-500">paid {money(i.priorLinesCents)}</div>}
@@ -460,6 +488,31 @@ export function DirectPayoutsSection() {
                     );
                   })}
                 </tbody>
+                {columnTotals && (
+                  <tfoot className="border-t-2 border-gray-200 bg-gray-50 font-semibold">
+                    <tr>
+                      <td className="px-3 py-2" colSpan={3}>
+                        Totals
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono"><Total sum={columnTotals.parking} leftOut="cancelled-before-check-in or adjustment" /></td>
+                      <td className="px-3 py-2 text-right font-mono"><Total sum={columnTotals.tax} leftOut="cancelled-before-check-in or adjustment" /></td>
+                      <td className="px-3 py-2 text-right font-mono">
+                        <Total sum={columnTotals.received} leftOut="adjustment" />
+                        {(columnTotals.refunded.cents !== 0 || columnTotals.refunded.known < columnTotals.refunded.of) && (
+                          <div className="text-xs font-normal text-gray-500">
+                            refunded {columnTotals.refunded.known === 0 ? "—" : money(columnTotals.refunded.cents)}
+                            {columnTotals.refunded.known < columnTotals.refunded.of && ` (${columnTotals.refunded.known} of ${columnTotals.refunded.of} rows)`}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-right text-xs font-normal text-gray-500">{view.paid ? "" : "total below"}</td>
+                      <td className="px-3 py-2 text-right font-mono text-navy">
+                        <Total sum={columnTotals.margin} missing="the rest have no figure (a decision pending, or a Stripe fee unknown)" />
+                      </td>
+                      <td className="px-3 py-2" />
+                    </tr>
+                  </tfoot>
+                )}
               </table>
               {view.items.length === 0 && <p className="px-3 py-8 text-center text-gray-500 text-sm">Nothing owed or changed for this month.</p>}
             </div>

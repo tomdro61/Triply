@@ -233,6 +233,11 @@ a human.
 
 One entry per reviewed PR: what the review found, by lesson number. Newest first.
 
+- **Direct-lot statement totals (Nov 16, #202):**
+  - Lessons 1 / 2: the tooltip and the doc comment said a cancelled booking shows "the service fee kept". Only a standard admin cancel keeps the fee; a self-cancel and a policy refund return it, so the usual figure is minus the Stripe fee. The plan carried the same wrong sentence. The maths was right; the words were not.
+  - Lesson 5: the totals row said "for the rows shown" while three columns left rows out by rule, and the refunded total printed a figure with no "n of m" when a Stripe read had failed (Codex). Each column now says what it leaves out.
+  - Lesson 12: Stripe reports a released hold as fully refunded with nothing received. The test fixture used refunded 0, so the branch that guards it was untested, and the refunded total would have counted money that never moved.
+  - Lesson 13: 10 of 26 one-line mutations passed every test (tax taken off a cancelled row, an unknown fee read as $0 on cancelled rows, negative margins dropped from the sum). Tests added for each.
 - **Checkout smoke test (Nov 13, #199):**
   - Lesson 13: the "no writes before Pay" test listed the writes it knew (15 of 35 deliberate writes got past it: `auth.*`, a write behind a found row, the session client, a branch never driven). It is now a list of allowed reads, and it runs the real lot lookup.
   - Lesson 15: the fix for "a browser-followed redirect skips the network guard" fetched requests from Node, and Playwright's error text for a failed fetch lists every request header, the access token included, in a public CI log. Found in pass 1's security review; the pass-2 review then found that same fetch had a hidden 15 s limit.
