@@ -57,6 +57,12 @@ interface TermsRow {
 const IN_CHUNK = 100;
 const PAGE = 1_000;
 const DB_TIMEOUT_MS = 10_000;
+/**
+ * All three reads together may take this long. They run after the report's
+ * ResLab and Stripe reads inside one 60 s request: past the budget the detail
+ * is given up (the caller reports it) so the ResLab report still returns.
+ */
+export const DETAIL_BUDGET_MS = 12_000;
 
 type PageResult<T> = PromiseLike<{ data: T[] | null; error: { message: string; code?: string } | null }>;
 
@@ -64,12 +70,14 @@ type PageResult<T> = PromiseLike<{ data: T[] | null; error: { message: string; c
 async function readByIds<T>(
   label: string,
   ids: string[],
+  deadline: number,
   page: (chunk: string[], from: number, to: number) => PageResult<T>
 ): Promise<T[]> {
   const out: T[] = [];
   for (let c = 0; c < ids.length; c += IN_CHUNK) {
     const chunk = ids.slice(c, c + IN_CHUNK);
     for (let from = 0; ; from += PAGE) {
+      if (Date.now() >= deadline) throw new Error(`${label} read stopped: time budget used up`);
       const { data, error } = await page(chunk, from, from + PAGE - 1);
       if (error) throw new Error(`${label} read failed: ${error.code ?? "?"} ${error.message}`);
       const rows = data ?? [];
@@ -101,7 +109,8 @@ export function resolveDirectRow(
     checkIn: wallClock(b.check_in),
     checkOut: wallClock(b.check_out),
     lotName: b.location_name ?? "",
-    state: "ok",
+    // Never "ok" by default: only `withFigures` may say so, when it has a net figure.
+    state: "no_figure",
     reason: null,
     receivedCents: null,
     refundedCents: null,
@@ -153,7 +162,9 @@ export function resolveDirectRow(
     stripeFeeCents: fee,
     netCents: net,
     grossCents: net !== null && fee !== null ? net + fee : null,
-    ...(net === null ? { state: "no_figure" as const, reason: "a figure it needs is unknown (e.g. the Stripe fee)" } : {}),
+    ...(net === null
+      ? { state: "no_figure" as const, reason: "a figure it needs is unknown (e.g. the Stripe fee)" }
+      : { state: "ok" as const, reason: null }),
   });
 
   if (!lines) {
@@ -183,6 +194,8 @@ export function resolveDirectRow(
   return withFigures(lines.sumCents, "ledger", net);
 }
 
+const COLLECTED_STATUSES = new Set(["confirmed", "refunded", "cancelled"]);
+
 function sum(rows: DirectBookingDetail[], pick: (r: DirectBookingDetail) => number | null): DirectSum {
   const known = rows.map(pick).filter((v): v is number => v !== null);
   return { cents: known.reduce((a, v) => a + v, 0), known: known.length, of: rows.length };
@@ -190,7 +203,11 @@ function sum(rows: DirectBookingDetail[], pick: (r: DirectBookingDetail) => numb
 
 export function directTotals(rows: DirectBookingDetail[]): DirectDetail["totals"] {
   return {
-    collected: sum(rows, (r) => (r.receivedCents === null || r.refundedCents === null ? null : r.receivedCents - r.refundedCents)),
+    // Confirmed, refunded and cancelled bookings only, like the ResLab column's Stripe figure:
+    // a disputed booking's money is in neither.
+    collected: sum(rows.filter((r) => COLLECTED_STATUSES.has(r.status)), (r) =>
+      r.receivedCents === null || r.refundedCents === null ? null : r.receivedCents - r.refundedCents
+    ),
     owedToLots: sum(rows, (r) => (r.netCents === null ? null : r.owedToLotCents)),
     gross: sum(rows, (r) => r.grossCents),
     stripeFees: sum(rows, (r) => (r.netCents === null ? null : r.stripeFeeCents)),
@@ -210,12 +227,13 @@ export async function buildDirectDetail(
 ): Promise<DirectDetail> {
   if (rows.length === 0) return { bookings: [], totals: directTotals([]) };
   const supabase = await createAdminClient();
+  const deadline = Date.now() + DETAIL_BUDGET_MS;
   const signal = () => AbortSignal.timeout(DB_TIMEOUT_MS);
   const ids = rows.map((r) => r.id);
   const pis = [...new Set(rows.map((r) => r.stripe_payment_intent_id).filter((p): p is string => !!p))];
 
   const [extras, termsRows, lineRows] = await Promise.all([
-    readByIds<ExtraRow>("direct bookings", ids, (chunk, from, to) =>
+    readByIds<ExtraRow>("direct bookings", ids, deadline, (chunk, from, to) =>
       supabase
         .from("bookings")
         .select("id, cancel_state, cancel_claimed_at, location_timezone, lot_snapshot, tax_total")
@@ -225,7 +243,7 @@ export async function buildDirectDetail(
         .abortSignal(signal())
         .returns<ExtraRow[]>()
     ),
-    readByIds<TermsRow>("direct terms", pis, (chunk, from, to) =>
+    readByIds<TermsRow>("direct terms", pis, deadline, (chunk, from, to) =>
       supabase
         .from("direct_booking_terms")
         .select("stripe_payment_intent_id, direct_lot_id, livemode, partner_share_percent, tax_collected_by")
@@ -236,7 +254,7 @@ export async function buildDirectDetail(
         .returns<TermsRow[]>()
     ),
     // Oldest first: a booking's lines all fall in one chunk, so its latest line is seen last.
-    readByIds<LineRow>("direct ledger", pis, (chunk, from, to) =>
+    readByIds<LineRow>("direct ledger", pis, deadline, (chunk, from, to) =>
       supabase
         .from("direct_lot_payout_lines")
         .select("stripe_payment_intent_id, kind, amount_cents, decision, basis")

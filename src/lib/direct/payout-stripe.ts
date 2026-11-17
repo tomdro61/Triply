@@ -35,7 +35,8 @@ export const failedPayoutRead = (error: string): PayoutStripeRead => ({
   feeCents: null,
 });
 
-function errorLabel(error: unknown): string {
+/** "StripeConnectionError/code" or the error's name: enough to tell failures apart, no message text. */
+export function errorLabel(error: unknown): string {
   if (!(error instanceof Error)) return "unknown error";
   const type = "type" in error && typeof error.type === "string" ? error.type : error.name;
   const code = "code" in error && typeof error.code === "string" ? error.code : null;

@@ -389,7 +389,7 @@ export default function AccountingPage() {
           <>
             {/* === REPORTING HEADLINES === */}
             <h2 className="text-sm uppercase font-semibold text-gray-500 tracking-wider mb-3">Reporting</h2>
-            {/* ResLab lots, direct lots and the two together. Everything below it is ResLab lots only. */}
+            {/* ResLab lots, direct lots and the two together. The sections under the "ResLab lots" heading are ResLab only. */}
             <AllLotsSummary result={result} />
             <h2 className="text-sm uppercase font-semibold text-gray-500 tracking-wider mb-3">ResLab lots</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">

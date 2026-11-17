@@ -71,8 +71,10 @@ export interface DirectBookingDetail {
    * needs_decision      only a person can decide what the lot is owed (payout statement)
    * adjustment_pending  paid, and something changed since: waiting on a person
    * not_read            the payment was not read from Stripe: no figure, never an estimate
-   * no_figure           a figure it needs is unknown, or the booking was disputed
-   * blocked             cannot be put on a statement (no PaymentIntent, no terms, a broken ledger)
+   * no_figure           a figure it needs is unknown, the booking was disputed, or it was decided
+   *                     by hand where Triply remits the tax
+   * blocked             cannot be worked out at all (no PaymentIntent, no terms, a broken ledger,
+   *                     its booking columns could not be read)
    */
   state: "ok" | "needs_decision" | "adjustment_pending" | "not_read" | "no_figure" | "blocked";
   reason: string | null;
@@ -85,16 +87,16 @@ export interface DirectBookingDetail {
   stripeFeeCents: number | null;
   /** Triply revenue before Stripe fees (like for like with the ResLab "Triply revenue (gross)"). */
   grossCents: number | null;
-  /** After Stripe fees: the payout statement's "Triply keeps". */
+  /** After Stripe fees, by the payout statement's rule; on a paid booking, against what the lot was actually paid. */
   netCents: number | null;
 }
 
 export interface DirectDetail {
   bookings: DirectBookingDetail[];
   totals: {
-    /** Received − refunded. */
+    /** Received − refunded, over confirmed, refunded and cancelled bookings (the ResLab column's scope). */
     collected: DirectSum;
-    /** Only over bookings that have a full figure, so the columns add up. */
+    /** Over the same bookings as `net` (those with a full figure), so gross − stripeFees = net. */
     owedToLots: DirectSum;
     gross: DirectSum;
     stripeFees: DirectSum;

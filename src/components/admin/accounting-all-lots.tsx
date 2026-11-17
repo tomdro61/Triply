@@ -2,6 +2,7 @@
 
 import { Download } from "lucide-react";
 import { csvEscape } from "@/lib/utils/csv";
+import { combinedTotal, directCsv, dollarsToCents } from "@/lib/accounting/all-lots";
 import type { DirectBookingDetail, DirectDetail, DirectSum, ReconcileResult } from "@/lib/accounting/types";
 
 /**
@@ -12,7 +13,6 @@ import type { DirectBookingDetail, DirectDetail, DirectSum, ReconcileResult } fr
  */
 
 const usdCents = (cents: number) => `${cents < 0 ? "−" : ""}$${(Math.abs(cents) / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const toCents = (dollars: number) => Math.round(dollars * 100);
 
 const STATE_LABEL: Record<DirectBookingDetail["state"], string> = {
   ok: "",
@@ -46,13 +46,13 @@ function DirectCell({ sum }: { sum: DirectSum | null }) {
 
 /** ResLab + direct. "—" when either side is unknown; marked when the direct side is only part of its bookings. */
 function TotalCell({ reslabCents, sum, approx }: { reslabCents: number | null; sum: DirectSum | null; approx?: boolean }) {
-  if (reslabCents === null || !sum || (sum.of > 0 && sum.known === 0)) return <>—</>;
-  const partial = sum.known < sum.of;
+  const total = combinedTotal(reslabCents, sum);
+  if (!total) return <>—</>;
   return (
     <>
       {approx ? "≈ " : ""}
-      {usdCents(reslabCents + sum.cents)}
-      {partial && <div className="text-xs font-normal text-amber-700">without {sum.of - sum.known} direct booking{sum.of - sum.known === 1 ? "" : "s"}</div>}
+      {usdCents(total.cents)}
+      {total.missing > 0 && <div className="text-xs font-normal text-amber-700">without {total.missing} direct booking{total.missing === 1 ? "" : "s"}</div>}
     </>
   );
 }
@@ -63,8 +63,8 @@ export function AllLotsSummary({ result }: { result: ReconcileResult }) {
   const failed = direct.detail && "error" in direct.detail ? direct.detail.error : null;
   const t = detail?.totals ?? null;
   const net = result.triplyNet;
-  const cents = (v: number | null) => (v === null ? null : toCents(v));
-  const reslabCell = (v: number | null, approx = false) => (v === null ? "—" : `${approx ? "≈ " : ""}${usdCents(toCents(v))}`);
+  const cents = (v: number | null) => (v === null ? null : dollarsToCents(v));
+  const reslabCell = (v: number | null, approx = false) => (v === null ? "—" : `${approx ? "≈ " : ""}${usdCents(dollarsToCents(v))}`);
   const waiting = detail ? detail.bookings.filter((b) => b.state !== "ok").length : 0;
 
   const rows: Array<{ label: string; hint: string; reslab: number | null; approx?: boolean; sum: DirectSum | null; strong?: boolean }> = [
@@ -89,7 +89,7 @@ export function AllLotsSummary({ result }: { result: ReconcileResult }) {
     <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
       <h3 className="font-semibold text-gray-900 mb-1">All lots</h3>
       <p className="text-xs text-gray-500 mb-4">
-        ResLab lots and Triply&apos;s direct lots for the dates above, and the two added together. The sections further down this page are ResLab lots only.
+        ResLab lots and Triply&apos;s direct lots for the dates above, and the two added together. The sections under the &quot;ResLab lots&quot; heading below are ResLab lots only.
       </p>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -139,10 +139,13 @@ export function AllLotsSummary({ result }: { result: ReconcileResult }) {
       {result.stripe.isDerived && <p className="mt-3 text-xs text-amber-800">≈ ResLab lots: collected online is partly estimated from the booking rows, not read from Stripe.</p>}
       {waiting > 0 && (
         <p className="mt-3 text-xs text-amber-800">
-          {waiting} direct booking{waiting === 1 ? " has" : "s have"} no figure yet and {waiting === 1 ? "is" : "are"} left out of the direct and total columns. See &quot;Direct lots — per booking&quot; below for the reason on each.
+          {waiting} direct booking{waiting === 1 ? " has" : "s have"} no figure yet and {waiting === 1 ? "is" : "are"} left out of the revenue, Stripe fees and net cash rows (a payment that was read is still in &quot;Collected online&quot;). See &quot;Direct lots — per booking&quot; below for the reason on each.
         </p>
       )}
       {direct.stripeErrors.length > 0 && <p className="mt-3 text-xs text-amber-800">{direct.stripeErrors.length} direct booking payment{direct.stripeErrors.length === 1 ? "" : "s"} could not be read from Stripe.</p>}
+      <p className="mt-3 text-xs text-gray-500">
+        Disputed bookings: their money is in neither column. The ResLab column still counts their Stripe fee; a disputed direct booking has no figure.
+      </p>
       <p className="mt-3 text-xs text-gray-500">
         Direct lots: &quot;owed to lot&quot; is what was recorded as paid when the booking is on a paid statement, and what the payout rules say is due when it is not paid yet. A booking the customer cancelled shows a small loss (the Stripe fee), because the service fee is refunded too.
       </p>
@@ -150,26 +153,8 @@ export function AllLotsSummary({ result }: { result: ReconcileResult }) {
   );
 }
 
-const csvMoney = (cents: number | null) => (cents === null ? "" : (cents / 100).toFixed(2));
-
-/** Plain number cells are written as they are (a leading minus is a number here, not a formula); text goes through csvEscape. */
 function downloadDirectCsv(bookings: DirectBookingDetail[], filename: string) {
-  const header = [
-    "confirmation", "status", "check_in", "check_out", "lot", "state", "reason",
-    "received", "refunded", "owed_to_lot", "owed_source", "stripe_fee", "triply_revenue_before_stripe_fees", "triply_keeps",
-  ];
-  const lines = [header.join(",")];
-  for (const b of bookings) {
-    lines.push(
-      [
-        csvEscape(b.reservationNumber), csvEscape(b.status), csvEscape(b.checkIn), csvEscape(b.checkOut), csvEscape(b.lotName),
-        csvEscape(b.state), csvEscape(b.reason ?? ""),
-        csvMoney(b.receivedCents), csvMoney(b.refundedCents), csvMoney(b.owedToLotCents), csvEscape(b.owedSource ?? ""),
-        csvMoney(b.stripeFeeCents), csvMoney(b.grossCents), csvMoney(b.netCents),
-      ].join(",")
-    );
-  }
-  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+  const blob = new Blob([directCsv(bookings, csvEscape)], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -209,7 +194,7 @@ export function DirectBookingsTable({ result, csvFilename }: { result: Reconcile
               <th className="px-4 py-2 text-right">Customer paid / refunded</th>
               <th className="px-4 py-2 text-right">Owed to lot</th>
               <th className="px-4 py-2 text-right">Stripe fee</th>
-              <th className="px-4 py-2 text-right" title="After Stripe fees: the same figure as the payout statement">Triply keeps</th>
+              <th className="px-4 py-2 text-right" title="After Stripe fees, by the payout statement&apos;s rule. On a paid booking: against what the lot was actually paid.">Triply keeps</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">

@@ -12,7 +12,7 @@ const { db } = await vi.hoisted(async () => {
 });
 vi.mock("@/lib/supabase/server", () => ({ createAdminClient: async () => db }));
 
-import { buildDirectDetail, directTotals, resolveDirectRow, type DirectRowInput } from "../direct-detail";
+import { buildDirectDetail, directTotals, resolveDirectRow, DETAIL_BUDGET_MS, type DirectRowInput } from "../direct-detail";
 
 // 4 days × $9.95 = $39.80 parking, 16 % tax $6.37, fee $5.95 → $52.12 charged. Lot: 80 % + tax = $38.21.
 const row = (o: Partial<DirectRowInput> = {}): DirectRowInput => ({
@@ -172,6 +172,12 @@ describe("directTotals", () => {
   it("no rows", () => {
     expect(directTotals([]).net).toEqual({ cents: 0, known: 0, of: 0 });
   });
+
+  it("collected leaves a disputed booking out, as the ResLab column does", () => {
+    const disputed = resolve({ b: { status: "disputed" } });
+    expect(disputed).toMatchObject({ state: "needs_decision", receivedCents: 5212 });
+    expect(directTotals([resolve(), disputed]).collected).toEqual({ cents: 5212, known: 1, of: 1 });
+  });
 });
 
 describe("buildDirectDetail", () => {
@@ -203,6 +209,18 @@ describe("buildDirectDetail", () => {
     db.seed("bookings", [extra()]).seed("direct_booking_terms", [terms()]);
     db.failOnce("direct_lot_payout_lines", "select", "boom");
     await expect(buildDirectDetail([row()], [read()], "n/a")).rejects.toThrow("direct ledger read failed");
+  });
+
+  it("past its time budget the detail is given up, not left to run the request out", async () => {
+    db.seed("bookings", [extra()]).seed("direct_booking_terms", [terms()]);
+    const now = vi.spyOn(Date, "now");
+    try {
+      // The clock jumps past the budget after the deadline is set.
+      now.mockReturnValueOnce(1_000_000).mockReturnValue(1_000_000 + DETAIL_BUDGET_MS);
+      await expect(buildDirectDetail([row()], [read()], "n/a")).rejects.toThrow("time budget used up");
+    } finally {
+      now.mockRestore();
+    }
   });
 
   it("a ledger amount that is not an integer throws", async () => {
