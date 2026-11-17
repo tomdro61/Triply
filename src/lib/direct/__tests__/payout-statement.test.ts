@@ -318,7 +318,7 @@ describe("Triply keeps (margin)", () => {
   });
 
   it("a standard admin cancel before check-in: the service fee kept, less the Stripe fee", async () => {
-    db.seed("bookings", [booking("pi_a", cancelled)]).seed("direct_booking_terms", [terms("pi_a")]);
+    db.seed("bookings", [booking("pi_a", { ...cancelled, cancel_state: "admin_claimed" })]).seed("direct_booking_terms", [terms("pi_a")]);
     stripeReads.set("pi_a", okRead({ amountRefundedCents: 5212 - 595 }));
     const v = await build();
     expect(v.items[0]).toMatchObject({ class: "zero", suggestedCents: 0 });
@@ -326,7 +326,7 @@ describe("Triply keeps (margin)", () => {
   });
 
   it("a standard admin cancel with Park Guard: the wholesale kept is owed on to Park Guard", async () => {
-    db.seed("bookings", [booking("pi_a", { ...cancelled, protection_plan_wholesale: "4.00" })]).seed("direct_booking_terms", [terms("pi_a")]);
+    db.seed("bookings", [booking("pi_a", { ...cancelled, cancel_state: "admin_claimed", protection_plan_wholesale: "4.00" })]).seed("direct_booking_terms", [terms("pi_a")]);
     stripeReads.set("pi_a", okRead({ amountReceivedCents: 6211, amountRefundedCents: 6211 - 595 - 400 }));
     expect(await marginOf()).toBe(595 - 181);
   });

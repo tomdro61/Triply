@@ -156,6 +156,12 @@ describe("statementTotals", () => {
     expect(t.refunded).toEqual({ cents: 0, known: 1, of: 2, excluded: 0 });
   });
 
+  it("a month with only a cancelled row: parking has no rows of its own and says one was left out", () => {
+    const t = statementTotals([item({ piId: "z", class: "zero", suggestedCents: 0, margin: withMargin(-181) })]);
+    expect(t.parking).toEqual({ cents: 0, known: 0, of: 0, excluded: 1 });
+    expect(t.margin).toEqual({ cents: -181, known: 1, of: 1, excluded: 0 });
+  });
+
   it("no rows: nothing known", () => {
     expect(statementTotals([]).margin).toEqual({ cents: 0, known: 0, of: 0, excluded: 0 });
   });

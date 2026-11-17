@@ -24,10 +24,10 @@ const money = (cents: number | null) =>
  * (`missing`), and when rows shown in the table are left out of this column by rule (`leftOut`).
  */
 function Total({ sum, missing, leftOut }: { sum: KnownSum; missing?: string; leftOut?: string }) {
-  if (sum.known === 0) return <>—</>;
   return (
     <>
-      {money(sum.cents)}
+      {/* No row with a figure: "—" (unknown) when rows are waiting on one, $0.00 when the column has no rows at all. */}
+      {sum.known > 0 || sum.of === 0 ? money(sum.cents) : "—"}
       {sum.known < sum.of && (
         <div className="text-xs font-normal text-amber-700">
           {sum.known} of {sum.of} rows{missing ? ` — ${missing}` : ""}
@@ -432,7 +432,11 @@ export function DirectPayoutsSection() {
                         </td>
                         <td className="px-3 py-2 text-right font-mono">
                           {money(i.basis.amountReceivedCents)}
-                          <div className="text-xs text-gray-500">refunded {money(i.basis.amountRefundedCents)}</div>
+                          <div className="text-xs text-gray-500">
+                            {i.basis.amountReceivedCents === 0 && (i.basis.amountRefundedCents ?? 0) > 0
+                              ? "hold released, no money moved"
+                              : `refunded ${money(i.basis.amountRefundedCents)}`}
+                          </div>
                         </td>
                         <td className="px-3 py-2 text-right font-mono">
                           {i.lineKind === "adjustment" && i.priorLinesCents !== null && <div className="text-xs text-gray-500">paid {money(i.priorLinesCents)}</div>}
@@ -490,8 +494,8 @@ export function DirectPayoutsSection() {
                       <td className="px-3 py-2" colSpan={3}>
                         Totals
                       </td>
-                      <td className="px-3 py-2 text-right font-mono"><Total sum={columnTotals.parking} leftOut="cancelled or adjustment" /></td>
-                      <td className="px-3 py-2 text-right font-mono"><Total sum={columnTotals.tax} leftOut="cancelled or adjustment" /></td>
+                      <td className="px-3 py-2 text-right font-mono"><Total sum={columnTotals.parking} leftOut="cancelled-before-check-in or adjustment" /></td>
+                      <td className="px-3 py-2 text-right font-mono"><Total sum={columnTotals.tax} leftOut="cancelled-before-check-in or adjustment" /></td>
                       <td className="px-3 py-2 text-right font-mono">
                         <Total sum={columnTotals.received} leftOut="adjustment" />
                         {(columnTotals.refunded.cents !== 0 || columnTotals.refunded.known < columnTotals.refunded.of) && (
