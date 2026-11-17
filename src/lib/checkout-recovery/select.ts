@@ -1,4 +1,4 @@
-import { readFxStamp } from "@/lib/fx/cad-usd";
+import { FX_KEYS } from "@/lib/fx/cad-usd";
 import type Stripe from "stripe";
 import { z } from "zod";
 import { format } from "date-fns";
@@ -100,8 +100,8 @@ export interface RecoveryCandidate {
   email: string;
   createdMs: number;
   amountCents: number;
-  /** The lot's price was converted from Canadian dollars (the PaymentIntent's
-   *  stamp says CAD): the email's amount reads "US$". */
+  /** The lot is priced in Canadian dollars at the source (the PaymentIntent's
+   *  stamp says CAD) and charged in US dollars: the email's amount reads "US$". */
   usdLabel: boolean;
   livemode: boolean;
   lotId: string;
@@ -327,7 +327,9 @@ export function selectRecoveryCandidates(
       email: m.customerEmail,
       createdMs,
       amountCents: pi.amount,
-      usdLabel: readFxStamp(pi.metadata).kind === "cad",
+      // The currency key alone decides: every charge is US dollars, so a CAD
+      // stamp means a converted lot even if its rate keys are unreadable.
+      usdLabel: pi.metadata?.[FX_KEYS.currency] === "CAD",
       livemode: pi.livemode,
       lotId: m.lotId,
       locationId: m.locationId,

@@ -38,6 +38,18 @@ export function anyUsdLabelled(lots: readonly { fxRateId?: string }[]): boolean 
   return lots.some((lot) => isUsdLabelled(lot));
 }
 
+/**
+ * Whether a checkout is for a converted lot: the figures the server sent say
+ * so, or (before they arrive, or on a path that has none) the lot does.
+ * Either is enough — a converted checkout must never fall back to a bare "$".
+ */
+export function isConvertedCheckout(
+  lot: { fxRateId?: string },
+  costData: { fxRateId?: string } | null | undefined
+): boolean {
+  return !!(costData?.fxRateId || lot.fxRateId);
+}
+
 /** On its own line under the results count, on a search that lists a converted lot. */
 export const USD_PRICES_LINE = "Prices are in US dollars";
 

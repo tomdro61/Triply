@@ -52,7 +52,7 @@ import { checkoutExtraFields, extraFieldStepErrors } from "@/lib/booking/require
 import { VehicleSizeSelector } from "./vehicle-size-selector";
 import { TERMS_VERSION } from "@/lib/checkout/terms-acceptance";
 import { PARK_GUARD_ON_CONVERTED_LOTS } from "@/lib/fx/cad-usd";
-import { CURRENCY_NOTICE_VERSION, money } from "@/lib/fx/usd-label";
+import { CURRENCY_NOTICE_VERSION, isConvertedCheckout, money } from "@/lib/fx/usd-label";
 import { CONVERTED_DRIFT_FIELDS, DIRECT_DRIFT_FIELDS, pricedDifferently } from "@/lib/checkout/price-drift";
 import {
   atLotEstimate,
@@ -126,7 +126,7 @@ export function CheckoutForm({
   // The lot's price is converted from Canadian dollars (the server's figures
   // say so, or the lot itself): amounts read "US$", the Pay step says the
   // charge is in US dollars, and no protection plan is offered.
-  const converted = !!(costData?.fxRateId || lot.fxRateId);
+  const converted = isConvertedCheckout(lot, costData);
   const protectionHidden = !PARK_GUARD_ON_CONVERTED_LOTS && converted;
   const [directTerms, setDirectTerms] = useState<DirectCheckoutTerms | null>(
     isDirect ? (costData?.direct ?? null) : null

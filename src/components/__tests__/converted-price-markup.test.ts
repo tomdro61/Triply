@@ -55,7 +55,7 @@ import { StripePaymentForm } from "@/components/checkout/stripe-payment-form";
 import { generateSEOContent, generateFAQs } from "@/lib/airport-page/content";
 import { buildLotSchema } from "@/lib/seo/lot-schema";
 import { fxStampMetadata, PARK_GUARD_ON_CONVERTED_LOTS } from "@/lib/fx/cad-usd";
-import { CURRENCY_NOTICE_VERSION, USD_CHARGE_LINE, USD_PRICES_LINE, anyUsdLabelled, currencySign, isUsdLabelled, money } from "@/lib/fx/usd-label";
+import { CURRENCY_NOTICE_VERSION, USD_CHARGE_LINE, USD_PRICES_LINE, anyUsdLabelled, currencySign, isConvertedCheckout, isUsdLabelled, money } from "@/lib/fx/usd-label";
 import type { AirportPageData } from "@/lib/airport-page/data";
 import { getAirportByCode, type Airport } from "@/config/airports";
 import type { UnifiedLot } from "@/types/lot";
@@ -195,6 +195,23 @@ describe("the label helpers", () => {
     expect(anyUsdLabelled([{}, {}])).toBe(false);
     expect(anyUsdLabelled([])).toBe(false);
   });
+
+  it("a checkout is converted when the server's figures or the lot say so; never otherwise", () => {
+    expect(isConvertedCheckout({ fxRateId: "r1" }, null)).toBe(true);
+    expect(isConvertedCheckout({ fxRateId: "r1" }, {})).toBe(true);
+    expect(isConvertedCheckout({}, { fxRateId: "r1" })).toBe(true);
+    expect(isConvertedCheckout({ fxRateId: "r1" }, { fxRateId: "r1" })).toBe(true);
+    for (const costData of [null, undefined, {}, { fxRateId: undefined }, { fxRateId: "" }]) {
+      expect(isConvertedCheckout({}, costData)).toBe(false);
+    }
+  });
+
+  it("the sentence and its version are pinned together: rewording one without the other fails here", () => {
+    expect({ USD_CHARGE_LINE, CURRENCY_NOTICE_VERSION }).toEqual({
+      USD_CHARGE_LINE: "You will be charged in US dollars (USD). Your card issuer may convert this and add a fee.",
+      CURRENCY_NOTICE_VERSION: "2026-11-17",
+    });
+  });
 });
 
 describe("a converted lot before paying — every amount reads US$", () => {
@@ -277,6 +294,13 @@ describe("a converted lot before paying — every amount reads US$", () => {
     expect(us).toContain("Complete Booking - $68.41");
     expect(us).not.toContain("US$");
     expect(us).not.toContain(USD_CHARGE_LINE);
+
+    // A US lot with part due at the lot: the other button wording and the notice stay plain.
+    const usDue = html(payStep(false, true));
+    expect(usDue).toContain("Pay Now - $58.41");
+    expect(usDue).toContain("$10.00 will be collected");
+    expect(usDue).not.toContain("US$");
+    expect(usDue).not.toContain(USD_CHARGE_LINE);
   });
 
   it("the sticky footer of a converted lot puts the per-day figure above the total (US$ is too wide for one row on a phone)", () => {
@@ -406,13 +430,13 @@ describe("no price surface is left out", () => {
       expect((read(f).match(/usdLabel=\{isUsdLabelled\(lot\)\}/g) ?? []).length).toBe(3);
     }
     const form = read("components/checkout/checkout-form.tsx");
-    expect(form).toMatch(/const converted = !!\(costData\?\.fxRateId \|\| lot\.fxRateId\);/);
+    expect(form).toMatch(/const converted = isConvertedCheckout\(lot, costData\);/);
     expect((form.match(/usdLabel=\{converted\}/g) ?? []).length).toBe(2);
     expect(form).toMatch(/promoRefusalMessage\(discount\.refused, rule, converted\)/);
     // The assistant and the abandoned-checkout email build their own price strings.
     expect((read("app/api/chat/route.ts").match(/money\([^)]*, isUsdLabelled\(lot\)\)/g) ?? []).length).toBe(2);
     expect(read("app/api/chat/route.ts")).not.toMatch(/`\$\$\{/);
     expect(read("lib/checkout-recovery/email.ts")).toMatch(/money\(c\.amountCents \/ 100, c\.usdLabel\)/);
-    expect(read("lib/checkout-recovery/select.ts")).toMatch(/usdLabel: readFxStamp\(pi\.metadata\)\.kind === "cad"/);
+    expect(read("lib/checkout-recovery/select.ts")).toMatch(/usdLabel: pi\.metadata\?\.\[FX_KEYS\.currency\] === "CAD"/);
   });
 });

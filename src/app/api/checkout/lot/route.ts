@@ -393,6 +393,16 @@ export async function POST(request: NextRequest) {
     // wording (or none) is told to reload. The version it sent is what the
     // payment is stamped with.
     if (currency.kind === "cad" && currencyNotice !== CURRENCY_NOTICE_VERSION) {
+      // Expected only across a deploy that changes the sentence. Reported, so
+      // a mismatch that a reload does not clear is seen.
+      captureAPIError(new Error(`/api/checkout/lot: converted lot ${locationId} refused, currency notice mismatch`), {
+        endpoint: "/api/checkout/lot",
+        method: "POST",
+        statusCode: 400,
+        stage: "currency_notice_mismatch",
+        level: "warning",
+        extra: { lotId, sent: currencyNotice ?? null, expected: CURRENCY_NOTICE_VERSION },
+      });
       return NextResponse.json({ error: STALE_CHECKOUT_MESSAGE, code: "checkout_stale" }, { status: 400 });
     }
     // Park Guard is not offered on a converted lot (see the constant). The

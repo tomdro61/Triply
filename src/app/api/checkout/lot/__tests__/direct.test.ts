@@ -818,6 +818,16 @@ describe("POST — a lot ResLab prices in Canadian dollars, once an exchange rat
     expect(createPI).not.toHaveBeenCalled();
   });
 
+  it("a refusal for the US-dollar sentence's version is reported (a mismatch a reload does not clear must be seen)", async () => {
+    vi.mocked(captureAPIError).mockClear();
+    await post(cadBody({ currencyNotice: "2020-01-01" }));
+    expect(captureAPIError).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(captureAPIError).mock.calls[0][1]).toMatchObject({ stage: "currency_notice_mismatch", level: "warning" });
+    vi.mocked(captureAPIError).mockClear();
+    await post(cadBody());
+    expect(captureAPIError).not.toHaveBeenCalled();
+  });
+
   it("a protection plan on a converted lot is refused before the cost call or any PaymentIntent", async () => {
     getCost.mockClear();
     const res = await post(cadBody({ protectionPlanCode: "A" }));

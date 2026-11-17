@@ -185,10 +185,10 @@ describe("the amount's currency label follows the PaymentIntent's stamp", () => 
   const candidate = (id: string, stamp: Record<string, string>) =>
     selectRecoveryCandidates([pi(id, 60, { ...trip, customerEmail: `${id}@example.com`, ...stamp })], NOW).candidates[0];
 
-  it("converted (stamped CAD with a rate) → labelled; a US stamp, no stamp, or a broken stamp → not", () => {
+  it("stamped CAD → labelled, even when the rate keys are missing; a US stamp or no stamp → not", () => {
     expect(candidate("pi_cad", { reslabCurrency: "CAD", fxRateId: "r1", fxRateMicros: "720000", currencyNotice: "2026-11-17" }).usdLabel).toBe(true);
     expect(candidate("pi_usd", { reslabCurrency: "USD" }).usdLabel).toBe(false);
     expect(candidate("pi_old", {}).usdLabel).toBe(false);
-    expect(candidate("pi_bad", { reslabCurrency: "CAD" }).usdLabel).toBe(false);
+    expect(candidate("pi_bad", { reslabCurrency: "CAD" }).usdLabel).toBe(true);
   });
 });
