@@ -92,41 +92,71 @@ describe("previousMonth", () => {
 
 describe("statementTotals", () => {
   const withMargin = (cents: number | null) => ({ stripeFeeCents: 181, pgWholesaleCents: 0, marginCents: cents });
-  const cancelledBasis = { ...item({ piId: "x" }).basis, amountRefundedCents: 4617 };
+  const basis = item({ piId: "x" }).basis;
 
   it("adds Triply keeps over every row that has a figure", () => {
     const t = statementTotals([item({ piId: "a", margin: withMargin(1210) }), item({ piId: "b", margin: withMargin(1375) })]);
-    expect(t.margin).toEqual({ cents: 2585, known: 2, of: 2 });
-    expect(t.parking).toEqual({ cents: 7960, known: 2, of: 2 });
+    expect(t.margin).toEqual({ cents: 2585, known: 2, of: 2, excluded: 0 });
+    expect(t.parking).toEqual({ cents: 7960, known: 2, of: 2, excluded: 0 });
     expect(t.tax.cents).toBe(1274);
     expect(t.received.cents).toBe(10424);
     expect(t.refunded.cents).toBe(0);
   });
 
-  it("a row waiting on a decision is counted as missing, not as $0", () => {
+  it("a row waiting on a decision is counted as missing, not as $0; its parking still counts", () => {
     const t = statementTotals([item({ piId: "a", margin: withMargin(1210) }), item({ piId: "m", class: "manual", suggestedCents: null })]);
-    expect(t.margin).toEqual({ cents: 1210, known: 1, of: 2 });
+    expect(t.margin).toEqual({ cents: 1210, known: 1, of: 2, excluded: 0 });
+    expect(t.parking).toEqual({ cents: 7960, known: 2, of: 2, excluded: 0 });
   });
 
-  it("a cancelled row adds its kept fee but no parking or tax", () => {
+  it("a cancelled row adds what was kept on it but no parking or tax", () => {
     const t = statementTotals([
       item({ piId: "a", margin: withMargin(1210) }),
-      item({ piId: "z", class: "zero", suggestedCents: 0, basis: cancelledBasis, margin: withMargin(414) }),
+      item({ piId: "z", class: "zero", suggestedCents: 0, basis: { ...basis, amountRefundedCents: 4617 }, margin: withMargin(414) }),
     ]);
-    expect(t.margin).toEqual({ cents: 1624, known: 2, of: 2 });
-    expect(t.parking).toEqual({ cents: 3980, known: 1, of: 1 });
+    expect(t.margin).toEqual({ cents: 1624, known: 2, of: 2, excluded: 0 });
+    expect(t.parking).toEqual({ cents: 3980, known: 1, of: 1, excluded: 1 });
+    expect(t.tax).toEqual({ cents: 637, known: 1, of: 1, excluded: 1 });
     expect(t.received.cents).toBe(10424);
     expect(t.refunded.cents).toBe(4617);
   });
 
+  it("a $0 row is a known figure and a loss row lowers the total", () => {
+    const t = statementTotals([
+      item({ piId: "a", margin: withMargin(1210) }),
+      item({ piId: "h", class: "zero", suggestedCents: 0, margin: withMargin(0) }),
+      item({ piId: "r", class: "zero", suggestedCents: 0, margin: withMargin(-181) }),
+    ]);
+    expect(t.margin).toEqual({ cents: 1029, known: 3, of: 3, excluded: 0 });
+  });
+
   it("an adjustment row adds nothing to the money columns and leaves Triply keeps incomplete", () => {
-    const t = statementTotals([item({ piId: "a", margin: withMargin(1210) }), item({ piId: "j", lineKind: "adjustment", suggestedCents: -3821 })]);
-    expect(t.parking.of).toBe(1);
+    const refundedLater = { ...basis, status: "refunded", amountRefundedCents: 5212 };
+    const t = statementTotals([
+      item({ piId: "a", margin: withMargin(1210) }),
+      item({ piId: "j", lineKind: "adjustment", class: "zero", suggestedCents: -3821, basis: refundedLater }),
+    ]);
+    expect(t.parking).toEqual({ cents: 3980, known: 1, of: 1, excluded: 1 });
+    expect(t.received).toEqual({ cents: 5212, known: 1, of: 1, excluded: 1 });
+    expect(t.refunded).toEqual({ cents: 0, known: 1, of: 1, excluded: 1 });
+    expect(t.margin).toEqual({ cents: 1210, known: 1, of: 2, excluded: 0 });
+  });
+
+  it("a released hold (received 0, Stripe says refunded) adds no refund", () => {
+    const hold = { ...basis, amountReceivedCents: 0, amountRefundedCents: 5212 };
+    const t = statementTotals([item({ piId: "a" }), item({ piId: "h", class: "zero", suggestedCents: 0, basis: hold })]);
+    expect(t.refunded).toEqual({ cents: 0, known: 2, of: 2, excluded: 0 });
     expect(t.received.cents).toBe(5212);
-    expect(t.margin).toEqual({ cents: 1210, known: 1, of: 2 });
+  });
+
+  it("an unread row leaves received and refunded incomplete, not $0", () => {
+    const unread = { ...basis, amountReceivedCents: null, amountRefundedCents: null };
+    const t = statementTotals([item({ piId: "a" }), item({ piId: "m", class: "manual", suggestedCents: null, basis: unread })]);
+    expect(t.received).toEqual({ cents: 5212, known: 1, of: 2, excluded: 0 });
+    expect(t.refunded).toEqual({ cents: 0, known: 1, of: 2, excluded: 0 });
   });
 
   it("no rows: nothing known", () => {
-    expect(statementTotals([]).margin).toEqual({ cents: 0, known: 0, of: 0 });
+    expect(statementTotals([]).margin).toEqual({ cents: 0, known: 0, of: 0, excluded: 0 });
   });
 });

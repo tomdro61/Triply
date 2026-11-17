@@ -3,7 +3,7 @@ import { amountBoundError, type PayoutDecision } from "./payout-lines";
 
 /**
  * Browser-side helpers for the payout section (Phase 6a). Pure; the server
- * rebuilds and re-checks everything — these only shape what the admin sends.
+ * rebuilds and re-checks everything — these only shape what the admin sends and sees.
  */
 
 export interface DecisionDraft {
@@ -63,16 +63,20 @@ export function prepareMarkPaid(
   return { ok: true, decisions, totalCents, lineCount };
 }
 
-/** A column total over the rows whose figure is known: `known` of `of` rows are in `cents`. */
+/**
+ * A column total. `cents` adds the rows whose figure is known: `known` of `of`.
+ * `excluded` = rows shown in the table that this column leaves out by rule (not unknown).
+ */
 export interface KnownSum {
   cents: number;
   known: number;
   of: number;
+  excluded: number;
 }
 
-function sumKnown(values: Array<number | null>): KnownSum {
+function sumKnown(values: Array<number | null>, shown: number): KnownSum {
   const known = values.filter((v): v is number => v !== null);
-  return { cents: known.reduce((a, v) => a + v, 0), known: known.length, of: values.length };
+  return { cents: known.reduce((a, v) => a + v, 0), known: known.length, of: values.length, excluded: shown - values.length };
 }
 
 /**
@@ -81,19 +85,23 @@ function sumKnown(values: Array<number | null>): KnownSum {
  * no "owed to lot" sum here).
  *   parking, tax        rows the lot can be paid on (not cancelled-before-check-in rows:
  *                       nothing was sold; not adjustment rows: counted on an earlier statement)
- *   received, refunded  every first-time row
- *   margin              "Triply keeps" over every row shown; a row waiting on a decision
- *                       has no figure, so `known` < `of` until it is decided
+ *   received, refunded  every first-time row. A refund is capped at what was received: Stripe
+ *                       reports a released hold as "refunded" though no money moved.
+ *   margin              "Triply keeps" over every row shown. A row with no figure (a decision
+ *                       pending, or a Stripe fee unknown) leaves `known` < `of`.
  */
 export function statementTotals(items: StatementItem[]): Record<"parking" | "tax" | "received" | "refunded" | "margin", KnownSum> {
   const payouts = items.filter((i) => i.lineKind === "payout");
   const sold = payouts.filter((i) => i.class !== "zero");
+  const n = items.length;
+  const refundOf = ({ basis: b }: StatementItem) =>
+    b.amountRefundedCents === null || b.amountReceivedCents === null ? null : Math.min(b.amountRefundedCents, b.amountReceivedCents);
   return {
-    parking: sumKnown(sold.map((i) => i.basis.subtotalCents)),
-    tax: sumKnown(sold.map((i) => i.basis.taxCents)),
-    received: sumKnown(payouts.map((i) => i.basis.amountReceivedCents)),
-    refunded: sumKnown(payouts.map((i) => i.basis.amountRefundedCents)),
-    margin: sumKnown(items.map((i) => i.margin.marginCents)),
+    parking: sumKnown(sold.map((i) => i.basis.subtotalCents), n),
+    tax: sumKnown(sold.map((i) => i.basis.taxCents), n),
+    received: sumKnown(payouts.map((i) => i.basis.amountReceivedCents), n),
+    refunded: sumKnown(payouts.map(refundOf), n),
+    margin: sumKnown(items.map((i) => i.margin.marginCents), n),
   };
 }
 

@@ -208,10 +208,13 @@ export function classifyPayout(b: PayoutBookingInput): PayoutClass {
  * never shown to the lot): received − refunded − owed to the lot − Stripe fee −
  * Park Guard wholesale − the tax Triply itself remits (a liability, not income).
  *   payable  the figures above.
- *   zero     cancelled before check-in: the service fee Triply kept, less the
- *            Stripe fee and the Park Guard wholesale (Park Guard never returns
- *            it). The tax went back to the customer, so none is owed. Nothing
- *            received (a released hold) = $0.
+ *   zero     cancelled before check-in: what Triply kept after the refund
+ *            (received − refunded), less the Stripe fee and the Park Guard
+ *            wholesale it still owes (Park Guard never returns it). A self-cancel
+ *            and an admin policy refund return the service fee, so this is
+ *            normally −(Stripe fee); only a standard admin cancel keeps the fee.
+ *            The tax went back to the customer, so none is owed. Nothing
+ *            received (a released hold, which Stripe reports as "refunded") = $0.
  *   manual   null — a person has not decided what the lot is owed yet.
  * null also when a figure it needs is unknown; unknown is never $0.
  */

@@ -317,7 +317,7 @@ describe("Triply keeps (margin)", () => {
     expect(await marginOf()).toBeNull();
   });
 
-  it("cancelled before check-in: the service fee kept, less the Stripe fee", async () => {
+  it("a standard admin cancel before check-in: the service fee kept, less the Stripe fee", async () => {
     db.seed("bookings", [booking("pi_a", cancelled)]).seed("direct_booking_terms", [terms("pi_a")]);
     stripeReads.set("pi_a", okRead({ amountRefundedCents: 5212 - 595 }));
     const v = await build();
@@ -325,10 +325,16 @@ describe("Triply keeps (margin)", () => {
     expect(v.items[0].margin.marginCents).toBe(595 - 181);
   });
 
-  it("cancelled with Park Guard: the wholesale kept is owed on to Park Guard", async () => {
+  it("a standard admin cancel with Park Guard: the wholesale kept is owed on to Park Guard", async () => {
     db.seed("bookings", [booking("pi_a", { ...cancelled, protection_plan_wholesale: "4.00" })]).seed("direct_booking_terms", [terms("pi_a")]);
     stripeReads.set("pi_a", okRead({ amountReceivedCents: 6211, amountRefundedCents: 6211 - 595 - 400 }));
     expect(await marginOf()).toBe(595 - 181);
+  });
+
+  it("a self-cancel with Park Guard (everything back but the wholesale): Triply is out the Stripe fee", async () => {
+    db.seed("bookings", [booking("pi_a", { ...cancelled, protection_plan_wholesale: "4.00" })]).seed("direct_booking_terms", [terms("pi_a")]);
+    stripeReads.set("pi_a", okRead({ amountReceivedCents: 6211, amountRefundedCents: 6211 - 400 }));
+    expect(await marginOf()).toBe(-181);
   });
 
   it("cancelled and refunded in full: Triply is out the Stripe fee", async () => {
@@ -337,9 +343,9 @@ describe("Triply keeps (margin)", () => {
     expect(await marginOf()).toBe(-181);
   });
 
-  it("cancelled with nothing received (a released hold): $0, no fee needed", async () => {
+  it("cancelled with nothing received (a released hold, which Stripe reports as refunded): $0, no fee needed", async () => {
     db.seed("bookings", [booking("pi_a", cancelled)]).seed("direct_booking_terms", [terms("pi_a")]);
-    stripeReads.set("pi_a", okRead({ amountReceivedCents: 0, amountRefundedCents: 0, piStatus: "canceled", feeCents: null }));
+    stripeReads.set("pi_a", okRead({ amountReceivedCents: 0, amountRefundedCents: 5212, piStatus: "canceled", feeCents: null }));
     const v = await build();
     expect(v.items[0].class).toBe("zero");
     expect(v.items[0].margin.marginCents).toBe(0);

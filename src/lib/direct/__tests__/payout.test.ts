@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { classifyPayout, adjustmentCandidate, sameBasis, type PayoutBookingInput } from "../payout";
+import { classifyPayout, adjustmentCandidate, directMargin, sameBasis, type PayoutBookingInput } from "../payout";
 
 // 4 days × $9.95 = $39.80 parking, 16 % tax $6.37, fee $5.95 → $52.12 charged.
 const booking = (o: Partial<PayoutBookingInput> = {}): PayoutBookingInput => ({
@@ -212,5 +212,37 @@ describe("review pass 1 fixes", () => {
       expect(sameBasis(disputed.basis, { ...disputed.basis, priorLinesCents: 5, prior_lines_cents: 5 })).toBe(true);
       expect(sameBasis(disputed.basis, { ...disputed.basis, status: "confirmed" })).toBe(false);
     });
+  });
+});
+
+describe("directMargin", () => {
+  const cancelled = { status: "refunded", cancelState: "refund_issued", cancelClaimedAt: BEFORE_CHECK_IN };
+  const feeKept = { error: null, amountReceivedCents: 5212, amountRefundedCents: 5212 - 595, piStatus: "succeeded", disputed: false, disputes: "" };
+  const triplyTerms = { directLotId: "1", livemode: true, sharePercent: "80.00", taxCollectedBy: "triply" };
+
+  it("cancelled with the fee kept but the Stripe fee unknown: no figure, never a fee of $0", () => {
+    const c = classifyPayout(booking({ ...cancelled, stripe: feeKept }));
+    expect(c.kind).toBe("zero");
+    expect(directMargin(c, null)).toBeNull();
+  });
+  it("cancelled where Triply remits the tax: no tax comes off (it went back to the customer)", () => {
+    const c = classifyPayout(booking({ ...cancelled, stripe: feeKept, terms: triplyTerms }));
+    expect(c.kind).toBe("zero");
+    expect(directMargin(c, 181)).toBe(595 - 181);
+  });
+  it("a full refund on a booking with Park Guard: out the Stripe fee and the wholesale", () => {
+    const c = classifyPayout(booking({ ...cancelled, pgWholesale: "4.00", stripe: { ...feeKept, amountRefundedCents: 5212 } }));
+    expect(c.kind).toBe("zero");
+    expect(directMargin(c, 181)).toBe(-181 - 400);
+  });
+  it("an unreadable Park Guard wholesale on a payable row: no figure", () => {
+    const c = classifyPayout(booking({ pgWholesale: "abc" }));
+    expect(c.kind).toBe("payable");
+    expect(directMargin(c, 181)).toBeNull();
+  });
+  it("an unknown refund or tax on the basis: no figure", () => {
+    const c = classifyPayout(booking({ terms: triplyTerms }));
+    expect(directMargin({ ...c, basis: { ...c.basis, amountRefundedCents: null } }, 181)).toBeNull();
+    expect(directMargin({ ...c, basis: { ...c.basis, taxCents: null } }, 181)).toBeNull();
   });
 });

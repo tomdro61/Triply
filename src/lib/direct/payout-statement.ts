@@ -53,7 +53,7 @@ export interface StatementItem extends StatementBooking {
   /** How many lines the booking had — a $0 review changes the count, not the sum. */
   priorLinesCount: number | null;
   basis: PayoutBasis;
-  /** Internal only — never in the lot-facing CSV. marginCents: see `directMargin` (null on manual and adjustment rows). */
+  /** Internal only — never in the lot-facing CSV. marginCents: see `directMargin` (null on manual and adjustment rows, and when a figure it needs, e.g. the Stripe fee, is unknown). */
   margin: { stripeFeeCents: number | null; pgWholesaleCents: number | null; marginCents: number | null };
 }
 
