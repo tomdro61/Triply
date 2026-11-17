@@ -171,7 +171,8 @@ describe("searchParking — locationsConsidered", () => {
     expect(r.locationsConsidered).toBe(1);
   });
 
-  it("excludes lots priced in CAD (checkout charges USD, no conversion)", async () => {
+  // With a rate set and the lot in Canada it is listed and converted: see converted-lot-wiring.test.ts.
+  it("excludes lots priced in CAD while no exchange rate is set", async () => {
     reslabMock.searchLocations.mockResolvedValue([
       fixtureLocation(1),
       { ...fixtureLocation(558), currency: { id: 1, name: "Canadian Dollar", code: "CAD" } },

@@ -145,7 +145,7 @@ describe("lot detail page matches search for the same ResLab response", () => {
     reslabMock.getMinPrice.mockResolvedValue(data);
 
     const lot = await getLotFromReslab(7, FROM, TO);
-    const searchLot = transformLocation(location(7), data, 42.0, -71.0);
+    const searchLot = transformLocation(location(7), data, 42.0, -71.0, { kind: "usd" });
 
     expect(lot?.availability).toBe(expected);
     expect(searchLot.availability).toBe(expected);

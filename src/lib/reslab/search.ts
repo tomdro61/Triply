@@ -45,6 +45,7 @@ import { deriveAvailability } from "@/lib/reslab/availability";
 import {
   isSellableLocation,
   lotCurrency,
+  lotFxFields,
   minPriceInUsd,
   pricingCurrencyFields,
   type LotCurrency,
@@ -101,20 +102,6 @@ export function isHiddenReslabLocation(locationId: number): boolean {
 }
 
 /**
- * Whether a lot is priced in US dollars. NOT the sell/hide rule any more: that
- * is `isSellableLocation` (src/lib/reslab/currency.ts), which also sells a lot
- * priced in Canadian dollars once an exchange rate is set. History: ResLab prices our Canadian lots
- * (YYZ, YUL, YYC, YOW) in CAD, and checkout charges in USD with no conversion,
- * so a C$100 stay was shown as "$100" and charged US$100 (5 bookings,
- * Oct 18 – Nov 2, 2026). Hidden like a blocked lot — out of search, lot page
- * and checkout not found — until checkout converts. A location with no
- * currency is USD, as transformLocation reads it.
- */
-export function isUsdPricedLocation(location: { currency?: { code?: string } | null }): boolean {
-  return (location.currency?.code || "USD").toUpperCase() === "USD";
-}
-
-/**
  * Transform ResLab location to UnifiedLot format
  */
 export function transformLocation(
@@ -122,9 +109,9 @@ export function transformLocation(
   minPriceData: ReslabMinPriceResponse | null,
   airportLat: number,
   airportLng: number,
-  // The caller converts `minPriceData` with this same value, so the figures
-  // and the currency they are labelled with cannot disagree.
-  currency: LotCurrency = lotCurrency(location)
+  // Required: the caller converts `minPriceData` with this same value, so the
+  // figures and the currency they are labelled with cannot disagree.
+  currency: LotCurrency
 ): UnifiedLot {
   const lat = parseFloat(location.latitude);
   const lng = parseFloat(location.longitude);
@@ -157,6 +144,7 @@ export function transformLocation(
     source: "reslab",
     sourceId: String(location.id),
     reslabLocationId: location.id,
+    ...lotFxFields(currency),
 
     name: location.name,
     slug: generateSlug(location.name),

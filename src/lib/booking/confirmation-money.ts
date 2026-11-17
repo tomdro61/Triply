@@ -10,9 +10,9 @@
  * Pure and total: never throws, whatever JSON ResLab sent.
  */
 import { rateFromColumn, toUsd } from "@/lib/fx/cad-usd";
+import { historyMoneyParts, reslabCurrencyCode, type HistoryAmount, type ReslabHistoryLike } from "@/lib/reslab/currency";
 
-/** Typed as ResLab's client types them; the body is untyped JSON, so every reader still checks. */
-type Amount = number | null | undefined;
+type Amount = HistoryAmount;
 
 export interface HistoryMoney {
   subtotal: Amount;
@@ -38,16 +38,6 @@ export type ConfirmationMoney = HistoryMoney & {
   withheldReason: string | null;
 };
 
-interface HistoryLike {
-  subtotal?: Amount;
-  total_fees?: Amount;
-  total_tax?: Amount;
-  long_term_discount?: Amount;
-  grand_total?: Amount;
-  due_at_location_total?: Amount;
-  location?: { currency?: { code?: unknown } | null } | null;
-}
-
 const WITHHELD: HistoryMoney = {
   subtotal: undefined,
   total_fees: undefined,
@@ -57,15 +47,13 @@ const WITHHELD: HistoryMoney = {
   due_at_location_total: undefined,
 };
 
-const asAmount = (v: unknown): number => (typeof v === "number" ? v : Number.NaN);
-
 /**
  * @param history ResLab's `history[0]` (untyped JSON), or undefined.
  * @param row     The booking row's currency columns; null when the row could
  *                not be read (NOT the same as a row whose columns are NULL).
  */
 export function reslabHistoryMoney(
-  history: HistoryLike | null | undefined,
+  history: ReslabHistoryLike | null | undefined,
   row: { reslab_currency?: unknown; fx_rate?: unknown } | null
 ): ConfirmationMoney {
   const raw: HistoryMoney = {
@@ -76,8 +64,7 @@ export function reslabHistoryMoney(
     grand_total: history?.grand_total,
     due_at_location_total: history?.due_at_location_total,
   };
-  const code = history?.location?.currency?.code;
-  const reslabCurrency = typeof code === "string" && code.trim() !== "" ? code.trim().toUpperCase() : null;
+  const reslabCurrency = reslabCurrencyCode(history?.location?.currency?.code);
   const withheld = (withheldReason: string): ConfirmationMoney => ({ ...WITHHELD, basis: "withheld", withheldReason });
 
   if (row === null) {
@@ -88,8 +75,8 @@ export function reslabHistoryMoney(
       : { ...raw, basis: "raw", withheldReason: null };
   }
 
-  const rowCurrency = typeof row.reslab_currency === "string" ? row.reslab_currency.trim().toUpperCase() : null;
-  if (rowCurrency === null || rowCurrency === "") {
+  const rowCurrency = reslabCurrencyCode(row.reslab_currency);
+  if (rowCurrency === null) {
     // A US lot — or one of the bookings charged one-for-one before conversion
     // existed, whose stored figures ARE ResLab's raw numbers. Shown as stored.
     return { ...raw, basis: "raw", withheldReason: null };
@@ -103,17 +90,8 @@ export function reslabHistoryMoney(
   if (reslabCurrency !== null && reslabCurrency !== "CAD") {
     return withheld(`the booking was converted from CAD but the reservation is now priced in ${reslabCurrency}`);
   }
-  const converted = toUsd(
-    {
-      subtotal: asAmount(history?.subtotal),
-      feesTotal: asAmount(history?.total_fees),
-      taxTotal: asAmount(history?.total_tax),
-      longTermDiscount: history?.long_term_discount == null ? 0 : asAmount(history.long_term_discount),
-      grandTotal: asAmount(history?.grand_total),
-      dueAtLocation: history?.due_at_location_total == null ? 0 : asAmount(history.due_at_location_total),
-    },
-    rate
-  );
+  // The same reading of the history as fulfilment's (fromReslab).
+  const converted = toUsd(historyMoneyParts(history), rate);
   if (!converted.ok) return withheld(`the reservation's CAD figures could not be converted (${converted.reason})`);
   return {
     subtotal: converted.usd.subtotal,

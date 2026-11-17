@@ -27,7 +27,8 @@ export function cartFromCostData(costData: CheckoutCostData | null | undefined):
     parkingCents: c(costData.subtotal + costData.feesTotal),
     percentBaseCents: c(costData.subtotal),
     onlineParkingCents: c(costData.grandTotal) - c(costData.dueAtLocation),
-    // Display only: the POST refuses any lot not priced in USD before it prices a code.
+    // Display only: the GET's figures are US dollars (a lot ResLab prices in
+    // Canadian dollars is converted first), and the POST prices the code itself.
     currency: "USD",
   };
   return isCents(cart.parkingCents) && isCents(cart.percentBaseCents) && isCents(cart.onlineParkingCents) ? cart : null;

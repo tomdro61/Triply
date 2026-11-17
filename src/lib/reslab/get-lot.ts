@@ -11,7 +11,7 @@ import type { PricingWindow } from "@/lib/reslab/pricing-window";
 import { calculateDistance } from "@/lib/utils/geo";
 import { generateSlug } from "@/lib/utils/slug";
 import { deriveAvailability } from "./availability";
-import { isSellableLocation, lotCurrency, minPriceInUsd, pricingCurrencyFields, type LotCurrency } from "./currency";
+import { isSellableLocation, lotCurrency, lotFxFields, minPriceInUsd, pricingCurrencyFields, type LotCurrency } from "./currency";
 import { captureAPIError } from "@/lib/sentry";
 // One-way dependency: search.ts does NOT import get-lot.ts, so no cycle.
 import {
@@ -47,9 +47,9 @@ interface AirportCoords {
 function transformLocationToLot(
   location: ReslabLocation,
   minPriceData: ReslabMinPriceResponse | null,
-  airportCoords?: AirportCoords,
-  // The caller converts `minPriceData` with this same value.
-  currency: LotCurrency = lotCurrency(location)
+  airportCoords: AirportCoords | undefined,
+  // Required: the caller converts `minPriceData` with this same value.
+  currency: LotCurrency
 ): UnifiedLot {
   const lat = parseFloat(location.latitude);
   const lng = parseFloat(location.longitude);
@@ -101,6 +101,7 @@ function transformLocationToLot(
     source: "reslab",
     sourceId: String(location.id),
     reslabLocationId: location.id,
+    ...lotFxFields(currency),
 
     name: location.name,
     slug: generateSlug(location.name),
@@ -194,6 +195,22 @@ function transformLocationToLot(
  */
 export type ReslabPricingWindowFn = (location: ReslabLocation) => PricingWindow | null;
 
+// One event per lot per warm instance every 5 minutes: a lot whose price
+// will not convert fails the same way on every render, the lot page renders
+// it twice per view (page + metadata), and crawlers visit these pages.
+const UNCONVERTIBLE_REPORT_EVERY_MS = 5 * 60_000;
+const lastUnconvertibleReportAt = new Map<number, number>();
+function reportUnconvertiblePrice(locationId: number, reason: string) {
+  const now = Date.now();
+  const last = lastUnconvertibleReportAt.get(locationId);
+  if (last !== undefined && now - last < UNCONVERTIBLE_REPORT_EVERY_MS) return;
+  lastUnconvertibleReportAt.set(locationId, now);
+  captureAPIError(new Error(`ResLab price for lot ${locationId} could not be converted (${reason})`), {
+    endpoint: "getLotFromReslab",
+    method: "GET",
+  });
+}
+
 /**
  * Fetch lot details from ResLab API
  * Uses getMinPrice instead of getLocationTypes (which has API issues)
@@ -239,12 +256,7 @@ export async function getLotFromReslab(
     // price that cannot be converted shows the lot without a price, like a
     // failed min-price call.
     const inUsd = minPriceInUsd(minPriceData, currency);
-    if (inUsd.unusable !== null) {
-      captureAPIError(new Error(`ResLab price for lot ${locationId} could not be converted (${inUsd.unusable})`), {
-        endpoint: "getLotFromReslab",
-        method: "GET",
-      });
-    }
+    if (inUsd.unusable !== null) reportUnconvertiblePrice(locationId, inUsd.unusable);
     minPriceData = inUsd.data;
 
     return transformLocationToLot(location, minPriceData, airportCoords, currency);

@@ -4,6 +4,7 @@ import {
   convertMinPrice,
   isSellableLocation,
   lotCurrency,
+  lotFxFields,
   minPriceInUsd,
   pricingCurrencyFields,
   stampedCurrencyProblem,
@@ -57,8 +58,10 @@ describe("lotCurrency", () => {
     expect(lotCurrency({ currency: { code: "CAD" }, parking_due_at_location: 1 }, NOW)).toEqual({ kind: "hidden", reason: "pay_at_lot" });
     expect(lotCurrency({ currency: { code: "CAD" }, parking_due_at_location: true }, NOW)).toEqual({ kind: "hidden", reason: "pay_at_lot" });
   });
-  it("isSellableLocation matches the old USD-only rule for every case the old tests pinned", () => {
-    expect(isSellableLocation({ currency: { code: "USD" } }, NOW)).toBe(true);
+  it("with no rate, isSellableLocation gives the old USD-only rule's answer for every case the old tests pinned", () => {
+    expect(isSellableLocation({ currency: { code: "USD" } }, NOW, null)).toBe(true);
+    expect(isSellableLocation({ currency: { code: "usd" } }, NOW, null)).toBe(true);
+    expect(isSellableLocation({ currency: null }, NOW, null)).toBe(true);
     expect(isSellableLocation({}, NOW)).toBe(true);
     expect(isSellableLocation({ currency: { code: "CAD" } }, NOW)).toBe(false);
     expect(isSellableLocation({ currency: { code: "EUR" } }, NOW)).toBe(false);
@@ -70,13 +73,11 @@ describe("pricingCurrencyFields", () => {
     expect(pricingCurrencyFields({ currency: { code: "USD" } }, { kind: "usd" })).toEqual({ currency: "$", currencyCode: "USD" });
     expect(pricingCurrencyFields({}, { kind: "usd" })).toEqual({ currency: "$", currencyCode: "USD" });
   });
-  it("a converted lot reports US dollars, its source currency and the rate id", () => {
-    expect(pricingCurrencyFields({ currency: { code: "CAD" } }, { kind: "cad", rate: RATE })).toEqual({
-      currency: "$",
-      currencyCode: "USD",
-      sourceCurrencyCode: "CAD",
-      fxRateId: "t1",
-    });
+  it("a converted lot's pricing reports US dollars; the rate id goes on the lot, and only for a converted lot", () => {
+    expect(pricingCurrencyFields({ currency: { code: "CAD" } }, { kind: "cad", rate: RATE })).toEqual({ currency: "$", currencyCode: "USD" });
+    expect(lotFxFields({ kind: "cad", rate: RATE })).toEqual({ fxRateId: "t1" });
+    expect(lotFxFields({ kind: "usd" })).toEqual({});
+    expect(lotFxFields({ kind: "hidden", reason: "no_rate" })).toEqual({});
   });
 });
 
@@ -129,6 +130,7 @@ describe("convertMinPrice / convertCost", () => {
     ["parts that do not add up", { grand_total: 125.82 }, "parts_do_not_add_up"],
     ["a pay-at-lot share", { due_at_location: 20 }, "pay_at_lot"],
     ["a nonzero discount", { discount: 5 }, "discount"],
+    ["a discount that is not a number", { discount: "5" as unknown as number }, "discount"],
     ["a missing amount", { tax_total: undefined as unknown as number }, "bad_amount"],
   ])("refuses %s", (_n, bad, reason) => {
     expect(convertMinPrice(minPrice(bad), RATE)).toEqual({ ok: false, reason });

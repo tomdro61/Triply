@@ -254,14 +254,42 @@ describe("GET /api/lots/quote — a lot ResLab prices in Canadian dollars", () =
     getChannelLocationsNoSweep.mockResolvedValue(null);
   });
 
-  it("no `fx` → the US path, untouched: no rate read, no list read, raw figures", async () => {
+  it.each([
+    ["no list is held", null],
+    ["the list says the lot is a US-dollar lot", [{ id: 275, currency: { code: "USD" }, country: { code: "US" } }]],
+    ["the list does not have the lot", [{ id: 1, currency: { code: "USD" } }]],
+  ])("no `fx`, %s → the US path: no rate read, one ResLab call, no location read, raw figures", async (_n, list) => {
+    getChannelLocationsNoSweep.mockResolvedValue(list);
     getMinPrice.mockResolvedValue(MIN_PRICE);
     const res = await GET(req());
     expect(res.status).toBe(200);
     expect((await res.json()).quote.grandTotal).toBe(55.2);
     expect(currentCadRate).not.toHaveBeenCalled();
-    expect(getChannelLocationsNoSweep).not.toHaveBeenCalled();
     expect(getMinPrice).toHaveBeenCalledTimes(1);
+    expect(getLocation).not.toHaveBeenCalled();
+  });
+
+  it("no `fx` but the list says the lot is priced in CAD → 409 price_changed, never ResLab's raw Canadian figures", async () => {
+    // The page did not know the lot is converted (e.g. it loaded before the rate was set).
+    getChannelLocationsNoSweep.mockResolvedValue([{ id: 330, currency: { code: "CAD" }, country: { code: "CA" }, parking_due_at_location: 0 }]);
+    getMinPrice.mockResolvedValue(CAD_MIN_PRICE);
+    const res = await GET(req({ lotId: "reslab-330" }));
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ code: "price_changed" });
+    expect(getMinPrice).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["no rate is set", { currency: { code: "CAD" }, country: { code: "CA" } }, null],
+    ["it collects at the lot", { currency: { code: "CAD" }, country: { code: "CA" }, parking_due_at_location: 1 }, RATE],
+    ["it is in Canada and states no currency", { country: { code: "CA" } }, RATE],
+    ["it is priced in a third currency", { currency: { code: "EUR" } }, RATE],
+  ])("no `fx` and the list says the lot is not sold (%s) → 404, ResLab never asked", async (_n, fields, rate) => {
+    currentCadRate.mockReturnValue(rate);
+    getChannelLocationsNoSweep.mockResolvedValue([{ id: 330, ...fields }]);
+    const res = await GET(req({ lotId: "reslab-330" }));
+    expect(res.status).toBe(404);
+    expect(getMinPrice).not.toHaveBeenCalled();
   });
 
   it("`fx` matching the current rate → the quote in US dollars, still one ResLab call", async () => {
@@ -279,10 +307,10 @@ describe("GET /api/lots/quote — a lot ResLab prices in Canadian dollars", () =
   it.each([
     ["the rate changed since the page loaded", { id: "r2", micros: 730_000 }],
     ["no rate is set", null],
-  ])("%s → 422, and ResLab is never asked", async (_n, rate) => {
+  ])("%s → 409 (the page is stale, the stay is still bookable), and ResLab is never asked", async (_n, rate) => {
     currentCadRate.mockReturnValue(rate);
     const res = await GET(req({ lotId: "reslab-330", fx: "r1" }));
-    expect(res.status).toBe(422);
+    expect(res.status).toBe(409);
     expect(await res.json()).toEqual({ code: "price_changed" });
     expect(getMinPrice).not.toHaveBeenCalled();
   });

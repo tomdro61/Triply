@@ -134,12 +134,11 @@ export async function GET(request: NextRequest) {
           },
         ]);
         // A lot ResLab prices in Canadian dollars (getLotById converted its
-        // pricing and named the rate): the cost is converted at that SAME
-        // rate, so the page's totals and its "from" price cannot disagree.
-        // No usable rate, or an answer that will not convert, lands in the
-        // catch below (reported; the page falls back to the lot's own pricing
-        // and gets no costsToken, so it cannot reach payment).
-        const costResponse = costInUsd(rawCost, lot.pricing.fxRateId);
+        // pricing and named the rate on the lot): the cost is converted at
+        // that SAME rate, so the page's totals and its "from" price cannot
+        // disagree. No usable rate, or an answer that will not convert,
+        // throws into the catch below.
+        const costResponse = costInUsd(rawCost, lot.fxRateId);
 
         const serviceFee = calculateServiceFee(
           costResponse.reservation.sub_total + costResponse.reservation.fees_total
@@ -156,7 +155,7 @@ export async function GET(request: NextRequest) {
           numberOfDays: costResponse.reservation.totals?.parking?.number_of_days,
           soldOut: costResponse.reservation.sold_out,
           parkingTypeId: lot.pricing.parkingTypes[0].id,
-          ...(lot.pricing.fxRateId ? { fxRateId: lot.pricing.fxRateId } : {}),
+          ...(lot.fxRateId ? { fxRateId: lot.fxRateId } : {}),
         };
       } catch (costError) {
         console.error("Error getting costs_token:", costError);
@@ -166,8 +165,17 @@ export async function GET(request: NextRequest) {
         // to create a PaymentIntent (no silent route into a failed checkout).
         captureAPIError(
           costError instanceof Error ? costError : new Error(String(costError)),
-          { endpoint: "/api/checkout/lot", method: "GET", statusCode: 502 }
+          { endpoint: "/api/checkout/lot", method: "GET", statusCode: 502, ...(lot.fxRateId && { stage: "converted_lot_cost_unavailable" }) }
         );
+        // A converted lot gets no display-only fallback: the customer would
+        // fill in the whole form and then be refused at Continue, every time.
+        // Told now, with the message the POST uses for the same condition.
+        if (lot.fxRateId) {
+          return NextResponse.json(
+            { error: "We couldn't load this lot's price right now. Please try again in a moment." },
+            { status: 503, headers: { "Cache-Control": "no-store" } }
+          );
+        }
         const fallbackServiceFee = lot.pricing
           ? calculateServiceFee((lot.pricing.subtotal || 0) + (lot.pricing.feesTotal || 0))
           : 0;
@@ -206,6 +214,11 @@ export async function GET(request: NextRequest) {
         parkingTypeId: null,
       };
     }
+
+    // Every figure a converted lot's page shows is US dollars at `lot.fxRateId`,
+    // whichever branch above built it: the page sends the id back with the
+    // payment request, and no protection plan is offered.
+    if (costData && lot.fxRateId) costData = { ...costData, fxRateId: lot.fxRateId };
 
     return NextResponse.json({
       lot,
@@ -540,6 +553,11 @@ export async function POST(request: NextRequest) {
       verifiedDueNow: chargeAmount,
       chargeCents,
       dueAtLocation,
+      // ResLab's total for the parking (before the service fee, any promo and
+      // any plan). The checkout page compares it with the total it loaded
+      // with: a part this response does not itemise (the long-stay discount)
+      // moves it while every part below stays the same.
+      grandTotal: reservation.grand_total,
       subtotal: reservation.sub_total,
       taxTotal: reservation.tax_total,
       feesTotal: reservation.fees_total,

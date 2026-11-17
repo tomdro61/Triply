@@ -9,18 +9,23 @@
  *     cent on 5 stays across 3 airports, 2026-10-22). /api/checkout/lot GET
  *     would cost three calls (/locations/{id}, min-price, /costs).
  *   - Direct lot: quoteDirectCheckout, the function checkout charges from.
- *   - A lot ResLab prices in Canadian dollars: the page sends `fx` (the rate id
- *     from the lot's own pricing) and the quote is converted to US dollars at
- *     that rate. No `fx` → exactly the path above, so a US lot's quote makes no
- *     extra read. The location list, when this instance holds it, overrules the
- *     page: a lot that is not sellable in CAD is refused. Display only either
- *     way — checkout decides the currency itself from ResLab.
+ *   - A lot ResLab prices in Canadian dollars: the page sends `fx` (the lot's
+ *     `fxRateId`) and the quote is converted to US dollars at that rate. The
+ *     location list this instance holds (no ResLab call) overrules the page
+ *     both ways: with `fx`, a lot that is not sold in CAD is not found; with
+ *     no `fx`, a lot that is not a US-dollar lot is never answered with
+ *     ResLab's raw figures. Display only — checkout decides the currency
+ *     itself from ResLab's own record.
  *
  *   200 { quote }  the price for this stay
  *   422 { code }   this stay can't be booked: reversed or beyond the booking
  *                  window (checked here, before any upstream call), or ResLab /
  *                  the direct lot said no (400/404/422) — expected, not reported
  *   404            no such lot
+ *   409 { code: "price_changed" }  the page's exchange rate is not the
+ *                  current one (or the page did not know the lot is
+ *                  converted): the page shows "total at checkout" and Reserve
+ *                  stays on — checkout prices at the current rate
  *   400            malformed request (not a real date or time)
  *   503            upstream unavailable — incl. ResLab auth failures and
  *                  timeouts; ResLab failures reported to Sentry, throttled
@@ -152,17 +157,29 @@ export async function GET(request: NextRequest) {
   if (isHiddenReslabLocation(locationId)) {
     return NextResponse.json({ error: "Lot not found" }, { status: 404, headers: NO_STORE });
   }
-  // A converted (Canadian-dollar) lot. The rate must be the one the page's
-  // price was converted with: after a rate change the page is stale, and the
-  // answer is "this stay can't be priced here" rather than a second rate.
+  // The lot's currency. The list this instance holds is asked first (memory or
+  // the shared snapshot — never a ResLab call), and overrules the page.
+  const listed = (await getChannelLocationsNoSweep())?.find((loc) => loc.id === locationId);
+  const listedCurrency = listed ? lotCurrency(listed) : null;
+  // The stay CAN be booked — the page is only out of date. 409, not 422: the
+  // box then says the total is shown at checkout and Reserve stays on.
+  const priceChanged = () => NextResponse.json({ code: "price_changed" }, { status: 409, headers: NO_STORE });
   let cadRate: FxRate | null = null;
   if (fx !== undefined) {
+    // A converted (Canadian-dollar) lot. The rate must be the one the page's
+    // price was converted with: after a rate change the page is stale, and it
+    // is never answered at a second rate.
     cadRate = currentCadRate();
-    if (cadRate === null || cadRate.id !== fx) return notBookable("price_changed");
-    const listed = (await getChannelLocationsNoSweep())?.find((loc) => loc.id === locationId);
-    if (listed && lotCurrency(listed).kind !== "cad") {
+    if (cadRate === null || cadRate.id !== fx) return priceChanged();
+    if (listedCurrency && listedCurrency.kind !== "cad") {
       return NextResponse.json({ error: "Lot not found" }, { status: 404, headers: NO_STORE });
     }
+  } else if (listedCurrency && listedCurrency.kind !== "usd") {
+    // No `fx`, but the lot is not a US-dollar lot: the raw figures below would
+    // be Canadian dollars shown under a "$".
+    return listedCurrency.kind === "cad"
+      ? priceChanged()
+      : NextResponse.json({ error: "Lot not found" }, { status: 404, headers: NO_STORE });
   }
   try {
     const minPrice = await reslab.getMinPrice(locationId, {

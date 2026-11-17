@@ -684,9 +684,41 @@ describe("POST /api/reservations/pending — the lot's currency against the Paym
     expect(capturePaymentError).not.toHaveBeenCalled();
   });
 
-  it("a ResLab read that fails still fails open (the before-capture check is the backstop)", async () => {
-    pi(CAD_STAMP);
+  it.each([
+    ["a USD stamp", { reslabCurrency: "USD" }],
+    ["no stamp", {}],
+  ])("the ResLab read fails with %s → still staged, exactly as before (the before-capture check is the backstop)", async (_n, stamp) => {
+    pi(stamp);
     reslabMock.getLocation.mockRejectedValue(new Error("429 Too Many Requests"));
     expect((await POST(req(body()))).status).toBe(200);
+    expect(db.tables.pending_bookings).toHaveLength(1);
+    expect(capturePaymentError).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a CAD stamp", CAD_STAMP],
+    ["an unusable stamp", { reslabCurrency: "CAD" }],
+  ])("the ResLab read fails with %s → 503 'try again', nothing staged: the off switch never depends on ResLab answering", async (_n, stamp) => {
+    pi(stamp);
+    reslabMock.getLocation.mockRejectedValue(new Error("429 Too Many Requests"));
+    const res = await POST(req(body()));
+    expect(res.status).toBe(503);
+    expect((await res.json()).error).toMatch(/couldn't confirm this lot's price.*not been charged/);
+    expect(db.tables.pending_bookings).toHaveLength(0);
+    expect(capturePaymentError).toHaveBeenCalledTimes(1);
+  });
+
+  it("the read succeeds but the lot's extra fields have an unexpected shape → the currency is still checked", async () => {
+    // The extra-fields check is skipped (fails open, as before); the currency check is not.
+    pi({ reslabCurrency: "USD" });
+    reslabMock.getLocation.mockResolvedValue({ ...CAD_LOT, extra_fields: { name: "x" } });
+    await expectRefused();
+  });
+
+  it("the read succeeds with no extra_fields key at all → the currency is still checked", async () => {
+    cadRate.value = null;
+    pi(CAD_STAMP);
+    reslabMock.getLocation.mockResolvedValue({ id: 42, currency: { code: "CAD" }, country: { code: "CA" } });
+    await expectRefused();
   });
 });

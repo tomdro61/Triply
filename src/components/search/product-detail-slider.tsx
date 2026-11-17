@@ -141,7 +141,7 @@ export function ProductDetailSlider({
     pricedCheckIn: checkIn,
     pricedCheckOut: checkOut,
     enabled: !bookingNotOpenYet,
-    fxRateId: lot.pricing?.fxRateId,
+    fxRateId: lot.fxRateId,
   });
   const shown = shownPrice(live, loadedView, price);
   const soldOutForStay = isUnavailable(live);

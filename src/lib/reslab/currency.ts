@@ -1,13 +1,12 @@
 /**
  * Which ResLab lots can be sold, in which currency, and the conversion of a
  * ResLab price for a lot priced in Canadian dollars.
- * Plan: notes/2026-11-17-canadian-lots-cad-usd-plan.md (wrapper repo).
  *
  * Imports nothing from search.ts: lib/booking may import this file
  * (no-reslab-list-in-booking.test.ts forbids the location list there).
  */
 import type { ReslabCostResponse, ReslabMinPriceResponse } from "./client";
-import { currentCadRate, toUsd, type FxRate, type FxStamp, type FxUnusable } from "@/lib/fx/cad-usd";
+import { currentCadRate, toUsd, type FxRate, type FxStamp, type FxUnusable, type ReslabMoneyParts } from "@/lib/fx/cad-usd";
 
 export type LotCurrency =
   /** Priced in US dollars: sold as is. */
@@ -30,7 +29,13 @@ interface CurrencyFields {
  * lost its currency would otherwise be sold one-for-one in US dollars (the
  * Nov 3, 2026 bug).
  */
-export function lotCurrency(location: CurrencyFields, now: Date = new Date()): LotCurrency {
+export function lotCurrency(
+  location: CurrencyFields,
+  now: Date = new Date(),
+  // The rate for new bookings. Left out, it is read from the setting
+  // (currentCadRate); tests pass one, or null for "no rate set".
+  cadRate: FxRate | null | undefined = undefined
+): LotCurrency {
   const code = (location.currency?.code ?? "").trim().toUpperCase();
   const inCanada = (location.country?.code ?? "").trim().toUpperCase() === "CA";
   if (code === "" || code === "USD") {
@@ -40,24 +45,28 @@ export function lotCurrency(location: CurrencyFields, now: Date = new Date()): L
   // The lot collects in Canadian dollars at the counter; a converted figure
   // would be an estimate shown as exact.
   if (location.parking_due_at_location) return { kind: "hidden", reason: "pay_at_lot" };
-  const rate = currentCadRate(now);
+  const rate = cadRate === undefined ? currentCadRate(now) : cadRate;
   return rate ? { kind: "cad", rate } : { kind: "hidden", reason: "no_rate" };
 }
 
-export function isSellableLocation(location: CurrencyFields, now: Date = new Date()): boolean {
-  return lotCurrency(location, now).kind !== "hidden";
+export function isSellableLocation(
+  location: CurrencyFields,
+  now: Date = new Date(),
+  cadRate: FxRate | null | undefined = undefined
+): boolean {
+  return lotCurrency(location, now, cadRate).kind !== "hidden";
 }
 
 /** The currency fields a lot's `pricing` reports. A converted lot's figures are US dollars. */
-export function pricingCurrencyFields(
-  location: CurrencyFields,
-  currency: LotCurrency
-): { currency: string; currencyCode: string; sourceCurrencyCode?: string; fxRateId?: string } {
-  if (currency.kind === "cad") {
-    return { currency: "$", currencyCode: "USD", sourceCurrencyCode: "CAD", fxRateId: currency.rate.id };
-  }
+export function pricingCurrencyFields(location: CurrencyFields, currency: LotCurrency): { currency: string; currencyCode: string } {
+  if (currency.kind === "cad") return { currency: "$", currencyCode: "USD" };
   const currencyCode = location.currency?.code || "USD";
   return { currency: currencyCode === "USD" ? "$" : currencyCode, currencyCode };
+}
+
+/** `lot.fxRateId` for a converted lot; nothing for a US lot (the key is absent, not undefined). */
+export function lotFxFields(currency: LotCurrency): { fxRateId?: string } {
+  return currency.kind === "cad" ? { fxRateId: currency.rate.id } : {};
 }
 
 /** Min-price data for a lot, converted when the lot is priced in CAD. null = no usable price. */
@@ -88,7 +97,7 @@ export type ConvertedPrice<T> = { ok: true; value: T } | { ok: false; reason: Fx
  *  - any pay-at-lot amount (collected in Canadian dollars).
  */
 function convertReservation(r: PriceReservation, rate: FxRate): ConvertedPrice<ConvertedReservation> {
-  if (typeof r?.discount === "number" && r.discount !== 0) return { ok: false, reason: "discount" };
+  if (r?.discount != null && r.discount !== 0) return { ok: false, reason: "discount" };
   const fx = toUsd(
     {
       subtotal: r?.sub_total,
@@ -161,4 +170,49 @@ export function stampedCurrencyProblem(stamp: FxStamp, lot: LotCurrency): string
     return lot.kind === "cad" ? null : `the PaymentIntent is stamped CAD but the lot is ${lot.kind === "usd" ? "priced in USD" : `not sold (${lot.reason})`}`;
   }
   return lot.kind === "usd" ? null : `the PaymentIntent has no conversion (${stamp.kind}) but the lot is ${lot.kind === "cad" ? "priced in CAD" : `not sold (${lot.reason})`}`;
+}
+
+// ---------------------------------------------------------------------------
+// A reservation's history, read ONE way
+// ---------------------------------------------------------------------------
+
+/** ResLab's `history[0]` money as its client types it. The body is untyped JSON, so every reader still checks. */
+export type HistoryAmount = number | null | undefined;
+export interface ReslabHistoryLike {
+  subtotal?: HistoryAmount;
+  total_fees?: HistoryAmount;
+  total_tax?: HistoryAmount;
+  long_term_discount?: HistoryAmount;
+  grand_total?: HistoryAmount;
+  due_at_location_total?: HistoryAmount;
+  location?: { currency?: { code?: unknown } | null } | null;
+}
+
+const asAmount = (v: unknown): number => (typeof v === "number" ? v : Number.NaN);
+
+/**
+ * A reservation history's money as `toUsd` input. The booking row
+ * (fromReslab) and the confirmation page (reslabHistoryMoney) both convert
+ * through this, so the same history always gives the same US figures or the
+ * same refusal. A missing long-stay discount or pay-at-lot amount is 0;
+ * anything else that is not a number is NaN, which toUsd refuses.
+ */
+export function historyMoneyParts(h: ReslabHistoryLike | null | undefined): ReslabMoneyParts {
+  return {
+    subtotal: asAmount(h?.subtotal),
+    feesTotal: asAmount(h?.total_fees),
+    taxTotal: asAmount(h?.total_tax),
+    longTermDiscount: h?.long_term_discount == null ? 0 : asAmount(h.long_term_discount),
+    grandTotal: asAmount(h?.grand_total),
+    dueAtLocation: h?.due_at_location_total == null ? 0 : asAmount(h.due_at_location_total),
+  };
+}
+
+/**
+ * A currency code as ResLab sent it on a reservation: trimmed and upper-cased,
+ * or null when there is none. NOT for deciding what to sell (lotCurrency): an
+ * unreadable code there must hide the lot, never read as "no currency".
+ */
+export function reslabCurrencyCode(v: unknown): string | null {
+  return typeof v === "string" && v.trim() !== "" ? v.trim().toUpperCase() : null;
 }

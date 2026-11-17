@@ -277,7 +277,7 @@ describe("POST /api/checkout/lot — ResLab body is unchanged except the explici
     expect(createPI.mock.calls[0][1]).not.toHaveProperty("directSurcharges");
   });
 
-  it("a lot priced in CAD (our Canadian lots) is 404 before any ResLab call or PaymentIntent — the charge is USD", async () => {
+  it("a lot priced in CAD (our Canadian lots) is 404 before the cost call or any PaymentIntent while no exchange rate is set", async () => {
     channel.data = [
       { id: 558, currency: { code: "CAD" } },
       { id: 42, currency: { code: "USD" } },
@@ -457,7 +457,7 @@ describe("promo lookup (extracted helper) — both branches", () => {
     expect(meta).not.toHaveProperty("fxRateMicros");
   });
 
-  it("a US lot whose page claims an exchange rate is refused as a stale page, before any ResLab call", async () => {
+  it("a US lot whose page claims an exchange rate is refused as a stale page, before the cost call or any PaymentIntent", async () => {
     getCost.mockClear();
     const res = await post(reslabBody({ fxRateId: "r1" }));
     expect(res.status).toBe(400);
@@ -788,15 +788,15 @@ describe("POST — a lot ResLab prices in Canadian dollars, once an exchange rat
       verifiedTotal: "97.16",
     });
     const body = await res.json();
-    expect(body).toMatchObject({ chargeCents: 9716, subtotal: 77.97, feesTotal: 3.9, taxTotal: 9.34, dueAtLocation: 0, costsToken: "tok-cad" });
+    expect(body).toMatchObject({ chargeCents: 9716, grandTotal: 91.21, subtotal: 77.97, feesTotal: 3.9, taxTotal: 9.34, dueAtLocation: 0, costsToken: "tok-cad" });
     // No Canadian-dollar figure reaches the response or the metadata.
-    expect(JSON.stringify([body, meta])).not.toMatch(/107\.55|125\.81|12\.88|5\.38/);
+    expect(JSON.stringify([body, meta])).not.toMatch(/107\.55|125\.81|12\.88|5\.38|10755|12581/);
   });
 
   it.each([
     ["the page sent no rate id (a page from before the lot was converted)", { fxRateId: undefined }],
     ["the page's rate is not the current one", { fxRateId: "r0" }],
-  ])("%s → stale-page refusal, no ResLab call, no PaymentIntent", async (_n, over) => {
+  ])("%s → stale-page refusal, no cost call, no PaymentIntent", async (_n, over) => {
     getCost.mockClear();
     const res = await post(cadBody(over));
     expect(res.status).toBe(400);
@@ -805,7 +805,7 @@ describe("POST — a lot ResLab prices in Canadian dollars, once an exchange rat
     expect(createPI).not.toHaveBeenCalled();
   });
 
-  it("a protection plan on a converted lot is refused before any ResLab call or PaymentIntent", async () => {
+  it("a protection plan on a converted lot is refused before the cost call or any PaymentIntent", async () => {
     getCost.mockClear();
     const res = await post(cadBody({ protectionPlanCode: "A" }));
     expect(res.status).toBe(400);
@@ -848,19 +848,19 @@ describe("GET /api/checkout/lot — a lot ResLab prices in Canadian dollars", ()
   const RATE = { id: "r1", micros: 725_000 };
   const get = () =>
     GET(new NextRequest("http://localhost/api/checkout/lot?lotId=reslab-330&checkin=2026-12-02&checkout=2026-12-10&checkinTime=10:00%20AM&checkoutTime=10:00%20AM"));
-  // What getLotById returns for a converted lot: US-dollar pricing naming its rate.
-  const convertedLot = (fxRateId: string | undefined) => ({
+  // What getLotById returns for a converted lot: US-dollar pricing, the rate named on the lot.
+  const convertedLot = (fxRateId: string | undefined, parkingTypes: { id: number }[] = [{ id: 7 }]) => ({
     id: "reslab-330",
     source: "reslab",
     reslabLocationId: 330,
+    ...(fxRateId ? { fxRateId } : {}),
     availability: "available",
     dueAtLocationAmount: 0,
     pricing: {
       minPrice: 10.23,
       currency: "$",
       currencyCode: "USD",
-      ...(fxRateId ? { sourceCurrencyCode: "CAD", fxRateId } : {}),
-      parkingTypes: [{ id: 7 }],
+      parkingTypes,
       grandTotal: 91.21,
       subtotal: 77.97,
       feesTotal: 3.9,
@@ -927,15 +927,32 @@ describe("GET /api/checkout/lot — a lot ResLab prices in Canadian dollars", ()
   it.each([
     ["the rate changed between pricing the lot and pricing the cost", () => { cadRate.value = { id: "r2", micros: 730_000 }; }],
     ["the cost will not convert", () => { getCost.mockResolvedValue({ ...CAD_COST, reservation: { ...CAD_COST.reservation, grand_total: 130 } }); }],
-  ])("%s → no costsToken (payment cannot start), reported, lot pricing shown", async (_n, arrange) => {
+    ["ResLab's cost call fails", () => { getCost.mockRejectedValue(new Error("ResLab 502")); }],
+  ])("%s → 503 with the retry message and no figures (never a display fallback the POST would then refuse), reported", async (_n, arrange) => {
     arrange();
+    const res = await get();
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.error).toMatch(/couldn't load this lot's price/);
+    expect(body).not.toHaveProperty("costData");
+    expect(vi.mocked(captureAPIError)).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ stage: "converted_lot_cost_unavailable" }));
+  });
+
+  it("a converted lot with no parking type still names its rate on the page's figures (so the POST's rate check sees it)", async () => {
+    getLotById.mockResolvedValue(convertedLot("r1", []));
+    const { costData } = await (await get()).json();
+    expect(costData).toMatchObject({ costsToken: null, grandTotal: 91.21, fxRateId: "r1" });
+    expect(getCost).not.toHaveBeenCalled();
+  });
+
+  it("a US lot whose cost call fails keeps the display fallback, exactly as before", async () => {
+    getLotById.mockResolvedValue(convertedLot(undefined));
+    getCost.mockRejectedValue(new Error("ResLab 502"));
     const res = await get();
     expect(res.status).toBe(200);
     const { costData } = await res.json();
-    expect(costData.costsToken).toBeNull();
-    expect(costData.grandTotal).toBe(91.21);
+    expect(costData).toMatchObject({ costsToken: null, grandTotal: 91.21 });
     expect(costData).not.toHaveProperty("fxRateId");
-    expect(vi.mocked(captureAPIError)).toHaveBeenCalled();
   });
 
   it("a US lot's cost is passed through untouched and carries no rate", async () => {

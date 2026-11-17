@@ -5,11 +5,13 @@
 -- Canadian dollars. Checkout charges in US dollars, so for those lots every
 -- ResLab figure is converted at ONE rate, fixed when the PaymentIntent is
 -- created and stamped on it (src/lib/fx/cad-usd.ts). These two columns keep
--- that rate with the booking, so the confirmation page and accounting convert
--- ResLab's live (Canadian-dollar) figures with the rate the customer was
--- charged at, never with today's.
+-- that rate with the booking, so the confirmation page converts ResLab's live
+-- (Canadian-dollar) figures with the rate the customer was charged at, never
+-- with today's. (Accounting does not read them yet.)
 --
---   reslab_currency  NULL  = a lot priced in US dollars: no conversion.
+--   reslab_currency  NULL  = no conversion: a lot priced in US dollars, or one
+--                            of the five pre-052 Canadian bookings not yet
+--                            marked (see fx_rate).
 --                    'CAD' = the money columns on this row are US dollars,
 --                            converted from Canadian dollars at fx_rate.
 --   fx_rate          US dollars per one Canadian dollar, exactly as stamped
@@ -19,7 +21,11 @@
 --
 -- Additive and nullable. The app writes the columns only for a converted lot
 -- (a conditional spread), so a US booking's insert is unchanged, and every
--- reader treats NULL as "no conversion". Safe to apply before the code ships.
+-- reader treats NULL as "no conversion".
+--
+-- MUST be applied BEFORE the code ships anywhere, a PR preview included
+-- (previews read the production database): /api/reservations/[id] selects
+-- these columns, and a select naming a missing column fails for EVERY booking.
 -- No backfill here.
 
 ALTER TABLE bookings
@@ -37,6 +43,6 @@ ALTER TABLE bookings
   );
 
 COMMENT ON COLUMN bookings.reslab_currency IS
-  'Currency ResLab prices the lot in when it is not USD (''CAD''). NULL = USD, no conversion. Migration 052.';
+  'Currency ResLab prices the lot in when it is not USD (''CAD''). NULL = no conversion (a USD lot, or a pre-052 booking not yet marked). Migration 052.';
 COMMENT ON COLUMN bookings.fx_rate IS
-  'US dollars per one unit of reslab_currency, as stamped on the PaymentIntent at checkout. NULL when reslab_currency is NULL. Migration 052.';
+  'US dollars per one unit of reslab_currency, as stamped on the PaymentIntent at checkout. 1.000000 = charged one-for-one before conversion existed (not stamped). NULL when reslab_currency is NULL. Migration 052.';

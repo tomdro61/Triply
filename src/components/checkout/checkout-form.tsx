@@ -52,6 +52,7 @@ import { checkoutExtraFields, extraFieldStepErrors } from "@/lib/booking/require
 import { VehicleSizeSelector } from "./vehicle-size-selector";
 import { TERMS_VERSION } from "@/lib/checkout/terms-acceptance";
 import { PARK_GUARD_ON_CONVERTED_LOTS } from "@/lib/fx/cad-usd";
+import { CONVERTED_DRIFT_FIELDS, DIRECT_DRIFT_FIELDS, pricedDifferently } from "@/lib/checkout/price-drift";
 import {
   atLotEstimate,
   initialVehicleChoice,
@@ -574,12 +575,7 @@ export function CheckoutForm({
         // rather than charge an amount the customer was never shown. Parking,
         // tax and the service fee are computed before any discount, so a
         // promo cannot move them; the promo is checked below, for both paths.
-        const toCents = (n: unknown): number => (typeof n === "number" ? Math.round(n * 100) : NaN);
-        const priceDrift =
-          toCents(data.subtotal) !== toCents(costData.subtotal) ||
-          toCents(data.taxTotal) !== toCents(costData.taxTotal) ||
-          toCents(data.serviceFee) !== toCents(costData.serviceFee);
-        if (priceDrift) {
+        if (pricedDifferently(costData, data, DIRECT_DRIFT_FIELDS)) {
           captureAPIError(new Error("Direct checkout PaymentIntent priced differently from the checkout page"), {
             endpoint: "/api/checkout/lot",
             method: "POST",
@@ -599,15 +595,9 @@ export function CheckoutForm({
         // A converted (Canadian-dollar) lot: the same rule as a direct lot.
         // The Pay button shows this page's figures; if the PaymentIntent was
         // priced differently (the lot's price moved since the page loaded),
-        // stop before the card is confirmed.
-        const toCents = (n: unknown): number => (typeof n === "number" ? Math.round(n * 100) : NaN);
-        const priceDrift =
-          toCents(data.subtotal) !== toCents(costData.subtotal) ||
-          toCents(data.feesTotal) !== toCents(costData.feesTotal) ||
-          toCents(data.taxTotal) !== toCents(costData.taxTotal) ||
-          toCents(data.serviceFee) !== toCents(costData.serviceFee) ||
-          toCents(data.dueAtLocation) !== toCents(costData.dueAtLocation);
-        if (priceDrift) {
+        // stop before the card is confirmed. Every part AND the total: a
+        // changed long-stay discount moves only the total.
+        if (pricedDifferently(costData, data, CONVERTED_DRIFT_FIELDS)) {
           captureAPIError(new Error("Converted-lot PaymentIntent priced differently from the checkout page"), {
             endpoint: "/api/checkout/lot",
             method: "POST",

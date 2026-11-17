@@ -42,6 +42,17 @@ describe("planLivePrice", () => {
     });
   });
 
+  it("a converted (Canadian-dollar) lot's quote carries its rate id; a US lot's has no such key", () => {
+    const converted = planLivePrice(input({ checkInTime: "10:00 AM", checkOutTime: "2:00 PM", fxRateId: "r1" }));
+    const us = planLivePrice(input({ checkInTime: "10:00 AM", checkOutTime: "2:00 PM" }));
+    expect(converted.kind === "fetch" && new URLSearchParams(converted.key).get("fx")).toBe("r1");
+    expect(us.kind === "fetch" && new URLSearchParams(us.key).has("fx")).toBe(false);
+  });
+
+  it("a stale rate (409 price_changed) shows 'total at checkout' and leaves Reserve on — never 'not available'", () => {
+    expect(settleQuote(409, { code: "price_changed" })).toEqual({ kind: "error" });
+  });
+
   it("each stay gets its own key", () => {
     const a = planLivePrice(input({ checkInTime: "8:00 AM", checkOutTime: "6:30 PM" }));
     const b = planLivePrice(input({ checkInTime: "8:00 AM", checkOutTime: "7:00 PM" }));

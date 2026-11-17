@@ -533,10 +533,10 @@ export async function persistBooking(
           protection_plan_price: charged.premium,
           protection_plan_wholesale: charged.plan.wholesalePrice,
         }),
-        // Migration 052. Written ONLY for a lot ResLab prices in Canadian
-        // dollars: the money columns above are US dollars at this rate (the
-        // one stamped on the PaymentIntent). A US lot's insert carries neither
-        // key, exactly as before the columns existed; NULL = no conversion.
+        // Migration 052. Written only when fulfilment converted with a
+        // CAD-stamped rate (fr.fx): the money columns above are US dollars at
+        // that rate. A US lot's insert carries neither key, exactly as before
+        // the columns existed; NULL = no conversion.
         ...(fr.source === "reslab" &&
           fr.fx && {
             reslab_currency: "CAD",

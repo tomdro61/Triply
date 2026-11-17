@@ -77,10 +77,9 @@ describe("toUsd", () => {
     // 10755 → 7797.375 → 7797; 538 → 390.05 → 390; 1288 → 933.8 → 934
     expect(r.usdCents).toEqual({ subtotal: 7797, feesTotal: 390, taxTotal: 934, longTermDiscount: 0, grandTotal: 9121, dueAtLocation: 0 });
     expect(r.usd.grandTotal).toBe(91.21);
-    expect(r.cadGrandTotalCents).toBe(12581);
   });
 
-  it("the derived total, not the converted CAD total, is what holds the sum (they can differ by a cent)", () => {
+  it("the derived total, not the converted CAD total, is what holds the sum (they can differ by up to two cents)", () => {
     // 12581 × 0.725 = 9121.225 → 9121 here; the property test below covers the cases that differ.
     const r = toUsd(parts(), RATE);
     if (!r.ok) throw new Error("unusable");
@@ -193,5 +192,30 @@ describe("the bookings.fx_rate column", () => {
   });
   it.each([[null], [undefined], [""], ["1.000000"], ["1.38"], ["0.7250001"], ["abc"], [1], ["0.4"]])("refuses %s", (v) => {
     expect(rateFromColumn(v)).toBeNull();
+  });
+});
+
+describe("toUsd — the rounding-edge guards", () => {
+  it("a CAD pay-at-lot amount one cent above the total is refused even when US rounding would hide it", () => {
+    // 10755/539/1289 → 7797 + 391 + 935 = 9123; due 12584 × 0.725 = 9123.4 → 9123 (not above in USD).
+    expect(toUsd(parts({ feesTotal: 5.39, taxTotal: 12.89, grandTotal: 125.83, dueAtLocation: 125.84 }), RATE)).toEqual({ ok: false, reason: "due_above_total" });
+  });
+  it("a pay-at-lot amount equal to the CAD total that rounds a cent above the derived US total is refused", () => {
+    // 7797 + 390 + 935 (1290 × 0.725 = 935.25) = 9122; due 12583 × 0.725 = 9122.675 → 9123.
+    expect(toUsd(parts({ taxTotal: 12.9, grandTotal: 125.83, dueAtLocation: 125.83 }), RATE)).toEqual({ ok: false, reason: "due_above_total" });
+  });
+  it("a zero CAD total whose discount rounds above its parts is refused, never a negative US total", () => {
+    // 2 × 0.7 = 1.4 → 1 (twice); 4 × 0.7 = 2.8 → 3: 1 + 1 − 3 = −1.
+    expect(
+      toUsd({ subtotal: 0.02, feesTotal: 0.02, taxTotal: 0, longTermDiscount: 0.04, grandTotal: 0, dueAtLocation: 0 }, { id: "x", micros: 700_000 })
+    ).toEqual({ ok: false, reason: "parts_do_not_add_up" });
+  });
+  it("a rate id longer than the schemas that carry it is not a usable rate", () => {
+    expect(isUsableRate({ id: "x".repeat(40), micros: 725_000 })).toBe(true);
+    expect(isUsableRate({ id: "x".repeat(41), micros: 725_000 })).toBe(false);
+  });
+  it("a micros value that is not exactly six digits, or a rate with seven decimals, is refused", () => {
+    expect(readFxStamp({ reslabCurrency: "CAD", fxRateId: "r", fxRateMicros: "0725000" })).toEqual({ kind: "invalid" });
+    expect(rateFromColumn("0.0725000")).toBeNull();
   });
 });

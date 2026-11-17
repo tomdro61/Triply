@@ -1,24 +1,29 @@
 /**
  * Canadian dollars → US dollars for ResLab lots priced in CAD (Toronto,
- * Montreal, Calgary, Ottawa). Plan: notes/2026-11-17-canadian-lots-cad-usd-plan.md.
+ * Montreal, Calgary, Ottawa).
  *
  * Rules this file exists to hold:
  *  - ONE rate per booking. It is chosen when the PaymentIntent is created,
- *    stamped on it, and every later reader (fulfilment, the confirmation page,
- *    accounting) converts with THAT rate — never with the current constant.
+ *    stamped on it, and fulfilment and the confirmation page convert with
+ *    THAT rate — never with the current constant. (Accounting does not read
+ *    it yet: its ResLab figures for a converted booking are still Canadian
+ *    dollars. Do not set a rate below until it does.)
  *  - The rate is a code constant, changed by a PR. No outside service sits on
  *    the money path, and the page, the charge and the booking cannot disagree.
  *  - Integer arithmetic only: cents × micro-rate ÷ 1,000,000, half-up.
  *  - Refuse, never repair: a ResLab answer whose parts do not add up to its
- *    total is "unusable", exactly as it is for a US lot.
- *  - Everything here is pure and never throws: `fromReslab` calls it after a
- *    reservation number is recorded, where a throw would strand a live booking.
+ *    total is refused before any charge (stricter than a US lot, whose parts
+ *    only the confirmation page's cost breakdown checks).
+ *  - toUsd, readFxStamp and the conversion helpers are pure and never throw:
+ *    `fromReslab` calls toUsd after a reservation number is recorded, where a
+ *    throw would strand a live booking.
  */
 
-/** US-dollar millionths per one Canadian dollar (0.725000 → 725_000). */
 export interface FxRate {
-  /** Names the rate; a checkout page sends it back so a rate change mid-checkout is refused. */
+  /** Names the rate; a checkout page sends it back so a rate change mid-checkout is refused.
+   *  A new rate MUST get a new id: the stale-page checks compare ids only. */
   id: string;
+  /** US-dollar millionths per one Canadian dollar (0.725000 → 725_000). */
   micros: number;
 }
 
@@ -29,9 +34,9 @@ interface FxRateSetting extends FxRate {
 }
 
 /**
- * The rate for NEW bookings. Not yet set: `validUntil` is in the past, so
- * `currentCadRate` returns null and Canadian lots stay hidden. The PR that puts
- * the lots on sale sets the real figure and date.
+ * The rate for NEW bookings. A `validUntil` in the past means no rate:
+ * `currentCadRate` returns null and Canadian lots are hidden everywhere.
+ * Setting a real figure and date here is what puts those lots on sale.
  */
 const CAD_USD: FxRateSetting = { id: "unset", micros: 700_000, validUntil: "2026-01-01" };
 
@@ -53,6 +58,8 @@ export function isUsableRate(rate: { id?: unknown; micros?: unknown } | null | u
     !!rate &&
     typeof rate.id === "string" &&
     rate.id.length > 0 &&
+    // The checkout and quote schemas cap the id they carry at 40 characters.
+    rate.id.length <= 40 &&
     typeof rate.micros === "number" &&
     Number.isSafeInteger(rate.micros) &&
     rate.micros > MIN_MICROS &&
@@ -107,7 +114,7 @@ export type FxUnusable =
   | "due_above_total";
 
 export type FxResult =
-  | { ok: true; usd: ReslabMoneyParts; usdCents: Record<keyof ReslabMoneyParts, number>; cadGrandTotalCents: number }
+  | { ok: true; usd: ReslabMoneyParts; usdCents: Record<keyof ReslabMoneyParts, number> }
   | { ok: false; reason: FxUnusable };
 
 /**
@@ -162,7 +169,6 @@ export function toUsd(cad: ReslabMoneyParts, rate: FxRate): FxResult {
       grandTotal: uGrand / 100,
       dueAtLocation: uDue / 100,
     },
-    cadGrandTotalCents: grand,
   };
 }
 

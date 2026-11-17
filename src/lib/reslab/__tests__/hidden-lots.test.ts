@@ -4,7 +4,6 @@ import {
   BLOCKED_RESLAB_LOCATION_IDS,
   hiddenReslabLocationIds,
   isHiddenReslabLocation,
-  isUsdPricedLocation,
 } from "@/lib/reslab/search";
 
 // ResLab's test lots (194–197) are real listings in the production channel.
@@ -50,16 +49,5 @@ describe("hiddenReslabLocationIds", () => {
   });
 });
 
-// ResLab prices our Canadian lots in CAD; checkout charged the number as USD
-// (5 bookings, Oct 18 – Nov 2, 2026). Those lots are not sold until checkout
-// converts.
-describe("isUsdPricedLocation", () => {
-  it("sells USD lots and lots with no currency (read as USD); hides CAD and any other currency", () => {
-    expect(isUsdPricedLocation({ currency: { code: "USD" } })).toBe(true);
-    expect(isUsdPricedLocation({ currency: { code: "usd" } })).toBe(true);
-    expect(isUsdPricedLocation({})).toBe(true);
-    expect(isUsdPricedLocation({ currency: null })).toBe(true);
-    expect(isUsdPricedLocation({ currency: { code: "CAD" } })).toBe(false);
-    expect(isUsdPricedLocation({ currency: { code: "EUR" } })).toBe(false);
-  });
-});
+// Which currencies are sold (and which lots are hidden for theirs) is one
+// rule now: lotCurrency / isSellableLocation, tested in currency.test.ts.

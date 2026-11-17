@@ -1937,6 +1937,17 @@ describe("ResLab booking on a lot priced in Canadian dollars (migration 052)", (
     expect(JSON.stringify(r)).not.toMatch(/107\.55|125\.81/);
   });
 
+  it("a long-stay discount and a pay-at-lot share on the reservation are converted too (never the Canadian figure)", async () => {
+    // CAD 200 + 10 − 20 + 26 = 216, 50 at the lot → USD 145 + 7.25 − 14.5 + 18.85 = 156.60, 36.25 at the lot.
+    h.state.detailRow = { data: row({ subtotal: "145.00", fees_total: "7.25", tax_total: "18.85", grand_total: "156.60", due_at_location: "36.25" }), error: null };
+    h.getReservation.mockResolvedValue(reservation({ subtotal: 200, total_fees: 10, total_tax: 26, long_term_discount: 20, grand_total: 216, due_at_location_total: 50 }));
+    h.retrievePi.mockResolvedValue(settledPi(15660 - 3625 + 595));
+    const { reservation: r } = await (await call(RTL)).json();
+    expect(r).toMatchObject({ subtotal: 145, feesTotal: 7.25, taxTotal: 18.85, dueAtLocation: 36.25 });
+    expect(r.fallbackDue).toEqual({ kind: "amount", cents: 3625 });
+    expect(r.costBreakdown).toMatchObject({ ok: true, paidOnlineCents: 15660 - 3625 + 595 });
+  });
+
   it("a booking charged one for one before conversion existed (no currency on the row, or marked rate 1) shows as it was charged", async () => {
     for (const legacy of [{ reslab_currency: null, fx_rate: null }, { reslab_currency: "CAD", fx_rate: "1.000000" }]) {
       h.state.detailRow = { data: row({ ...legacy, subtotal: "107.55", fees_total: "5.38", tax_total: "12.88", grand_total: "125.81" }), error: null };
