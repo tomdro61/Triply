@@ -38,7 +38,12 @@ interface FxRateSetting extends FxRate {
  * `currentCadRate` returns null and Canadian lots are hidden everywhere.
  * Setting a real figure and date here is what puts those lots on sale.
  */
-const CAD_USD: FxRateSetting = { id: "unset", micros: 700_000, validUntil: "2026-01-01" };
+// PREVIEW TEST ONLY: this branch is never merged. Not a real rate. It applies
+// only on a Vercel preview deployment, so unit tests and CI still see no rate.
+const CAD_USD: FxRateSetting =
+  process.env.VERCEL_ENV === "preview"
+    ? { id: "preview-test-a", micros: 720_000, validUntil: "2026-11-24" }
+    : { id: "unset", micros: 700_000, validUntil: "2026-01-01" };
 
 /**
  * Whether Park Guard protection is offered on a lot whose price we convert
