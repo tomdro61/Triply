@@ -156,6 +156,7 @@ export function BookingWidget({
     pricedCheckIn: initialCheckIn,
     pricedCheckOut: initialCheckOut,
     enabled: !bookingNotOpenYet,
+    fxRateId: lot.pricing?.fxRateId,
   });
   const shown = shownPrice(live, loadedView, price);
 

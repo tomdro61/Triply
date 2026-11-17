@@ -9,6 +9,12 @@
  *     cent on 5 stays across 3 airports, 2026-10-22). /api/checkout/lot GET
  *     would cost three calls (/locations/{id}, min-price, /costs).
  *   - Direct lot: quoteDirectCheckout, the function checkout charges from.
+ *   - A lot ResLab prices in Canadian dollars: the page sends `fx` (the rate id
+ *     from the lot's own pricing) and the quote is converted to US dollars at
+ *     that rate. No `fx` → exactly the path above, so a US lot's quote makes no
+ *     extra read. The location list, when this instance holds it, overrules the
+ *     page: a lot that is not sellable in CAD is refused. Display only either
+ *     way — checkout decides the currency itself from ResLab.
  *
  *   200 { quote }  the price for this stay
  *   422 { code }   this stay can't be booked: reversed or beyond the booking
@@ -22,7 +28,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { reslab, ReslabError } from "@/lib/reslab/client";
-import { isHiddenReslabLocation } from "@/lib/reslab/search";
+import { getChannelLocationsNoSweep, isHiddenReslabLocation } from "@/lib/reslab/search";
+import { convertMinPrice, lotCurrency } from "@/lib/reslab/currency";
+import { currentCadRate, type FxRate } from "@/lib/fx/cad-usd";
 import { quoteDirectCheckout } from "@/lib/direct/checkout-quote";
 import { isDirectCheckoutOpen } from "@/lib/direct/flag";
 import { parseDirectLotUnifiedId } from "@/lib/direct/store";
@@ -56,6 +64,7 @@ const querySchema = z.object({
   checkout: date,
   checkinTime: time,
   checkoutTime: time,
+  fx: z.string().min(1).max(40).optional(),
 });
 
 /** "YYYY-MM-DD" n days after today in UTC — a loose, timezone-safe bound
@@ -94,6 +103,7 @@ export async function GET(request: NextRequest) {
     checkout: sp.get("checkout") ?? undefined,
     checkinTime: sp.get("checkinTime") ?? undefined,
     checkoutTime: sp.get("checkoutTime") ?? undefined,
+    fx: sp.get("fx") ?? undefined,
   });
   if (!parsed.success) {
     // Our own page sends only picker values, so a 400 means page and server
@@ -104,7 +114,7 @@ export async function GET(request: NextRequest) {
     });
     return NextResponse.json({ error: issue?.message ?? "Invalid request" }, { status: 400, headers: NO_STORE });
   }
-  const { lotId, checkin, checkout, checkinTime, checkoutTime } = parsed.data;
+  const { lotId, checkin, checkout, checkinTime, checkoutTime, fx } = parsed.data;
   const fromDate = `${checkin} ${convertTo24Hour(checkinTime)}:00`;
   const toDate = `${checkout} ${convertTo24Hour(checkoutTime)}:00`;
   // Stays no customer can book, refused before any upstream call: ResLab
@@ -142,14 +152,39 @@ export async function GET(request: NextRequest) {
   if (isHiddenReslabLocation(locationId)) {
     return NextResponse.json({ error: "Lot not found" }, { status: 404, headers: NO_STORE });
   }
+  // A converted (Canadian-dollar) lot. The rate must be the one the page's
+  // price was converted with: after a rate change the page is stale, and the
+  // answer is "this stay can't be priced here" rather than a second rate.
+  let cadRate: FxRate | null = null;
+  if (fx !== undefined) {
+    cadRate = currentCadRate();
+    if (cadRate === null || cadRate.id !== fx) return notBookable("price_changed");
+    const listed = (await getChannelLocationsNoSweep())?.find((loc) => loc.id === locationId);
+    if (listed && lotCurrency(listed).kind !== "cad") {
+      return NextResponse.json({ error: "Lot not found" }, { status: 404, headers: NO_STORE });
+    }
+  }
   try {
-    const { reservation: r } = await reslab.getMinPrice(locationId, {
+    const minPrice = await reslab.getMinPrice(locationId, {
       type: "parking",
       reservation_type: "parking",
       from_date: fromDate,
       to_date: toDate,
       number_of_spots: 1,
     });
+    let r = minPrice.reservation;
+    if (cadRate !== null) {
+      const converted = convertMinPrice(minPrice, cadRate);
+      if (!converted.ok) {
+        captureThrottled(new Error(`ResLab min-price answer for lot ${locationId} could not be converted (${converted.reason})`), {
+          lotId,
+          fromDate,
+          toDate,
+        });
+        return NextResponse.json({ error: "Pricing is temporarily unavailable" }, { status: 503, headers: NO_STORE });
+      }
+      r = converted.value.reservation;
+    }
     const quote: LotQuote = {
       grandTotal: r.grand_total,
       subtotal: r.sub_total,

@@ -45,6 +45,10 @@ export interface LivePriceInput {
   pricedCheckOut: string;
   /** False for a direct lot not open for online booking (checkout refuses it). */
   enabled: boolean;
+  /** `lot.pricing.fxRateId`: set only for a lot ResLab prices in Canadian
+   *  dollars. Sent with the quote so it comes back in US dollars at the same
+   *  rate as the price already on the page. */
+  fxRateId?: string;
 }
 
 export type LivePricePlan =
@@ -77,6 +81,7 @@ export function planLivePrice(i: LivePriceInput): LivePricePlan {
     checkout: i.checkOut,
     checkinTime: i.checkInTime,
     checkoutTime: i.checkOutTime,
+    ...(i.fxRateId ? { fx: i.fxRateId } : {}),
   }).toString();
   return { kind: "fetch", key };
 }
