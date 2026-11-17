@@ -107,7 +107,7 @@ interface PaidRow {
   statement_attempts: number;
 }
 
-interface LineRow {
+export interface LineRow {
   stripe_payment_intent_id: string;
   kind: "payout" | "adjustment";
   amount_cents: number | string;
@@ -168,6 +168,30 @@ export function hashItems(items: StatementItem[], blocked: StatementView["blocke
     blocked: blocked.map((b) => `${b.piId || b.reservationNumber}:${b.reason}`).sort(),
   };
   return createHash("sha256").update(canonical(material)).digest("hex");
+}
+
+/** What a booking's ledger lines add up to, and whether its latest line was a person's decision. */
+export interface LinesSummary {
+  hasPayout: boolean;
+  sumCents: number;
+  count: number;
+  lastPersonBasis: Record<string, unknown> | null;
+}
+
+/** Lines must come oldest first (per booking), so the last one seen per booking is its latest. */
+export function summariseLines(lineRows: LineRow[]): Map<string, LinesSummary> {
+  const linesByPi = new Map<string, LinesSummary>();
+  for (const l of lineRows) {
+    const amount = Number(l.amount_cents); // BIGINT may arrive as a string; integer by construction
+    if (!Number.isSafeInteger(amount)) throw new Error(`ledger amount unreadable for ${l.stripe_payment_intent_id}`);
+    const cur = linesByPi.get(l.stripe_payment_intent_id) ?? { hasPayout: false, sumCents: 0, count: 0, lastPersonBasis: null };
+    cur.sumCents += amount;
+    cur.count += 1;
+    if (l.kind === "payout") cur.hasPayout = true;
+    cur.lastPersonBasis = l.decision === "manual" ? l.basis : null;
+    linesByPi.set(l.stripe_payment_intent_id, cur);
+  }
+  return linesByPi;
 }
 
 const wallClock = (v: string) => v.replace("T", " ").slice(0, 19);
@@ -239,18 +263,7 @@ export async function buildStatementView(opts: {
   if (paidRes.error) throw new Error(`statement read failed: ${paidRes.error.message}`);
 
   const terms = new Map(termsRows.map((t) => [t.stripe_payment_intent_id, t]));
-  // Lines come oldest first, so the last one seen per booking is its latest.
-  const linesByPi = new Map<string, { hasPayout: boolean; sumCents: number; count: number; lastPersonBasis: Record<string, unknown> | null }>();
-  for (const l of lineRows) {
-    const amount = Number(l.amount_cents); // BIGINT may arrive as a string; integer by construction
-    if (!Number.isSafeInteger(amount)) throw new Error(`ledger amount unreadable for ${l.stripe_payment_intent_id}`);
-    const cur = linesByPi.get(l.stripe_payment_intent_id) ?? { hasPayout: false, sumCents: 0, count: 0, lastPersonBasis: null };
-    cur.sumCents += amount;
-    cur.count += 1;
-    if (l.kind === "payout") cur.hasPayout = true;
-    cur.lastPersonBasis = l.decision === "manual" ? l.basis : null;
-    linesByPi.set(l.stripe_payment_intent_id, cur);
-  }
+  const linesByPi = summariseLines(lineRows);
 
   const lookbackFloor = minusDays(next, ADJUSTMENT_LOOKBACK_DAYS);
   const blocked: StatementView["blocked"] = [];

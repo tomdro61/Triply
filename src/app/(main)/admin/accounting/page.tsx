@@ -17,6 +17,7 @@ import {
   Percent,
 } from "lucide-react";
 import { DirectPayoutsSection } from "@/components/admin/direct-payouts-section";
+import { AllLotsSummary, DirectBookingsTable } from "@/components/admin/accounting-all-lots";
 import type {
   DateField,
   BookingDetail,
@@ -241,7 +242,8 @@ export default function AccountingPage() {
     setError(null);
     setResult(null);
     try {
-      const params = new URLSearchParams({ from, to, by });
+      // direct=1: also work out the profit on each direct-lot booking (this page only).
+      const params = new URLSearchParams({ from, to, by, direct: "1" });
       if (invoiceInput.trim()) params.set("invoice", invoiceInput.trim());
       const res = await fetch(`/api/admin/accounting?${params.toString()}`);
       if (!res.ok) {
@@ -387,36 +389,26 @@ export default function AccountingPage() {
           <>
             {/* === REPORTING HEADLINES === */}
             <h2 className="text-sm uppercase font-semibold text-gray-500 tracking-wider mb-3">Reporting</h2>
-            {result.direct.count > 0 && (
-              // Direct-lot bookings (Triply's own lots, no ResLab) are NOT in the
-              // figures below; their payouts are in the Triply lots section. Never hidden.
-              // Only Stripe's own figure is called "charged"; an estimate never is.
-              <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                <strong>Direct lots:</strong> {result.direct.count} booking{result.direct.count === 1 ? "" : "s"} ({result.direct.confirmed} confirmed
-                · {result.direct.refunded} refunded · {result.direct.cancelled} cancelled) —{" "}
-                {result.direct.grossOnlineChargeIsDerived
-                  ? `about ${usd(result.direct.grossOnlineCharge)} online (estimated from the booking rows, not read from Stripe)`
-                  : `${usd(result.direct.grossOnlineCharge)} charged online`}. Not included in the figures below; lot payouts are in the Triply lots section at the bottom of this page.
-                {result.direct.stripeErrors.length > 0 && ` ${result.direct.stripeErrors.length} Stripe read error(s).`}
-              </div>
-            )}
+            {/* ResLab lots, direct lots and the two together. Everything below it is ResLab lots only. */}
+            <AllLotsSummary result={result} />
+            <h2 className="text-sm uppercase font-semibold text-gray-500 tracking-wider mb-3">ResLab lots</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <HeadlineCard
-                title="Total bookings"
+                title="ResLab bookings"
                 value={String(result.counts.total)}
                 sub={`${result.counts.confirmed} confirmed · ${result.counts.refunded} refunded · ${result.counts.cancelled} cancelled${result.counts.testExcluded > 0 ? ` · ${result.counts.testExcluded} test excl.` : ""}${result.counts.stagingExcluded > 0 ? ` · ${result.counts.stagingExcluded} staging excl. (${result.stagingExcludedReservations.join(", ")})` : ""}`}
                 icon={Receipt}
                 accent="blue"
               />
               <HeadlineCard
-                title="Gross revenue"
+                title="Gross revenue, ResLab lots"
                 value={usd(result.grossCustomerSpend)}
                 sub="booking value before promo discounts — parking + service fee + Park Guard (incl. due-at-lot)"
                 icon={TrendingUp}
                 accent="purple"
               />
               <HeadlineCard
-                title="Triply revenue (gross)"
+                title="Triply revenue, ResLab lots (gross)"
                 value={result.triplyNet.total !== null ? usd(result.triplyNet.total) : "—"}
                 sub={
                   result.triplyNet.totalReason
@@ -1005,7 +997,7 @@ export default function AccountingPage() {
             {/* === PER-BOOKING TABLE === */}
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="font-semibold text-gray-900">Per-booking detail</h3>
+                <h3 className="font-semibold text-gray-900">ResLab lots — per-booking detail</h3>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -1065,6 +1057,7 @@ export default function AccountingPage() {
                 <p className="px-6 py-12 text-center text-gray-500">No bookings in this window.</p>
               )}
             </div>
+            <DirectBookingsTable result={result} csvFilename={csvFilename.replace(/\.csv$/, "-direct-lots.csv")} />
           </>
         )}
 

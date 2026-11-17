@@ -687,6 +687,49 @@ describe("reconcileRevenue — direct lots + recorded livemode", () => {
     });
   });
 
+  it("the direct detail is worked out only when asked for; other callers get no extra read", async () => {
+    registerLivePI("pi_real");
+    registerReservation("RTL_REAL");
+    pushRow("RTL_REAL", "pi_real", { inventory_source: "reslab", livemode: true });
+    registerLivePI("pi_direct", 5595);
+    pushDirect("TRP-ABCD1234", "pi_direct");
+    const { createAdminClient } = await import("@/lib/supabase/server");
+    vi.mocked(createAdminClient).mockClear();
+
+    const r = await reconcileRevenue(OPTS);
+
+    expect(r.direct.detail).toBeUndefined();
+    // One client, for the bookings read: the dashboard, /admin/numbers and
+    // /admin/blog-bookings call this same function and must stay as they were.
+    expect(vi.mocked(createAdminClient)).toHaveBeenCalledTimes(1);
+  });
+
+  it("a failed direct-detail read is reported in the result and never breaks the ResLab report", async () => {
+    registerLivePI("pi_real");
+    registerReservation("RTL_REAL");
+    pushRow("RTL_REAL", "pi_real", { inventory_source: "reslab", livemode: true });
+    registerLivePI("pi_direct", 5595);
+    pushDirect("TRP-ABCD1234", "pi_direct");
+
+    // This file's Supabase stand-in has no `.in()`: the detail's reads throw.
+    const r = await reconcileRevenue({ ...OPTS, includeDirectDetail: true });
+
+    expect(r.direct.detail).toEqual({ error: expect.stringContaining("could not be worked out") });
+    expect(r.triplyNet.total).toBe(22);
+    expect(r.direct.grossOnlineCharge).toBe(55.95);
+    expect(r.bookings.map((b) => b.reslab_reservation_number)).toEqual(["RTL_REAL"]);
+  });
+
+  it("with no direct rows the detail is empty and reads nothing", async () => {
+    registerLivePI("pi_real");
+    registerReservation("RTL_REAL");
+    pushRow("RTL_REAL", "pi_real", { inventory_source: "reslab", livemode: true });
+
+    const r = await reconcileRevenue({ ...OPTS, includeDirectDetail: true });
+
+    expect(r.direct.detail).toMatchObject({ bookings: [] });
+  });
+
   it("a month of ONLY direct rows never calls ResLab (not even to authenticate)", async () => {
     registerLivePI("pi_d1", 5595);
     pushDirect("TRP-ONLY0001", "pi_d1");

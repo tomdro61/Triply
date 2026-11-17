@@ -217,16 +217,19 @@ export function classifyPayout(b: PayoutBookingInput): PayoutClass {
  *            received (a released hold, which Stripe reports as "refunded") = $0.
  *   manual   null — a person has not decided what the lot is owed yet.
  * null also when a figure it needs is unknown; unknown is never $0.
+ * `owedCents`: what the ledger says the lot was paid for this booking, when it
+ * has been paid (the accounting report); default = what the rules say is due.
  */
-export function directMargin(cls: PayoutClass, stripeFeeCents: number | null): number | null {
+export function directMargin(cls: PayoutClass, stripeFeeCents: number | null, owedCents?: number): number | null {
   if (cls.kind === "manual") return null;
   const b = cls.basis;
+  const owed = owedCents ?? cls.amountCents;
   if (b.amountReceivedCents === null || b.amountRefundedCents === null || b.pgWholesaleCents === null) return null;
-  if (cls.kind === "zero" && b.amountReceivedCents === 0) return 0;
+  if (cls.kind === "zero" && b.amountReceivedCents === 0) return 0 - owed;
   if (stripeFeeCents === null) return null;
   const triplyTax = cls.kind === "payable" && b.taxCollectedBy === "triply" ? b.taxCents : 0;
   if (triplyTax === null) return null;
-  return b.amountReceivedCents - b.amountRefundedCents - cls.amountCents - stripeFeeCents - b.pgWholesaleCents - triplyTax;
+  return b.amountReceivedCents - b.amountRefundedCents - owed - stripeFeeCents - b.pgWholesaleCents - triplyTax;
 }
 
 /** ": won, needs_response" from "id:status:amount,…" — for the admin's reason text. */
