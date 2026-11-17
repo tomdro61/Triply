@@ -18,11 +18,22 @@ const { lookup, createPI, getLotById, getCost, getLocation, promoSingle, promoEq
   promoEq: vi.fn(),
   // The ResLab location list the instance holds, which the POST reads for the
   // lot's currency; `fails` = no list held (getChannelLocationsNoSweep → null).
-  channel: { data: [] as { id: number; currency?: { code: string } }[], fails: false },
+  channel: {
+    data: [] as { id: number; currency?: { code: string }; country?: { code: string }; parking_due_at_location?: number }[],
+    fails: false,
+  },
 }));
 vi.mock("@/lib/reslab/search", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/reslab/search")>()),
   getChannelLocationsNoSweep: async () => (channel.fails ? null : channel.data),
+}));
+
+// The exchange rate for lots priced in Canadian dollars: none (today's state)
+// unless a test sets one.
+const { cadRate } = vi.hoisted(() => ({ cadRate: { value: null as { id: string; micros: number } | null } }));
+vi.mock("@/lib/fx/cad-usd", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/fx/cad-usd")>()),
+  currentCadRate: () => cadRate.value,
 }));
 
 vi.mock("@/lib/direct/flag", async (importOriginal) =>
@@ -114,6 +125,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   channel.data = [];
   channel.fails = false;
+  cadRate.value = null;
   // A lot missing from the list is read on its own: USD unless a test says otherwise.
   getLocation.mockImplementation(async (id: number) => ({ id, currency: { code: "USD" } }));
   vi.useFakeTimers({ toFake: ["Date"] });
@@ -417,7 +429,7 @@ describe("promo lookup (extracted helper) — both branches", () => {
     });
   });
 
-  it("ResLab: no promo → 55 + 5.95 = 60.95, metadata = the old keys + inventorySource only", async () => {
+  it("ResLab: no promo → 55 + 5.95 = 60.95, metadata = the old keys + inventorySource + the lot's currency only", async () => {
     await post(reslabBody());
     const [amount, meta] = createPI.mock.calls[0];
     expect(amount).toBe(60.95);
@@ -434,10 +446,24 @@ describe("promo lookup (extracted helper) — both branches", () => {
         "parkingOnlyChargeAmount",
         "parkingOnlyChargeAmountCents",
         "parkingTypeId",
+        "reslabCurrency",
         "serviceFee",
         "verifiedTotal",
       ].sort()
     );
+    // Every ResLab PaymentIntent says its lot's currency; a US lot carries no rate.
+    expect(meta.reslabCurrency).toBe("USD");
+    expect(meta).not.toHaveProperty("fxRateId");
+    expect(meta).not.toHaveProperty("fxRateMicros");
+  });
+
+  it("a US lot whose page claims an exchange rate is refused as a stale page, before any ResLab call", async () => {
+    getCost.mockClear();
+    const res = await post(reslabBody({ fxRateId: "r1" }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe("checkout_stale");
+    expect(getCost).not.toHaveBeenCalled();
+    expect(createPI).not.toHaveBeenCalled();
   });
 
   /** The ResLab stamp must pass the reader the pending route and Step 8 run. */
@@ -706,5 +732,217 @@ describe("POST direct — production guard asserts the CODE, not just 503", () =
     expect(res.status).toBe(503);
     expect(await res.json()).toMatchObject({ code: "direct_not_bookable_yet" });
     expect(lookup).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST — a lot ResLab prices in Canadian dollars, once an exchange rate is set", () => {
+  const RATE = { id: "r1", micros: 725_000 };
+  // Montreal, 8 days, in CAD (a real October booking's figures).
+  const CAD_COST = {
+    costs_token: "tok-cad",
+    reservation: {
+      sold_out: false,
+      sub_total: 107.55,
+      fees_total: 5.38,
+      tax_total: 12.88,
+      long_term_discount: 0,
+      discount: 0,
+      grand_total: 125.81,
+      due_at_location: 0,
+      totals: { parking: { number_of_days: 8, sub_total: 107.55 } },
+    },
+  };
+  const cadBody = (over: Record<string, unknown> = {}) => ({
+    lotId: "reslab-330",
+    locationId: 330,
+    checkin: "2026-12-02",
+    checkout: "2026-12-10",
+    checkinTime: "10:00 AM",
+    checkoutTime: "10:00 AM",
+    parkingTypeId: 7,
+    customerEmail: "ada@example.com",
+    protectionPlanCode: null,
+    termsVersion: TERMS_VERSION,
+    fxRateId: "r1",
+    ...over,
+  });
+  beforeEach(() => {
+    cadRate.value = RATE;
+    channel.data = [{ id: 330, currency: { code: "CAD" }, country: { code: "CA" }, parking_due_at_location: 0 }];
+    getCost.mockResolvedValue(CAD_COST);
+  });
+
+  it("charges the converted US-dollar figure and stamps the currency and the rate", async () => {
+    const res = await post(cadBody());
+    expect(res.status).toBe(200);
+    const [amount, meta] = createPI.mock.calls[0];
+    // 107.55 + 5.38 + 12.88 CAD → 77.97 + 3.90 + 9.34 = 91.21 USD; service fee max(5.95, 6% of 81.87) = 5.95.
+    expect(amount).toBe(97.16);
+    expect(meta).toMatchObject({
+      inventorySource: "reslab",
+      reslabCurrency: "CAD",
+      fxRateId: "r1",
+      fxRateMicros: "725000",
+      parkingOnlyChargeAmountCents: "9716",
+      serviceFee: "5.95",
+      verifiedTotal: "97.16",
+    });
+    const body = await res.json();
+    expect(body).toMatchObject({ chargeCents: 9716, subtotal: 77.97, feesTotal: 3.9, taxTotal: 9.34, dueAtLocation: 0, costsToken: "tok-cad" });
+    // No Canadian-dollar figure reaches the response or the metadata.
+    expect(JSON.stringify([body, meta])).not.toMatch(/107\.55|125\.81|12\.88|5\.38/);
+  });
+
+  it.each([
+    ["the page sent no rate id (a page from before the lot was converted)", { fxRateId: undefined }],
+    ["the page's rate is not the current one", { fxRateId: "r0" }],
+  ])("%s → stale-page refusal, no ResLab call, no PaymentIntent", async (_n, over) => {
+    getCost.mockClear();
+    const res = await post(cadBody(over));
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe("checkout_stale");
+    expect(getCost).not.toHaveBeenCalled();
+    expect(createPI).not.toHaveBeenCalled();
+  });
+
+  it("a protection plan on a converted lot is refused before any ResLab call or PaymentIntent", async () => {
+    getCost.mockClear();
+    const res = await post(cadBody({ protectionPlanCode: "A" }));
+    expect(res.status).toBe(400);
+    expect(getCost).not.toHaveBeenCalled();
+    expect(createPI).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["parts that do not add up", { grand_total: 130 }, "parts_do_not_add_up"],
+    ["a pay-at-lot share", { due_at_location: 20 }, "pay_at_lot"],
+    ["a nonzero discount", { discount: 3 }, "discount"],
+  ])("a cost with %s is refused (503, reported), never repaired or charged", async (_n, bad, reason) => {
+    getCost.mockResolvedValue({ ...CAD_COST, reservation: { ...CAD_COST.reservation, ...bad } });
+    const res = await post(cadBody());
+    expect(res.status).toBe(503);
+    expect(createPI).not.toHaveBeenCalled();
+    const report = vi.mocked(captureAPIError).mock.calls.find((c) => (c[1] as { stage?: string }).stage === "cost_unconvertible");
+    expect(String(report?.[0])).toContain(reason);
+  });
+
+  it("a Canadian lot that collects at the lot, or whose record lost its currency, is 404", async () => {
+    channel.data = [{ id: 330, currency: { code: "CAD" }, country: { code: "CA" }, parking_due_at_location: 1 }];
+    expect((await post(cadBody())).status).toBe(404);
+    channel.data = [{ id: 330, country: { code: "CA" } }];
+    expect((await post(cadBody({ fxRateId: undefined }))).status).toBe(404);
+    expect(createPI).not.toHaveBeenCalled();
+  });
+
+  it("a promo code discounts the converted figure", async () => {
+    const res = await post(cadBody({ promoCode: "TEN" }));
+    expect(res.status).toBe(200);
+    const [amount, meta] = createPI.mock.calls[0];
+    // 10% of the converted subtotal 77.97 = 7.80 → 97.16 − 7.80.
+    expect(amount).toBe(89.36);
+    expect(meta.reslabCurrency).toBe("CAD");
+  });
+});
+
+describe("GET /api/checkout/lot — a lot ResLab prices in Canadian dollars", () => {
+  const RATE = { id: "r1", micros: 725_000 };
+  const get = () =>
+    GET(new NextRequest("http://localhost/api/checkout/lot?lotId=reslab-330&checkin=2026-12-02&checkout=2026-12-10&checkinTime=10:00%20AM&checkoutTime=10:00%20AM"));
+  // What getLotById returns for a converted lot: US-dollar pricing naming its rate.
+  const convertedLot = (fxRateId: string | undefined) => ({
+    id: "reslab-330",
+    source: "reslab",
+    reslabLocationId: 330,
+    availability: "available",
+    dueAtLocationAmount: 0,
+    pricing: {
+      minPrice: 10.23,
+      currency: "$",
+      currencyCode: "USD",
+      ...(fxRateId ? { sourceCurrencyCode: "CAD", fxRateId } : {}),
+      parkingTypes: [{ id: 7 }],
+      grandTotal: 91.21,
+      subtotal: 77.97,
+      feesTotal: 3.9,
+      taxTotal: 9.34,
+      numberOfDays: 8,
+    },
+  });
+  const CAD_COST = {
+    costs_token: "tok-cad",
+    reservation: {
+      sold_out: false,
+      sub_total: 107.55,
+      fees_total: 5.38,
+      tax_total: 12.88,
+      long_term_discount: 0,
+      discount: 0,
+      grand_total: 125.81,
+      due_at_location: 0,
+      totals: { parking: { number_of_days: 8, sub_total: 107.55 } },
+    },
+  };
+  beforeEach(() => {
+    cadRate.value = RATE;
+    getLotById.mockResolvedValue(convertedLot("r1"));
+    getCost.mockResolvedValue(CAD_COST);
+  });
+
+  it("the page's totals are US dollars at the lot's own rate, and name that rate", async () => {
+    const res = await get();
+    expect(res.status).toBe(200);
+    const { costData } = await res.json();
+    expect(costData).toMatchObject({
+      costsToken: "tok-cad",
+      subtotal: 77.97,
+      feesTotal: 3.9,
+      taxTotal: 9.34,
+      grandTotal: 91.21,
+      serviceFee: 5.95,
+      dueAtLocation: 0,
+      dueNow: 97.16,
+      fxRateId: "r1",
+    });
+  });
+
+  it("GET's dueNow equals what POST charges for the same answer", async () => {
+    const { costData } = await (await get()).json();
+    channel.data = [{ id: 330, currency: { code: "CAD" }, country: { code: "CA" }, parking_due_at_location: 0 }];
+    const res = await post({
+      lotId: "reslab-330",
+      locationId: 330,
+      checkin: "2026-12-02",
+      checkout: "2026-12-10",
+      checkinTime: "10:00 AM",
+      checkoutTime: "10:00 AM",
+      parkingTypeId: 7,
+      customerEmail: "ada@example.com",
+      protectionPlanCode: null,
+      fxRateId: costData.fxRateId,
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json()).chargeCents).toBe(Math.round(costData.dueNow * 100));
+  });
+
+  it.each([
+    ["the rate changed between pricing the lot and pricing the cost", () => { cadRate.value = { id: "r2", micros: 730_000 }; }],
+    ["the cost will not convert", () => { getCost.mockResolvedValue({ ...CAD_COST, reservation: { ...CAD_COST.reservation, grand_total: 130 } }); }],
+  ])("%s → no costsToken (payment cannot start), reported, lot pricing shown", async (_n, arrange) => {
+    arrange();
+    const res = await get();
+    expect(res.status).toBe(200);
+    const { costData } = await res.json();
+    expect(costData.costsToken).toBeNull();
+    expect(costData.grandTotal).toBe(91.21);
+    expect(costData).not.toHaveProperty("fxRateId");
+    expect(vi.mocked(captureAPIError)).toHaveBeenCalled();
+  });
+
+  it("a US lot's cost is passed through untouched and carries no rate", async () => {
+    getLotById.mockResolvedValue(convertedLot(undefined));
+    getCost.mockResolvedValue({ costs_token: "tok", reservation: { sold_out: false, sub_total: 50, fees_total: 0, tax_total: 5, grand_total: 55, due_at_location: 0 } });
+    const { costData } = await (await get()).json();
+    expect(costData).toMatchObject({ grandTotal: 55, subtotal: 50, dueNow: 60.95, costsToken: "tok" });
+    expect(costData).not.toHaveProperty("fxRateId");
   });
 });

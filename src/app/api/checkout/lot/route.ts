@@ -4,9 +4,10 @@ import {
   getChannelLocationsNoSweep,
   isHiddenReslabLocation,
   isLocationBackoffError,
-  isUsdPricedLocation,
 } from "@/lib/reslab/search";
 import { reslab, ReslabError } from "@/lib/reslab/client";
+import { convertCost, lotCurrency, type LotCurrency } from "@/lib/reslab/currency";
+import { currentCadRate, fxStampMetadata, PARK_GUARD_ON_CONVERTED_LOTS } from "@/lib/fx/cad-usd";
 import { createPaymentIntent } from "@/lib/stripe/client";
 import { z } from "zod";
 import { convertTo24Hour } from "@/lib/utils/time";
@@ -122,7 +123,7 @@ export async function GET(request: NextRequest) {
     let costData = null;
     if (lot.reslabLocationId && lot.pricing?.parkingTypes?.[0]?.id) {
       try {
-        const costResponse = await reslab.getCost(lot.reslabLocationId, [
+        const rawCost = await reslab.getCost(lot.reslabLocationId, [
           {
             type: "parking",
             reservation_type: "parking",
@@ -132,6 +133,13 @@ export async function GET(request: NextRequest) {
             number_of_spots: 1,
           },
         ]);
+        // A lot ResLab prices in Canadian dollars (getLotById converted its
+        // pricing and named the rate): the cost is converted at that SAME
+        // rate, so the page's totals and its "from" price cannot disagree.
+        // No usable rate, or an answer that will not convert, lands in the
+        // catch below (reported; the page falls back to the lot's own pricing
+        // and gets no costsToken, so it cannot reach payment).
+        const costResponse = costInUsd(rawCost, lot.pricing.fxRateId);
 
         const serviceFee = calculateServiceFee(
           costResponse.reservation.sub_total + costResponse.reservation.fees_total
@@ -148,6 +156,7 @@ export async function GET(request: NextRequest) {
           numberOfDays: costResponse.reservation.totals?.parking?.number_of_days,
           soldOut: costResponse.reservation.sold_out,
           parkingTypeId: lot.pricing.parkingTypes[0].id,
+          ...(lot.pricing.fxRateId ? { fxRateId: lot.pricing.fxRateId } : {}),
         };
       } catch (costError) {
         console.error("Error getting costs_token:", costError);
@@ -258,7 +267,29 @@ const checkoutPostSchema = z.object({
   // PaymentIntent only if known (dispute evidence quotes it). Optional: a tab
   // opened before versioning sends none.
   termsVersion: z.string().max(32).optional(),
+  // The exchange-rate id the checkout page's prices were converted with
+  // (`costData.fxRateId`): sent only for a lot ResLab prices in Canadian
+  // dollars. A different current rate means the page's figures are stale.
+  fxRateId: z.string().min(1).max(40).optional(),
 });
+
+type ReslabCost = Awaited<ReturnType<typeof reslab.getCost>>;
+
+/**
+ * A cost answer in US dollars. `fxRateId` undefined = a US lot: returned as is
+ * (the same object). Otherwise converted at the current rate, which must be the
+ * one named. Throws when it is not, or when the answer will not convert.
+ */
+function costInUsd(cost: ReslabCost, fxRateId: string | undefined): ReslabCost {
+  if (fxRateId === undefined) return cost;
+  const rate = currentCadRate();
+  if (rate === null || rate.id !== fxRateId) {
+    throw new Error(`Exchange rate ${fxRateId} is no longer current (now ${rate?.id ?? "none"})`);
+  }
+  const converted = convertCost(cost, rate);
+  if (!converted.ok) throw new Error(`ResLab cost could not be converted (${converted.reason})`);
+  return converted.value;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -295,6 +326,7 @@ export async function POST(request: NextRequest) {
       promoCode,
       protectionPlanCode,
       termsVersion,
+      fxRateId,
     } = result.data;
     if (promoFromStalePage(promoCode, promoPricing)) {
       return NextResponse.json({ error: STALE_CHECKOUT_MESSAGE, code: "checkout_stale" }, { status: 400 });
@@ -305,18 +337,31 @@ export async function POST(request: NextRequest) {
     if (isHiddenReslabLocation(locationId)) {
       return NextResponse.json({ error: "Lot not found" }, { status: 404 });
     }
-    // Same for a lot not priced in USD (our Canadian lots, isUsdPricedLocation):
-    // the charge below is USD with no conversion. Fails CLOSED — a stale
-    // checkout or a hand-built POST never reaches the GET's 404.
+    // The lot's currency, read from ResLab's own record, never from the
+    // page. Fails CLOSED: a lot we cannot sell in US dollars (a third
+    // currency, Canadian dollars while no rate is set, a Canadian lot that
+    // collects at the lot) is not found; an unreadable currency is refused.
     const currency = await reslabLotCurrency(locationId);
-    if (currency === "not_usd") {
-      return NextResponse.json({ error: "Lot not found" }, { status: 404 });
-    }
     if (currency === "unverified") {
       return NextResponse.json(
         { error: "We couldn't load this lot's price right now. Please try again in a moment." },
         { status: 503, headers: { "Cache-Control": "no-store" } }
       );
+    }
+    if (currency.kind === "hidden") {
+      return NextResponse.json({ error: "Lot not found" }, { status: 404 });
+    }
+    // The page's prices must have been converted at the rate this charge will
+    // use (and a US lot's page must not claim a rate). Otherwise the Pay
+    // button would show one figure and the card be charged another: refused
+    // BEFORE any PaymentIntent, with the reload message.
+    if ((currency.kind === "cad" ? currency.rate.id : undefined) !== fxRateId) {
+      return NextResponse.json({ error: STALE_CHECKOUT_MESSAGE, code: "checkout_stale" }, { status: 400 });
+    }
+    // Park Guard is not offered on a converted lot (see the constant). The
+    // page hides the plans; this is the rule.
+    if (currency.kind === "cad" && !PARK_GUARD_ON_CONVERTED_LOTS && protectionPlanCode !== null) {
+      return NextResponse.json({ error: STALE_CHECKOUT_MESSAGE, code: "checkout_stale" }, { status: 400 });
     }
 
     // The promo code BEFORE the price: a lookup that fails creates no
@@ -332,7 +377,7 @@ export async function POST(request: NextRequest) {
     const toDate = `${checkout} ${checkoutTime24}:00`;
 
     // Get verified cost from ResLab server-side
-    const costResponse = await reslab.getCost(locationId, [
+    const rawCostResponse = await reslab.getCost(locationId, [
       {
         type: "parking",
         reservation_type: "parking",
@@ -343,11 +388,31 @@ export async function POST(request: NextRequest) {
       },
     ]);
 
-    if (costResponse.reservation.sold_out) {
+    if (rawCostResponse.reservation.sold_out) {
       return NextResponse.json(
         { error: "This parking option is sold out" },
         { status: 409 }
       );
+    }
+
+    // Canadian dollars to US dollars at the rate checked above. Every figure
+    // below (service fee, promo, the charge, the metadata) is US dollars. An
+    // answer that will not convert (parts that do not add up, a pay-at-lot
+    // share) is refused like an unusable cost, never repaired.
+    let costResponse = rawCostResponse;
+    if (currency.kind === "cad") {
+      const converted = convertCost(rawCostResponse, currency.rate);
+      if (!converted.ok) {
+        captureAPIError(
+          new Error(`ResLab cost for location ${locationId} could not be converted to USD (${converted.reason})`),
+          { endpoint: "/api/checkout/lot", method: "POST", stage: "cost_unconvertible" }
+        );
+        return NextResponse.json(
+          { error: "We couldn't load this lot's price right now. Please try again in a moment." },
+          { status: 503, headers: { "Cache-Control": "no-store" } }
+        );
+      }
+      costResponse = converted.value;
     }
 
     const reservation = costResponse.reservation;
@@ -384,7 +449,7 @@ export async function POST(request: NextRequest) {
               parkingCents: Math.round((reservation.sub_total + reservation.fees_total) * 100),
               percentBaseCents: Math.round(reservation.sub_total * 100),
               onlineParkingCents,
-              // reslabLotCurrency refused anything but USD above.
+              // US dollars: a US lot, or a Canadian-dollar lot converted above.
               currency: "USD",
             })
           )
@@ -460,6 +525,11 @@ export async function POST(request: NextRequest) {
       // Explicit on both branches (A-28): readers select the inventory adapter
       // from this, never from the absence of a direct key.
       inventorySource: "reslab",
+      // The lot's currency, on EVERY ResLab PaymentIntent, plus the exchange
+      // rate for a converted lot. Fulfilment converts with THIS rate, never
+      // the current one; a missing stamp only ever means "created before
+      // the stamp existed".
+      ...fxStampMetadata(currency.kind === "cad" ? currency.rate : null),
     }, termsVersion);
 
     return NextResponse.json({
@@ -491,18 +561,18 @@ export async function POST(request: NextRequest) {
 
 
 /**
- * Whether a ResLab lot is priced in USD: the channel list this instance
+ * A ResLab lot's currency (lotCurrency): the channel list this instance
  * already holds first (getChannelLocationsNoSweep never calls ResLab — never
  * the 54-page sweep while a customer waits to pay); no list, or the lot not in
  * it → one /locations/{id} read. "unverified" when that fails too — the caller
  * refuses rather than charge an unknown currency as USD.
  */
-async function reslabLotCurrency(locationId: number): Promise<"usd" | "not_usd" | "unverified"> {
+async function reslabLotCurrency(locationId: number): Promise<LotCurrency | "unverified"> {
   const listed = (await getChannelLocationsNoSweep())?.find((loc) => loc.id === locationId);
-  if (listed) return isUsdPricedLocation(listed) ? "usd" : "not_usd";
+  if (listed) return lotCurrency(listed);
   try {
     const location = await reslab.getLocation(locationId);
-    return isUsdPricedLocation(location) ? "usd" : "not_usd";
+    return lotCurrency(location);
   } catch (error) {
     captureAPIError(error instanceof Error ? error : new Error(String(error)), {
       endpoint: "/api/checkout/lot",

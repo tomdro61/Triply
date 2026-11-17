@@ -56,6 +56,9 @@ interface StripePaymentFormProps {
   /** null = customer hasn't picked yet (Pay Now stays disabled). A tier code
    *  or "none" once they have. */
   protectionPlanChoice: ProtectionChoice | null;
+  /** No protection plan is offered for this lot: the selector is not shown
+   *  (the parent has already answered "none"). */
+  protectionHidden?: boolean;
   onProtectionPlanChange: (choice: ProtectionChoice) => void;
   protectionPlanUpdating?: boolean;
   /**
@@ -100,6 +103,7 @@ export function StripePaymentForm({
   submitError,
   dueAtLocation = false,
   protectionPlanChoice,
+  protectionHidden = false,
   onProtectionPlanChange,
   protectionPlanUpdating = false,
   protectionChoiceError = null,
@@ -380,16 +384,19 @@ export function StripePaymentForm({
       {/* Vehicle size — direct lots with surcharges only; gates Pay Now (R8) */}
       {renderVehicleSize?.(processing)}
 
-      {/* Parking Protection — required tier / no-protection pick, gates Pay Now */}
-      <ProtectionPlan
-        value={protectionPlanChoice}
-        onChange={onProtectionPlanChange}
-        isUpdating={protectionPlanUpdating}
-        // Lock during Stripe confirmPayment so the customer can't change the
-        // pick mid-charge (would 409 the update-pi endpoint).
-        disabled={processing}
-        choiceError={protectionChoiceError}
-      />
+      {/* Parking Protection — required tier / no-protection pick, gates Pay Now.
+          Not shown for a lot that offers no plan (the answer is already "none"). */}
+      {!protectionHidden && (
+        <ProtectionPlan
+          value={protectionPlanChoice}
+          onChange={onProtectionPlanChange}
+          isUpdating={protectionPlanUpdating}
+          // Lock during Stripe confirmPayment so the customer can't change the
+          // pick mid-charge (would 409 the update-pi endpoint).
+          disabled={processing}
+          choiceError={protectionChoiceError}
+        />
+      )}
 
       {/* Payment Element could not be refreshed with the new total */}
       {elementsSyncError && (

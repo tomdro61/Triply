@@ -35,6 +35,14 @@ interface FxRateSetting extends FxRate {
  */
 const CAD_USD: FxRateSetting = { id: "unset", micros: 700_000, validUntil: "2026-01-01" };
 
+/**
+ * Whether Park Guard protection is offered on a lot whose price we convert
+ * (today: lots in Canada). Off until Park Guard confirms a plan applies to a
+ * vehicle parked in Canada. Enforced in the checkout POST and /update-pi; the
+ * checkout page hides the selector from the same constant.
+ */
+export const PARK_GUARD_ON_CONVERTED_LOTS = false;
+
 const MICROS = 1_000_000;
 /** 0.5 < rate < 1.0 — also catches a rate entered upside down (USD→CAD is above 1). */
 const MIN_MICROS = 500_000;
