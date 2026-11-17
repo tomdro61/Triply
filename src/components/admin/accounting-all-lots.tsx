@@ -139,7 +139,7 @@ export function AllLotsSummary({ result }: { result: ReconcileResult }) {
       {result.stripe.isDerived && <p className="mt-3 text-xs text-amber-800">≈ ResLab lots: collected online is partly estimated from the booking rows, not read from Stripe.</p>}
       {waiting > 0 && (
         <p className="mt-3 text-xs text-amber-800">
-          {waiting} direct booking{waiting === 1 ? " has" : "s have"} no figure yet and {waiting === 1 ? "is" : "are"} left out of the revenue, Stripe fees and net cash rows (a payment that was read is still in &quot;Collected online&quot;). See &quot;Direct lots — per booking&quot; below for the reason on each.
+          {waiting} direct booking{waiting === 1 ? " has" : "s have"} no figure yet and {waiting === 1 ? "is" : "are"} left out of the revenue, Stripe fees and net cash rows (a payment that was read is still in &quot;Collected online&quot;, unless the booking is disputed). See &quot;Direct lots — per booking&quot; below for the reason on each.
         </p>
       )}
       {direct.stripeErrors.length > 0 && <p className="mt-3 text-xs text-amber-800">{direct.stripeErrors.length} direct booking payment{direct.stripeErrors.length === 1 ? "" : "s"} could not be read from Stripe.</p>}
@@ -235,6 +235,11 @@ export function DirectBookingsTable({ result, csvFilename }: { result: Reconcile
               <td className="px-4 py-2 text-right font-mono">
                 <DirectCell sum={t.collected} />
                 <div className="text-xs font-normal text-gray-500">after refunds</div>
+                {t.collected.of < detail.bookings.length && (
+                  <div className="text-xs font-normal text-gray-500">
+                    not counting {detail.bookings.length - t.collected.of} disputed booking{detail.bookings.length - t.collected.of === 1 ? "" : "s"}
+                  </div>
+                )}
               </td>
               <td className="px-4 py-2 text-right font-mono">
                 <DirectCell sum={t.owedToLots} />

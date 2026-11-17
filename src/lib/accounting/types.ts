@@ -94,7 +94,7 @@ export interface DirectBookingDetail {
 export interface DirectDetail {
   bookings: DirectBookingDetail[];
   totals: {
-    /** Received − refunded, over confirmed, refunded and cancelled bookings (the ResLab column's scope). */
+    /** Received − refunded, over confirmed, refunded and cancelled bookings: a disputed booking is left out, as in the ResLab column. `of` counts only those bookings. */
     collected: DirectSum;
     /** Over the same bookings as `net` (those with a full figure), so gross − stripeFees = net. */
     owedToLots: DirectSum;

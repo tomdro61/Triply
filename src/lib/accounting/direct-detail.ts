@@ -58,9 +58,11 @@ const IN_CHUNK = 100;
 const PAGE = 1_000;
 const DB_TIMEOUT_MS = 10_000;
 /**
- * All three reads together may take this long. They run after the report's
- * ResLab and Stripe reads inside one 60 s request: past the budget the detail
- * is given up (the caller reports it) so the ResLab report still returns.
+ * The three reads share this budget, counted from when the detail starts: no
+ * request is started after it, and a request in flight is aborted at it. They
+ * run after the report's ResLab and Stripe reads inside one 60 s request, so
+ * this bounds what the detail adds; it cannot make up for a report that was
+ * already close to the limit.
  */
 export const DETAIL_BUDGET_MS = 12_000;
 
@@ -203,8 +205,9 @@ function sum(rows: DirectBookingDetail[], pick: (r: DirectBookingDetail) => numb
 
 export function directTotals(rows: DirectBookingDetail[]): DirectDetail["totals"] {
   return {
-    // Confirmed, refunded and cancelled bookings only, like the ResLab column's Stripe figure:
-    // a disputed booking's money is in neither.
+    // Confirmed, refunded and cancelled bookings only: a disputed booking's money is left out,
+    // as it is from the ResLab column's Stripe figure. (That figure also skips "cancelled" rows,
+    // which hold no captured money on the ResLab side; here a cancelled row counts what it kept.)
     collected: sum(rows.filter((r) => COLLECTED_STATUSES.has(r.status)), (r) =>
       r.receivedCents === null || r.refundedCents === null ? null : r.receivedCents - r.refundedCents
     ),
@@ -228,7 +231,7 @@ export async function buildDirectDetail(
   if (rows.length === 0) return { bookings: [], totals: directTotals([]) };
   const supabase = await createAdminClient();
   const deadline = Date.now() + DETAIL_BUDGET_MS;
-  const signal = () => AbortSignal.timeout(DB_TIMEOUT_MS);
+  const signal = () => AbortSignal.timeout(Math.max(1, Math.min(DB_TIMEOUT_MS, deadline - Date.now())));
   const ids = rows.map((r) => r.id);
   const pis = [...new Set(rows.map((r) => r.stripe_payment_intent_id).filter((p): p is string => !!p))];
 

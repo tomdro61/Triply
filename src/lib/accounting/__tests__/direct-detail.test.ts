@@ -223,6 +223,22 @@ describe("buildDirectDetail", () => {
     }
   });
 
+  it("a request in flight is aborted at the budget, not 10 s later", async () => {
+    db.seed("bookings", [extra()]).seed("direct_booking_terms", [terms()]);
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    const now = vi.spyOn(Date, "now");
+    try {
+      // 2 s of the budget left when the requests are built.
+      now.mockReturnValueOnce(1_000_000).mockReturnValue(1_000_000 + DETAIL_BUDGET_MS - 2_000);
+      await buildDirectDetail([row()], [read()], "n/a");
+      expect(timeout.mock.calls.length).toBeGreaterThanOrEqual(3);
+      for (const [ms] of timeout.mock.calls) expect(ms).toBe(2_000);
+    } finally {
+      now.mockRestore();
+      timeout.mockRestore();
+    }
+  });
+
   it("a ledger amount that is not an integer throws", async () => {
     db.seed("bookings", [extra()]).seed("direct_booking_terms", [terms()]);
     db.seed("direct_lot_payout_lines", [{ id: "l1", created_at: "2026-11-01T00:00:00Z", stripe_payment_intent_id: "pi_1", kind: "payout", amount_cents: "38.21", decision: "auto", basis: {} }]);
