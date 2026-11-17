@@ -172,7 +172,7 @@ export async function GET(request: NextRequest) {
         // Told now, with the message the POST uses for the same condition.
         if (lot.fxRateId) {
           return NextResponse.json(
-            { error: "We couldn't load this lot's price right now. Please try again in a moment." },
+            { error: "We couldn't load this lot's price right now. Please try again later." },
             { status: 503, headers: { "Cache-Control": "no-store" } }
           );
         }
@@ -215,10 +215,21 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    // Every figure a converted lot's page shows is US dollars at `lot.fxRateId`,
-    // whichever branch above built it: the page sends the id back with the
-    // payment request, and no protection plan is offered.
-    if (costData && lot.fxRateId) costData = { ...costData, fxRateId: lot.fxRateId };
+    if (lot.fxRateId) {
+      // A converted lot is only ever shown a checkout whose figures came from
+      // a converted cost (a costsToken). Without one — the lot loaded with no
+      // price, or has no parking type — the page would show an estimate (or
+      // $0) and refuse at Continue, every time: told now instead.
+      if (!costData?.costsToken) {
+        return NextResponse.json(
+          { error: "We couldn't load this lot's price right now. Please try again later." },
+          { status: 503, headers: { "Cache-Control": "no-store" } }
+        );
+      }
+      // Its figures are US dollars at `lot.fxRateId`: the page sends the id
+      // back with the payment request, and no protection plan is offered.
+      costData = { ...costData, fxRateId: lot.fxRateId };
+    }
 
     return NextResponse.json({
       lot,

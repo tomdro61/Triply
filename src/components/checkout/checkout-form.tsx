@@ -122,7 +122,7 @@ export function CheckoutForm({
   // or the PaymentIntent, so a change needs no network call.
   const isDirect = lot.source === "direct";
   // Park Guard is not offered on a lot whose price we convert (Canada).
-  const protectionHidden = !PARK_GUARD_ON_CONVERTED_LOTS && !!costData?.fxRateId;
+  const protectionHidden = !PARK_GUARD_ON_CONVERTED_LOTS && !!(costData?.fxRateId || lot.fxRateId);
   const [directTerms, setDirectTerms] = useState<DirectCheckoutTerms | null>(
     isDirect ? (costData?.direct ?? null) : null
   );

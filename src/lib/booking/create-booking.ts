@@ -2021,8 +2021,9 @@ async function fulfilClaimed(
   // stamp below. A payment that is already captured (Link always is) has no
   // hold left to keep: it books, the problem is reported per PaymentIntent,
   // and the reservation's figures — known to be in the wrong currency — are
-  // NOT written anywhere: the row, the emails and the response fall back to
-  // the checkout page's figures, which are what the card was charged.
+  // NOT written anywhere: the row and the emails fall back to the checkout
+  // page's figures, which are what the card was charged. (The create
+  // response's `dueNow`, which nothing reads, then leaves out the parking.)
   const currencyProblem = currencyMismatch(fxStamp, fr);
   if (currencyProblem) {
     const detail = `reservation currency check failed before capture: ${currencyProblem}`;

@@ -11,11 +11,15 @@
  *   - Direct lot: quoteDirectCheckout, the function checkout charges from.
  *   - A lot ResLab prices in Canadian dollars: the page sends `fx` (the lot's
  *     `fxRateId`) and the quote is converted to US dollars at that rate. The
- *     location list this instance holds (no ResLab call) overrules the page
- *     both ways: with `fx`, a lot that is not sold in CAD is not found; with
- *     no `fx`, a lot that is not a US-dollar lot is never answered with
- *     ResLab's raw figures. Display only — checkout decides the currency
- *     itself from ResLab's own record.
+ *     location list this instance holds (never a ResLab call) overrules the
+ *     page both ways: with `fx`, a lot that is not sold in CAD is not found;
+ *     with no `fx`, a lot the list knows is not a US-dollar lot is not
+ *     answered with ResLab's raw figures (and is reported: our own pages
+ *     always send `fx` for such a lot). A request without `fx` only looks at
+ *     the list already in memory, so a US lot's quote never waits on a list
+ *     read; when this instance holds no list, such a request is answered as
+ *     before. Display only — checkout decides the currency itself from
+ *     ResLab's own record.
  *
  *   200 { quote }  the price for this stay
  *   422 { code }   this stay can't be booked: reversed or beyond the booking
@@ -33,7 +37,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { reslab, ReslabError } from "@/lib/reslab/client";
-import { getChannelLocationsNoSweep, isHiddenReslabLocation } from "@/lib/reslab/search";
+import { getChannelLocationsNoSweep, isHiddenReslabLocation, peekChannelLocations } from "@/lib/reslab/search";
 import { convertMinPrice, lotCurrency } from "@/lib/reslab/currency";
 import { currentCadRate, type FxRate } from "@/lib/fx/cad-usd";
 import { quoteDirectCheckout } from "@/lib/direct/checkout-quote";
@@ -157,9 +161,12 @@ export async function GET(request: NextRequest) {
   if (isHiddenReslabLocation(locationId)) {
     return NextResponse.json({ error: "Lot not found" }, { status: 404, headers: NO_STORE });
   }
-  // The lot's currency. The list this instance holds is asked first (memory or
-  // the shared snapshot — never a ResLab call), and overrules the page.
-  const listed = (await getChannelLocationsNoSweep())?.find((loc) => loc.id === locationId);
+  // The lot's currency, from the list this instance holds (never a ResLab
+  // call); it overrules the page. With `fx` the list is warmed from the
+  // shared snapshot if need be. Without it — every US-dollar lot's quote —
+  // only what is already in memory is looked at: nothing is awaited.
+  const list = fx !== undefined ? await getChannelLocationsNoSweep() : peekChannelLocations();
+  const listed = list?.find((loc) => loc.id === locationId);
   const listedCurrency = listed ? lotCurrency(listed) : null;
   // The stay CAN be booked — the page is only out of date. 409, not 422: the
   // box then says the total is shown at checkout and Reserve stays on.
@@ -176,7 +183,12 @@ export async function GET(request: NextRequest) {
     }
   } else if (listedCurrency && listedCurrency.kind !== "usd") {
     // No `fx`, but the lot is not a US-dollar lot: the raw figures below would
-    // be Canadian dollars shown under a "$".
+    // be Canadian dollars shown under a "$". Our own pages send `fx` for
+    // every converted lot (lot.fxRateId), so this is the page and the server
+    // disagreeing: reported, like the 400 above.
+    captureThrottled(new Error(`/api/lots/quote: lot ${locationId} is ${listedCurrency.kind === "cad" ? "priced in CAD" : `not sold (${listedCurrency.reason})`} but the request carried no fx`), {
+      lotId,
+    });
     return listedCurrency.kind === "cad"
       ? priceChanged()
       : NextResponse.json({ error: "Lot not found" }, { status: 404, headers: NO_STORE });

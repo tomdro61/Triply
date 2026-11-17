@@ -27,9 +27,12 @@ vi.mock("@/lib/reslab/client", async (importOriginal) => ({
 }));
 // The exchange rate and the in-memory location list: real by default (no rate
 // is set, no list is held), switched per test for the Canadian-dollar path.
-const { currentCadRate, getChannelLocationsNoSweep } = vi.hoisted(() => ({
+// `getChannelLocationsNoSweep` may read the shared snapshot (a wait);
+// `peekChannelLocations` only looks at what is already in memory.
+const { currentCadRate, getChannelLocationsNoSweep, peekChannelLocations } = vi.hoisted(() => ({
   currentCadRate: vi.fn(),
   getChannelLocationsNoSweep: vi.fn(),
+  peekChannelLocations: vi.fn(),
 }));
 vi.mock("@/lib/fx/cad-usd", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/fx/cad-usd")>()),
@@ -38,6 +41,7 @@ vi.mock("@/lib/fx/cad-usd", async (importOriginal) => ({
 vi.mock("@/lib/reslab/search", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/reslab/search")>()),
   getChannelLocationsNoSweep,
+  peekChannelLocations,
 }));
 const { captureAPIError } = vi.hoisted(() => ({ captureAPIError: vi.fn() }));
 vi.mock("@/lib/sentry", () => ({ captureAPIError }));
@@ -252,14 +256,15 @@ describe("GET /api/lots/quote — a lot ResLab prices in Canadian dollars", () =
   beforeEach(() => {
     currentCadRate.mockReturnValue(RATE);
     getChannelLocationsNoSweep.mockResolvedValue(null);
+    peekChannelLocations.mockReturnValue(null);
   });
 
   it.each([
     ["no list is held", null],
     ["the list says the lot is a US-dollar lot", [{ id: 275, currency: { code: "USD" }, country: { code: "US" } }]],
     ["the list does not have the lot", [{ id: 1, currency: { code: "USD" } }]],
-  ])("no `fx`, %s → the US path: no rate read, one ResLab call, no location read, raw figures", async (_n, list) => {
-    getChannelLocationsNoSweep.mockResolvedValue(list);
+  ])("no `fx`, %s → the US path: no rate read, one ResLab call, and NO wait on a list read (memory only)", async (_n, list) => {
+    peekChannelLocations.mockReturnValue(list);
     getMinPrice.mockResolvedValue(MIN_PRICE);
     const res = await GET(req());
     expect(res.status).toBe(200);
@@ -267,16 +272,22 @@ describe("GET /api/lots/quote — a lot ResLab prices in Canadian dollars", () =
     expect(currentCadRate).not.toHaveBeenCalled();
     expect(getMinPrice).toHaveBeenCalledTimes(1);
     expect(getLocation).not.toHaveBeenCalled();
+    // The snapshot-warming read is never awaited for a quote without `fx`.
+    expect(getChannelLocationsNoSweep).not.toHaveBeenCalled();
+    expect(captureAPIError).not.toHaveBeenCalled();
   });
 
   it("no `fx` but the list says the lot is priced in CAD → 409 price_changed, never ResLab's raw Canadian figures", async () => {
     // The page did not know the lot is converted (e.g. it loaded before the rate was set).
-    getChannelLocationsNoSweep.mockResolvedValue([{ id: 330, currency: { code: "CAD" }, country: { code: "CA" }, parking_due_at_location: 0 }]);
+    peekChannelLocations.mockReturnValue([{ id: 330, currency: { code: "CAD" }, country: { code: "CA" }, parking_due_at_location: 0 }]);
     getMinPrice.mockResolvedValue(CAD_MIN_PRICE);
     const res = await GET(req({ lotId: "reslab-330" }));
     expect(res.status).toBe(409);
     expect(await res.json()).toEqual({ code: "price_changed" });
     expect(getMinPrice).not.toHaveBeenCalled();
+    // Our pages always send `fx` for a converted lot: this is page and server disagreeing, so it is reported.
+    expect(captureAPIError).toHaveBeenCalledTimes(1);
+    expect(String(captureAPIError.mock.calls[0][0])).toMatch(/priced in CAD but the request carried no fx/);
   });
 
   it.each([
@@ -286,7 +297,7 @@ describe("GET /api/lots/quote — a lot ResLab prices in Canadian dollars", () =
     ["it is priced in a third currency", { currency: { code: "EUR" } }, RATE],
   ])("no `fx` and the list says the lot is not sold (%s) → 404, ResLab never asked", async (_n, fields, rate) => {
     currentCadRate.mockReturnValue(rate);
-    getChannelLocationsNoSweep.mockResolvedValue([{ id: 330, ...fields }]);
+    peekChannelLocations.mockReturnValue([{ id: 330, ...fields }]);
     const res = await GET(req({ lotId: "reslab-330" }));
     expect(res.status).toBe(404);
     expect(getMinPrice).not.toHaveBeenCalled();

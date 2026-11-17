@@ -938,11 +938,24 @@ describe("GET /api/checkout/lot — a lot ResLab prices in Canadian dollars", ()
     expect(vi.mocked(captureAPIError)).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ stage: "converted_lot_cost_unavailable" }));
   });
 
-  it("a converted lot with no parking type still names its rate on the page's figures (so the POST's rate check sees it)", async () => {
-    getLotById.mockResolvedValue(convertedLot("r1", []));
-    const { costData } = await (await get()).json();
-    expect(costData).toMatchObject({ costsToken: null, grandTotal: 91.21, fxRateId: "r1" });
+  it.each([
+    ["has no parking type", () => convertedLot("r1", [])],
+    ["loaded with no price at all", () => ({ ...convertedLot("r1"), pricing: undefined })],
+  ])("a converted lot that %s → 503, never a checkout form showing an estimate or $0", async (_n, lot) => {
+    getLotById.mockResolvedValue(lot());
+    const res = await get();
+    expect(res.status).toBe(503);
+    expect(await res.json()).not.toHaveProperty("costData");
     expect(getCost).not.toHaveBeenCalled();
+  });
+
+  it("a US lot with no parking type keeps its display-only figures, exactly as before", async () => {
+    getLotById.mockResolvedValue(convertedLot(undefined, []));
+    const res = await get();
+    expect(res.status).toBe(200);
+    const { costData } = await res.json();
+    expect(costData).toMatchObject({ costsToken: null, grandTotal: 91.21 });
+    expect(costData).not.toHaveProperty("fxRateId");
   });
 
   it("a US lot whose cost call fails keeps the display fallback, exactly as before", async () => {

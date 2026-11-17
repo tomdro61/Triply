@@ -1199,6 +1199,16 @@ export async function getChannelLocationsNoSweep(): Promise<readonly ReslabLocat
   // maybeWarmFromSnapshot catches internally; the .catch is belt-and-braces,
   // as in getChannelLocationsCached — a throw here would fail a build.
   await maybeWarmFromSnapshot().catch(() => {});
+  return peekChannelLocations();
+}
+
+/**
+ * The complete, fresh-enough location list this instance ALREADY holds in
+ * memory, or null. Synchronous: no snapshot read, no ResLab call, no wait.
+ * For a hot path that must not get slower for want of the list (the live
+ * price quote of a US-dollar lot).
+ */
+export function peekChannelLocations(): readonly ReslabLocation[] | null {
   const mem = cachedLocationList;
   if (!mem || !mem.complete) return null;
   if (Date.now() - mem.builtAt > LOCATION_LIST_MAX_AGE_MS) return null;
