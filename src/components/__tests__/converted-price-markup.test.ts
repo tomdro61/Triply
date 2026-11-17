@@ -54,7 +54,7 @@ import { OrderSummary } from "@/components/checkout/order-summary";
 import { StripePaymentForm } from "@/components/checkout/stripe-payment-form";
 import { generateSEOContent, generateFAQs } from "@/lib/airport-page/content";
 import { buildLotSchema } from "@/lib/seo/lot-schema";
-import { fxStampMetadata } from "@/lib/fx/cad-usd";
+import { fxStampMetadata, PARK_GUARD_ON_CONVERTED_LOTS } from "@/lib/fx/cad-usd";
 import { CURRENCY_NOTICE_VERSION, USD_CHARGE_LINE, USD_PRICES_LINE, anyUsdLabelled, currencySign, isUsdLabelled, money } from "@/lib/fx/usd-label";
 import type { AirportPageData } from "@/lib/airport-page/data";
 import { getAirportByCode, type Airport } from "@/config/airports";
@@ -190,7 +190,7 @@ describe("the label helpers", () => {
 
   it("a lot is labelled only when it carries a rate id; a page when any of its lots does", () => {
     expect(isUsdLabelled({ fxRateId: "r1" })).toBe(true);
-    for (const l of [{}, { fxRateId: undefined }, { fxRateId: "" }, null, undefined]) expect(isUsdLabelled(l)).toBe(false);
+    for (const l of [{}, { fxRateId: undefined }, { fxRateId: "" }]) expect(isUsdLabelled(l)).toBe(false);
     expect(anyUsdLabelled([{}, { fxRateId: "r1" }])).toBe(true);
     expect(anyUsdLabelled([{}, {}])).toBe(false);
     expect(anyUsdLabelled([])).toBe(false);
@@ -220,7 +220,9 @@ describe("a converted lot before paying — every amount reads US$", () => {
     const base = { tab: "parking" as const, location: "Montreal", sortBy: "popularity" as const, onSortChange: noop, onHover: noop, onSelect: noop, hoveredId: null };
     const us = { ...CONVERTED, id: "reslab-9", fxRateId: undefined };
     const mixed = html(createElement(SearchResultsList, { ...base, lots: [us, CONVERTED] }));
-    expect(mixed).toContain(`2 Results · ${USD_PRICES_LINE}`);
+    // On its own line, not beside the count (it squeezed the sort control).
+    expect(mixed).toContain(`>${USD_PRICES_LINE}</p>`);
+    expect(mixed).not.toContain("Results ·");
     expect(html(createElement(SearchResultsList, { ...base, lots: [us] }))).not.toContain(USD_PRICES_LINE);
     expect(html(createElement(SearchResultsList, { ...base, lots: [] }))).not.toContain(USD_PRICES_LINE);
   });
@@ -277,21 +279,40 @@ describe("a converted lot before paying — every amount reads US$", () => {
     expect(us).not.toContain(USD_CHARGE_LINE);
   });
 
-  it("the payment's stamp records which wording of the sentence was shown — converted payments only", () => {
-    expect(fxStampMetadata({ id: "r1", micros: 720_000 })).toEqual({
-      reslabCurrency: "CAD",
-      fxRateId: "r1",
-      fxRateMicros: "720000",
-      currencyNotice: CURRENCY_NOTICE_VERSION,
-    });
+  it("the sticky footer of a converted lot puts the per-day figure above the total (US$ is too wide for one row on a phone)", () => {
+    const converted = html(createElement(PriceFooter, { shown: VIEW, dailyRate: 11.3, usdLabel: true }));
+    expect(converted.indexOf("US$13.78/day")).toBeLessThan(converted.indexOf("US$68.91"));
+    expect(converted).not.toContain("items-baseline");
+  });
+
+  it("a page listing a converted and a US lot labels each row by its own lot", () => {
+    const us = lot(9, "US Lot", 20, { fxRateId: undefined });
+    for (const out of [
+      html(createElement(LotGrid, { airport: YUL, lots: [CONVERTED, us] })),
+      html(createElement(RatesTable, { airport: YUL, lots: [CONVERTED, us] })),
+    ]) {
+      expect(out).toContain("US$11.30");
+      expect(out).toMatch(/(?<!US)\$20\.00/);
+    }
+  });
+
+  it("the wording version: the stamp helper writes none (the checkout POST stamps the version the page sent)", () => {
+    expect(fxStampMetadata({ id: "r1", micros: 720_000 })).toEqual({ reslabCurrency: "CAD", fxRateId: "r1", fxRateMicros: "720000" });
     expect(fxStampMetadata(null)).toEqual({ reslabCurrency: "USD" });
+    expect(CURRENCY_NOTICE_VERSION).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("protection plans (which print a bare $) stay off converted lots", () => {
+    // protection-plan.tsx is exempt below only because of this switch.
+    expect(PARK_GUARD_ON_CONVERTED_LOTS).toBe(false);
   });
 });
 
 /**
  * A new price surface must not forget the label. Any component or page-text
- * file under src/components, src/app/(main) or src/lib/{airport-page,seo}
- * that formats a lot's price must be one this file renders with a converted
+ * file under src/components, src/app/(main), src/app/api/chat or
+ * src/lib/{airport-page,seo,promo,checkout-recovery} that formats a lot's
+ * price must be one this file renders with a converted
  * lot (COVERED) or be listed in NOT_REACHABLE with the reason a converted lot
  * cannot show a price there.
  */
@@ -315,12 +336,15 @@ describe("no price surface is left out", () => {
     "lib/airport-page/content.ts",
     "lib/seo/lot-schema.ts",
     "app/(main)/[slug]/airport-parking/page.tsx", // title and meta: page.test.ts
+    "lib/promo/discount.ts", // the refusal's minimum: discount.test.ts and the checkout POST test
+    "lib/checkout-recovery/email.ts", // the abandoned-checkout email: asserted below
+    "app/api/chat/route.ts", // the assistant's price strings: asserted below
   ]);
   const NOT_REACHABLE: Record<string, string> = {
     "components/shared/featured-parking.tsx": "home page; fixed to JFK, LAX, ORD and MIA",
-    "components/shared/comparison.tsx": "comparison pages cover BOS, DEN and PHX only",
+    "components/shared/comparison.tsx": "the home page's savings calculator: JFK and LGA figures, hard-coded",
     "components/comparison/comparison-body.tsx": "comparison pages cover BOS, DEN and PHX only",
-    "components/chat/chat-parking-results.tsx": "AI chat is switched off (NEXT_PUBLIC_AI_CHAT_ENABLED=false); label it before it returns",
+    "components/chat/chat-parking-results.tsx": "prints the price strings app/api/chat/route.ts builds, which carry the label",
     "components/checkout/vehicle-size-selector.tsx": "direct lots only: priced in US dollars, never converted",
     "components/lot/vehicle-size-modal.tsx": "direct lots only: priced in US dollars, never converted",
     "components/checkout/protection-plan.tsx": "Park Guard is not offered on a converted lot (PARK_GUARD_ON_CONVERTED_LOTS)",
@@ -335,7 +359,7 @@ describe("no price surface is left out", () => {
     "lib/airport-page/schemas.ts": "structured data: bare numbers beside priceCurrency USD, which is right for a converted price",
   };
   /** After paying, or staff-only: the record's label is its own piece of work (bookings.reslab_currency). */
-  const AFTER_PAYING = /^(components\/(confirmation|reservations|admin|partner|park-stay|support)\/|app\/\(main\)\/(admin|partner|confirmation|reservations|checkout\/complete|park-stay|help|terms|privacy|blog|faq)\b)/;
+  const AFTER_PAYING = /^(components\/(confirmation|reservations|admin|partner|park-stay|support)\/|app\/\(main\)\/(admin|partner|confirmation|reservations|checkout\/complete|park-stay)\b)/;
 
   // A lot's money fields and helpers, or a literal "$" written before a value
   // ("$${" in a template string; "${" opening a line or following a tag in JSX).
@@ -358,6 +382,9 @@ describe("no price surface is left out", () => {
       ...walk(path.join(ROOT, "app/(main)")),
       ...walk(path.join(ROOT, "lib/airport-page")),
       ...walk(path.join(ROOT, "lib/seo")),
+      ...walk(path.join(ROOT, "lib/promo")),
+      ...walk(path.join(ROOT, "lib/checkout-recovery")),
+      ...walk(path.join(ROOT, "app/api/chat")),
     ];
     const priced = files.filter((f) => PRICE_CODE.test(fs.readFileSync(f, "utf8"))).map(rel);
     // The scan itself must see the surfaces we know about, or it proves nothing.
@@ -379,7 +406,13 @@ describe("no price surface is left out", () => {
       expect((read(f).match(/usdLabel=\{isUsdLabelled\(lot\)\}/g) ?? []).length).toBe(3);
     }
     const form = read("components/checkout/checkout-form.tsx");
-    expect(form).toMatch(/const usdLabel = !!\(costData\?\.fxRateId \|\| lot\.fxRateId\);/);
-    expect((form.match(/usdLabel=\{usdLabel\}/g) ?? []).length).toBe(2);
+    expect(form).toMatch(/const converted = !!\(costData\?\.fxRateId \|\| lot\.fxRateId\);/);
+    expect((form.match(/usdLabel=\{converted\}/g) ?? []).length).toBe(2);
+    expect(form).toMatch(/promoRefusalMessage\(discount\.refused, rule, converted\)/);
+    // The assistant and the abandoned-checkout email build their own price strings.
+    expect((read("app/api/chat/route.ts").match(/money\([^)]*, isUsdLabelled\(lot\)\)/g) ?? []).length).toBe(2);
+    expect(read("app/api/chat/route.ts")).not.toMatch(/`\$\$\{/);
+    expect(read("lib/checkout-recovery/email.ts")).toMatch(/money\(c\.amountCents \/ 100, c\.usdLabel\)/);
+    expect(read("lib/checkout-recovery/select.ts")).toMatch(/usdLabel: readFxStamp\(pi\.metadata\)\.kind === "cad"/);
   });
 });

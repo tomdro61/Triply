@@ -1,3 +1,4 @@
+import { readFxStamp } from "@/lib/fx/cad-usd";
 import type Stripe from "stripe";
 import { z } from "zod";
 import { format } from "date-fns";
@@ -99,6 +100,9 @@ export interface RecoveryCandidate {
   email: string;
   createdMs: number;
   amountCents: number;
+  /** The lot's price was converted from Canadian dollars (the PaymentIntent's
+   *  stamp says CAD): the email's amount reads "US$". */
+  usdLabel: boolean;
   livemode: boolean;
   lotId: string;
   locationId: number;
@@ -323,6 +327,7 @@ export function selectRecoveryCandidates(
       email: m.customerEmail,
       createdMs,
       amountCents: pi.amount,
+      usdLabel: readFxStamp(pi.metadata).kind === "cad",
       livemode: pi.livemode,
       lotId: m.lotId,
       locationId: m.locationId,

@@ -178,3 +178,17 @@ describe("storedTripKey / literalWallClock", () => {
     expect(literalWallClock("2026-10-20", "6:00 PM")).toBe("2026-10-20 18:00:00");
   });
 });
+
+describe("the amount's currency label follows the PaymentIntent's stamp", () => {
+  // A lot priced in Canadian dollars at the source is charged in US dollars:
+  // its abandoned-checkout email must say "US$", a US lot's a plain "$".
+  const candidate = (id: string, stamp: Record<string, string>) =>
+    selectRecoveryCandidates([pi(id, 60, { ...trip, customerEmail: `${id}@example.com`, ...stamp })], NOW).candidates[0];
+
+  it("converted (stamped CAD with a rate) → labelled; a US stamp, no stamp, or a broken stamp → not", () => {
+    expect(candidate("pi_cad", { reslabCurrency: "CAD", fxRateId: "r1", fxRateMicros: "720000", currencyNotice: "2026-11-17" }).usdLabel).toBe(true);
+    expect(candidate("pi_usd", { reslabCurrency: "USD" }).usdLabel).toBe(false);
+    expect(candidate("pi_old", {}).usdLabel).toBe(false);
+    expect(candidate("pi_bad", { reslabCurrency: "CAD" }).usdLabel).toBe(false);
+  });
+});

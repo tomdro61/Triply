@@ -1,3 +1,4 @@
+import { money } from "@/lib/fx/usd-label";
 import { format } from "date-fns";
 import { resend, FROM_EMAIL } from "@/lib/resend/client";
 import type { RecoveryCandidate } from "./select";
@@ -116,7 +117,7 @@ export function buildRecoveryEmail(
   postalAddress: string
 ): { subject: string; html: string; text: string } {
   const resumeUrl = buildResumeUrl(c);
-  const amount = `$${(c.amountCents / 100).toFixed(2)}`;
+  const amount = money(c.amountCents / 100, c.usdLabel);
   const where = lot.name
     ? `${lot.name}${lot.airportCode ? ` (${lot.airportCode})` : ""}`
     : lot.airportCode

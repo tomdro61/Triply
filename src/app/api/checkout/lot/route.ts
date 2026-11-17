@@ -7,7 +7,8 @@ import {
 } from "@/lib/reslab/search";
 import { reslab, ReslabError } from "@/lib/reslab/client";
 import { convertCost, lotCurrency, type LotCurrency } from "@/lib/reslab/currency";
-import { currentCadRate, fxStampMetadata, PARK_GUARD_ON_CONVERTED_LOTS } from "@/lib/fx/cad-usd";
+import { currentCadRate, FX_KEYS, fxStampMetadata, PARK_GUARD_ON_CONVERTED_LOTS } from "@/lib/fx/cad-usd";
+import { CURRENCY_NOTICE_VERSION } from "@/lib/fx/usd-label";
 import { createPaymentIntent } from "@/lib/stripe/client";
 import { z } from "zod";
 import { convertTo24Hour } from "@/lib/utils/time";
@@ -295,6 +296,10 @@ const checkoutPostSchema = z.object({
   // (`costData.fxRateId`): sent only for a lot ResLab prices in Canadian
   // dollars. A different current rate means the page's figures are stale.
   fxRateId: z.string().min(1).max(40).optional(),
+  // The wording of the "charged in US dollars" sentence the page's Pay step
+  // shows (CURRENCY_NOTICE_VERSION in the page's own bundle): sent only for a
+  // converted lot, and required for one.
+  currencyNotice: z.string().min(1).max(32).optional(),
 });
 
 type ReslabCost = Awaited<ReturnType<typeof reslab.getCost>>;
@@ -351,6 +356,7 @@ export async function POST(request: NextRequest) {
       protectionPlanCode,
       termsVersion,
       fxRateId,
+      currencyNotice,
     } = result.data;
     if (promoFromStalePage(promoCode, promoPricing)) {
       return NextResponse.json({ error: STALE_CHECKOUT_MESSAGE, code: "checkout_stale" }, { status: 400 });
@@ -380,6 +386,13 @@ export async function POST(request: NextRequest) {
     // button would show one figure and the card be charged another: refused
     // BEFORE any PaymentIntent, with the reload message.
     if ((currency.kind === "cad" ? currency.rate.id : undefined) !== fxRateId) {
+      return NextResponse.json({ error: STALE_CHECKOUT_MESSAGE, code: "checkout_stale" }, { status: 400 });
+    }
+    // A converted lot is only paid for from a page that shows the current
+    // "charged in US dollars" sentence above Pay: a page built with other
+    // wording (or none) is told to reload. The version it sent is what the
+    // payment is stamped with.
+    if (currency.kind === "cad" && currencyNotice !== CURRENCY_NOTICE_VERSION) {
       return NextResponse.json({ error: STALE_CHECKOUT_MESSAGE, code: "checkout_stale" }, { status: 400 });
     }
     // Park Guard is not offered on a converted lot (see the constant). The
@@ -475,7 +488,9 @@ export async function POST(request: NextRequest) {
               onlineParkingCents,
               // US dollars: a US lot, or a Canadian-dollar lot converted above.
               currency: "USD",
-            })
+            }),
+            // A converted lot: a refusal's minimum reads "US$".
+            currency.kind === "cad"
           )
         : unappliedPromo(promoLookup, promoCode);
     const discountCents = applied.rule ? applied.discountCents : 0;
@@ -554,6 +569,9 @@ export async function POST(request: NextRequest) {
       // the current one; a missing stamp only ever means "created before
       // the stamp existed".
       ...fxStampMetadata(currency.kind === "cad" ? currency.rate : null),
+      // Converted lots only: the sentence wording the page said it shows
+      // (checked above). A record for a dispute; nothing reads it for money.
+      ...(currency.kind === "cad" && currencyNotice !== undefined && { [FX_KEYS.notice]: currencyNotice }),
     }, termsVersion);
 
     return NextResponse.json({
@@ -653,9 +671,9 @@ function unappliedPromo(lookup: Exclude<PromoLookup, { kind: "rule" }> | null, s
  * A usable code's verdict on the cart (promoDiscountCents): applied, with its
  * cents, or refused by the cart (below the minimum, pay-at-the-lot).
  */
-function fromDiscount(rule: PromoRule, result: PromoDiscountResult): AppliedPromoCode {
+function fromDiscount(rule: PromoRule, result: PromoDiscountResult, usdLabel: boolean): AppliedPromoCode {
   if ("refused" in result) {
-    return { rule: null, outcome: { code: rule.code, refused: result.refused, message: promoRefusalMessage(result.refused, rule) } };
+    return { rule: null, outcome: { code: rule.code, refused: result.refused, message: promoRefusalMessage(result.refused, rule, usdLabel) } };
   }
   return {
     rule,
@@ -759,7 +777,7 @@ async function postDirect(body: unknown, promoPricing: string | null): Promise<N
   let applied: AppliedPromoCode;
   if (promoLookup?.kind === "rule") {
     if (quote.promo === null) throw new Error("computeDirectQuote returned no promo verdict for a promo rule");
-    applied = fromDiscount(promoLookup.rule, quote.promo);
+    applied = fromDiscount(promoLookup.rule, quote.promo, false); // a direct lot is never converted
   } else {
     applied = unappliedPromo(promoLookup, promoCode);
   }

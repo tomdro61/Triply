@@ -104,11 +104,15 @@ export function promoMinimumLabel(rule: Pick<PromoRule, "minSubtotalCents">): st
   return rule.minSubtotalCents > 0 ? dollarsLabel(rule.minSubtotalCents) : null;
 }
 
-/** Why a code gives no discount on this cart, in the customer's words — the same text in the widget and the checkout notice. */
-export function promoRefusalMessage(refusal: PromoRefusal, rule: Pick<PromoRule, "minSubtotalCents">): string {
+/**
+ * Why a code gives no discount on this cart, in the customer's words — the
+ * same text in the widget and the checkout notice. `usdLabel`: the lot's price
+ * is converted from Canadian dollars, so the minimum reads "US$25".
+ */
+export function promoRefusalMessage(refusal: PromoRefusal, rule: Pick<PromoRule, "minSubtotalCents">, usdLabel: boolean): string {
   switch (refusal) {
     case "below_minimum":
-      return `This code needs at least ${dollarsLabel(rule.minSubtotalCents)} of parking.`;
+      return `This code needs at least ${usdLabel ? "US" : ""}${dollarsLabel(rule.minSubtotalCents)} of parking.`;
     case "not_applicable":
       return "This code isn't valid for pay-at-the-lot bookings.";
     case "currency":

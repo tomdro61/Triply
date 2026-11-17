@@ -52,7 +52,7 @@ import { checkoutExtraFields, extraFieldStepErrors } from "@/lib/booking/require
 import { VehicleSizeSelector } from "./vehicle-size-selector";
 import { TERMS_VERSION } from "@/lib/checkout/terms-acceptance";
 import { PARK_GUARD_ON_CONVERTED_LOTS } from "@/lib/fx/cad-usd";
-import { money } from "@/lib/fx/usd-label";
+import { CURRENCY_NOTICE_VERSION, money } from "@/lib/fx/usd-label";
 import { CONVERTED_DRIFT_FIELDS, DIRECT_DRIFT_FIELDS, pricedDifferently } from "@/lib/checkout/price-drift";
 import {
   atLotEstimate,
@@ -124,10 +124,10 @@ export function CheckoutForm({
   const isDirect = lot.source === "direct";
   // Park Guard is not offered on a lot whose price we convert (Canada).
   // The lot's price is converted from Canadian dollars (the server's figures
-  // say so, or the lot itself): amounts read "US$" and the Pay step says the
-  // charge is in US dollars.
-  const usdLabel = !!(costData?.fxRateId || lot.fxRateId);
-  const protectionHidden = !PARK_GUARD_ON_CONVERTED_LOTS && usdLabel;
+  // say so, or the lot itself): amounts read "US$", the Pay step says the
+  // charge is in US dollars, and no protection plan is offered.
+  const converted = !!(costData?.fxRateId || lot.fxRateId);
+  const protectionHidden = !PARK_GUARD_ON_CONVERTED_LOTS && converted;
   const [directTerms, setDirectTerms] = useState<DirectCheckoutTerms | null>(
     isDirect ? (costData?.direct ?? null) : null
   );
@@ -542,7 +542,9 @@ export function CheckoutForm({
           ...(sentPromo && { promoCode: sentPromo.code }),
           // A lot priced in Canadian dollars: the rate this page's figures
           // were converted with. The server refuses a different current rate.
-          ...(costData?.fxRateId && { fxRateId: costData.fxRateId }),
+          // ...and the wording of the "charged in US dollars" sentence this
+          // bundle's Pay step shows (stamped on the payment, like termsVersion).
+          ...(costData?.fxRateId && { fxRateId: costData.fxRateId, currencyNotice: CURRENCY_NOTICE_VERSION }),
         };
       }
       const response = await fetch("/api/checkout/lot", {
@@ -909,7 +911,7 @@ export function CheckoutForm({
       }
       const discount = promoDiscountCents(rule, pageCart);
       if ("refused" in discount) {
-        return { ok: false, reason: "invalid", message: promoRefusalMessage(discount.refused, rule) };
+        return { ok: false, reason: "invalid", message: promoRefusalMessage(discount.refused, rule, converted) };
       }
       setAppliedPromo(rule);
       setServerPromoCents(null);
@@ -1454,7 +1456,7 @@ export function CheckoutForm({
                     disabled={isSubmitting}
                     className="flex-1 bg-brand-orange text-white font-bold py-3.5 rounded-lg hover:bg-orange-600 transition-all shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    {isSubmitting ? "Creating Reservation..." : `Complete Booking (Dev) - ${money(priceBreakdown.total, usdLabel)}`}
+                    {isSubmitting ? "Creating Reservation..." : `Complete Booking (Dev) - ${money(priceBreakdown.total, converted)}`}
                   </button>
                 </div>
               </div>
@@ -1476,7 +1478,7 @@ export function CheckoutForm({
                   dueAtLocation={lot.dueAtLocation}
                   protectionPlanChoice={protectionPlanChoice}
                   protectionHidden={protectionHidden}
-                  usdLabel={usdLabel}
+                  usdLabel={converted}
                   onProtectionPlanChange={handleProtectionPlanChange}
                   protectionPlanUpdating={protectionPlanUpdating}
                   protectionChoiceError={protectionChoiceError}
@@ -1512,7 +1514,7 @@ export function CheckoutForm({
       <div className="lg:col-span-1">
         <OrderSummary
           lot={lot}
-          usdLabel={usdLabel}
+          usdLabel={converted}
           checkIn={checkIn}
           checkOut={checkOut}
           checkInTime={checkInTime}

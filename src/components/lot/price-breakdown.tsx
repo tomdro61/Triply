@@ -13,25 +13,25 @@ function Line({ label, value, className = "text-gray-600" }: { label: string; va
 }
 
 function Lines({ view, usdLabel }: { view: PriceView; usdLabel: boolean }) {
-  const formatMoney = (n: number) => money(n, usdLabel);
+  const fmt = (n: number) => money(n, usdLabel);
   const parkingLabel =
     view.days !== null
-      ? `${formatMoney(view.parking / view.days)} x ${view.days} ${view.days === 1 ? "day" : "days"}`
+      ? `${fmt(view.parking / view.days)} x ${view.days} ${view.days === 1 ? "day" : "days"}`
       : "Parking";
   return (
     <>
-      <Line label={parkingLabel} value={formatMoney(view.parking)} />
-      {view.discount > 0 && <Line label="Long-stay discount" value={`−${formatMoney(view.discount)}`} className="text-green-700" />}
-      <Line label="Taxes" value={formatMoney(view.taxes)} />
-      {view.serviceFee > 0 && <Line label="Service fee" value={formatMoney(view.serviceFee)} />}
+      <Line label={parkingLabel} value={fmt(view.parking)} />
+      {view.discount > 0 && <Line label="Long-stay discount" value={`−${fmt(view.discount)}`} className="text-green-700" />}
+      <Line label="Taxes" value={fmt(view.taxes)} />
+      {view.serviceFee > 0 && <Line label="Service fee" value={fmt(view.serviceFee)} />}
       <div className="border-t border-gray-200 pt-2 flex justify-between font-bold text-gray-900 text-lg">
-        <span>Total</span>
-        <span>{formatMoney(view.total)}</span>
+        <span>{usdLabel ? "Total (USD)" : "Total"}</span>
+        <span>{fmt(view.total)}</span>
       </div>
       {view.dueAtLocation > 0 && (
         <div className="mt-2 pt-2 border-t border-gray-200 flex justify-between text-sm text-amber-700">
           <span>Due at location</span>
-          <span>{formatMoney(view.dueAtLocation)}</span>
+          <span>{fmt(view.dueAtLocation)}</span>
         </div>
       )}
     </>

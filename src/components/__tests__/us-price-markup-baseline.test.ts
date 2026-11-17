@@ -3,9 +3,11 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 /**
- * Baseline markup and text of every price surface a lot priced in US dollars
- * shows, captured from `main` BEFORE the "US$" label for converted (Canadian)
- * lots was added. The label may only appear on a converted lot: for the US
+ * Baseline markup and text of the lot page, airport page and checkout summary
+ * price surfaces for a lot priced in US dollars, captured from `main` BEFORE
+ * the "US$" label for converted (Canadian) lots was added. (The search cards
+ * and results list are pinned in search/__tests__/baseline-render.test.ts; the
+ * Pay step's US text in converted-price-markup.test.ts.) The label may only appear on a converted lot: for the US
  * lots below the output must stay byte-identical, so these snapshots are never
  * updated by that work. A snapshot change here means a US customer page changed.
  */

@@ -19,8 +19,6 @@
  *    throw would strand a live booking.
  */
 
-import { CURRENCY_NOTICE_VERSION } from "./usd-label";
-
 export interface FxRate {
   /** Names the rate; a checkout page sends it back so a rate change mid-checkout is refused.
    *  A new rate MUST get a new id: the stale-page checks compare ids only. */
@@ -185,20 +183,17 @@ export const FX_KEYS = {
   currency: "reslabCurrency",
   rateId: "fxRateId",
   rateMicros: "fxRateMicros",
-  /** Converted PaymentIntents only: which wording of the "charged in US
-   *  dollars" sentence the checkout showed (CURRENCY_NOTICE_VERSION). A record
-   *  for a dispute; nothing reads it to decide money. */
+  /** Converted PaymentIntents only: the wording version of the "charged in
+   *  US dollars" sentence that the checkout page sent with its payment request
+   *  (its bundle's CURRENCY_NOTICE_VERSION; the POST refuses any other).
+   *  Written by the checkout POST, not by fxStampMetadata. A record for a
+   *  dispute; nothing reads it to decide money. */
   notice: "currencyNotice",
 } as const;
 
 export function fxStampMetadata(rate: FxRate | null): Record<string, string> {
   if (rate === null) return { [FX_KEYS.currency]: "USD" };
-  return {
-    [FX_KEYS.currency]: "CAD",
-    [FX_KEYS.rateId]: rate.id,
-    [FX_KEYS.rateMicros]: String(rate.micros),
-    [FX_KEYS.notice]: CURRENCY_NOTICE_VERSION,
-  };
+  return { [FX_KEYS.currency]: "CAD", [FX_KEYS.rateId]: rate.id, [FX_KEYS.rateMicros]: String(rate.micros) };
 }
 
 export type FxStamp =

@@ -226,9 +226,13 @@ describe("the customer's words", () => {
   });
 
   it("promoRefusalMessage names the minimum and the pay-at-the-lot rule", () => {
-    expect(promoRefusalMessage("below_minimum", JFK5)).toBe("This code needs at least $25 of parking.");
-    expect(promoRefusalMessage("below_minimum", { minSubtotalCents: 2450 })).toBe("This code needs at least $24.50 of parking.");
-    expect(promoRefusalMessage("not_applicable", JFK5)).toBe("This code isn't valid for pay-at-the-lot bookings.");
-    expect(promoRefusalMessage("currency", JFK5)).toBe("This code can't be used at this lot.");
+    expect(promoRefusalMessage("below_minimum", JFK5, false)).toBe("This code needs at least $25 of parking.");
+    expect(promoRefusalMessage("below_minimum", { minSubtotalCents: 2450 }, false)).toBe("This code needs at least $24.50 of parking.");
+    expect(promoRefusalMessage("not_applicable", JFK5, false)).toBe("This code isn't valid for pay-at-the-lot bookings.");
+    expect(promoRefusalMessage("currency", JFK5, false)).toBe("This code can't be used at this lot.");
+    // A lot converted from Canadian dollars: the minimum is US dollars and says so.
+    expect(promoRefusalMessage("below_minimum", JFK5, true)).toBe("This code needs at least US$25 of parking.");
+    expect(promoRefusalMessage("below_minimum", { minSubtotalCents: 2450 }, true)).toBe("This code needs at least US$24.50 of parking.");
+    expect(promoRefusalMessage("not_applicable", JFK5, true)).toBe("This code isn't valid for pay-at-the-lot bookings.");
   });
 });

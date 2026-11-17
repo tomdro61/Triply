@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatMoney, priceViewFromPricing, priceViewFromQuote, type LotQuote } from "../price-view";
+import { priceViewFromPricing, priceViewFromQuote, type LotQuote } from "../price-view";
 
 const quote = (over: Partial<LotQuote> = {}): LotQuote => ({
   grandTotal: 70.15,
@@ -68,7 +68,4 @@ describe("priceViewFromPricing — the price the page was loaded with", () => {
   });
 });
 
-it("formatMoney", () => {
-  expect(formatMoney(61.15)).toBe("$61.15");
-  expect(formatMoney(5.949999)).toBe("$5.95");
-});
+

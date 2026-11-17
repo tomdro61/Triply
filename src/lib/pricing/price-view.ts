@@ -100,4 +100,3 @@ export function priceViewFromQuote(quote: LotQuote): PriceView | null {
   return build(quote);
 }
 
-export const formatMoney = (n: number) => "$" + n.toFixed(2);
