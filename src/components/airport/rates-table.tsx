@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Airport } from "@/config/airports";
 import { UnifiedLot } from "@/types/lot";
 import { ArrowRight } from "lucide-react";
+import { currencySign, isUsdLabelled } from "@/lib/fx/usd-label";
 
 interface RatesTableProps {
   airport: Airport;
@@ -61,7 +62,7 @@ export function RatesTable({ airport, lots }: RatesTableProps) {
                 </td>
                 <td className="py-3.5 pl-4 text-right">
                   <span className="text-sm font-bold text-brand-orange">
-                    ${lot.pricing!.minPrice.toFixed(2)}
+                    {currencySign(isUsdLabelled(lot))}{lot.pricing!.minPrice.toFixed(2)}
                   </span>
                   <span className="text-xs text-gray-400">/day</span>
                 </td>

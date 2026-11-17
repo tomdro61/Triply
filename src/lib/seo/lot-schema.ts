@@ -12,6 +12,7 @@ import { productionAirports, type Airport } from "@/config/airports";
 import { priceViewFromPricing } from "@/lib/pricing/price-view";
 import { isExemptFromOwnership, lotBelongsToAirport } from "@/lib/search/airport-ownership";
 import type { UnifiedLot } from "@/types/lot";
+import { isUsdLabelled, money } from "@/lib/fx/usd-label";
 
 /** Same host as the sitemap and `NEXT_PUBLIC_APP_URL` in production. */
 export const SITE_ORIGIN = "https://www.triplypro.com";
@@ -72,7 +73,7 @@ export function buildLotSchema(lot: UnifiedLot, airportSlug: string, urlLotSlug:
     // (the Rich Results Test ignores it) — and only a fee-inclusive figure may
     // be published as a price. Nothing when the total can't be built.
     ...(perDay !== null && perDay > 0 && {
-      priceRange: `From $${perDay.toFixed(2)}/day, taxes & fees included`,
+      priceRange: `From ${money(perDay, isUsdLabelled(lot))}/day, taxes & fees included`,
     }),
     ...(lot.phone && { telephone: lot.phone }),
     // Only real Triply guest reviews. rating/reviewCount stay unset until

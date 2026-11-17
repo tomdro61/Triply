@@ -19,6 +19,8 @@
  *    throw would strand a live booking.
  */
 
+import { CURRENCY_NOTICE_VERSION } from "./usd-label";
+
 export interface FxRate {
   /** Names the rate; a checkout page sends it back so a rate change mid-checkout is refused.
    *  A new rate MUST get a new id: the stale-page checks compare ids only. */
@@ -179,11 +181,24 @@ export function toUsd(cad: ReslabMoneyParts, rate: FxRate): FxResult {
 /** PaymentIntent metadata keys. `reslabCurrency` is written for EVERY ResLab
  *  PaymentIntent ("USD" or "CAD"), so a missing key only ever means "created
  *  before this shipped" — never "probably a US lot". */
-export const FX_KEYS = { currency: "reslabCurrency", rateId: "fxRateId", rateMicros: "fxRateMicros" } as const;
+export const FX_KEYS = {
+  currency: "reslabCurrency",
+  rateId: "fxRateId",
+  rateMicros: "fxRateMicros",
+  /** Converted PaymentIntents only: which wording of the "charged in US
+   *  dollars" sentence the checkout showed (CURRENCY_NOTICE_VERSION). A record
+   *  for a dispute; nothing reads it to decide money. */
+  notice: "currencyNotice",
+} as const;
 
 export function fxStampMetadata(rate: FxRate | null): Record<string, string> {
   if (rate === null) return { [FX_KEYS.currency]: "USD" };
-  return { [FX_KEYS.currency]: "CAD", [FX_KEYS.rateId]: rate.id, [FX_KEYS.rateMicros]: String(rate.micros) };
+  return {
+    [FX_KEYS.currency]: "CAD",
+    [FX_KEYS.rateId]: rate.id,
+    [FX_KEYS.rateMicros]: String(rate.micros),
+    [FX_KEYS.notice]: CURRENCY_NOTICE_VERSION,
+  };
 }
 
 export type FxStamp =

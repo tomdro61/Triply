@@ -7,6 +7,7 @@ import { UnifiedLot } from "@/types/lot";
 import { customerPerDayFromPricing, customerTotalFromPricing } from "@/lib/utils/service-fee";
 import { TaxesAndFeesIncluded } from "@/components/shared/taxes-fees-included";
 import { LotBadges } from "./lot-badges";
+import { currencySign, isUsdLabelled } from "@/lib/fx/usd-label";
 
 interface MobileMapCardProps {
   lot: UnifiedLot;
@@ -35,6 +36,8 @@ export function MobileMapCard({ lot, onSelect, extraBadge }: MobileMapCardProps)
   // included, before optional protection or a promo (see lot-card.tsx).
   const grandTotal = customerTotalFromPricing(lot.pricing);
   const perDay = customerPerDayFromPricing(lot.pricing);
+  // "US$" on a lot whose price we convert from Canadian dollars; "$" otherwise.
+  const sign = currencySign(isUsdLabelled(lot));
   const topAmenities = lot.amenities.slice(0, 3);
 
   return (
@@ -78,10 +81,10 @@ export function MobileMapCard({ lot, onSelect, extraBadge }: MobileMapCardProps)
             <div className="mt-1">
               <div className="flex items-baseline gap-1.5">
                 <span className="text-xl font-bold text-gray-900">
-                  ${grandTotal.toFixed(2)}
+                  {sign}{grandTotal.toFixed(2)}
                 </span>
                 {perDay !== null && (
-                  <span className="text-xs text-gray-500">${perDay.toFixed(2)}/day</span>
+                  <span className="text-xs text-gray-500">{sign}{perDay.toFixed(2)}/day</span>
                 )}
               </div>
               <TaxesAndFeesIncluded className="text-[11px]" />
@@ -89,7 +92,7 @@ export function MobileMapCard({ lot, onSelect, extraBadge }: MobileMapCardProps)
           ) : (
             <div className="flex items-baseline gap-1 mt-1">
               <span className="text-xl font-bold text-gray-900">
-                ${price.toFixed(2)}
+                {sign}{price.toFixed(2)}
               </span>
               <span className="text-xs text-gray-500">/day</span>
             </div>

@@ -24,6 +24,7 @@ import { AirportFAQ } from "@/components/airport/airport-faq";
 import { OtherAirports } from "@/components/airport/other-airports";
 import { ComparisonCallout } from "@/components/comparison/comparison-callout";
 import { AirportGuides } from "@/components/airport/airport-guides";
+import { anyUsdLabelled, money } from "@/lib/fx/usd-label";
 
 export const revalidate = 3600; // ISR: 1 hour
 
@@ -64,7 +65,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     getAirportContent(airport.code),
     getNoLotsAirportContent(airport.code),
   ]);
-  const priceText = data.cheapestPrice ? ` from $${data.cheapestPrice.toFixed(0)}` : "";
+  // "US$" when the page lists a lot whose price we convert from Canadian
+  // dollars: a search result or a shared link has no room for a note.
+  const priceText = data.cheapestPrice
+    ? ` from ${money(data.cheapestPrice, anyUsdLabelled(data.lots), 0)}`
+    : "";
   // Trailing space lives in the value so a 0-lot page doesn't read "Compare  parking".
   const lotCount = data.totalLots > 0 ? `${data.totalLots}+ ` : "";
   // Nothing bookable: don't let a hand-written meta (SLC's "6+ lots from

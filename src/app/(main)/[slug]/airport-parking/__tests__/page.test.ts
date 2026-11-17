@@ -156,3 +156,26 @@ describe("airport page — nothing bookable and no guide (a sold-out week at SLC
     expect(elementsOf(tree, AirportFAQ)).toEqual([]);
   });
 });
+
+describe("airport page — title and meta carry US$ only when a listed lot's price is converted from Canadian dollars", () => {
+  // A search result or a shared link has no room for a note beside the price.
+  const lot = (fxRateId?: string) => ({ id: "reslab-330", fxRateId }) as never;
+
+  it("a US airport: a plain $", async () => {
+    fetchAirportPageData.mockResolvedValue({ ...pageData(2, 2), lots: [lot(), lot()] });
+    const meta = await generateMetadata(props("salt-lake-city-slc") as never);
+    const text = JSON.stringify(meta);
+    expect(meta.title).toBe("Salt Lake City Airport Parking - Cheap SLC Parking Rates from $9");
+    expect(text).not.toContain("US$");
+  });
+
+  it("an airport listing a converted lot: US$ in the title, the description and the share title, and no bare $", async () => {
+    fetchAirportPageData.mockResolvedValue({ ...pageData(2, 2), lots: [lot(), lot("r1")] });
+    const meta = await generateMetadata(props("montreal-yul") as never);
+    expect(meta.title).toBe("Montreal Airport Parking - Cheap YUL Parking Rates from US$9");
+    expect(meta.openGraph?.title).toBe("YUL Airport Parking from US$9/day");
+    const text = JSON.stringify(meta);
+    expect(text).not.toMatch(/(?<!US)\$\d/);
+    expect((text.match(/US\$9/g) ?? []).length).toBeGreaterThanOrEqual(3);
+  });
+});

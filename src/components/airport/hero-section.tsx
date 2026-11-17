@@ -2,6 +2,7 @@ import { Airport } from "@/config/airports";
 import { AirportPageData } from "@/lib/airport-page/data";
 import { Star, ShieldCheck, Clock } from "lucide-react";
 import { SearchWidget } from "./search-widget";
+import { anyUsdLabelled, currencySign } from "@/lib/fx/usd-label";
 
 interface HeroSectionProps {
   airport: Airport;
@@ -10,6 +11,8 @@ interface HeroSectionProps {
 
 export function HeroSection({ airport, data }: HeroSectionProps) {
   const { totalLots, cheapestPrice } = data;
+  // "US$" when the page lists a lot whose price we convert from Canadian dollars.
+  const sign = currencySign(anyUsdLabelled(data.lots));
 
   return (
     <section className="relative bg-gradient-to-br from-brand-dark via-brand-dark to-[#2a2a4e] py-16 lg:py-20">
@@ -23,7 +26,7 @@ export function HeroSection({ airport, data }: HeroSectionProps) {
           </h1>
           <p className="text-gray-400 text-base md:text-lg max-w-2xl mx-auto">
             {totalLots > 0
-              ? `Compare ${totalLots} parking ${totalLots === 1 ? "lot" : "lots"} near ${airport.code}${cheapestPrice ? ` from $${cheapestPrice.toFixed(2)}/day` : ""}. Book online & save.`
+              ? `Compare ${totalLots} parking ${totalLots === 1 ? "lot" : "lots"} near ${airport.code}${cheapestPrice ? ` from ${sign}${cheapestPrice.toFixed(2)}/day` : ""}. Book online & save.`
               : `Find and compare parking options near ${airport.name}.`}
           </p>
 

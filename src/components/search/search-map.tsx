@@ -7,6 +7,7 @@ import { UnifiedLot } from "@/types/lot";
 import { Airport } from "@/config/airports";
 import { DEFAULT_MAP_CONFIG } from "@/lib/mapbox/config";
 import { customerPerDayFromPricing } from "@/lib/utils/service-fee";
+import { isUsdLabelled } from "@/lib/fx/usd-label";
 
 interface SearchMapProps {
   lots: UnifiedLot[];
@@ -94,6 +95,7 @@ export function SearchMap({
             longitude={lot.longitude}
             latitude={lot.latitude}
             price={price}
+            usdLabel={isUsdLabelled(lot)}
             isHovered={hoveredId === lot.id}
             onHover={onHover}
             onClick={() => onSelect(lot)}

@@ -21,6 +21,7 @@ import { TERMS_CHECKBOX_TAIL } from "@/lib/checkout/terms-acceptance";
 import { capturePaymentError, captureWalletSheetClosed } from "@/lib/sentry";
 import { ELEMENTS_SYNC_FAILED_MESSAGE, syncElementsAmount } from "@/lib/checkout/elements-sync";
 import { runPaymentSubmit } from "@/lib/checkout/payment-submit";
+import { currencySign, money, USD_CHARGE_LINE } from "@/lib/fx/usd-label";
 import {
   STAGE_FAILED_AFTER_CONFIRM_MESSAGE,
   STAGE_FAILED_MESSAGE,
@@ -59,6 +60,9 @@ interface StripePaymentFormProps {
   /** No protection plan is offered for this lot: the selector is not shown
    *  (the parent has already answered "none"). */
   protectionHidden?: boolean;
+  /** The lot's price is converted from Canadian dollars: the amounts read
+   *  "US$" and the charge-currency sentence shows above Pay. Required. */
+  usdLabel: boolean;
   onProtectionPlanChange: (choice: ProtectionChoice) => void;
   protectionPlanUpdating?: boolean;
   /**
@@ -104,6 +108,7 @@ export function StripePaymentForm({
   dueAtLocation = false,
   protectionPlanChoice,
   protectionHidden = false,
+  usdLabel,
   onProtectionPlanChange,
   protectionPlanUpdating = false,
   protectionChoiceError = null,
@@ -451,6 +456,13 @@ export function StripePaymentForm({
             . {TERMS_CHECKBOX_TAIL}
           </span>
         </label>
+        {/* A lot priced in Canadian dollars at the source: said here, above
+            Pay — on a phone the price summary sits below the button. */}
+        {usdLabel && (
+          <p className="mt-3 text-sm font-medium text-gray-900" data-testid="usd-charge-line">
+            {USD_CHARGE_LINE}
+          </p>
+        )}
       </div>
 
       {/* Due at Location Notice */}
@@ -460,7 +472,7 @@ export function StripePaymentForm({
           <div className="text-sm">
             <span className="font-semibold text-amber-800">Pay at Location</span>
             <p className="text-amber-700 text-xs mt-0.5">
-              ${priceBreakdown.dueAtLocation.toFixed(2)} will be collected on-site
+              {currencySign(usdLabel)}{priceBreakdown.dueAtLocation.toFixed(2)} will be collected on-site
               at check-in
             </p>
           </div>
@@ -528,8 +540,8 @@ export function StripePaymentForm({
             <>
               <Check size={20} />
               {dueAtLocation && priceBreakdown.dueAtLocation > 0
-                ? `Pay Now - $${buttonAmount.toFixed(2)}`
-                : `Complete Booking - $${buttonAmount.toFixed(2)}`}
+                ? `Pay Now - ${money(buttonAmount, usdLabel)}`
+                : `Complete Booking - ${money(buttonAmount, usdLabel)}`}
             </>
           )}
         </button>

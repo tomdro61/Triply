@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { ShownPrice } from "./shown-price";
-import { formatMoney, type PriceView } from "@/lib/pricing/price-view";
+import type { PriceView } from "@/lib/pricing/price-view";
+import { money } from "@/lib/fx/usd-label";
 
 function Line({ label, value, className = "text-gray-600" }: { label: string; value: string; className?: string }) {
   return (
@@ -11,7 +12,8 @@ function Line({ label, value, className = "text-gray-600" }: { label: string; va
   );
 }
 
-function Lines({ view }: { view: PriceView }) {
+function Lines({ view, usdLabel }: { view: PriceView; usdLabel: boolean }) {
+  const formatMoney = (n: number) => money(n, usdLabel);
   const parkingLabel =
     view.days !== null
       ? `${formatMoney(view.parking / view.days)} x ${view.days} ${view.days === 1 ? "day" : "days"}`
@@ -39,21 +41,24 @@ function Lines({ view }: { view: PriceView }) {
 /**
  * The itemised price box: lines that add up to the headline total, shown only
  * beside a real total for the stay on screen, plus any note (e.g. a direct
- * lot's oversized-vehicle surcharge, paid at the lot).
+ * lot's oversized-vehicle surcharge, paid at the lot). `usdLabel`: the lot's
+ * price is converted from Canadian dollars, so every amount reads "US$".
  */
 export function PriceBreakdown({
   shown,
+  usdLabel,
   note,
   className = "",
 }: {
   shown: ShownPrice;
+  usdLabel: boolean;
   note?: ReactNode;
   className?: string;
 }) {
   if (shown.kind !== "view" && !note) return null;
   return (
     <div className={`bg-gray-50 rounded-lg p-4 border border-gray-100 ${className}`}>
-      {shown.kind === "view" && <Lines view={shown.view} />}
+      {shown.kind === "view" && <Lines view={shown.view} usdLabel={usdLabel} />}
       {note}
     </div>
   );

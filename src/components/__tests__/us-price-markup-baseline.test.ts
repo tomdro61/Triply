@@ -125,24 +125,25 @@ const summary = (extra: Partial<Parameters<typeof OrderSummary>[0]> = {}) =>
     onApplyPromo: async () => ({ ok: true as const }),
     onRemovePromo: noop,
     showFreeCancellation: true,
+    usdLabel: false,
     ...extra,
   });
 
 describe("US lots — price markup baseline (the US$ label work must not change it)", () => {
   it("lot page price headline: total, daily rate only, message", () => {
     for (const shown of [VIEW, RATE_ONLY, MESSAGE]) {
-      expect(html(createElement(PriceHeadline, { shown, dailyRate: 24.95 }))).toMatchSnapshot();
+      expect(html(createElement(PriceHeadline, { shown, dailyRate: 24.95, usdLabel: false }))).toMatchSnapshot();
     }
   });
 
   it("lot page price footer: total, daily rate only, message", () => {
     for (const shown of [VIEW, RATE_ONLY, MESSAGE]) {
-      expect(html(createElement(PriceFooter, { shown, dailyRate: 24.95 }))).toMatchSnapshot();
+      expect(html(createElement(PriceFooter, { shown, dailyRate: 24.95, usdLabel: false }))).toMatchSnapshot();
     }
   });
 
   it("lot page price breakdown", () => {
-    expect(html(createElement(PriceBreakdown, { shown: VIEW }))).toMatchSnapshot();
+    expect(html(createElement(PriceBreakdown, { shown: VIEW, usdLabel: false }))).toMatchSnapshot();
   });
 
   it("airport page: lot grid, rates table, hero", () => {
