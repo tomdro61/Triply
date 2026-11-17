@@ -42,7 +42,7 @@ interface FxRateSetting extends FxRate {
 // only on a Vercel preview deployment, so unit tests and CI still see no rate.
 const CAD_USD: FxRateSetting =
   process.env.VERCEL_ENV === "preview"
-    ? { id: "preview-test-a", micros: 720_000, validUntil: "2026-11-24" }
+    ? { id: "preview-test-b", micros: 750_000, validUntil: "2026-11-24" }
     : { id: "unset", micros: 700_000, validUntil: "2026-01-01" };
 
 /**
