@@ -33,13 +33,15 @@ ALTER TABLE bookings
   ADD COLUMN IF NOT EXISTS fx_rate NUMERIC(10, 6);
 
 -- Both or neither; a known currency; a sane rate (also refuses a rate entered
--- upside down, which would be above 1).
+-- upside down, which would be above 1). `reslab_currency IS NOT NULL` is spelled
+-- out on purpose: a CHECK passes when it evaluates to NULL, and without it a
+-- row with a rate but no currency (NULL = 'CAD' is NULL) would be accepted.
 ALTER TABLE bookings
   DROP CONSTRAINT IF EXISTS bookings_reslab_currency_fx_rate_check;
 ALTER TABLE bookings
   ADD CONSTRAINT bookings_reslab_currency_fx_rate_check CHECK (
     (reslab_currency IS NULL AND fx_rate IS NULL)
-    OR (reslab_currency = 'CAD' AND fx_rate IS NOT NULL AND fx_rate > 0.5 AND fx_rate <= 1)
+    OR (reslab_currency IS NOT NULL AND reslab_currency = 'CAD' AND fx_rate IS NOT NULL AND fx_rate > 0.5 AND fx_rate <= 1)
   );
 
 COMMENT ON COLUMN bookings.reslab_currency IS
