@@ -7,7 +7,7 @@
  * (no-reslab-list-in-booking.test.ts forbids the location list there).
  */
 import type { ReslabCostResponse, ReslabMinPriceResponse } from "./client";
-import { currentCadRate, toUsd, type FxRate, type FxUnusable } from "@/lib/fx/cad-usd";
+import { currentCadRate, toUsd, type FxRate, type FxStamp, type FxUnusable } from "@/lib/fx/cad-usd";
 
 export type LotCurrency =
   /** Priced in US dollars: sold as is. */
@@ -144,4 +144,21 @@ export function convertCost(data: ReslabCostResponse, rate: FxRate): ConvertedPr
   const r = convertReservation(data?.reservation, rate);
   if (!r.ok) return r;
   return { ok: true, value: { rates: ratesWithoutPrices(data.rates), reservation: r.value, warning: data.warning, costs_token: data.costs_token } };
+}
+
+/**
+ * Why a lot's currency (read fresh from ResLab) does not match the stamp its
+ * PaymentIntent was priced under, or null when they agree.
+ *  - stamped USD, or no stamp (a PaymentIntent from before the stamp, when
+ *    only US lots were sold): the lot must be a US-dollar lot.
+ *  - stamped CAD: the lot must be a Canadian-dollar lot we are selling NOW.
+ *    The rate may have changed since (the booking keeps its stamped rate),
+ *    but a lot that is hidden today is not booked.
+ */
+export function stampedCurrencyProblem(stamp: FxStamp, lot: LotCurrency): string | null {
+  if (stamp.kind === "invalid") return "the PaymentIntent's currency stamp is unusable";
+  if (stamp.kind === "cad") {
+    return lot.kind === "cad" ? null : `the PaymentIntent is stamped CAD but the lot is ${lot.kind === "usd" ? "priced in USD" : `not sold (${lot.reason})`}`;
+  }
+  return lot.kind === "usd" ? null : `the PaymentIntent has no conversion (${stamp.kind}) but the lot is ${lot.kind === "cad" ? "priced in CAD" : `not sold (${lot.reason})`}`;
 }

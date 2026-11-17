@@ -5,7 +5,7 @@
  * moving the read above the gates leaves every test green and every booking
  * "unknown" forever.
  */
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 // vi.mock factories are hoisted above every declaration, so the mocks they
@@ -588,5 +588,105 @@ describe("POST /api/reservations/pending — a stamped promo discount (promo pla
     const res = await POST(req(body({ triplyServiceFee: 7.5 })));
     expect(res.status).toBe(200);
     expect(db.tables.pending_bookings[0].triply_service_fee).toBe(7.5);
+  });
+});
+
+// The exchange rate for Canadian-dollar lots: none (today's state) unless a test sets one.
+const { cadRate } = vi.hoisted(() => ({ cadRate: { value: null as { id: string; micros: number } | null } }));
+vi.mock("@/lib/fx/cad-usd", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/fx/cad-usd")>()),
+  currentCadRate: () => cadRate.value,
+}));
+
+describe("POST /api/reservations/pending — the lot's currency against the PaymentIntent's stamp (before the charge)", () => {
+  const CAD_LOT = { id: 42, extra_fields: [], currency: { code: "CAD" }, country: { code: "CA" }, parking_due_at_location: 0 };
+  const US_LOT = { id: 42, extra_fields: [], currency: { code: "USD" }, country: { code: "US" } };
+  const CAD_STAMP = { reslabCurrency: "CAD", fxRateId: "r1", fxRateMicros: "725000" };
+  const pi = (stamp: Record<string, string>) =>
+    stripeMock.paymentIntents.retrieve.mockResolvedValue({
+      id: PI,
+      amount: 9716,
+      livemode: false,
+      metadata: { customerEmail: "ada@example.com", locationId: "42", ...stamp },
+    });
+  const expectRefused = async () => {
+    const res = await POST(req(body()));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/price has been updated.*not been charged/);
+    expect(db.tables.pending_bookings).toHaveLength(0);
+    expect(capturePaymentError).toHaveBeenCalledTimes(1);
+  };
+  beforeEach(() => {
+    cadRate.value = { id: "r1", micros: 725_000 };
+  });
+  afterEach(() => {
+    cadRate.value = null;
+  });
+
+  it("a CAD-stamped PaymentIntent on a CAD lot we sell today is staged", async () => {
+    pi(CAD_STAMP);
+    reslabMock.getLocation.mockResolvedValue(CAD_LOT);
+    expect((await POST(req(body()))).status).toBe(200);
+    expect(db.tables.pending_bookings).toHaveLength(1);
+  });
+
+  it("the rate changed since the PaymentIntent was created: still staged (the booking keeps its stamped rate)", async () => {
+    cadRate.value = { id: "r2", micros: 731_000 };
+    pi(CAD_STAMP);
+    reslabMock.getLocation.mockResolvedValue(CAD_LOT);
+    expect((await POST(req(body()))).status).toBe(200);
+  });
+
+  it("the off switch: no rate set → an open CAD PaymentIntent is refused before the card is confirmed", async () => {
+    cadRate.value = null;
+    pi(CAD_STAMP);
+    reslabMock.getLocation.mockResolvedValue(CAD_LOT);
+    await expectRefused();
+  });
+
+  it("a US-stamped PaymentIntent on a lot ResLab now prices in CAD is refused (it would be charged one for one)", async () => {
+    pi({ reslabCurrency: "USD" });
+    reslabMock.getLocation.mockResolvedValue(CAD_LOT);
+    await expectRefused();
+  });
+
+  it("an unstamped PaymentIntent on a CAD lot is refused", async () => {
+    pi({});
+    reslabMock.getLocation.mockResolvedValue(CAD_LOT);
+    await expectRefused();
+  });
+
+  it("a CAD-stamped PaymentIntent on a US lot is refused", async () => {
+    pi(CAD_STAMP);
+    reslabMock.getLocation.mockResolvedValue(US_LOT);
+    await expectRefused();
+  });
+
+  it("an unusable stamp is refused", async () => {
+    pi({ reslabCurrency: "CAD", fxRateId: "r1", fxRateMicros: "1380000" });
+    reslabMock.getLocation.mockResolvedValue(CAD_LOT);
+    await expectRefused();
+  });
+
+  it("a Canadian lot that collects at the lot is refused even with a CAD stamp", async () => {
+    pi(CAD_STAMP);
+    reslabMock.getLocation.mockResolvedValue({ ...CAD_LOT, parking_due_at_location: 1 });
+    await expectRefused();
+  });
+
+  it.each([
+    ["a USD stamp", { reslabCurrency: "USD" }],
+    ["no stamp (a PaymentIntent from before the stamp)", {}],
+  ])("a US lot with %s is staged exactly as before, with no report", async (_n, stamp) => {
+    pi(stamp);
+    reslabMock.getLocation.mockResolvedValue(US_LOT);
+    expect((await POST(req(body()))).status).toBe(200);
+    expect(capturePaymentError).not.toHaveBeenCalled();
+  });
+
+  it("a ResLab read that fails still fails open (the before-capture check is the backstop)", async () => {
+    pi(CAD_STAMP);
+    reslabMock.getLocation.mockRejectedValue(new Error("429 Too Many Requests"));
+    expect((await POST(req(body()))).status).toBe(200);
   });
 });

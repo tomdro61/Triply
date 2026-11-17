@@ -6,6 +6,7 @@ import {
   lotCurrency,
   minPriceInUsd,
   pricingCurrencyFields,
+  stampedCurrencyProblem,
 } from "../currency";
 import type { ReslabCostResponse, ReslabMinPriceResponse } from "../client";
 
@@ -153,5 +154,29 @@ describe("minPriceInUsd", () => {
   });
   it("a hidden lot never yields a price", () => {
     expect(minPriceInUsd(minPrice(), { kind: "hidden", reason: "no_rate" })).toEqual({ data: null, unusable: "hidden_no_rate" });
+  });
+});
+
+describe("stampedCurrencyProblem — the lot's currency against the PaymentIntent's stamp, before the card is confirmed", () => {
+  const usd = { kind: "usd" } as const;
+  const cad = { kind: "cad", rate: RATE } as const;
+  const hidden = { kind: "hidden", reason: "no_rate" } as const;
+
+  it("a US lot with a USD stamp, or with no stamp (a PaymentIntent from before it), is fine", () => {
+    expect(stampedCurrencyProblem({ kind: "usd" }, usd)).toBeNull();
+    expect(stampedCurrencyProblem({ kind: "absent" }, usd)).toBeNull();
+  });
+  it("a CAD stamp on a CAD lot we sell today is fine, even at a newer rate (the booking keeps its stamped rate)", () => {
+    expect(stampedCurrencyProblem({ kind: "cad", rate: { id: "old", micros: 700_000 } }, cad)).toBeNull();
+  });
+  it.each([
+    ["a USD stamp on a CAD lot", { kind: "usd" } as const, cad, /priced in CAD/],
+    ["no stamp on a CAD lot", { kind: "absent" } as const, cad, /priced in CAD/],
+    ["a CAD stamp on a US lot", { kind: "cad", rate: RATE } as const, usd, /priced in USD/],
+    ["a CAD stamp while Canadian lots are switched off", { kind: "cad", rate: RATE } as const, hidden, /not sold \(no_rate\)/],
+    ["a USD stamp on a hidden lot", { kind: "usd" } as const, hidden, /not sold/],
+    ["an unusable stamp", { kind: "invalid" } as const, usd, /unusable/],
+  ])("%s is refused", (_n, stamp, lot, message) => {
+    expect(stampedCurrencyProblem(stamp, lot)).toMatch(message);
   });
 });

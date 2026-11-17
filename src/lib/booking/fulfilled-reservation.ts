@@ -2,6 +2,7 @@ import type { ReslabReservation } from "@/lib/reslab/client";
 import { validCoords } from "@/lib/attribution/airport";
 import type { LotSnapshotV2 } from "@/lib/direct/lot-snapshot";
 import type { DirectMetadataMoney } from "@/lib/direct/metadata-money";
+import { toUsd, type FxRate } from "@/lib/fx/cad-usd";
 
 /**
  * The reservation fulfilment has just created (or adopted), in a shape that
@@ -64,6 +65,21 @@ export interface ReslabFulfilledReservation {
      *  reads it; nothing persists it. */
     longTermDiscount: number | null;
   };
+  /**
+   * The currency ResLab says this reservation's lot is priced in (upper-case,
+   * e.g. "USD", "CAD"), or null when the reservation does not say. Read by the
+   * before-capture check: a reservation in another currency than the
+   * PaymentIntent was stamped with is never captured.
+   */
+  sourceCurrency?: string | null;
+  /**
+   * Set only when the caller asked for a conversion (a PaymentIntent stamped
+   * CAD). `converted: true` — every figure in `money` is US dollars at `rate`.
+   * `converted: false` — ResLab's figures could not be converted (missing,
+   * or parts that do not add up): every figure in `money` is null, NEVER the
+   * raw Canadian-dollar number.
+   */
+  fx?: { rate: FxRate; converted: boolean };
   /** null when the source sent no date list. */
   dates: { fromDate: string | undefined; toDate: string | undefined }[] | null;
   /** null when the source sent no location. Fields the create response copies
@@ -128,25 +144,59 @@ function safeCoords(lat: unknown, lng: unknown): { lat: number; lng: number } | 
  * JSON ResLab sent (the body is cast, not validated). It runs on the money path
  * after the reservation number is recorded, and a throw there would strand a
  * live, unrecorded-in-bookings reservation.
+ *
+ * `fx` is the exchange rate STAMPED ON THE PAYMENTINTENT for a lot ResLab
+ * prices in Canadian dollars (never the current rate); null for a US lot,
+ * whose figures are carried raw exactly as before. toUsd never throws.
  */
-export function fromReslab(r: ReslabReservation): ReslabFulfilledReservation {
+export function fromReslab(r: ReslabReservation, fx: FxRate | null = null): ReslabFulfilledReservation {
   const h = r?.history?.[0];
   const loc = h?.location;
   const dates = h?.dates;
+
+  let money: ReslabFulfilledReservation["money"] = {
+    subtotal: h?.subtotal ?? null,
+    taxTotal: h?.total_tax ?? null,
+    feesTotal: h?.total_fees ?? null,
+    grandTotal: h?.grand_total ?? null,
+    dueAtLocation: h?.due_at_location_total ?? null,
+    longTermDiscount: h?.long_term_discount ?? null,
+  };
+  let fxResult: ReslabFulfilledReservation["fx"];
+  if (fx !== null) {
+    const converted = toUsd(
+      {
+        subtotal: h?.subtotal,
+        feesTotal: h?.total_fees,
+        taxTotal: h?.total_tax,
+        longTermDiscount: h?.long_term_discount ?? 0,
+        grandTotal: h?.grand_total,
+        dueAtLocation: h?.due_at_location_total ?? 0,
+      },
+      fx
+    );
+    money = converted.ok
+      ? {
+          subtotal: converted.usd.subtotal,
+          taxTotal: converted.usd.taxTotal,
+          feesTotal: converted.usd.feesTotal,
+          grandTotal: converted.usd.grandTotal,
+          dueAtLocation: converted.usd.dueAtLocation,
+          longTermDiscount: converted.usd.longTermDiscount,
+        }
+      : { subtotal: null, taxTotal: null, feesTotal: null, grandTotal: null, dueAtLocation: null, longTermDiscount: null };
+    fxResult = { rate: fx, converted: converted.ok };
+  }
+  const rawCurrency = loc?.currency?.code;
 
   return {
     number: r?.reservation_number,
     source: "reslab",
     cancelled: !!r?.cancelled,
     historyId: h?.id ?? null,
-    money: {
-      subtotal: h?.subtotal ?? null,
-      taxTotal: h?.total_tax ?? null,
-      feesTotal: h?.total_fees ?? null,
-      grandTotal: h?.grand_total ?? null,
-      dueAtLocation: h?.due_at_location_total ?? null,
-      longTermDiscount: h?.long_term_discount ?? null,
-    },
+    money,
+    sourceCurrency: typeof rawCurrency === "string" && rawCurrency.trim() !== "" ? rawCurrency.trim().toUpperCase() : null,
+    ...(fxResult && { fx: fxResult }),
     dates: Array.isArray(dates)
       ? dates.map((d) => ({ fromDate: d?.from_date, toDate: d?.to_date }))
       : null,

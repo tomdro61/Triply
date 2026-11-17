@@ -42,6 +42,7 @@ import {
   captureBookingError,
 } from "@/lib/sentry";
 import { convertTo12Hour } from "@/lib/utils/time";
+import { rateToColumn } from "@/lib/fx/cad-usd";
 import { reslabExtraFieldValues } from "@/lib/booking/required-extra-fields";
 import { stampedDiscountRefusal, type CheckoutFigures, type StampedDiscount } from "@/lib/promo/stamped-discount";
 // Attribution helpers are pure and import nothing from @/lib/reslab/search or
@@ -532,6 +533,15 @@ export async function persistBooking(
           protection_plan_price: charged.premium,
           protection_plan_wholesale: charged.plan.wholesalePrice,
         }),
+        // Migration 052. Written ONLY for a lot ResLab prices in Canadian
+        // dollars: the money columns above are US dollars at this rate (the
+        // one stamped on the PaymentIntent). A US lot's insert carries neither
+        // key, exactly as before the columns existed; NULL = no conversion.
+        ...(fr.source === "reslab" &&
+          fr.fx && {
+            reslab_currency: "CAD",
+            fx_rate: rateToColumn(fr.fx.rate),
+          }),
       })
       .select("id")
       .single();

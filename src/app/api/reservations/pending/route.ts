@@ -49,6 +49,8 @@ import { chargedServiceFeeCents, checkStampAgainstCharge, readStampedDiscount } 
 import { readAttributionFromRequest } from "@/lib/attribution/read-request";
 import { sessionIdentityFromRequest } from "@/lib/booking/customer-link";
 import { reslab, ReslabError } from "@/lib/reslab/client";
+import { lotCurrency, stampedCurrencyProblem, type LotCurrency } from "@/lib/reslab/currency";
+import { readFxStamp } from "@/lib/fx/cad-usd";
 import {
   declaredExtraFieldsSchema,
   missingRequiredExtraFields,
@@ -317,6 +319,26 @@ export async function POST(request: NextRequest) {
       );
     }
     if (lookup.kind === "declared") {
+      // --- The lot's currency against the PaymentIntent's stamp --------------
+      // The same fresh ResLab read says which currency the lot is priced in.
+      // If that is not what the PaymentIntent was priced (and stamped) for,
+      // the amount about to be authorised is not known to be right: stop here,
+      // before the card is confirmed. This is also the off switch: with no
+      // exchange rate set, a Canadian-dollar PaymentIntent still open stops here.
+      const currencyProblem = stampedCurrencyProblem(readFxStamp(meta), lookup.currency);
+      if (currencyProblem) {
+        capturePaymentError(
+          new Error(`Pending-booking staging refused: ${currencyProblem}`),
+          { stripePaymentIntentId: piId, amount: pi.amount / 100 }
+        );
+        return NextResponse.json(
+          {
+            error:
+              "This lot's price has been updated. Please reload the page and try again — you have not been charged.",
+          },
+          { status: 400 }
+        );
+      }
       const sentValues = reslabExtraFieldValues(payload.vehicle, payload.extraFields);
       const missing = missingRequiredExtraFields(lookup.fields, sentValues);
       if (missing.length > 0) {
@@ -466,7 +488,7 @@ export async function POST(request: NextRequest) {
 }
 
 type DeclaredFieldLookup =
-  | { kind: "declared"; fields: DeclaredExtraField[] }
+  | { kind: "declared"; fields: DeclaredExtraField[]; currency: LotCurrency }
   | { kind: "lot_not_found" }
   | { kind: "skipped" };
 
@@ -491,6 +513,7 @@ async function declaredExtraFieldsFor(
 ): Promise<DeclaredFieldLookup> {
   const context = { stripePaymentIntentId: piId, locationId };
   let raw: unknown;
+  let currency: LotCurrency;
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     // When the deadline wins, the ResLab call is still in flight and settles
@@ -521,6 +544,7 @@ async function declaredExtraFieldsFor(
       return { kind: "skipped" };
     }
     raw = result.extra_fields ?? [];
+    currency = lotCurrency(result);
   } catch (error) {
     // Only a 404 for the LOCATION is definitive. The login call throws the
     // same error class ("Authentication failed: …"); a 404 there is a fault on
@@ -562,7 +586,7 @@ async function declaredExtraFieldsFor(
     );
     return { kind: "skipped" };
   }
-  return { kind: "declared", fields: parsed.data };
+  return { kind: "declared", fields: parsed.data, currency };
 }
 
 /** Customer-facing suffix on every refusal: staging runs BEFORE the card is confirmed. */
