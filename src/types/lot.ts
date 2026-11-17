@@ -78,6 +78,10 @@ export interface UnifiedLot {
     maxPrice?: number;
     currency: string;
     currencyCode?: string;
+    /** Set when ResLab prices the lot in another currency and every figure here was converted to USD (e.g. "CAD"). */
+    sourceCurrencyCode?: string;
+    /** Names the exchange rate the figures were converted with; checkout sends it back so a rate change mid-checkout is refused. */
+    fxRateId?: string;
     parkingTypes: ParkingType[];
     taxValue?: number;
     taxType?: "net" | "gross";
