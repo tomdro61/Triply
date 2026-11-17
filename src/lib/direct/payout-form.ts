@@ -63,6 +63,40 @@ export function prepareMarkPaid(
   return { ok: true, decisions, totalCents, lineCount };
 }
 
+/** A column total over the rows whose figure is known: `known` of `of` rows are in `cents`. */
+export interface KnownSum {
+  cents: number;
+  known: number;
+  of: number;
+}
+
+function sumKnown(values: Array<number | null>): KnownSum {
+  const known = values.filter((v): v is number => v !== null);
+  return { cents: known.reduce((a, v) => a + v, 0), known: known.length, of: values.length };
+}
+
+/**
+ * The statement table's totals row (display only — the amount to pay is
+ * `prepareMarkPaid`'s, which knows the admin's decisions; there is deliberately
+ * no "owed to lot" sum here).
+ *   parking, tax        rows the lot can be paid on (not cancelled-before-check-in rows:
+ *                       nothing was sold; not adjustment rows: counted on an earlier statement)
+ *   received, refunded  every first-time row
+ *   margin              "Triply keeps" over every row shown; a row waiting on a decision
+ *                       has no figure, so `known` < `of` until it is decided
+ */
+export function statementTotals(items: StatementItem[]): Record<"parking" | "tax" | "received" | "refunded" | "margin", KnownSum> {
+  const payouts = items.filter((i) => i.lineKind === "payout");
+  const sold = payouts.filter((i) => i.class !== "zero");
+  return {
+    parking: sumKnown(sold.map((i) => i.basis.subtotalCents)),
+    tax: sumKnown(sold.map((i) => i.basis.taxCents)),
+    received: sumKnown(payouts.map((i) => i.basis.amountReceivedCents)),
+    refunded: sumKnown(payouts.map((i) => i.basis.amountRefundedCents)),
+    margin: sumKnown(items.map((i) => i.margin.marginCents)),
+  };
+}
+
 /** The calendar month before `nowMs` in the browser's zone, "YYYY-MM". */
 export function previousMonth(nowMs: number): string {
   const d = new Date(nowMs);

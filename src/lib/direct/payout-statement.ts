@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/server";
 import { toCents } from "@/lib/booking/cost-breakdown";
-import { classifyPayout, adjustmentCandidate, type PayoutBasis, type PayoutClass } from "./payout";
+import { classifyPayout, adjustmentCandidate, directMargin, type PayoutBasis, type PayoutClass } from "./payout";
 import { readPayoutStripeMany, type PayoutStripeRead } from "./payout-stripe";
 
 /**
@@ -53,7 +53,7 @@ export interface StatementItem extends StatementBooking {
   /** How many lines the booking had — a $0 review changes the count, not the sum. */
   priorLinesCount: number | null;
   basis: PayoutBasis;
-  /** Internal only — never in the lot-facing CSV. */
+  /** Internal only — never in the lot-facing CSV. marginCents: see `directMargin` (null on manual and adjustment rows). */
   margin: { stripeFeeCents: number | null; pgWholesaleCents: number | null; marginCents: number | null };
 }
 
@@ -309,13 +309,7 @@ export async function buildStatementView(opts: {
 
     if (!lines) {
       const suggested = cls.kind === "manual" ? null : cls.amountCents;
-      // Margin (payable rows only) = received − refunded − payout − Stripe fee − PG wholesale − tax Triply
-      // owes the city (a liability, not margin). Zero / refunded rows show none (plan §3.1).
-      const triplyTax = t.tax_collected_by === "triply" ? cls.basis.taxCents : 0;
-      const marginCents =
-        cls.kind === "payable" && s?.amountReceivedCents != null && stripeFeeCents !== null && pgWholesaleCents !== null && triplyTax !== null
-          ? s.amountReceivedCents - (s.amountRefundedCents ?? 0) - cls.amountCents - stripeFeeCents - pgWholesaleCents - triplyTax
-          : null;
+      const marginCents = directMargin(cls, stripeFeeCents);
       items.push({
         ...base,
         lineKind: "payout",

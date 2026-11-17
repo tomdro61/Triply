@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, Download, Loader2, Mail, RefreshCw } from "lucide-react";
 import type { StatementItem, StatementView } from "@/lib/direct/payout-statement";
 import type { StatementEmailResult } from "@/lib/direct/payout-email";
-import { needsPerson, prepareMarkPaid, previousMonth, type DecisionDraft } from "@/lib/direct/payout-form";
+import { needsPerson, prepareMarkPaid, previousMonth, statementTotals, type DecisionDraft, type KnownSum } from "@/lib/direct/payout-form";
 
 /**
  * "Triply lots" — direct-lot payout statements (Phase 6a, plan §3). Mounted
@@ -18,6 +18,21 @@ type Lot = { id: string; name: string };
 
 const money = (cents: number | null) =>
   cents === null ? "—" : `${cents < 0 ? "−" : ""}$${(Math.abs(cents) / 100).toFixed(2)}`;
+
+/** A totals cell: the sum of the rows that have a figure, and how many rows that is when not all. */
+function Total({ sum, unit = "rows" }: { sum: KnownSum; unit?: string }) {
+  if (sum.known === 0) return <>—</>;
+  return (
+    <>
+      {money(sum.cents)}
+      {sum.known < sum.of && (
+        <div className="text-xs font-normal text-amber-700">
+          {sum.known} of {sum.of} {unit}
+        </div>
+      )}
+    </>
+  );
+}
 
 const CLASS_LABEL: Record<StatementItem["class"], string> = { payable: "Pay", zero: "Nothing owed", manual: "Needs your decision" };
 const TAX_TO: Record<string, string> = { lot: "passed to lot", triply: "Triply remits" };
@@ -139,6 +154,7 @@ export function DirectPayoutsSection() {
     });
 
   const prepared = view && !view.paid ? prepareMarkPaid(view.items, drafts) : null;
+  const totals = view && view.items.length > 0 ? statementTotals(view.items) : null;
   const canPay =
     !!view && !view.paid && !stale && view.blocked.length === 0 && (view.monthClosed || !view.livemode) && !!prepared?.ok && busy === "";
 
@@ -383,7 +399,7 @@ export function DirectPayoutsSection() {
                     <th className="px-3 py-2 text-right">Tax</th>
                     <th className="px-3 py-2 text-right">Customer paid / refunded</th>
                     <th className="px-3 py-2 text-right">Owed to lot</th>
-                    <th className="px-3 py-2 text-right" title="Internal: received − refunded − payout − Stripe fee − PG wholesale − tax Triply owes">Triply keeps</th>
+                    <th className="px-3 py-2 text-right" title="Internal, after Stripe fees: received − refunded − owed to lot − Stripe fee − Park Guard wholesale − tax Triply remits. A cancelled booking shows the service fee kept, less those costs.">Triply keeps</th>
                     <th className="px-3 py-2 text-left">Decision</th>
                   </tr>
                 </thead>
@@ -460,6 +476,24 @@ export function DirectPayoutsSection() {
                     );
                   })}
                 </tbody>
+                {totals && (
+                  <tfoot className="border-t-2 border-gray-200 bg-gray-50 font-semibold">
+                    <tr>
+                      <td className="px-3 py-2" colSpan={3}>
+                        Totals for the rows shown
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono"><Total sum={totals.parking} /></td>
+                      <td className="px-3 py-2 text-right font-mono"><Total sum={totals.tax} /></td>
+                      <td className="px-3 py-2 text-right font-mono">
+                        <Total sum={totals.received} />
+                        {totals.refunded.known > 0 && <div className="text-xs font-normal text-gray-500">refunded {money(totals.refunded.cents)}</div>}
+                      </td>
+                      <td className="px-3 py-2 text-right text-xs font-normal text-gray-500">{view.paid ? "" : "total below"}</td>
+                      <td className="px-3 py-2 text-right font-mono text-navy"><Total sum={totals.margin} unit="rows — the rest need a decision" /></td>
+                      <td className="px-3 py-2" />
+                    </tr>
+                  </tfoot>
+                )}
               </table>
               {view.items.length === 0 && <p className="px-3 py-8 text-center text-gray-500 text-sm">Nothing owed or changed for this month.</p>}
             </div>

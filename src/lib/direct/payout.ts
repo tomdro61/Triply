@@ -203,6 +203,29 @@ export function classifyPayout(b: PayoutBookingInput): PayoutClass {
   return manual(`status ${b.status}${b.cancelState ? ` / ${b.cancelState}` : ""}`);
 }
 
+/**
+ * What Triply keeps on one direct booking, after Stripe fees (internal only —
+ * never shown to the lot): received − refunded − owed to the lot − Stripe fee −
+ * Park Guard wholesale − the tax Triply itself remits (a liability, not income).
+ *   payable  the figures above.
+ *   zero     cancelled before check-in: the service fee Triply kept, less the
+ *            Stripe fee and the Park Guard wholesale (Park Guard never returns
+ *            it). The tax went back to the customer, so none is owed. Nothing
+ *            received (a released hold) = $0.
+ *   manual   null — a person has not decided what the lot is owed yet.
+ * null also when a figure it needs is unknown; unknown is never $0.
+ */
+export function directMargin(cls: PayoutClass, stripeFeeCents: number | null): number | null {
+  if (cls.kind === "manual") return null;
+  const b = cls.basis;
+  if (b.amountReceivedCents === null || b.amountRefundedCents === null || b.pgWholesaleCents === null) return null;
+  if (cls.kind === "zero" && b.amountReceivedCents === 0) return 0;
+  if (stripeFeeCents === null) return null;
+  const triplyTax = cls.kind === "payable" && b.taxCollectedBy === "triply" ? b.taxCents : 0;
+  if (triplyTax === null) return null;
+  return b.amountReceivedCents - b.amountRefundedCents - cls.amountCents - stripeFeeCents - b.pgWholesaleCents - triplyTax;
+}
+
 /** ": won, needs_response" from "id:status:amount,…" — for the admin's reason text. */
 function disputeStatuses(disputes: string | null): string {
   if (!disputes) return "";

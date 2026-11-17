@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dollarsToCents, prepareMarkPaid, previousMonth } from "../payout-form";
+import { dollarsToCents, prepareMarkPaid, previousMonth, statementTotals } from "../payout-form";
 import { buildLedgerLines } from "../payout-lines";
 import type { StatementItem } from "../payout-statement";
 
@@ -87,5 +87,46 @@ describe("previousMonth", () => {
   it("rolls back across the year", () => {
     expect(previousMonth(new Date(2027, 0, 15).getTime())).toBe("2026-12");
     expect(previousMonth(new Date(2026, 9, 12).getTime())).toBe("2026-09");
+  });
+});
+
+describe("statementTotals", () => {
+  const withMargin = (cents: number | null) => ({ stripeFeeCents: 181, pgWholesaleCents: 0, marginCents: cents });
+  const cancelledBasis = { ...item({ piId: "x" }).basis, amountRefundedCents: 4617 };
+
+  it("adds Triply keeps over every row that has a figure", () => {
+    const t = statementTotals([item({ piId: "a", margin: withMargin(1210) }), item({ piId: "b", margin: withMargin(1375) })]);
+    expect(t.margin).toEqual({ cents: 2585, known: 2, of: 2 });
+    expect(t.parking).toEqual({ cents: 7960, known: 2, of: 2 });
+    expect(t.tax.cents).toBe(1274);
+    expect(t.received.cents).toBe(10424);
+    expect(t.refunded.cents).toBe(0);
+  });
+
+  it("a row waiting on a decision is counted as missing, not as $0", () => {
+    const t = statementTotals([item({ piId: "a", margin: withMargin(1210) }), item({ piId: "m", class: "manual", suggestedCents: null })]);
+    expect(t.margin).toEqual({ cents: 1210, known: 1, of: 2 });
+  });
+
+  it("a cancelled row adds its kept fee but no parking or tax", () => {
+    const t = statementTotals([
+      item({ piId: "a", margin: withMargin(1210) }),
+      item({ piId: "z", class: "zero", suggestedCents: 0, basis: cancelledBasis, margin: withMargin(414) }),
+    ]);
+    expect(t.margin).toEqual({ cents: 1624, known: 2, of: 2 });
+    expect(t.parking).toEqual({ cents: 3980, known: 1, of: 1 });
+    expect(t.received.cents).toBe(10424);
+    expect(t.refunded.cents).toBe(4617);
+  });
+
+  it("an adjustment row adds nothing to the money columns and leaves Triply keeps incomplete", () => {
+    const t = statementTotals([item({ piId: "a", margin: withMargin(1210) }), item({ piId: "j", lineKind: "adjustment", suggestedCents: -3821 })]);
+    expect(t.parking.of).toBe(1);
+    expect(t.received.cents).toBe(5212);
+    expect(t.margin).toEqual({ cents: 1210, known: 1, of: 2 });
+  });
+
+  it("no rows: nothing known", () => {
+    expect(statementTotals([]).margin).toEqual({ cents: 0, known: 0, of: 0 });
   });
 });
