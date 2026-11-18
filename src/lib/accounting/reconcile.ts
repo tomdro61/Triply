@@ -546,11 +546,20 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     // ResLab's fee lines, each one read strictly and summed in cents (a
     // reservation with none owes no fee). `channelFeeOf` would read an
     // unreadable line as 0.
+    // Only an ABSENT list means "no fees": any other shape, or a line that
+    // does not say what it is, is unreadable (a renamed field must not read
+    // as a fee of 0).
     let feeCents: number | null = 0;
-    for (const f of Array.isArray(h.fees) ? h.fees : []) {
-      if (f?.fee_type !== "channel_fee" || feeCents === null) continue;
-      const line = reslabAmountCents(f.dollar_amount);
-      feeCents = line === null ? null : feeCents + line;
+    const feeLines: unknown = h.fees;
+    if (feeLines != null && !Array.isArray(feeLines)) feeCents = null;
+    for (const f of Array.isArray(feeLines) ? (feeLines as Array<{ fee_type?: unknown; dollar_amount?: unknown } | null>) : []) {
+      if (feeCents === null) break;
+      if (typeof f?.fee_type !== "string") {
+        feeCents = null;
+      } else if (f.fee_type === "channel_fee") {
+        const line = reslabAmountCents(f.dollar_amount);
+        feeCents = line === null ? null : feeCents + line;
+      }
     }
     // The total as ResLab states it: the booking was charged from it.
     const grandCad = reslabAmount(h.grand_total);
@@ -653,14 +662,17 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   /**
    * A slice for a booking ResLab gave no figures for (a failed or skipped
    * read, an empty history). When the row is MARKED Canadian it must still be
-   * known as Canadian: ResLab bills it, so the invoice comparison has to say a
-   * reservation is unpriced, and its Stripe parking has nothing owed to set
-   * against. An unmarked row is unchanged.
+   * known as Canadian: whether ResLab bills it is not known, so the invoice
+   * comparison has to say a reservation is unpriced, and its Stripe parking
+   * has nothing owed to set against. An unmarked row is unchanged.
    */
   const unread = (b: SupabaseRow, slice: ReslabSlice): ReslabSlice =>
     b.reslab_currency == null
       ? slice
-      : { ...slice, currency: { kind: "cad_no_rate", legacy: false, reason: "ResLab could not be read for this Canadian booking" } };
+      : {
+          ...slice,
+          currency: { kind: "cad_no_rate", legacy: false, unread: true, reason: "ResLab could not be read for this Canadian booking: run the report again" },
+        };
 
   const reslabFetchErrors: ReconcileResult["reslab"]["fetchErrors"] = [];
   const stripeFetchErrors: ReconcileResult["stripeFetch"]["errors"] = [];
@@ -944,6 +956,11 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   // What ResLab bills (its rule: not cancelled by ResLab), in whole cents.
   let cadConvertedCents = 0; // converted rows, CAD
   let cadConvertedUsdCents = 0; // the same rows at their booking rates
+  // Each converted reservation's CAD cents, for the exchange difference: both
+  // sides of it are converted one reservation at a time.
+  const cadConvertedRowCents: number[] = [];
+  // Marked Canadian rows ResLab gave no answer for. Billed or not is unknown.
+  let cadUnreadRows = 0;
   let cadConvertedSettleRows = 0;
   let cadLegacyCents = 0; // old one-for-one rows, CAD (no rate to estimate with)
   let cadLegacySettleRows = 0;
@@ -1096,14 +1113,21 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
           settleRows++;
         }
       } else if (cur.kind === "cad" && rl.cad && rl.locationTotal !== null) {
-        cadConvertedCents += rl.cad.owedCents + rl.cad.channelFeeCents;
-        // One conversion of the row's whole amount, as the invoice side does
-        // it: the exchange difference is then exactly 0 when the rates agree.
-        cadConvertedUsdCents += cadCentsToUsdCents(rl.cad.owedCents + rl.cad.channelFeeCents, cur.rate) ?? 0;
+        // One conversion of the reservation's whole amount.
+        const rowCents = rl.cad.owedCents + rl.cad.channelFeeCents;
+        const rowUsdCents = cadCentsToUsdCents(rowCents, cur.rate);
+        // Each part already converted on its own, so only an absurd amount gets here. Never a silent 0.
+        if (rowUsdCents === null) throw new Error(`Canadian settlement for ${b.reslab_reservation_number} could not be converted`);
+        cadConvertedCents += rowCents;
+        cadConvertedUsdCents += rowUsdCents;
+        cadConvertedRowCents.push(rowCents);
         cadConvertedSettleRows++;
       } else if (isLegacyNoRate(cur) && rl.cad) {
         cadLegacyCents += rl.cad.owedCents + rl.cad.channelFeeCents;
         cadLegacySettleRows++;
+      } else if (cur.kind === "cad_no_rate" && cur.unread) {
+        // No answer from ResLab: billed or not, its amount is in no figure.
+        cadUnreadRows++;
       } else {
         // A fault ResLab still bills: its amount is in no figure, so the
         // invoice comparison must say it is incomplete.
@@ -1563,21 +1587,31 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   let canadianInvoice: ReconcileResult["reslab"]["canadianInvoice"] = null;
   if (opts.includeReslab) {
     if (invoiceRate !== null) {
+      // ResLab converts what is owed on the invoice as one amount (its email
+      // of Nov 17 2026), so the invoice figure is one conversion of the total.
       const allAtInvoice = cadCentsToUsdCents(cadConvertedCents + cadLegacyCents, invoiceRate);
-      const convertedAtInvoice = cadCentsToUsdCents(cadConvertedCents, invoiceRate);
-      if (allAtInvoice === null || convertedAtInvoice === null) throw new Error("Canadian settlement could not be converted at the invoice rate");
+      // The exchange difference compares like with like: each converted
+      // reservation at ResLab's rate against the same reservation at its
+      // booking rate. Equal rates then give exactly 0, however the cents fall.
+      let convertedAtInvoice = 0;
+      for (const cents of cadConvertedRowCents) {
+        const usdCents = cadCentsToUsdCents(cents, invoiceRate);
+        if (usdCents === null) throw new Error("Canadian settlement could not be converted at the invoice rate");
+        convertedAtInvoice += usdCents;
+      }
+      if (allAtInvoice === null) throw new Error("Canadian settlement could not be converted at the invoice rate");
       canadianInvoice = {
         basis: "invoice_rate",
         usd: allAtInvoice / 100,
         exchangeDifference: (convertedAtInvoice - cadConvertedUsdCents) / 100,
-        unpriced: cadBilledFaults,
+        unpriced: cadBilledFaults + cadUnreadRows,
       };
     } else {
       canadianInvoice = {
         basis: "booking_rates",
         usd: cadConvertedUsdCents / 100,
         exchangeDifference: null,
-        unpriced: cadBilledFaults + cadLegacySettleRows,
+        unpriced: cadBilledFaults + cadUnreadRows + cadLegacySettleRows,
       };
     }
   }
@@ -1670,6 +1704,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       convertedOwed: { rows: cadConvertedSettleRows, cad: cadConvertedCents / 100, usdAtBookingRates: cadConvertedUsdCents / 100 },
       legacyOwed: { rows: cadLegacySettleRows, cad: cadLegacyCents / 100 },
       billedFaults: cadBilledFaults,
+      unread: cadUnreadRows,
       keepEstimate: round2(cadKeepEstimate),
       confirmedConverted: cadConfirmedConverted,
       leftOutConfirmed,

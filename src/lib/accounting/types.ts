@@ -305,9 +305,8 @@ export interface ReconcileResult {
     /** The old bookings charged one-for-one before conversion: ResLab side left out. All statuses. */
     noRateLegacy: number;
     /**
-     * Any other row whose currency cannot be handled, or a marked Canadian
-     * booking ResLab could not be read for. All statuses. A confirmed one
-     * withholds the headline.
+     * Any other row whose currency cannot be handled (kinds "no_rate" and
+     * "conflict"). All statuses. A confirmed one withholds the headline.
      */
     faults: number;
     reservations: Array<{ resNum: string; kind: CanadianRowKind; reason: string | null }>;
@@ -321,6 +320,12 @@ export interface ReconcileResult {
     legacyOwed: { rows: number; cad: number };
     /** Fault rows ResLab has not cancelled: billed by ResLab and in NO figure here, in either currency. */
     billedFaults: number;
+    /**
+     * Marked Canadian bookings ResLab gave no answer for this time (kind
+     * "unread"): whether they are billed is not known. In no figure; a
+     * confirmed one withholds the headline, as any missing read does.
+     */
+    unread: number;
     /** Channel commission − ResLab fee on confirmed converted bookings: the estimated part of `triplyNet.total`. */
     keepEstimate: number;
     confirmedConverted: number;
@@ -479,8 +484,9 @@ export interface ReconcileResult {
      *    owed at ResLab's rate. `exchangeDifference` = what that cost (+) or
      *    saved (−) on converted bookings against their booking rates.
      *  - "booking_rates": converted bookings at their own rates, an estimate.
-     * `unpriced` = reservations ResLab bills that are NOT in `usd`: the old
-     * one-for-one bookings (booking_rates only) and every currency fault.
+     * `unpriced` = reservations ResLab bills, or may bill, that are NOT in
+     * `usd`: the old one-for-one bookings (booking_rates only), every billed
+     * currency fault, and every booking ResLab could not be read for.
      */
     canadianInvoice: null | {
       basis: "invoice_rate" | "booking_rates";

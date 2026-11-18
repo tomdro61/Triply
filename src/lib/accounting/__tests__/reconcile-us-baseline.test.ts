@@ -161,6 +161,7 @@ function usView(result: Awaited<ReturnType<typeof reconcileRevenue>>) {
     convertedOwed: { rows: 0, cad: 0, usdAtBookingRates: 0 },
     legacyOwed: { rows: 0, cad: 0 },
     billedFaults: 0,
+    unread: 0,
     keepEstimate: 0,
     confirmedConverted: 0,
     leftOutConfirmed: 0,

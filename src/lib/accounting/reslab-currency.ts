@@ -30,8 +30,10 @@ export type RowCurrency =
    * row, or (reconcile.ts) a settlement figure that is missing or unreadable.
    * `legacy`: one of the old one-for-one bookings (expected, reported apart).
    * Otherwise a data fault; a confirmed one holds the month's headline back.
+   * `unread`: not a fault in the data at all. The row is marked Canadian and
+   * ResLab gave no answer this time (reconcile.ts `unread`); a rerun clears it.
    */
-  | { kind: "cad_no_rate"; legacy: boolean; reason: string }
+  | { kind: "cad_no_rate"; legacy: boolean; reason: string; unread?: true }
   /** The row and ResLab disagree, or ResLab reports a third currency. Always a fault. */
   | { kind: "conflict"; reason: string };
 
@@ -88,7 +90,7 @@ export function classifyRowCurrency(row: CurrencyWitnessRow, reslabCode: string 
 }
 
 /** How a Canadian-dollar reservation is reported. One mapping, used for the result and the page. */
-export type CanadianRowKind = "converted" | "no_rate_legacy" | "no_rate" | "conflict";
+export type CanadianRowKind = "converted" | "no_rate_legacy" | "no_rate" | "conflict" | "unread";
 
 export function canadianKindOf(c: RowCurrency): CanadianRowKind | null {
   switch (c.kind) {
@@ -99,11 +101,11 @@ export function canadianKindOf(c: RowCurrency): CanadianRowKind | null {
     case "conflict":
       return "conflict";
     case "cad_no_rate":
-      return c.legacy ? "no_rate_legacy" : "no_rate";
+      return c.unread ? "unread" : c.legacy ? "no_rate_legacy" : "no_rate";
   }
 }
 
-/** A row whose currency cannot be handled: in no total, in either currency. */
+/** A row whose currency cannot be handled: in no total, in either currency. (An unread row is not one: it is a failed read.) */
 export const isCurrencyFault = (k: CanadianRowKind): boolean => k === "no_rate" || k === "conflict";
 
 /** ResLab's side of the row is left out of every US-dollar figure. */

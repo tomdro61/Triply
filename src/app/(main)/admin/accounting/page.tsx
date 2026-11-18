@@ -260,6 +260,7 @@ function CanadianLots({ result }: { result: ReconcileResult }) {
   const invoice = result.reslab.canadianInvoice;
   const faults = c.reservations.filter((x) => x.kind === "no_rate" || x.kind === "conflict");
   const legacy = c.reservations.filter((x) => x.kind === "no_rate_legacy");
+  const unread = c.reservations.filter((x) => x.kind === "unread");
   const owed = result.reslab.sumAmountOwed;
   return (
     <div className="bg-white rounded-xl border border-amber-200 p-6 mb-6" data-testid="canadian-lots">
@@ -283,7 +284,7 @@ function CanadianLots({ result }: { result: ReconcileResult }) {
           sub={`charged the Canadian figure one-for-one, so there is no rate to estimate with (${legacy.map((x) => x.resNum).join(", ")})`}
         />
       )}
-      {invoice !== null && (c.convertedOwed.rows > 0 || c.legacyOwed.rows > 0 || c.billedFaults > 0) && (
+      {invoice !== null && (c.convertedOwed.rows > 0 || c.legacyOwed.rows > 0 || c.billedFaults > 0 || c.unread > 0) && (
         <Row
           label="Canadian lots on the invoice, in US dollars"
           value={
@@ -302,12 +303,13 @@ function CanadianLots({ result }: { result: ReconcileResult }) {
               ? `every Canadian dollar above at the rate you entered (${result.options.invoiceCadRate})`
               : c.legacyOwed.rows > 0
               ? `${plural(c.legacyOwed.rows, "booking", "bookings")} made before conversion cannot be estimated. Enter ResLab's CAD rate above to price ${c.legacyOwed.rows === 1 ? "it" : "them"}.`
-              : c.billedFaults > 0
+              : c.billedFaults > 0 || c.unread > 0
               ? "at each booking's own rate"
               : "at each booking's own rate. Enter ResLab's CAD rate above for the exact figure.",
             c.billedFaults > 0
               ? `${plural(c.billedFaults, "booking ResLab bills is", "bookings ResLab bills are")} not in this figure (see the warning below)`
               : "",
+            c.unread > 0 ? `${plural(c.unread, "booking was", "bookings were")} not read from ResLab and ${c.unread === 1 ? "is" : "are"} not in this figure` : "",
           ]
             .filter(Boolean)
             .join(" · ")}
@@ -323,7 +325,7 @@ function CanadianLots({ result }: { result: ReconcileResult }) {
       )}
       {invoice !== null && invoice.exchangeDifference !== null && c.convertedOwed.rows > 0 && (
         <Row
-          label="Exchange difference"
+          label={`Exchange difference on ${plural(c.convertedOwed.rows, "converted booking", "converted bookings")}`}
           value={usd(Math.abs(invoice.exchangeDifference))}
           sub={
             invoice.exchangeDifference > 0
@@ -350,10 +352,17 @@ function CanadianLots({ result }: { result: ReconcileResult }) {
       )}
       {faults.length > 0 && (
         <p className="mt-2 text-xs text-red-700" data-testid="canadian-faults">
-          ⚠ {plural(faults.length, "booking has", "bookings have")} a currency problem or could not be read. What ResLab says about{" "}
+          ⚠ {plural(faults.length, "booking has", "bookings have")} a currency problem. What ResLab says about{" "}
           {faults.length === 1 ? "it" : "them"} is in no figure on this page, in either currency
           {c.billedFaults > 0 ? `, and ResLab still bills ${c.billedFaults === faults.length ? (faults.length === 1 ? "it" : "them") : `${c.billedFaults} of them`}` : ""}:{" "}
           {faults.map((x) => `${x.resNum} (${x.reason ?? x.kind})`).join("; ")}
+        </p>
+      )}
+      {unread.length > 0 && (
+        <p className="mt-2 text-xs text-red-700" data-testid="canadian-unread">
+          ⚠ {plural(unread.length, "Canadian booking was", "Canadian bookings were")} not read from ResLab this time, so{" "}
+          {unread.length === 1 ? "it is" : "they are"} in no figure on this page and it is not known whether ResLab bills{" "}
+          {unread.length === 1 ? "it" : "them"}. Run the report again: {unread.map((x) => x.resNum).join(", ")}
         </p>
       )}
     </div>
@@ -819,7 +828,9 @@ export default function AccountingPage() {
                 sub={
                   result.reslab.invoiceAmount > 0 && invoiceVariance === null && unpriced > 0
                     ? // Never a number with a hole in it.
-                      result.reslab.canadianInvoice?.basis === "booking_rates" && result.canadian.legacyOwed.rows > 0 && result.canadian.billedFaults === 0
+                      result.canadian.unread > 0
+                      ? `not shown: ${plural(result.canadian.unread, "Canadian booking was", "Canadian bookings were")} not read from ResLab. Run the report again.`
+                      : result.reslab.canadianInvoice?.basis === "booking_rates" && result.canadian.legacyOwed.rows > 0 && result.canadian.billedFaults === 0
                       ? `enter ResLab's CAD rate: ${plural(unpriced, "Canadian booking on this invoice has", "Canadian bookings on this invoice have")} no rate to estimate with`
                       : `not shown: ${plural(unpriced, "Canadian booking ResLab bills is", "Canadian bookings ResLab bills are")} in no figure (see Canadian lots)`
                     : invoiceVariance !== null && result.reslab.invoiceAmount > 0
@@ -857,6 +868,13 @@ export default function AccountingPage() {
 
             <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
               <h3 className="font-semibold text-gray-900 mb-1">Parking money flow</h3>
+              {result.canadian.leftOutConfirmed > 0 && (
+                <p className="text-xs text-amber-700 mb-2" data-testid="money-flow-left-out">
+                  {plural(result.canadian.leftOutConfirmed, "confirmed Canadian booking is", "confirmed Canadian bookings are")} not in
+                  the ResLab lines of this panel (to the lots, ResLab fee, channel commission, paid at the lot): see Canadian
+                  lots above.
+                </p>
+              )}
               <p className="text-xs text-gray-500 mb-3">
                 The parking-side money flow — what customers paid, what hit Triply&apos;s
                 Stripe account, what flows to the lots, and what Triply keeps. Service fees
@@ -1258,12 +1276,14 @@ export default function AccountingPage() {
                           {b.airport_code ? `${b.airport_code} — ` : ""}{b.location_name}
                           {b.fx && (
                             <span
-                              className={`ml-1 text-[10px] font-semibold ${b.fx.kind === "no_rate" || b.fx.kind === "conflict" ? "text-red-700" : "text-amber-700"}`}
+                              className={`ml-1 text-[10px] font-semibold ${b.fx.kind === "converted" || b.fx.kind === "no_rate_legacy" ? "text-amber-700" : "text-red-700"}`}
                               title={
                                 b.fx.kind === "converted"
                                   ? `ResLab figures converted from Canadian dollars at ${b.fx.rate}`
                                   : b.fx.kind === "no_rate_legacy"
                                   ? "Canadian-dollar reservation booked before conversion: ResLab side left out"
+                                  : b.fx.kind === "unread"
+                                  ? "Canadian-dollar reservation not read from ResLab this time: run the report again"
                                   : "Currency problem: ResLab side left out (see Canadian lots)"
                               }
                             >
