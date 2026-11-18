@@ -2,6 +2,7 @@
 
 import { Marker } from "react-map-gl/mapbox";
 import { MapPin } from "lucide-react";
+import { currencySign } from "@/lib/fx/usd-label";
 
 interface PriceMarkerProps {
   id: string;
@@ -9,6 +10,8 @@ interface PriceMarkerProps {
   latitude: number;
   /** Per-day price to label the pin with; null shows the pin without a label. */
   price: number | null;
+  /** "US$" before the price: a lot whose price we convert from Canadian dollars. */
+  usdLabel: boolean;
   isHovered: boolean;
   onHover: (id: string | null) => void;
   onClick: () => void;
@@ -19,6 +22,7 @@ export function PriceMarker({
   longitude,
   latitude,
   price,
+  usdLabel,
   isHovered,
   onHover,
   onClick,
@@ -55,7 +59,7 @@ export function PriceMarker({
                     : "bg-brand-dark text-white border-brand-dark"
                 }`}
               >
-                ${price.toFixed(2)}
+                {currencySign(usdLabel)}{price.toFixed(2)}
               </div>
               <div
                 className={`w-3 h-3 rotate-45 transform -mt-2.5 border-r border-b ${

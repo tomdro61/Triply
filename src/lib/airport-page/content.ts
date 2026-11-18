@@ -1,5 +1,6 @@
 import { Airport } from "@/config/airports";
 import { AirportPageData } from "./data";
+import { anyUsdLabelled, money } from "@/lib/fx/usd-label";
 
 export interface SEOSection {
   heading: string;
@@ -28,6 +29,9 @@ export function generateSEOContent(
     hasShuttle,
   } = data;
 
+  // "US$" when the page lists a lot whose price we convert from Canadian dollars.
+  const usd = anyUsdLabelled(data.lots);
+
   if (totalLots === 0) {
     return [
       {
@@ -41,7 +45,7 @@ export function generateSEOContent(
   }
 
   const priceText = priceRange
-    ? `$${priceRange.min.toFixed(0)}–$${priceRange.max.toFixed(0)}/day`
+    ? `${money(priceRange.min, usd, 0)}–${money(priceRange.max, usd, 0)}/day`
     : "";
 
   const sections: SEOSection[] = [
@@ -52,7 +56,7 @@ export function generateSEOContent(
     {
       heading: `Long-Term ${code} Parking`,
       body: cheapestLot
-        ? `For extended trips, ${cheapestLot.name} offers the lowest daily rate at $${(cheapestLot.pricing?.minPrice ?? 0).toFixed(2)}/day${cheapestLot.distanceFromAirport ? `, located ${cheapestLot.distanceFromAirport.toFixed(1)} miles from the terminal` : ""}. Booking ahead through Triply typically saves 30–60% compared to on-airport long-term parking rates at ${code}.`
+        ? `For extended trips, ${cheapestLot.name} offers the lowest daily rate at ${money(cheapestLot.pricing?.minPrice ?? 0, usd)}/day${cheapestLot.distanceFromAirport ? `, located ${cheapestLot.distanceFromAirport.toFixed(1)} miles from the terminal` : ""}. Booking ahead through Triply typically saves 30–60% compared to on-airport long-term parking rates at ${code}.`
         : `Off-airport parking near ${code} typically saves 30–60% compared to on-airport long-term rates. Book ahead through Triply to lock in the best price for your trip.`,
     },
     {
@@ -104,7 +108,7 @@ export function generateFAQs(
     {
       question: `What is the cheapest parking near ${code}?`,
       answer: cheapestLot
-        ? `The most affordable option is ${cheapestLot.name} at $${(cheapestPrice ?? 0).toFixed(2)}/day. Prices are based on a sample 7-day trip and may vary by dates.`
+        ? `The most affordable option is ${cheapestLot.name} at ${money(cheapestPrice ?? 0, anyUsdLabelled(data.lots))}/day. Prices are based on a sample 7-day trip and may vary by dates.`
         : `Off-airport parking near ${code} offers competitive daily rates. Search on Triply to find the best price for your dates.`,
     },
     {

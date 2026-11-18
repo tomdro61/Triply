@@ -26,6 +26,7 @@ import { PriceFooter } from "./price-footer";
 import { bookableCheckinTimes, stillBookableCheckinTime } from "@/lib/utils/time";
 import { VehicleSizeModal } from "./vehicle-size-modal";
 import { directReserveQuote, surchargeRangeText } from "@/lib/direct/vehicle-display";
+import { isUsdLabelled } from "@/lib/fx/usd-label";
 
 interface BookingWidgetProps {
   lot: UnifiedLot;
@@ -306,7 +307,7 @@ export function BookingWidget({
           justifyContent: "space-between",
           gap: 16,
         }}>
-        <PriceFooter shown={shown} dailyRate={price} />
+        <PriceFooter shown={shown} dailyRate={price} usdLabel={isUsdLabelled(lot)} />
         <button
           onClick={handleReserve}
           disabled={reserveDisabled}
@@ -323,7 +324,7 @@ export function BookingWidget({
     <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 sticky top-24">
       {/* Price Header */}
       <div className="mb-6" aria-live="polite">
-        <PriceHeadline shown={shown} dailyRate={price} />
+        <PriceHeadline shown={shown} dailyRate={price} usdLabel={isUsdLabelled(lot)} />
       </div>
 
       {bookingNotOpenYet && (
@@ -479,6 +480,7 @@ export function BookingWidget({
 
       <PriceBreakdown
         shown={shown}
+        usdLabel={isUsdLabelled(lot)}
         className="mb-6"
         note={
           surchargeNotice && (

@@ -3,6 +3,7 @@ import Image from "next/image";
 import { Airport } from "@/config/airports";
 import { UnifiedLot } from "@/types/lot";
 import { MapPin, Bus, ArrowRight, Star } from "lucide-react";
+import { currencySign, isUsdLabelled } from "@/lib/fx/usd-label";
 
 interface LotGridProps {
   airport: Airport;
@@ -80,7 +81,7 @@ function LotCard({ lot, airportSlug }: { lot: UnifiedLot; airportSlug: string })
           <div className="mt-3 flex items-center justify-between">
             <div>
               <span className="text-lg font-bold text-brand-orange">
-                ${price.toFixed(2)}
+                {currencySign(isUsdLabelled(lot))}{price.toFixed(2)}
               </span>
               <span className="text-xs text-gray-400">/day</span>
             </div>

@@ -1,3 +1,4 @@
+import { isUsdLabelled, money } from "@/lib/fx/usd-label";
 import { streamText, stepCountIs, convertToModelMessages } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
@@ -190,10 +191,10 @@ export async function POST(request: NextRequest) {
                 return {
                 name: lot.name,
                 pricePerDay: lot.pricing?.minPrice
-                  ? `$${lot.pricing.minPrice.toFixed(2)}`
+                  ? money(lot.pricing.minPrice, isUsdLabelled(lot))
                   : "Price unavailable",
                 totalPrice: customerTotal !== null
-                  ? `$${customerTotal.toFixed(2)}`
+                  ? money(customerTotal, isUsdLabelled(lot))
                   : "N/A",
                 distance: lot.distanceFromAirport
                   ? `${lot.distanceFromAirport.toFixed(1)} mi`

@@ -6,6 +6,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { TERMS_VERSION } from "@/lib/checkout/terms-acceptance";
+import { CURRENCY_NOTICE_VERSION } from "@/lib/fx/usd-label";
 import { NextRequest } from "next/server";
 
 const { lookup, createPI, getLotById, getCost, getLocation, promoSingle, promoEq, channel } = vi.hoisted(() => ({
@@ -457,6 +458,13 @@ describe("promo lookup (extracted helper) — both branches", () => {
     expect(meta).not.toHaveProperty("fxRateMicros");
   });
 
+  it("a US lot's payment carries no currency notice, even when a page sends one", async () => {
+    const res = await post(reslabBody({ currencyNotice: CURRENCY_NOTICE_VERSION }));
+    expect(res.status).toBe(200);
+    expect(createPI.mock.calls[0][1]).not.toHaveProperty("currencyNotice");
+    expect(createPI.mock.calls[0][1]).toMatchObject({ reslabCurrency: "USD" });
+  });
+
   it("a US lot whose page claims an exchange rate is refused as a stale page, before the cost call or any PaymentIntent", async () => {
     getCost.mockClear();
     const res = await post(reslabBody({ fxRateId: "r1" }));
@@ -764,6 +772,7 @@ describe("POST — a lot ResLab prices in Canadian dollars, once an exchange rat
     protectionPlanCode: null,
     termsVersion: TERMS_VERSION,
     fxRateId: "r1",
+    currencyNotice: CURRENCY_NOTICE_VERSION,
     ...over,
   });
   beforeEach(() => {
@@ -783,6 +792,8 @@ describe("POST — a lot ResLab prices in Canadian dollars, once an exchange rat
       reslabCurrency: "CAD",
       fxRateId: "r1",
       fxRateMicros: "725000",
+      // The "charged in US dollars" wording the page said its Pay step shows.
+      currencyNotice: CURRENCY_NOTICE_VERSION,
       parkingOnlyChargeAmountCents: "9716",
       serviceFee: "5.95",
       verifiedTotal: "97.16",
@@ -796,6 +807,8 @@ describe("POST — a lot ResLab prices in Canadian dollars, once an exchange rat
   it.each([
     ["the page sent no rate id (a page from before the lot was converted)", { fxRateId: undefined }],
     ["the page's rate is not the current one", { fxRateId: "r0" }],
+    ["the page did not say it shows the US-dollar sentence (built before the sentence existed)", { currencyNotice: undefined }],
+    ["the page shows another wording of the US-dollar sentence", { currencyNotice: "2020-01-01" }],
   ])("%s → stale-page refusal, no cost call, no PaymentIntent", async (_n, over) => {
     getCost.mockClear();
     const res = await post(cadBody(over));
@@ -803,6 +816,16 @@ describe("POST — a lot ResLab prices in Canadian dollars, once an exchange rat
     expect((await res.json()).code).toBe("checkout_stale");
     expect(getCost).not.toHaveBeenCalled();
     expect(createPI).not.toHaveBeenCalled();
+  });
+
+  it("a refusal for the US-dollar sentence's version is reported (a mismatch a reload does not clear must be seen)", async () => {
+    vi.mocked(captureAPIError).mockClear();
+    await post(cadBody({ currencyNotice: "2020-01-01" }));
+    expect(captureAPIError).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(captureAPIError).mock.calls[0][1]).toMatchObject({ stage: "currency_notice_mismatch", level: "warning" });
+    vi.mocked(captureAPIError).mockClear();
+    await post(cadBody());
+    expect(captureAPIError).not.toHaveBeenCalled();
   });
 
   it("a protection plan on a converted lot is refused before the cost call or any PaymentIntent", async () => {
@@ -842,7 +865,18 @@ describe("POST — a lot ResLab prices in Canadian dollars, once an exchange rat
     expect(amount).toBe(89.36);
     expect(meta.reslabCurrency).toBe("CAD");
   });
+
+  it("a code the cart is too small for is refused in US dollars: the minimum reads US$", async () => {
+    promoSingle.mockResolvedValue({ data: { ...USABLE_PROMO, code: "BIG", min_subtotal: "200.00" }, error: null });
+    const res = await post(cadBody({ promoCode: "BIG" }));
+    expect(res.status).toBe(200);
+    expect(createPI.mock.calls[0][0]).toBe(97.16);
+    expect(await res.json()).toMatchObject({
+      promo: { code: "BIG", refused: "below_minimum", message: "This code needs at least US$200 of parking." },
+    });
+  });
 });
+
 
 describe("GET /api/checkout/lot — a lot ResLab prices in Canadian dollars", () => {
   const RATE = { id: "r1", micros: 725_000 };
@@ -919,6 +953,7 @@ describe("GET /api/checkout/lot — a lot ResLab prices in Canadian dollars", ()
       customerEmail: "ada@example.com",
       protectionPlanCode: null,
       fxRateId: costData.fxRateId,
+      currencyNotice: CURRENCY_NOTICE_VERSION,
     });
     expect(res.status).toBe(200);
     expect((await res.json()).chargeCents).toBe(Math.round(costData.dueNow * 100));

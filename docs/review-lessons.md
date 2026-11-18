@@ -233,6 +233,11 @@ a human.
 
 One entry per reviewed PR: what the review found, by lesson number. Newest first.
 
+- **US$ labels on converted lots, before paying (Nov 17, #205):** six reviewers + Codex, then a second pass. No Critical or High.
+  - Lesson 1 (found by Codex and four reviewers): a "label every amount" change missed the amounts that are built as text far from the page: a promo refusal's "needs at least $25", the abandoned-checkout email, the assistant's price strings. The scan test only walked the component folders; it now walks those too. When the rule is "every X", grep the message builders and emails, not only the JSX.
+  - Lesson 2 / the #150 pattern: the stamp saying which sentence the checkout showed was written from the server's constant. A stamp that records what a page showed must be sent by the page (as `termsVersion` is) and checked.
+  - Layout is part of the change: "US$" is two characters wider. On a phone it wrapped the Reserve button beside the sticky price and squeezed the sort control. A reviewer reading class names found both before any browser did.
+  - Lesson 13: 77 of 87 mutations killed. The misses that mattered were on the US side (a US pay-at-lot button turning "US$" passed) and a sentence that could be reworded without its version changing.
 - **CAD to USD conversion, dark (Nov 17):** full sweep (10 reviewers + Codex), then a second pass. No finding could charge a customer a different amount; the gaps were all in what is shown and in fail-open paths.
   - Lessons 1 / 2 (the Nov 3 bug class, found by five reviewers and Codex): the "this lot is converted" marker lived inside `lot.pricing`, which does not exist when a lot loads without a price, so that lot's live quote came back in Canadian dollars under a "$". The marker is on the lot now, and the quote route refuses a non-USD lot quoted without it.
   - Lesson 5: the page's price check compared the parts but not the total, so a changed long-stay discount passed (Codex). The check before the card is confirmed ran only when another check's lookup succeeded, so the off switch failed open on a ResLab timeout.

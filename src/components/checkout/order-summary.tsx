@@ -6,6 +6,7 @@ import { UnifiedLot } from "@/types/lot";
 import { PriceBreakdown } from "@/types/checkout";
 import { PromoCode, type ApplyPromoResult, type PromoLock } from "./promo-code";
 import { formatDate } from "@/lib/utils";
+import { currencySign } from "@/lib/fx/usd-label";
 
 interface OrderSummaryProps {
   lot: UnifiedLot;
@@ -43,6 +44,9 @@ interface OrderSummaryProps {
   /** Same gate as the details step's line (checkout-form `showFreeCancellation`):
    *  a same-day or next-day booking can't be cancelled online, so no badge. */
   showFreeCancellation: boolean;
+  /** The lot's price is converted from Canadian dollars: every amount reads
+   *  "US$" and the total row "Total (USD)". Required: no default. */
+  usdLabel: boolean;
 }
 
 export function OrderSummary({
@@ -59,7 +63,9 @@ export function OrderSummary({
   promoLocked = null,
   vehicleEstimate = null,
   showFreeCancellation,
+  usdLabel,
 }: OrderSummaryProps) {
+  const sign = currencySign(usdLabel);
   const mainImage = lot.photos[0]?.url || "/placeholder-lot.jpg";
 
   const formatCheckoutDate = (dateStr: string) => {
@@ -149,6 +155,7 @@ export function OrderSummary({
           onApply={onApplyPromo}
           onRemove={onRemovePromo}
           locked={promoLocked}
+          usdLabel={usdLabel}
         />
       </div>
 
@@ -158,24 +165,24 @@ export function OrderSummary({
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-gray-600">
-              ${priceBreakdown.dailyRate.toFixed(2)} x {priceBreakdown.days}{" "}
+              {sign}{priceBreakdown.dailyRate.toFixed(2)} x {priceBreakdown.days}{" "}
               {priceBreakdown.days === 1 ? "day" : "days"}
             </span>
             <span className="text-gray-900">
-              ${priceBreakdown.subtotal.toFixed(2)}
+              {sign}{priceBreakdown.subtotal.toFixed(2)}
             </span>
           </div>
           {priceBreakdown.discount > 0 && (
             <div className="flex justify-between text-sm text-green-600">
               <span>Promo Discount{promoCode && ` (${promoCode})`}</span>
-              <span>-${priceBreakdown.discount.toFixed(2)}</span>
+              <span>-{sign}{priceBreakdown.discount.toFixed(2)}</span>
             </div>
           )}
           {priceBreakdown.fees > 0 && (
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Fees</span>
               <span className="text-gray-900">
-                ${priceBreakdown.fees.toFixed(2)}
+                {sign}{priceBreakdown.fees.toFixed(2)}
               </span>
             </div>
           )}
@@ -183,7 +190,7 @@ export function OrderSummary({
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Service Fee</span>
               <span className="text-gray-900">
-                ${priceBreakdown.serviceFee.toFixed(2)}
+                {sign}{priceBreakdown.serviceFee.toFixed(2)}
               </span>
             </div>
           )}
@@ -191,14 +198,14 @@ export function OrderSummary({
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Parking Protection</span>
               <span className="text-gray-900">
-                ${priceBreakdown.protectionPlan.toFixed(2)}
+                {sign}{priceBreakdown.protectionPlan.toFixed(2)}
               </span>
             </div>
           )}
           <div className="flex justify-between text-sm">
             <span className="text-gray-600">Taxes</span>
             <span className="text-gray-900">
-              ${priceBreakdown.taxes.toFixed(2)}
+              {sign}{priceBreakdown.taxes.toFixed(2)}
             </span>
           </div>
           {vehicleEstimate && vehicleEstimate.atLotCents > 0 ? (
@@ -210,7 +217,7 @@ export function OrderSummary({
                 <div className="flex justify-between">
                   <span className="font-bold text-gray-900">Charged today</span>
                   <span className="font-bold text-gray-900 text-xl">
-                    ${priceBreakdown.total.toFixed(2)}
+                    {sign}{priceBreakdown.total.toFixed(2)}
                   </span>
                 </div>
                 <p className="text-xs text-gray-500">Paid by card now</p>
@@ -221,25 +228,25 @@ export function OrderSummary({
                     <Wallet size={14} />
                     Due at the lot (est.)
                   </span>
-                  <span className="font-semibold text-amber-700">${(vehicleEstimate.atLotCents / 100).toFixed(2)}</span>
+                  <span className="font-semibold text-amber-700">{sign}{(vehicleEstimate.atLotCents / 100).toFixed(2)}</span>
                 </div>
                 <p className="text-xs text-gray-500">
-                  {vehicleEstimate.label}: ${(vehicleEstimate.surchargeCents / 100).toFixed(2)} + $
+                  {vehicleEstimate.label}: {sign}{(vehicleEstimate.surchargeCents / 100).toFixed(2)} + {sign}
                   {(vehicleEstimate.surchargeTaxCents / 100).toFixed(2)} tax, paid at drop-off
                 </p>
               </div>
               <div className="mt-3 pt-3 border-t border-gray-200 flex justify-between text-sm">
                 <span className="font-medium text-gray-900">Trip total (est.)</span>
-                <span className="font-semibold text-gray-900">${(vehicleEstimate.tripTotalCents / 100).toFixed(2)}</span>
+                <span className="font-semibold text-gray-900">{sign}{(vehicleEstimate.tripTotalCents / 100).toFixed(2)}</span>
               </div>
             </>
           ) : (
             <>
               <div className="border-t border-gray-200 pt-2 mt-2">
                 <div className="flex justify-between">
-                  <span className="font-bold text-gray-900">Total</span>
+                  <span className="font-bold text-gray-900">{usdLabel ? "Total (USD)" : "Total"}</span>
                   <span className="font-bold text-gray-900 text-xl">
-                    ${priceBreakdown.total.toFixed(2)}
+                    {sign}{priceBreakdown.total.toFixed(2)}
                   </span>
                 </div>
               </div>
@@ -256,7 +263,7 @@ export function OrderSummary({
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Due Now</span>
                 <span className="font-medium text-gray-900">
-                  ${priceBreakdown.dueNow.toFixed(2)}
+                  {sign}{priceBreakdown.dueNow.toFixed(2)}
                 </span>
               </div>
               <div className="flex justify-between text-sm mt-1">
@@ -265,7 +272,7 @@ export function OrderSummary({
                   Due at Location
                 </span>
                 <span className="font-medium text-amber-700">
-                  ${priceBreakdown.dueAtLocation.toFixed(2)}
+                  {sign}{priceBreakdown.dueAtLocation.toFixed(2)}
                 </span>
               </div>
             </div>

@@ -34,6 +34,7 @@ import { bookableCheckinTimes, stillBookableCheckinTime } from "@/lib/utils/time
 import { VehicleSizeModal } from "@/components/lot/vehicle-size-modal";
 import { directReserveQuote, surchargeRangeText } from "@/lib/direct/vehicle-display";
 import { trackBookingTimeChange, trackLotView } from "@/lib/analytics/gtag";
+import { isUsdLabelled } from "@/lib/fx/usd-label";
 
 const timeOptions = [
   "12:00 AM", "12:30 AM", "1:00 AM", "1:30 AM", "2:00 AM", "2:30 AM",
@@ -506,7 +507,7 @@ export function ProductDetailSlider({
           <div>
             {/* Price Header */}
             <div className="mb-4" aria-live="polite">
-              <PriceHeadline shown={shown} dailyRate={price} />
+              <PriceHeadline shown={shown} dailyRate={price} usdLabel={isUsdLabelled(lot)} />
             </div>
 
             {/* Pay at Location Indicator */}
@@ -524,6 +525,7 @@ export function ProductDetailSlider({
 
             <PriceBreakdown
               shown={shown}
+              usdLabel={isUsdLabelled(lot)}
               note={
                 surchargeNotice && (
                   // Before Reserve, so the fee is never a surprise (review R10).
@@ -540,7 +542,7 @@ export function ProductDetailSlider({
         {/* Sticky Footer — both mobile and desktop */}
         <div className="border-t border-gray-200 px-4 py-3 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] flex items-center justify-between gap-4">
           <div>
-            <PriceFooter shown={shown} dailyRate={price} />
+            <PriceFooter shown={shown} dailyRate={price} usdLabel={isUsdLabelled(lot)} />
           </div>
           <button
             onClick={handleReserve}

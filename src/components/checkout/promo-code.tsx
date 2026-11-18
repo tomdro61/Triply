@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Tag, X, Check, Loader2 } from "lucide-react";
+import { currencySign } from "@/lib/fx/usd-label";
 
 /**
  * invalid     the code gives no discount here; `message` says why (expired,
@@ -30,6 +31,8 @@ interface PromoCodeProps {
   onApply: (code: string) => Promise<ApplyPromoResult>;
   onRemove: () => void;
   locked?: PromoLock;
+  /** "US$" before the discount: a lot whose price we convert from Canadian dollars. */
+  usdLabel: boolean;
 }
 
 export function PromoCode({
@@ -38,6 +41,7 @@ export function PromoCode({
   percent,
   onApply,
   onRemove,
+  usdLabel,
   locked = null,
 }: PromoCodeProps) {
   const [code, setCode] = useState("");
@@ -79,7 +83,7 @@ export function PromoCode({
             <div>
               <p className="font-medium text-green-800">{appliedCode}</p>
               <p className="text-sm text-green-600">
-                {percent !== null && `${percent}% off · `}${discount.toFixed(2)} discount applied
+                {percent !== null && `${percent}% off · `}{currencySign(usdLabel)}{discount.toFixed(2)} discount applied
               </p>
             </div>
           </div>

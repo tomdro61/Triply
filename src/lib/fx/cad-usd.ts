@@ -179,7 +179,17 @@ export function toUsd(cad: ReslabMoneyParts, rate: FxRate): FxResult {
 /** PaymentIntent metadata keys. `reslabCurrency` is written for EVERY ResLab
  *  PaymentIntent ("USD" or "CAD"), so a missing key only ever means "created
  *  before this shipped" — never "probably a US lot". */
-export const FX_KEYS = { currency: "reslabCurrency", rateId: "fxRateId", rateMicros: "fxRateMicros" } as const;
+export const FX_KEYS = {
+  currency: "reslabCurrency",
+  rateId: "fxRateId",
+  rateMicros: "fxRateMicros",
+  /** Converted PaymentIntents only: the wording version of the "charged in
+   *  US dollars" sentence that the checkout page sent with its payment request
+   *  (its bundle's CURRENCY_NOTICE_VERSION; the POST refuses any other).
+   *  Written by the checkout POST, not by fxStampMetadata. A record for a
+   *  dispute; nothing reads it to decide money. */
+  notice: "currencyNotice",
+} as const;
 
 export function fxStampMetadata(rate: FxRate | null): Record<string, string> {
   if (rate === null) return { [FX_KEYS.currency]: "USD" };

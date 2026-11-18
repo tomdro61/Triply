@@ -5,6 +5,7 @@ import { ChevronDown } from "lucide-react";
 import { UnifiedLot, SortOption } from "@/types/lot";
 import { LotCard } from "./lot-card";
 import { SearchTab } from "./search-header";
+import { anyUsdLabelled, USD_PRICES_LINE } from "@/lib/fx/usd-label";
 
 interface SearchResultsListProps {
   lots: UnifiedLot[];
@@ -77,6 +78,11 @@ export function SearchResultsList({
             />
           </div>
         </div>
+        {/* A search that lists a lot we convert from Canadian dollars. On its
+            own line: beside the count it squeezed the sort control. */}
+        {anyUsdLabelled(lots) && (
+          <p className="mt-1.5 text-xs font-medium text-gray-500">{USD_PRICES_LINE}</p>
+        )}
       </div>
 
       {/* @container: each LotCard lays itself out by this column's width, not the
