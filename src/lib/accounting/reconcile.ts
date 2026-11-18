@@ -671,7 +671,16 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       ? slice
       : {
           ...slice,
-          currency: { kind: "cad_no_rate", legacy: false, unread: true, reason: "ResLab could not be read for this Canadian booking: run the report again" },
+          currency: {
+            kind: "cad_no_rate",
+            legacy: false,
+            unread: true,
+            // A 404 or an empty history will not clear on a rerun: say where to look.
+            reason:
+              slice.reslabNotFound || slice.error === "no history[0] in response"
+                ? "ResLab has no record or no history for this Canadian booking: check it in ResLab"
+                : "ResLab could not be read for this Canadian booking: run the report again",
+          },
         };
 
   const reslabFetchErrors: ReconcileResult["reslab"]["fetchErrors"] = [];
@@ -970,7 +979,8 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   let cadKeepEstimate = 0;
   let cadStripeRefunded = 0;
   let cadStripeUnread = 0;
-  // Confirmed rows whose ResLab side is left out (no rate / conflict): what
+  // Confirmed rows whose ResLab side is left out (no rate / conflict / not
+  // read from ResLab): what
   // they contributed on the Stripe side. Their parking is taken out of "net
   // parking cash" on the page, and they are out of both sides of a take rate,
   // because the ResLab side they would be measured against is missing.

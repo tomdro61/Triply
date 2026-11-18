@@ -731,9 +731,9 @@ describe("a currency fault withholds the headline and is in no figure", () => {
   });
 
   it.each([
-    ["a 503", { __httpStatus: 503 }, "ResLab 503 on BAD"],
-    ["an empty history", { cancelled: 0, history: [] }, "no history[0] in response"],
-  ])("a marked Canadian booking ResLab cannot be read for (%s) is not priced, and says so", async (_name, answer, error) => {
+    ["a 503", { __httpStatus: 503 }, "ResLab 503 on BAD", "ResLab could not be read for this Canadian booking: run the report again"],
+    ["an empty history", { cancelled: 0, history: [] }, "no history[0] in response", "ResLab has no record or no history for this Canadian booking: check it in ResLab"],
+  ])("a marked Canadian booking ResLab cannot be read for (%s) is not priced, and says so", async (_name, answer, error, reason) => {
     us();
     converted("BAD");
     h.reservations.set("BAD", answer);
@@ -742,9 +742,7 @@ describe("a currency fault withholds the headline and is in no figure", () => {
     // Without this the invoice would look matched to the cent with the booking missing.
     expect(r.reslab.canadianInvoice).toEqual({ basis: "booking_rates", usd: 0, exchangeDifference: null, unpriced: 1 });
     expect(r.reslab.varianceInclCanadian).toBeNull();
-    expect(r.canadian.reservations).toEqual([
-      { resNum: "BAD", kind: "unread", reason: "ResLab could not be read for this Canadian booking: run the report again" },
-    ]);
+    expect(r.canadian.reservations).toEqual([{ resNum: "BAD", kind: "unread", reason }]);
     // A failed read is not a currency problem, and nothing says ResLab bills it.
     expect(r.canadian.unread).toBe(1);
     expect(r.canadian.faults).toBe(0);

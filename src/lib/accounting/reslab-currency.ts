@@ -31,7 +31,7 @@ export type RowCurrency =
    * `legacy`: one of the old one-for-one bookings (expected, reported apart).
    * Otherwise a data fault; a confirmed one holds the month's headline back.
    * `unread`: not a fault in the data at all. The row is marked Canadian and
-   * ResLab gave no answer this time (reconcile.ts `unread`); a rerun clears it.
+   * ResLab gave no usable answer (reconcile.ts `unread`); a rerun usually clears it.
    */
   | { kind: "cad_no_rate"; legacy: boolean; reason: string; unread?: true }
   /** The row and ResLab disagree, or ResLab reports a third currency. Always a fault. */

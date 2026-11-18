@@ -184,8 +184,9 @@ export interface BookingDetail {
    * `reslab_*` field above is then US dollars ("converted": at the booking's
    * own rate, an estimate until ResLab invoices) or null (anything else: the
    * ResLab side is left out). The `*_cad` figures are ResLab's own, in
-   * Canadian dollars; they are null on a fault ("no_rate" / "conflict"),
-   * whose figures are in no sum in any currency.
+   * Canadian dollars; they are null on a fault ("no_rate" / "conflict") and
+   * on a booking ResLab gave no answer for ("unread"): those figures are in no
+   * sum in any currency.
    */
   fx?: {
     kind: CanadianRowKind;

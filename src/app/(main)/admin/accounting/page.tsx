@@ -84,7 +84,8 @@ function downloadCsv(bookings: BookingDetail[], filename: string) {
     // Canadian-lot bookings only. The reslab_* columns above are then US
     // dollars (fx_kind "converted": at fx_rate) or empty (anything else).
     // These are ResLab's own figures in Canadian dollars; empty on a booking
-    // with a currency problem (fx_kind "no_rate" / "conflict").
+    // with a currency problem (fx_kind "no_rate" / "conflict") or one ResLab
+    // was not read for ("unread").
     "fx_kind", "fx_rate", "reslab_grand_total_cad", "reslab_location_total_owed_cad",
     "reslab_channel_fee_cad", "reslab_channel_total_cad", "reslab_commissions_total_cad",
   ];
@@ -329,17 +330,17 @@ function CanadianLots({ result }: { result: ReconcileResult }) {
           value={usd(Math.abs(invoice.exchangeDifference))}
           sub={
             invoice.exchangeDifference > 0
-              ? "ResLab's rate made the converted bookings cost this much MORE than at the rates their customers were charged at"
+              ? `ResLab's rate made ${c.convertedOwed.rows === 1 ? "the converted booking" : "the converted bookings"} cost this much MORE than at the ${c.convertedOwed.rows === 1 ? "rate its customer was" : "rates their customers were"} charged at`
               : invoice.exchangeDifference < 0
-              ? "ResLab's rate made the converted bookings cost this much LESS than at the rates their customers were charged at"
+              ? `ResLab's rate made ${c.convertedOwed.rows === 1 ? "the converted booking" : "the converted bookings"} cost this much LESS than at the ${c.convertedOwed.rows === 1 ? "rate its customer was" : "rates their customers were"} charged at`
               : "no difference between ResLab's rate and the rates the customers were charged at"
           }
         />
       )}
       {c.leftOutConfirmed > 0 && (
         <p className="mt-3 text-xs text-amber-700">
-          {plural(c.leftOutConfirmed, "confirmed booking has", "confirmed bookings have")} no usable rate or a currency
-          problem. {usd(c.leftOutStripeParking)} of Stripe parking is taken out of &ldquo;Net parking cash&rdquo;, and the
+          ResLab&apos;s side of {plural(c.leftOutConfirmed, "confirmed booking is", "confirmed bookings are")} left out (no
+          usable rate, a currency problem, or not read from ResLab). {usd(c.leftOutStripeParking)} of Stripe parking is taken out of &ldquo;Net parking cash&rdquo;, and the
           commission on {c.leftOutConfirmed === 1 ? "it" : "them"} is not in &ldquo;Triply revenue&rdquo; or the take rates.
           Anything paid at the lot for {c.leftOutConfirmed === 1 ? "it" : "them"} is not in &ldquo;paid at the lot&rdquo; above.
         </p>
@@ -360,9 +361,10 @@ function CanadianLots({ result }: { result: ReconcileResult }) {
       )}
       {unread.length > 0 && (
         <p className="mt-2 text-xs text-red-700" data-testid="canadian-unread">
-          ⚠ {plural(unread.length, "Canadian booking was", "Canadian bookings were")} not read from ResLab this time, so{" "}
-          {unread.length === 1 ? "it is" : "they are"} in no figure on this page and it is not known whether ResLab bills{" "}
-          {unread.length === 1 ? "it" : "them"}. Run the report again: {unread.map((x) => x.resNum).join(", ")}
+          ⚠ {plural(unread.length, "Canadian booking was", "Canadian bookings were")} not read from ResLab this time. What ResLab
+          says about {unread.length === 1 ? "it" : "them"} is in no figure on this page, and it is not known whether ResLab
+          bills {unread.length === 1 ? "it" : "them"}. Run the report again; if it repeats, the reason is in the fetch errors
+          below and the CSV: {unread.map((x) => x.resNum).join(", ")}
         </p>
       )}
     </div>
@@ -829,7 +831,9 @@ export default function AccountingPage() {
                   result.reslab.invoiceAmount > 0 && invoiceVariance === null && unpriced > 0
                     ? // Never a number with a hole in it.
                       result.canadian.unread > 0
-                      ? `not shown: ${plural(result.canadian.unread, "Canadian booking was", "Canadian bookings were")} not read from ResLab. Run the report again.`
+                      ? `not shown: ${plural(result.canadian.unread, "Canadian booking was", "Canadian bookings were")} not read from ResLab. Run the report again.${
+                          unpriced > result.canadian.unread ? ` ${unpriced - result.canadian.unread} more in no figure (see Canadian lots).` : ""
+                        }`
                       : result.reslab.canadianInvoice?.basis === "booking_rates" && result.canadian.legacyOwed.rows > 0 && result.canadian.billedFaults === 0
                       ? `enter ResLab's CAD rate: ${plural(unpriced, "Canadian booking on this invoice has", "Canadian bookings on this invoice have")} no rate to estimate with`
                       : `not shown: ${plural(unpriced, "Canadian booking ResLab bills is", "Canadian bookings ResLab bills are")} in no figure (see Canadian lots)`
@@ -969,7 +973,7 @@ export default function AccountingPage() {
                       <Row
                         label="Canadian bookings left out"
                         value={`−${usd(leftOutParking)}`}
-                        sub={`${plural(result.canadian.leftOutConfirmed, "confirmed booking", "confirmed bookings")} with no usable rate: what is owed for ${result.canadian.leftOutConfirmed === 1 ? "it" : "them"} is not in the next line (see Canadian lots)`}
+                        sub={`${plural(result.canadian.leftOutConfirmed, "confirmed booking", "confirmed bookings")} whose ResLab side is left out: what is owed for ${result.canadian.leftOutConfirmed === 1 ? "it" : "them"} is not in the next line (see Canadian lots)`}
                       />
                     )}
                     <Row
