@@ -257,6 +257,20 @@ describe("a converted booking (row marked CAD with its own rate)", () => {
     expect(r.bookings[0].reslab_channel_total).toBe(15);
   });
 
+  it("no exchange difference when ResLab's rate is the booking's rate, whatever the cents", async () => {
+    // Location C$33.33 + fee C$0.67 at 0.725: converted separately the two round to 24.16 + 0.49 = 24.65;
+    // as one amount C$34.00 → 24.65. Three such rows must not show a rounding cent as an exchange effect.
+    for (const n of ["CA1", "CA2", "CA3"]) {
+      row(n, { grand_total: 25.05, subtotal: 21.71, reslab_currency: "CAD", fx_rate: "0.725000" });
+      pi(n, 3100);
+      reservation(n, { ...CAD_HISTORY, subtotal: 29.95, total_fees: 1.5, total_tax: 3.11, grand_total: 34.56, location_total: 33.33, fees: [{ fee_type: "channel_fee", dollar_amount: 0.67 }] });
+    }
+    const r = await reconcileRevenue({ ...OPTS, invoiceCadRate: 0.725 });
+
+    expect(r.canadian.convertedOwed).toEqual({ rows: 3, cad: 102, usdAtBookingRates: 73.95 });
+    expect(r.reslab.canadianInvoice).toEqual({ basis: "invoice_rate", usd: 73.95, exchangeDifference: 0, unpriced: 0 });
+  });
+
   it("prices the invoice in whole cents, half-up: C$41.40 at 0.725 is US$30.02, not 30.01", async () => {
     // 4140 × 0.725 = 3001.5 cents. Floating-point dollars round it down.
     converted("CA1", {}, { ...CAD_HISTORY, location_total: 41.4, fees: [] });
@@ -264,6 +278,8 @@ describe("a converted booking (row marked CAD with its own rate)", () => {
 
     expect(r.canadian.convertedOwed.cad).toBe(41.4);
     expect(r.reslab.canadianInvoice?.usd).toBe(30.02);
+    // The booking-rate side is one conversion of the same total: 4140 × 0.75 = 3105.
+    expect(r.canadian.convertedOwed.usdAtBookingRates).toBe(31.05);
     // 41.40 at the booking's 0.75 is 31.05.
     expect(r.reslab.canadianInvoice?.exchangeDifference).toBe(-1.03);
   });
@@ -461,6 +477,8 @@ describe("an old booking charged one-for-one before conversion", () => {
     expect(r.triplyNet.total).toBeCloseTo(18 - 4 + 5.95 + 5.95, 10);
     expect(r.triplyNet.canadianLeftOut).toBe(1);
 
+    // The lot commission across confirmed bookings is not known without its ResLab side.
+    expect(r.confirmed.commissionsTotal).toBeNull();
     // Its Stripe parking (128.95 − 5.95) IS in what Stripe collected, so "how
     // customers paid" still adds up to the parking value; the page takes it
     // out of "net parking cash". It is out of both sides of the take rates.
@@ -623,6 +641,29 @@ describe("a currency fault withholds the headline and is in no figure", () => {
     ["a subtotal that is not whole cents", () => converted("BAD", {}, { ...CAD_HISTORY, subtotal: 100.005 }), "no_rate", unreadable, "0.750000"],
     ["an amount due at the lot that is not whole cents", () => converted("BAD", {}, { ...CAD_HISTORY, due_at_location_total: 20.005 }), "no_rate", unreadable, "0.750000"],
     ["a negative ResLab fee line", () => converted("BAD", {}, { ...CAD_HISTORY, fees: [{ fee_type: "channel_fee", dollar_amount: -4 }] }), "no_rate", unreadable, "0.750000"],
+    ["a ResLab fee line with no amount", () => converted("BAD", {}, { ...CAD_HISTORY, fees: [{ fee_type: "channel_fee", dollar_amount: null }] }), "no_rate", unreadable, "0.750000"],
+    ["text in a ResLab fee line", () => converted("BAD", {}, { ...CAD_HISTORY, fees: [{ fee_type: "channel_fee", dollar_amount: 4 }, { fee_type: "channel_fee", dollar_amount: "n/a" }] }), "no_rate", unreadable, "0.750000"],
+    ["a ResLab fee line that is not whole cents", () => converted("BAD", {}, { ...CAD_HISTORY, fees: [{ fee_type: "channel_fee", dollar_amount: 4.004 }] }), "no_rate", unreadable, "0.750000"],
+    [
+      "an old booking whose ResLab total cannot be read",
+      () => {
+        legacy("BAD");
+        reservation("BAD", { ...CAD_HISTORY, grand_total: "n/a" });
+      },
+      "no_rate",
+      unreadable,
+      null,
+    ],
+    [
+      "an old booking with an unreadable settlement figure",
+      () => {
+        legacy("BAD");
+        reservation("BAD", without("location_total"));
+      },
+      "no_rate",
+      unreadable,
+      null,
+    ],
   ];
 
   it.each(faultCases)("%s", async (_name, arrange, kind, reason, rate) => {
@@ -667,6 +708,40 @@ describe("a currency fault withholds the headline and is in no figure", () => {
       grand_total_cad: null,
     });
     expect(bad?.note).toContain(`ResLab side left out: ${reason}`);
+  });
+
+  it.each([
+    ["a 503", { __httpStatus: 503 }, "ResLab 503 on BAD"],
+    ["an empty history", { cancelled: 0, history: [] }, "no history[0] in response"],
+  ])("a marked Canadian booking ResLab cannot be read for (%s) is not priced, and says so", async (_name, answer, error) => {
+    us();
+    converted("BAD");
+    h.reservations.set("BAD", answer);
+    const r = await reconcileRevenue({ ...OPTS, invoiceAmount: 86 });
+
+    // Without this the invoice would look matched to the cent with the booking missing.
+    expect(r.reslab.canadianInvoice).toEqual({ basis: "booking_rates", usd: 0, exchangeDifference: null, unpriced: 1 });
+    expect(r.reslab.varianceInclCanadian).toBeNull();
+    expect(r.canadian.reservations).toEqual([{ resNum: "BAD", kind: "no_rate", reason: "ResLab could not be read for this Canadian booking" }]);
+    expect(r.canadian.billedFaults).toBe(1);
+    expect(r.triplyNet.total).toBeNull();
+    // Its Stripe parking has nothing owed to set against: out of net parking cash and the take rates.
+    expect(r.canadian.leftOutConfirmed).toBe(1);
+    expect(r.canadian.leftOutStripeParking).toBeCloseTo(92.25, 10);
+    const bad = r.bookings.find((b) => b.reslab_reservation_number === "BAD");
+    expect(bad?.fx).toMatchObject({ kind: "no_rate", rate: "0.750000", location_total_cad: null });
+    expect(bad?.reslab_error).toBe(error);
+    expect(r.reslab.fetchErrors.map((e) => e.resNum)).toEqual(["BAD"]);
+  });
+
+  it("an unmarked US booking ResLab cannot be read for is exactly as before: not Canadian", async () => {
+    us();
+    h.reservations.set("US1", { __httpStatus: 503 });
+    const r = await reconcileRevenue(OPTS);
+
+    expect(r.canadian.reservations).toEqual([]);
+    expect(r.reslab.canadianInvoice?.unpriced).toBe(0);
+    expect(r.bookings[0].fx).toBeUndefined();
   });
 
   it("a fault on a refunded booking is reported but does not take the blame for missing confirmed data", async () => {

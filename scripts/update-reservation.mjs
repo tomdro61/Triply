@@ -144,9 +144,13 @@ async function main() {
       console.error(`\nCould not read the booking row for ${resNum}: ${markErr.message}. Nothing was changed.`);
       process.exit(1);
     }
-    if (notUsd || marked?.reslab_currency != null) {
+    if (!marked) {
+      console.error(`\nERROR: no bookings row found for ${resNum}, so --sync-supabase has nothing to update. Nothing was changed.`);
+      process.exit(1);
+    }
+    if (notUsd || marked.reslab_currency != null) {
       console.error(
-        `\nERROR: ${resNum} is a ${marked?.reslab_currency ?? reslabCurrency} reservation. ` +
+        `\nERROR: ${resNum} is a ${marked.reslab_currency ?? reslabCurrency} reservation. ` +
           `--sync-supabase would write ResLab's Canadian-dollar figures over the booking's US-dollar totals. ` +
           `Refusing. Nothing was changed at ResLab or in the database.\n` +
           `  To change the dates: run with --apply alone, then update the row's dates and totals by hand ` +

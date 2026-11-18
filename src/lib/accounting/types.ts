@@ -304,7 +304,11 @@ export interface ReconcileResult {
     converted: number;
     /** The old bookings charged one-for-one before conversion: ResLab side left out. All statuses. */
     noRateLegacy: number;
-    /** Any other row whose currency cannot be handled, all statuses. A confirmed one withholds the headline. */
+    /**
+     * Any other row whose currency cannot be handled, or a marked Canadian
+     * booking ResLab could not be read for. All statuses. A confirmed one
+     * withholds the headline.
+     */
     faults: number;
     reservations: Array<{ resNum: string; kind: CanadianRowKind; reason: string | null }>;
     /**
@@ -376,7 +380,8 @@ export interface ReconcileResult {
     // bookings. A cost to Triply, deducted in triplyNet.total.
     channelFee: number | null;
     channelTotal: number | null;
-    // Also null when a converted Canadian booking's figure could not be read.
+    // Also null when a converted Canadian booking's figure could not be read,
+    // or a confirmed booking's ResLab side is left out (`canadian.leftOutConfirmed`).
     commissionsTotal: number | null;
     // Authoritative parking cash collected = SUM(Stripe amount_received −
     // service_fee − pg_premium) over confirmed bookings. Falls back to the

@@ -518,7 +518,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     channelTotal: number;
     /** null = ResLab's figure was missing or unreadable. */
     commissionsTotal: number | null;
-    grandTotal: number | null;
+    grandTotal: number;
   };
 
   /**
@@ -543,12 +543,21 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     const subtotalCents = reslabAmountCents(h.subtotal);
     // Not due at the lot = absent or 0, as fulfilment reads it.
     const dueCents = h.due_at_location_total == null ? 0 : reslabAmountCents(h.due_at_location_total);
-    // The fee lines are summed first (a reservation with none owes no fee).
-    const feeCents = reslabAmountCents(Math.round((raw.channelFee ?? 0) * 100) / 100);
+    // ResLab's fee lines, each one read strictly and summed in cents (a
+    // reservation with none owes no fee). `channelFeeOf` would read an
+    // unreadable line as 0.
+    let feeCents: number | null = 0;
+    for (const f of Array.isArray(h.fees) ? h.fees : []) {
+      if (f?.fee_type !== "channel_fee" || feeCents === null) continue;
+      const line = reslabAmountCents(f.dollar_amount);
+      feeCents = line === null ? null : feeCents + line;
+    }
+    // The total as ResLab states it: the booking was charged from it.
+    const grandCad = reslabAmount(h.grand_total);
+    if (!Number.isFinite(grandCad)) return leftOut(unreadable, null);
     if (locationCents === null || channelCents === null || subtotalCents === null || dueCents === null || feeCents === null) {
       return leftOut(unreadable, null);
     }
-    const grandCad = reslabAmount(h.grand_total);
     const commissionsCents = reslabAmountCents(h.commissions_total);
     const cad: CadFigures = {
       owedCents: Math.max(0, locationCents - dueCents),
@@ -556,7 +565,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       dueAtLocationTotal: dueCents / 100,
       channelTotal: channelCents / 100,
       commissionsTotal: commissionsCents === null ? null : commissionsCents / 100,
-      grandTotal: Number.isFinite(grandCad) ? grandCad : null,
+      grandTotal: grandCad,
     };
     // Only an old one-for-one row keeps its Canadian figures (they are summed,
     // in CAD). Any other no-rate row is a fault: its figures go nowhere.
@@ -641,6 +650,18 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     discountStamped: false,
   };
 
+  /**
+   * A slice for a booking ResLab gave no figures for (a failed or skipped
+   * read, an empty history). When the row is MARKED Canadian it must still be
+   * known as Canadian: ResLab bills it, so the invoice comparison has to say a
+   * reservation is unpriced, and its Stripe parking has nothing owed to set
+   * against. An unmarked row is unchanged.
+   */
+  const unread = (b: SupabaseRow, slice: ReslabSlice): ReslabSlice =>
+    b.reslab_currency == null
+      ? slice
+      : { ...slice, currency: { kind: "cad_no_rate", legacy: false, reason: "ResLab could not be read for this Canadian booking" } };
+
   const reslabFetchErrors: ReconcileResult["reslab"]["fetchErrors"] = [];
   const stripeFetchErrors: ReconcileResult["stripeFetch"]["errors"] = [];
 
@@ -656,7 +677,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       if (!b.reslab_reservation_number) return { ...emptyReslab };
       if (token === null || pastDeadline()) {
         reslabFetchErrors.push({ resNum: b.reslab_reservation_number, err: RESLAB_SKIPPED_TIME_BUDGET });
-        return { ...emptyReslab, error: RESLAB_SKIPPED_TIME_BUDGET };
+        return unread(b, { ...emptyReslab, error: RESLAB_SKIPPED_TIME_BUDGET });
       }
       try {
         const data = await reslabReservation(b.reslab_reservation_number, token, opts.fetchTimeoutMs);
@@ -669,7 +690,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
             resNum: b.reslab_reservation_number,
             err: "no history[0] in response",
           });
-          return { ...emptyReslab, error: "no history[0] in response" };
+          return unread(b, { ...emptyReslab, error: "no history[0] in response" });
         }
         return inUsDollars(b, {
           locationTotal: num(h.location_total),
@@ -695,7 +716,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
         reslabFetchErrors.push({ resNum: b.reslab_reservation_number, err: msg });
         // reslabNotFound only on a definitive 404. A 5xx / timeout / network error
         // is transient and must NOT corroborate exclusion (see slice comment).
-        return { ...emptyReslab, error: msg, reslabNotFound: status === 404 };
+        return unread(b, { ...emptyReslab, error: msg, reslabNotFound: status === 404 });
       }
     });
   })();
@@ -1076,8 +1097,9 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
         }
       } else if (cur.kind === "cad" && rl.cad && rl.locationTotal !== null) {
         cadConvertedCents += rl.cad.owedCents + rl.cad.channelFeeCents;
-        cadConvertedUsdCents +=
-          Math.round(Math.max(0, rl.locationTotal - (rl.dueAtLocationTotal ?? 0)) * 100) + Math.round((rl.channelFee ?? 0) * 100);
+        // One conversion of the row's whole amount, as the invoice side does
+        // it: the exchange difference is then exactly 0 when the rates agree.
+        cadConvertedUsdCents += cadCentsToUsdCents(rl.cad.owedCents + rl.cad.channelFeeCents, cur.rate) ?? 0;
         cadConvertedSettleRows++;
       } else if (isLegacyNoRate(cur) && rl.cad) {
         cadLegacyCents += rl.cad.owedCents + rl.cad.channelFeeCents;
@@ -1675,7 +1697,9 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       locationTotalOwed: opts.includeReslab ? confLocTotal : null,
       channelFee: opts.includeReslab ? confChannelFee : null,
       channelTotal: opts.includeReslab ? confChannelTotal : null,
-      commissionsTotal: opts.includeReslab && confCommissionsUnknown === 0 ? confCommissionsTotal : null,
+      // Unknown when any confirmed row's figure is: one that would not
+      // convert, or a row whose ResLab side is left out.
+      commissionsTotal: opts.includeReslab && confCommissionsUnknown === 0 && leftOutConfirmed === 0 ? confCommissionsTotal : null,
       stripeParkingCollected: confStripeParking,
       stripeParkingIsDerived: stripeParkingDerivedUsed,
       reslabDueAtLot: opts.includeReslab ? confReslabDueAtLot : null,

@@ -283,25 +283,34 @@ function CanadianLots({ result }: { result: ReconcileResult }) {
           sub={`charged the Canadian figure one-for-one, so there is no rate to estimate with (${legacy.map((x) => x.resNum).join(", ")})`}
         />
       )}
-      {invoice !== null && (c.convertedOwed.rows > 0 || c.legacyOwed.rows > 0) && (
+      {invoice !== null && (c.convertedOwed.rows > 0 || c.legacyOwed.rows > 0 || c.billedFaults > 0) && (
         <Row
           label="Canadian lots on the invoice, in US dollars"
           value={
-            invoice.basis === "invoice_rate"
-              ? usd(invoice.usd)
-              : c.legacyOwed.rows > 0
-              ? c.convertedOwed.rows > 0
-                ? `≈ ${usd(invoice.usd)} + ?`
+            // `unpriced` reservations are billed by ResLab and are not in the
+            // figure: it is then shown as a part ("+ ?"), never as the whole.
+            invoice.unpriced > 0
+              ? invoice.usd > 0
+                ? `${invoice.basis === "invoice_rate" ? "" : "≈ "}${usd(invoice.usd)} + ?`
                 : "—"
+              : invoice.basis === "invoice_rate"
+              ? usd(invoice.usd)
               : `≈ ${usd(invoice.usd)}`
           }
-          sub={
+          sub={[
             invoice.basis === "invoice_rate"
               ? `every Canadian dollar above at the rate you entered (${result.options.invoiceCadRate})`
               : c.legacyOwed.rows > 0
               ? `${plural(c.legacyOwed.rows, "booking", "bookings")} made before conversion cannot be estimated. Enter ResLab's CAD rate above to price ${c.legacyOwed.rows === 1 ? "it" : "them"}.`
-              : "at each booking's own rate. Enter ResLab's CAD rate above for the exact figure."
-          }
+              : c.billedFaults > 0
+              ? "at each booking's own rate"
+              : "at each booking's own rate. Enter ResLab's CAD rate above for the exact figure.",
+            c.billedFaults > 0
+              ? `${plural(c.billedFaults, "booking ResLab bills is", "bookings ResLab bills are")} not in this figure (see the warning below)`
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" · ")}
           emphasis
         />
       )}
@@ -330,6 +339,7 @@ function CanadianLots({ result }: { result: ReconcileResult }) {
           {plural(c.leftOutConfirmed, "confirmed booking has", "confirmed bookings have")} no usable rate or a currency
           problem. {usd(c.leftOutStripeParking)} of Stripe parking is taken out of &ldquo;Net parking cash&rdquo;, and the
           commission on {c.leftOutConfirmed === 1 ? "it" : "them"} is not in &ldquo;Triply revenue&rdquo; or the take rates.
+          Anything paid at the lot for {c.leftOutConfirmed === 1 ? "it" : "them"} is not in &ldquo;paid at the lot&rdquo; above.
         </p>
       )}
       {c.stripeRefunded !== null && c.stripeRefunded > 0 && (
@@ -340,7 +350,7 @@ function CanadianLots({ result }: { result: ReconcileResult }) {
       )}
       {faults.length > 0 && (
         <p className="mt-2 text-xs text-red-700" data-testid="canadian-faults">
-          ⚠ {plural(faults.length, "booking has", "bookings have")} a currency problem. What ResLab says about{" "}
+          ⚠ {plural(faults.length, "booking has", "bookings have")} a currency problem or could not be read. What ResLab says about{" "}
           {faults.length === 1 ? "it" : "them"} is in no figure on this page, in either currency
           {c.billedFaults > 0 ? `, and ResLab still bills ${c.billedFaults === faults.length ? (faults.length === 1 ? "it" : "them") : `${c.billedFaults} of them`}` : ""}:{" "}
           {faults.map((x) => `${x.resNum} (${x.reason ?? x.kind})`).join("; ")}
