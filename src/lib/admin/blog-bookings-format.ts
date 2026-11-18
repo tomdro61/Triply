@@ -37,7 +37,17 @@ export function fmtNet(net: NetDisplayInput | null, loading = false): string {
  */
 export function netEstimateNote(net: NetDisplayInput | null): string | null {
   if (!net || net.blogNetKnown === 0 || net.blogNetEstimated === 0) return null;
-  return `includes ${plural(net.blogNetEstimated, "Canadian-lot booking", "Canadian-lot bookings")}: estimated until ResLab's invoice`;
+  return `includes ${plural(net.blogNetEstimated, "Canadian-lot booking", "Canadian-lot bookings")}, estimated: ResLab invoices at its own rate`;
+}
+
+/**
+ * The small print beside one net figure: the estimate note, then
+ * `unknownText` when some bookings have no figure. Empty when there is
+ * nothing to add.
+ */
+export function netNotes(net: NetDisplayInput, unknownText: string): string[] {
+  const estimate = netEstimateNote(net);
+  return [...(estimate !== null ? [estimate] : []), ...(net.blogNetUnknown > 0 ? [unknownText] : [])];
 }
 
 /** The NetSummary counts the wording needs (see src/lib/admin/blog-bookings.ts). */

@@ -31,10 +31,16 @@ const sentryMock = vi.hoisted(() => ({ captureCheckIn: vi.fn((..._args: unknown[
 vi.mock("@sentry/nextjs", () => sentryMock);
 // The shipped exchange-rate setting changes by PR and expires by date: these
 // tests set the status they need (default: no rate, so no flag).
-const fx = vi.hoisted(() => ({ status: { kind: "off" } as import("@/lib/fx/cad-usd").CadRateStatus }));
+const fx = vi.hoisted(() => ({
+  status: { kind: "off" } as import("@/lib/fx/cad-usd").CadRateStatus,
+  askedAt: [] as string[],
+}));
 vi.mock("@/lib/fx/cad-usd", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/fx/cad-usd")>()),
-  cadRateStatus: () => fx.status,
+  cadRateStatus: (now: Date) => {
+    fx.askedAt.push(now.toISOString());
+    return fx.status;
+  },
 }));
 
 import { GET } from "../route";
@@ -261,6 +267,27 @@ describe("GET /api/cron/daily-digest", () => {
     discordMock.postToDiscord.mockClear();
     const off = await (await GET(req("?force=1"))).json();
     expect(off.flags.some((f: string) => f.includes("Canadian exchange rate"))).toBe(false);
+  });
+
+  it.each([
+    [{ kind: "expired", validUntil: "2026-09-20" } as const, "Canadian exchange rate expired after 2026-09-20"],
+    [{ kind: "unusable" } as const, "Canadian exchange rate is set but not usable"],
+  ])("an expired or unusable Canadian exchange rate reaches the posted embed (%o)", async (status, text) => {
+    fx.status = status;
+    try {
+      const body = await (await GET(req())).json();
+      const embed = discordMock.postToDiscord.mock.calls[0][1] as { description: string };
+      expect(embed.description).toContain(text);
+      expect(body).toMatchObject({ ok: true, outcome: "posted" });
+    } finally {
+      fx.status = { kind: "off" };
+    }
+  });
+
+  it("asks for the exchange rate's status as of the run's own time, not the digest's day", async () => {
+    fx.askedAt.length = 0;
+    await GET(req("?date=2026-09-01&dry=1"));
+    expect(fx.askedAt).toEqual([new Date(T0).toISOString()]);
   });
 
   it("?dry=1 does not post the crash embed either, and reports ok:false for a could-not-run day", async () => {

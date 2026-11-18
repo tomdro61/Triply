@@ -27,6 +27,7 @@ import {
   type BlogBookingsResponse,
   type DateRange,
   type GscPage,
+  type NetSource,
   type NetSummary,
   type Section,
 } from "@/lib/admin/blog-bookings";
@@ -369,9 +370,10 @@ async function computeNet(range: DateRange, ids: string[], deadline: number): Pr
   }
   const errors = result.reslab.fetchErrors;
   const failed = errors.filter((e) => e.err !== RESLAB_SKIPPED_TIME_BUDGET);
+  const entries: NetData["entries"] = result.bookings.map((b) => [b.id, netTakeOfDetail(b)]);
   return {
-    entries: result.bookings.map((b) => [b.id, netTakeOfDetail(b)]),
-    estimatedIds: result.bookings.filter((b) => b.fx?.kind === "converted" && netTakeOfDetail(b) !== null).map((b) => b.id),
+    entries,
+    estimatedIds: result.bookings.filter((b, i) => b.fx?.kind === "converted" && entries[i][1] !== null).map((b) => b.id),
     fetchErrors: errors.length,
     skipped: errors.length - failed.length,
     errorSample: failed.slice(0, NET_ERROR_SAMPLE).map((e) => ({ reservation: e.resNum, error: e.err })),
@@ -434,6 +436,17 @@ async function readNet(
 }
 
 /**
+ * A cached entry is JSON read back, so its shape is checked, not assumed: one
+ * without the estimated ids would otherwise print every figure as exact.
+ */
+function assertNetShape(data: NetData): NetData {
+  if (!Array.isArray(data.entries) || !Array.isArray(data.estimatedIds)) {
+    throw new Error("net take: the cached result has an unexpected shape (bump NET_CACHE_SHAPE)");
+  }
+  return data;
+}
+
+/**
  * The net section as the page sees it, reported to Sentry here. Errors (not
  * partial figures) when the range is too wide or when most blog bookings came
  * back without a figure.
@@ -443,7 +456,7 @@ async function netSection(
   rows: readonly BlogBookingRow[],
   deadline: number,
   fresh: boolean
-): Promise<{ section: Section<NetSummary>; net?: { byId: Map<string, number | null>; estimatedIds: Set<string> } }> {
+): Promise<{ section: Section<NetSummary>; net?: NetSource }> {
   const days = rangeDays(range);
   if (days > MAX_NET_RANGE_DAYS) {
     return {
@@ -454,7 +467,7 @@ async function netSection(
     };
   }
   const ids = blogTouchedIds(rows, range);
-  const s = await section(() => readNet(range, ids, netFingerprint(ids, rows), deadline, fresh));
+  const s = await section(async () => assertNetShape(await readNet(range, ids, netFingerprint(ids, rows), deadline, fresh)));
   if (!s.ok) {
     reportSection("net", s);
     return { section: { ok: false, error: s.error } };
@@ -568,8 +581,7 @@ export async function GET(request: NextRequest) {
     gscWindow: gsc.ok ? gsc.data.window : undefined,
     articleMeta: cms.ok ? new Map(cms.data) : undefined,
     redirects: BLOG_REDIRECTS,
-    netById: netResult?.net?.byId,
-    estimatedIds: netResult?.net?.estimatedIds,
+    net: netResult?.net,
   });
 
   const body: BlogBookingsResponse = {

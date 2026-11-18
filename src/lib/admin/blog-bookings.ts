@@ -282,14 +282,19 @@ export interface BlogBookingsReport {
   minClicksFlag: number;
 }
 
+/** The loaded net figures: both parts, so "which are estimates" can never be left out. */
+export interface NetSource {
+  /** Booking id → net take; a missing id = unknown. */
+  byId: ReadonlyMap<string, number | null>;
+  /** Booking ids whose net figure is an estimate (see NetFigures.blogNetEstimated). */
+  estimatedIds: ReadonlySet<string>;
+}
+
 export interface AggregateInput {
   rows: readonly BlogBookingRow[];
   range: DateRange;
-  /** Booking id → net take. Omit until net is loaded; a missing id = unknown. */
-  netById?: ReadonlyMap<string, number | null>;
-  /** Booking ids whose net figure is an estimate (see NetFigures.blogNetEstimated).
-   *  Required with netById: an absent set must never read as "no estimates". */
-  estimatedIds?: ReadonlySet<string>;
+  /** The loaded net figures. Omit until net is loaded. */
+  net?: NetSource;
   /** Article slug → Search Console figures. Omit when Search Console is unavailable. */
   gscBySlug?: ReadonlyMap<string, GscPage>;
   /** The days gscBySlug covers (the range clipped to Search Console's last
@@ -314,11 +319,6 @@ const emptyCounts = (): Counts => ({
 
 const emptyNet = (): NetFigures => ({ blogNet: 0, blogNetKnown: 0, blogNetUnknown: 0, blogNetEstimated: 0 });
 
-/** The loaded net figures: both parts or neither. */
-interface NetSource {
-  byId: ReadonlyMap<string, number | null>;
-  estimated: ReadonlySet<string>;
-}
 
 function addNet(n: NetFigures, id: string, src: NetSource): void {
   const v = src.byId.get(id);
@@ -326,7 +326,7 @@ function addNet(n: NetFigures, id: string, src: NetSource): void {
   else {
     n.blogNet += v;
     n.blogNetKnown += 1;
-    if (src.estimated.has(id)) n.blogNetEstimated += 1;
+    if (src.estimatedIds.has(id)) n.blogNetEstimated += 1;
   }
 }
 
@@ -340,17 +340,10 @@ const blogShareOf = (c: Counts): number | null => {
 };
 
 export function aggregateBlogBookings(input: AggregateInput): BlogBookingsReport {
-  const { range, articleMeta, gscWindow } = input;
-  if (input.netById !== undefined && input.estimatedIds === undefined) {
-    throw new Error("aggregateBlogBookings: netById was passed without estimatedIds");
-  }
-  const netById: NetSource | undefined =
-    input.netById !== undefined && input.estimatedIds !== undefined
-      ? { byId: input.netById, estimated: input.estimatedIds }
-      : undefined;
+  const { range, net, articleMeta, gscWindow } = input;
   const redirects = input.redirects ?? NO_REDIRECTS;
   const gscBySlug = input.gscBySlug && mergeRedirectedSlugs(input.gscBySlug, redirects);
-  const hasNet = netById !== undefined;
+  const hasNet = net !== undefined;
   const hasGsc = gscBySlug !== undefined;
   // Airport clicks group articles by their CMS airport tag: without the CMS
   // there is nothing to group by, and every airport would read 0 clicks.
@@ -387,9 +380,9 @@ export function aggregateBlogBookings(input: AggregateInput): BlogBookingsReport
     if (!b.firstSlug && !b.lastSlug) continue;
     const inGsc = gscWindow !== undefined && inRange(row.created_at, gscWindow);
     if (inGsc) a.inGsc += 1;
-    if (netById) {
-      addNet(totalNet, b.id, netById);
-      addNet(a.net, b.id, netById);
+    if (net) {
+      addNet(totalNet, b.id, net);
+      addNet(a.net, b.id, net);
     }
     for (const slug of new Set([b.firstSlug, b.lastSlug].filter((s): s is string => s !== null))) {
       const art = byArticle.get(slug) ?? {
@@ -406,7 +399,7 @@ export function aggregateBlogBookings(input: AggregateInput): BlogBookingsReport
       art.any += 1;
       if (inGsc) art.inGsc += 1;
       art.airports.set(b.airport, (art.airports.get(b.airport) ?? 0) + 1);
-      if (netById) addNet(art.net, b.id, netById);
+      if (net) addNet(art.net, b.id, net);
     }
   }
 

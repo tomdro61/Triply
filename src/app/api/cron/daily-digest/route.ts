@@ -19,8 +19,10 @@
  * embed so a change can be previewed without a message in the channel.
  *
  * It also carries the one warning that the Canadian exchange rate
- * (lib/fx/cad-usd.ts) is about to expire or has expired, as a flag. The flag
- * is about TODAY, not the digest's day, so a `?date=` re-run shows it too.
+ * (lib/fx/cad-usd.ts) is about to expire, has expired, or is set but not
+ * usable, as a flag. The flag is about TODAY, not the digest's day, so any run
+ * that renders an embed shows it (a `?date=` re-run of a day already posted
+ * renders one only with `?force=1` or `?dry=1`).
  */
 
 import { NextRequest, NextResponse } from "next/server";

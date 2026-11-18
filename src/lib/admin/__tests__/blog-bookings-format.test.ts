@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fmtNet, netEstimateNote, netGapParts, netShortfallText, partialNetNotice } from "../blog-bookings-format";
+import { fmtNet, netEstimateNote, netNotes, netGapParts, netShortfallText, partialNetNotice } from "../blog-bookings-format";
 
 describe("fmtNet", () => {
   it("is an ellipsis while loading and a dash before net is loaded", () => {
@@ -21,13 +21,21 @@ describe("fmtNet", () => {
   it("marks a sum that includes an estimated figure with ≈, and says why", () => {
     const net = { blogNet: 1234.4, blogNetKnown: 5, blogNetUnknown: 0, blogNetEstimated: 2 };
     expect(fmtNet(net)).toBe("≈ $1,234");
-    expect(netEstimateNote(net)).toBe("includes 2 Canadian-lot bookings: estimated until ResLab's invoice");
-    expect(netEstimateNote({ ...net, blogNetEstimated: 1 })).toBe("includes 1 Canadian-lot booking: estimated until ResLab's invoice");
+    expect(netEstimateNote(net)).toBe("includes 2 Canadian-lot bookings, estimated: ResLab invoices at its own rate");
+    expect(netEstimateNote({ ...net, blogNetEstimated: 1 })).toBe("includes 1 Canadian-lot booking, estimated: ResLab invoices at its own rate");
   });
-  it("has no estimate note for an exact sum, an empty cell or before a load", () => {
+  it("has no estimate note for an exact sum or before a load", () => {
     expect(netEstimateNote({ blogNet: 10, blogNetKnown: 1, blogNetUnknown: 0, blogNetEstimated: 0 })).toBeNull();
-    expect(netEstimateNote({ blogNet: 0, blogNetKnown: 0, blogNetUnknown: 2, blogNetEstimated: 0 })).toBeNull();
     expect(netEstimateNote(null)).toBeNull();
+  });
+  it("lists the estimate note first, then the caller's text for bookings without a figure", () => {
+    const text = "2 without a figure";
+    expect(netNotes({ blogNet: 10, blogNetKnown: 3, blogNetUnknown: 2, blogNetEstimated: 1 }, text)).toEqual([
+      "includes 1 Canadian-lot booking, estimated: ResLab invoices at its own rate",
+      text,
+    ]);
+    expect(netNotes({ blogNet: 10, blogNetKnown: 3, blogNetUnknown: 2, blogNetEstimated: 0 }, text)).toEqual([text]);
+    expect(netNotes({ blogNet: 10, blogNetKnown: 3, blogNetUnknown: 0, blogNetEstimated: 0 }, text)).toEqual([]);
   });
 });
 

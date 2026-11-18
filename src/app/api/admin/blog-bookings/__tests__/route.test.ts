@@ -201,7 +201,7 @@ describe("GET /api/admin/blog-bookings net section", () => {
     expect(stageCalls("net")).toHaveLength(0);
   });
 
-  it("marks a converted Canadian-lot booking's figure as estimated; one with no figure, or of another kind, is not", async () => {
+  it("marks a converted Canadian-lot booking's figure as estimated; a booking of another kind is not, and one with no figure stays unknown", async () => {
     h.reconcileRevenue.mockResolvedValue(
       reconciled([detail("b1", 10, "converted"), detail("b2", null, "converted"), detail("b3", 8, "no_rate_legacy")])
     );
@@ -215,6 +215,18 @@ describe("GET /api/admin/blog-bookings net section", () => {
     const netKeys = [...h.cache.keys()].filter((k) => k.includes("|net|"));
     expect(netKeys).toHaveLength(1);
     expect(netKeys[0]).toContain("|net|v2|");
+  });
+
+  it("a cached result without the estimated ids is a section error, never figures printed as exact", async () => {
+    h.reconcileRevenue.mockResolvedValue(reconciled([detail("b1", 10, "converted"), detail("b2", 12), detail("b3", 8)]));
+    await GET(req(`${OCT}&net=1`));
+    const [key, hit] = [...h.cache.entries()].find(([k]) => k.includes("|net|"))!;
+    const oldShape = Object.fromEntries(Object.entries(hit.value as Record<string, unknown>).filter(([k]) => k !== "estimatedIds"));
+    h.cache.set(key, { at: hit.at, value: oldShape });
+    const body = await (await GET(req(`${OCT}&net=1`))).json();
+    expect(body.net.ok).toBe(false);
+    expect(body.net.error).toMatch(/unexpected shape/);
+    expect(body.report.totals.net).toBeNull();
   });
 
   it("refuses a range past 60 days as a section error, without calling ResLab or Sentry", async () => {
