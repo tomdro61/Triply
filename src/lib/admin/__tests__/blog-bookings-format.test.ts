@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fmtNet, netGapParts, netShortfallText, partialNetNotice } from "../blog-bookings-format";
+import { fmtNet, netEstimateNote, netNotes, netGapParts, netShortfallText, partialNetNotice } from "../blog-bookings-format";
 
 describe("fmtNet", () => {
   it("is an ellipsis while loading and a dash before net is loaded", () => {
@@ -7,16 +7,35 @@ describe("fmtNet", () => {
     expect(fmtNet(null)).toBe("—");
   });
   it("is an ellipsis while loading even over figures from an earlier load", () => {
-    expect(fmtNet({ blogNet: 1234, blogNetKnown: 5, blogNetUnknown: 0 }, true)).toBe("…");
+    expect(fmtNet({ blogNet: 1234, blogNetKnown: 5, blogNetUnknown: 0, blogNetEstimated: 0 }, true)).toBe("…");
   });
   it("is a dash, not $0, when no booking has a known figure", () => {
-    expect(fmtNet({ blogNet: 0, blogNetKnown: 0, blogNetUnknown: 3 })).toBe("—");
+    expect(fmtNet({ blogNet: 0, blogNetKnown: 0, blogNetUnknown: 3, blogNetEstimated: 0 })).toBe("—");
   });
   it("is $0 when known figures really sum to zero", () => {
-    expect(fmtNet({ blogNet: 0, blogNetKnown: 2, blogNetUnknown: 0 })).toBe("$0");
+    expect(fmtNet({ blogNet: 0, blogNetKnown: 2, blogNetUnknown: 0, blogNetEstimated: 0 })).toBe("$0");
   });
   it("formats known sums as whole dollars", () => {
-    expect(fmtNet({ blogNet: 1234.4, blogNetKnown: 5, blogNetUnknown: 1 })).toBe("$1,234");
+    expect(fmtNet({ blogNet: 1234.4, blogNetKnown: 5, blogNetUnknown: 1, blogNetEstimated: 0 })).toBe("$1,234");
+  });
+  it("marks a sum that includes an estimated figure with ≈, and says why", () => {
+    const net = { blogNet: 1234.4, blogNetKnown: 5, blogNetUnknown: 0, blogNetEstimated: 2 };
+    expect(fmtNet(net)).toBe("≈ $1,234");
+    expect(netEstimateNote(net)).toBe("includes 2 Canadian-lot bookings, estimated: ResLab invoices at its own rate");
+    expect(netEstimateNote({ ...net, blogNetEstimated: 1 })).toBe("includes 1 Canadian-lot booking, estimated: ResLab invoices at its own rate");
+  });
+  it("has no estimate note for an exact sum or before a load", () => {
+    expect(netEstimateNote({ blogNet: 10, blogNetKnown: 1, blogNetUnknown: 0, blogNetEstimated: 0 })).toBeNull();
+    expect(netEstimateNote(null)).toBeNull();
+  });
+  it("lists the estimate note first, then the caller's text for bookings without a figure", () => {
+    const text = "2 without a figure";
+    expect(netNotes({ blogNet: 10, blogNetKnown: 3, blogNetUnknown: 2, blogNetEstimated: 1 }, text)).toEqual([
+      "includes 1 Canadian-lot booking, estimated: ResLab invoices at its own rate",
+      text,
+    ]);
+    expect(netNotes({ blogNet: 10, blogNetKnown: 3, blogNetUnknown: 2, blogNetEstimated: 0 }, text)).toEqual([text]);
+    expect(netNotes({ blogNet: 10, blogNetKnown: 3, blogNetUnknown: 0, blogNetEstimated: 0 }, text)).toEqual([]);
   });
 });
 

@@ -187,19 +187,50 @@ describe("aggregateBlogBookings", () => {
     const rep = aggregateBlogBookings({
       range: RANGE,
       rows: [r1, r2, r3],
-      netById: new Map([
-        [r1.id, 15],
-        [r3.id, 99], // not a blog booking
-      ]),
+      net: {
+        byId: new Map([
+          [r1.id, 15],
+          [r3.id, 99], // not a blog booking
+        ]),
+        estimatedIds: new Set(),
+      },
     });
-    expect(rep.totals.net).toEqual({ blogNet: 15, blogNetKnown: 1, blogNetUnknown: 1 });
-    expect(rep.articles.find((a) => a.slug === "a")?.net).toEqual({ blogNet: 15, blogNetKnown: 1, blogNetUnknown: 1 });
+    expect(rep.totals.net).toEqual({ blogNet: 15, blogNetKnown: 1, blogNetUnknown: 1, blogNetEstimated: 0 });
+    expect(rep.articles.find((a) => a.slug === "a")?.net).toEqual({ blogNet: 15, blogNetKnown: 1, blogNetUnknown: 1, blogNetEstimated: 0 });
+  });
+
+  it("net take: counts estimated figures per article, airport and total; an unknown or non-blog booking is never one", () => {
+    const r1 = row({ first: "/blog/a" });
+    const r2 = row({ first: "/blog/a" });
+    const r3 = row({ first: "/blog/b", airport_code: "YYZ" });
+    const r4 = row({ first: "/blog/b", airport_code: "YYZ" });
+    const r5 = row({ first: "/", airport_code: "YYZ" });
+    const rep = aggregateBlogBookings({
+      range: RANGE,
+      rows: [r1, r2, r3, r4, r5],
+      net: {
+        byId: new Map<string, number | null>([
+          [r1.id, 15],
+          [r2.id, 5],
+          [r3.id, 7],
+          [r4.id, null],
+          [r5.id, 9],
+        ]),
+        // r4 has no figure and r5 is not a blog booking: neither may count.
+        estimatedIds: new Set([r3.id, r4.id, r5.id]),
+      },
+    });
+    expect(rep.totals.net).toEqual({ blogNet: 27, blogNetKnown: 3, blogNetUnknown: 1, blogNetEstimated: 1 });
+    expect(rep.articles.find((a) => a.slug === "a")?.net).toMatchObject({ blogNetKnown: 2, blogNetEstimated: 0 });
+    expect(rep.articles.find((a) => a.slug === "b")?.net).toEqual({ blogNet: 7, blogNetKnown: 1, blogNetUnknown: 1, blogNetEstimated: 1 });
+    expect(rep.airports.find((a) => a.airport === "YYZ")?.net).toMatchObject({ blogNetEstimated: 1 });
+    expect(rep.airports.find((a) => a.airport === "JFK")?.net).toMatchObject({ blogNetEstimated: 0 });
   });
 
   it("net take: no known figure is blogNetKnown 0 (shown as \u2014), not a $0 earner", () => {
     const r1 = row({ first: "/blog/a" });
-    const rep = aggregateBlogBookings({ range: RANGE, rows: [r1], netById: new Map([[r1.id, null]]) });
-    expect(rep.totals.net).toEqual({ blogNet: 0, blogNetKnown: 0, blogNetUnknown: 1 });
+    const rep = aggregateBlogBookings({ range: RANGE, rows: [r1], net: { byId: new Map([[r1.id, null]]), estimatedIds: new Set() } });
+    expect(rep.totals.net).toEqual({ blogNet: 0, blogNetKnown: 0, blogNetUnknown: 1, blogNetEstimated: 0 });
   });
 
   it("joins Search Console: per-100-click rate, airport clicks via CMS, flags clicks with no bookings", () => {

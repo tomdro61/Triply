@@ -18,6 +18,12 @@ vi.mock("@/lib/reslab/client", async () => {
 
 const sentry = vi.hoisted(() => ({ captureAPIError: vi.fn() }));
 vi.mock("@/lib/sentry", () => ({ captureAPIError: sentry.captureAPIError }));
+// No exchange rate here, whatever the shipped setting says today: these tests
+// are about a hidden Canadian lot and must not change when a rate is set or expires.
+vi.mock("@/lib/fx/cad-usd", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/fx/cad-usd")>()),
+  currentCadRate: () => null,
+}));
 // The Recommended ranking reads booking counts from Supabase; these suites test
 // other behaviour, so the counts are stubbed (empty, ok) rather than letting the
 // shared DB fake fail and the capture throttle hide it.

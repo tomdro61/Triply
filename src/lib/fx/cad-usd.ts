@@ -28,18 +28,27 @@ export interface FxRate {
   micros: number;
 }
 
-interface FxRateSetting extends FxRate {
+export interface FxRateSetting extends FxRate {
   /** Last day (UTC, inclusive) the rate may be used for a NEW booking. After
    *  it, Canadian lots hide themselves until a PR sets a fresh rate. */
   validUntil: string;
 }
 
 /**
- * The rate for NEW bookings. A `validUntil` in the past means no rate:
- * `currentCadRate` returns null and Canadian lots are hidden everywhere.
- * Setting a real figure and date here is what puts those lots on sale.
+ * The rate for NEW bookings, or `null` for no rate on purpose: Canadian lots
+ * are hidden everywhere and nothing warns.
+ *
+ * To put those lots on sale, replace `null` with
+ * `{ id, micros, validUntil }`: a NEW id (never one used before), the figure,
+ * and the last day it may be used. To stop on purpose, set it back to `null`:
+ * a past `validUntil` is "expired", which the daily digest flags every day.
+ * The test "the shipped setting" in __tests__/cad-usd.test.ts pins this value
+ * and must change with it.
  */
-const CAD_USD: FxRateSetting = { id: "unset", micros: 700_000, validUntil: "2026-01-01" };
+const CAD_USD: FxRateSetting | null = null;
+
+/** Days ahead of the last valid day that the daily digest starts warning. */
+export const CAD_RATE_WARN_DAYS = 7;
 
 /**
  * Whether Park Guard protection is offered on a lot whose price we convert
@@ -70,12 +79,68 @@ export function isUsableRate(rate: { id?: unknown; micros?: unknown } | null | u
   );
 }
 
-/** The rate a new Canadian booking may use today, or null (expired / not set / not sane). */
-export function currentCadRate(now: Date = new Date(), setting: FxRateSetting = CAD_USD): FxRate | null {
-  const today = now.toISOString().slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(setting.validUntil) || today > setting.validUntil) return null;
+/** Midnight UTC of a real calendar day written YYYY-MM-DD, in ms; null for anything else ("2026-02-30", "soon"). */
+function utcDayMs(day: string): number | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
+  const ms = Date.parse(`${day}T00:00:00Z`);
+  return Number.isNaN(ms) || new Date(ms).toISOString().slice(0, 10) !== day ? null : ms;
+}
+
+/**
+ * Where the rate for new bookings stands. `currentCadRate` is derived from
+ * this, so what is on sale and what the warning says cannot disagree.
+ */
+export type CadRateStatus =
+  /** No rate on purpose (the setting is null). Lots hidden, no warning. */
+  | { kind: "off" }
+  /** A rate was set but its id, figure or date is not usable (or the clock is not a real time). Lots hidden. */
+  | { kind: "unusable" }
+  /** A rate was set and its last day has passed. Lots hidden. */
+  | { kind: "expired"; validUntil: string }
+  /** On sale. `daysLeft` = whole UTC days to the last valid day (0 on that day). */
+  | { kind: "live"; rate: FxRate; validUntil: string; daysLeft: number };
+
+export function cadRateStatus(now: Date = new Date(), setting: FxRateSetting | null = CAD_USD): CadRateStatus {
+  if (setting === null) return { kind: "off" };
   const rate = { id: setting.id, micros: setting.micros };
-  return isUsableRate(rate) ? rate : null;
+  const lastDay = utcDayMs(setting.validUntil);
+  const today = Number.isNaN(now.getTime()) ? null : utcDayMs(now.toISOString().slice(0, 10));
+  if (!isUsableRate(rate) || lastDay === null || today === null) return { kind: "unusable" };
+  if (today > lastDay) return { kind: "expired", validUntil: setting.validUntil };
+  return { kind: "live", rate, validUntil: setting.validUntil, daysLeft: Math.round((lastDay - today) / 86_400_000) };
+}
+
+/** The rate a new Canadian booking may use today, or null (expired / not set / not sane). */
+export function currentCadRate(now: Date = new Date(), setting: FxRateSetting | null = CAD_USD): FxRate | null {
+  const status = cadRateStatus(now, setting);
+  return status.kind === "live" ? status.rate : null;
+}
+
+/**
+ * The daily digest's line about the rate, or null when there is nothing to
+ * say (no rate on purpose, or more than CAD_RATE_WARN_DAYS left). The last
+ * valid day ends at midnight UTC, which is 7:00 PM Eastern (EST) or 8:00 PM
+ * (EDT), so on the last day the flag says TONIGHT.
+ */
+export function cadRateFlag(status: CadRateStatus): string | null {
+  const lots = "Toronto, Montreal, Calgary and Ottawa lots";
+  const effect = "their pages return 404 and drop out of the sitemap at its next rebuild, until a PR sets a new rate (src/lib/fx/cad-usd.ts)";
+  switch (status.kind) {
+    case "off":
+      return null;
+    case "unusable":
+      return `Canadian exchange rate is set but not usable. ${lots} are off sale: ${effect}.`;
+    case "expired":
+      return `Canadian exchange rate expired after ${status.validUntil} (UTC). ${lots} are off sale: ${effect}.`;
+    case "live": {
+      if (status.daysLeft > CAD_RATE_WARN_DAYS) return null;
+      const when =
+        status.daysLeft === 0
+          ? "TONIGHT (midnight UTC, the evening in US Eastern time)"
+          : `in ${status.daysLeft} day${status.daysLeft === 1 ? "" : "s"} (last day ${status.validUntil}, ending midnight UTC)`;
+      return `Canadian exchange rate expires ${when}. After that, ${lots} come off sale: ${effect}.`;
+    }
+  }
 }
 
 /** Whole CAD cents → whole USD cents, half-up. null when an input is not a non-negative whole number. */

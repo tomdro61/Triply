@@ -50,9 +50,9 @@ describe("lotCurrency", () => {
   it("a third currency is hidden", () => {
     expect(lotCurrency({ currency: { code: "EUR" } }, NOW)).toEqual({ kind: "hidden", reason: "currency" });
   });
-  it("a CAD lot is hidden while no rate is set (today's state)", () => {
-    expect(lotCurrency({ currency: { code: "CAD" }, country: { code: "CA" } }, NOW)).toEqual({ kind: "hidden", reason: "no_rate" });
-    expect(isSellableLocation({ currency: { code: "CAD" } }, NOW)).toBe(false);
+  it("a CAD lot is hidden while no rate is set", () => {
+    expect(lotCurrency({ currency: { code: "CAD" }, country: { code: "CA" } }, NOW, null)).toEqual({ kind: "hidden", reason: "no_rate" });
+    expect(isSellableLocation({ currency: { code: "CAD" } }, NOW, null)).toBe(false);
   });
   it("a CAD lot that collects at the lot is hidden before the rate is even looked at", () => {
     expect(lotCurrency({ currency: { code: "CAD" }, parking_due_at_location: 1 }, NOW)).toEqual({ kind: "hidden", reason: "pay_at_lot" });
@@ -63,7 +63,7 @@ describe("lotCurrency", () => {
     expect(isSellableLocation({ currency: { code: "usd" } }, NOW, null)).toBe(true);
     expect(isSellableLocation({ currency: null }, NOW, null)).toBe(true);
     expect(isSellableLocation({}, NOW)).toBe(true);
-    expect(isSellableLocation({ currency: { code: "CAD" } }, NOW)).toBe(false);
+    expect(isSellableLocation({ currency: { code: "CAD" } }, NOW, null)).toBe(false);
     expect(isSellableLocation({ currency: { code: "EUR" } }, NOW)).toBe(false);
   });
 });

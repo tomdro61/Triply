@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  CAD_RATE_WARN_DAYS,
   FX_KEYS,
   cadCentsToUsdCents,
+  cadRateFlag,
+  cadRateStatus,
   currentCadRate,
   fxStampMetadata,
   isUsableRate,
@@ -9,7 +12,9 @@ import {
   rateToColumn,
   readFxStamp,
   toUsd,
+  type CadRateStatus,
   type FxRate,
+  type FxRateSetting,
   type ReslabMoneyParts,
 } from "../cad-usd";
 
@@ -50,8 +55,79 @@ describe("currentCadRate", () => {
     expect(currentCadRate(new Date("2026-06-01T00:00:00Z"), { ...setting, micros: 1_400_000 })).toBeNull();
     expect(currentCadRate(new Date("2026-06-01T00:00:00Z"), { ...setting, validUntil: "soon" })).toBeNull();
   });
-  it("is not set yet: Canadian lots stay hidden", () => {
-    expect(currentCadRate(new Date("2026-11-17T12:00:00Z"))).toBeNull();
+  it("refuses a date that is the right shape but not a real day", () => {
+    expect(currentCadRate(new Date("2026-02-01T00:00:00Z"), { ...setting, validUntil: "2026-02-30" })).toBeNull();
+  });
+  it("no setting means no rate", () => {
+    expect(currentCadRate(new Date("2026-06-01T00:00:00Z"), null)).toBeNull();
+  });
+});
+
+describe("cadRateStatus", () => {
+  const setting = { id: "r1", micros: 725_000, validUntil: "2026-12-31" };
+  const at = (iso: string, s: FxRateSetting | null = setting) => cadRateStatus(new Date(iso), s);
+
+  it("counts whole UTC days to the last valid day", () => {
+    expect(at("2026-12-24T23:59:59Z")).toEqual({ kind: "live", rate: { id: "r1", micros: 725_000 }, validUntil: "2026-12-31", daysLeft: 7 });
+    expect(at("2026-12-31T00:00:00Z")).toMatchObject({ kind: "live", daysLeft: 0 });
+    expect(at("2026-12-31T23:59:59Z")).toMatchObject({ kind: "live", daysLeft: 0 });
+    expect(at("2026-03-01T12:00:00Z", { ...setting, validUntil: "2026-03-08" })).toMatchObject({ kind: "live", daysLeft: 7 });
+  });
+  it("is expired from the first second after the last day", () => {
+    expect(at("2027-01-01T00:00:00Z")).toEqual({ kind: "expired", validUntil: "2026-12-31" });
+  });
+  it("is off when there is no setting", () => {
+    expect(at("2026-06-01T00:00:00Z", null)).toEqual({ kind: "off" });
+  });
+  it("is unusable for a set rate with an insane figure, a bad date or an empty id, and for a clock that is not a real time", () => {
+    expect(at("2026-06-01T00:00:00Z", { ...setting, micros: 1_400_000 })).toEqual({ kind: "unusable" });
+    expect(at("2026-06-01T00:00:00Z", { ...setting, validUntil: "soon" })).toEqual({ kind: "unusable" });
+    expect(at("2026-06-01T00:00:00Z", { ...setting, validUntil: "2026-02-30" })).toEqual({ kind: "unusable" });
+    expect(at("2026-06-01T00:00:00Z", { ...setting, id: "" })).toEqual({ kind: "unusable" });
+    expect(cadRateStatus(new Date(Number.NaN), setting)).toEqual({ kind: "unusable" });
+  });
+  it.each([
+    ["2026-06-01T00:00:00Z", setting],
+    ["2026-12-31T23:59:59Z", setting],
+    ["2027-01-01T00:00:00Z", setting],
+    ["2026-06-01T00:00:00Z", null],
+    ["2026-06-01T00:00:00Z", { ...setting, micros: 1_400_000 }],
+    ["2026-06-01T00:00:00Z", { ...setting, validUntil: "2026-02-30" }],
+  ] as Array<[string, FxRateSetting | null]>)("a rate is on sale exactly when the status is live (%s)", (iso, s) => {
+    expect(currentCadRate(new Date(iso), s) !== null).toBe(at(iso, s).kind === "live");
+  });
+  it("the shipped setting: no rate, Canadian lots hidden", () => {
+    // The PR that sets a rate rewrites this to the exact { kind: "live", rate: { id, micros }, validUntil, ... }.
+    // The date is long before any validUntil, so the test does not depend on today or on when a rate expires.
+    expect(cadRateStatus(new Date("2000-01-01T00:00:00Z"))).toEqual({ kind: "off" });
+    expect(currentCadRate(new Date("2000-01-01T00:00:00Z"))).toBeNull();
+  });
+});
+
+describe("cadRateFlag", () => {
+  const live = (daysLeft: number): CadRateStatus => ({ kind: "live", rate: { id: "r1", micros: 725_000 }, validUntil: "2026-12-31", daysLeft });
+  it("says nothing when the rate is off or has more than a week left", () => {
+    expect(CAD_RATE_WARN_DAYS).toBe(7);
+    expect(cadRateFlag({ kind: "off" })).toBeNull();
+    expect(cadRateFlag(live(8))).toBeNull();
+  });
+  it("warns from seven days out, with the last day", () => {
+    expect(cadRateFlag(live(7))).toContain("expires in 7 days (last day 2026-12-31");
+    expect(cadRateFlag(live(1))).toContain("expires in 1 day (last day 2026-12-31");
+  });
+  it("says TONIGHT on the last day", () => {
+    expect(cadRateFlag(live(0))).toContain("expires TONIGHT");
+  });
+  it("says the lots are off sale once expired or unusable", () => {
+    expect(cadRateFlag({ kind: "expired", validUntil: "2026-12-31" })).toContain("expired after 2026-12-31");
+    expect(cadRateFlag({ kind: "expired", validUntil: "2026-12-31" })).toContain("are off sale");
+    expect(cadRateFlag({ kind: "unusable" })).toContain("set but not usable");
+    expect(cadRateFlag({ kind: "unusable" })).toContain("are off sale");
+  });
+  it("every warning says what happens to the lot pages", () => {
+    for (const s of [live(7), live(0), { kind: "expired", validUntil: "2026-12-31" } as const, { kind: "unusable" } as const]) {
+      expect(cadRateFlag(s)).toContain("return 404");
+    }
   });
 });
 

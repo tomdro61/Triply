@@ -17,6 +17,12 @@
  * re-posts one already recorded; `?dry=1` collects, reads and renders but
  * posts nothing, records nothing and touches no check-in — it returns the
  * embed so a change can be previewed without a message in the channel.
+ *
+ * It also carries the one warning that the Canadian exchange rate
+ * (lib/fx/cad-usd.ts) is about to expire, has expired, or is set but not
+ * usable, as a flag. The flag is about TODAY, not the digest's day, so any run
+ * that renders an embed shows it (a `?date=` re-run of a day already posted
+ * renders one only with `?force=1` or `?dry=1`).
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -30,6 +36,7 @@ import { writeModelRead, READ_TIMEOUT_MS, type ReadResult } from "@/lib/digest/r
 import { postToDiscord } from "@/lib/digest/discord";
 import { windowForEtDay, yesterdayEt, shiftIsoDate, calendarDayIn, DIGEST_TZ } from "@/lib/digest/window";
 import type { Flag } from "@/lib/digest/types";
+import { cadRateFlag, cadRateStatus } from "@/lib/fx/cad-usd";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -100,6 +107,10 @@ export async function GET(request: NextRequest) {
     // row": it means we cannot know, so we post but say so in the embed and the
     // response, and do not report the run as clean.
     const extraFlags: Flag[] = [];
+    // The Canadian exchange rate is a code constant with a last valid day; after
+    // it the Canadian lots take themselves off sale. This is the only warning.
+    const rateFlag = cadRateFlag(cadRateStatus(now));
+    if (rateFlag !== null) extraFlags.push({ text: rateFlag });
     let runLogRead: "ok" | "error" | "skipped" = force || dry ? "skipped" : "ok"; // force = a deliberate re-post, dry = no post: nothing is read
     if (!force && !dry) {
       const prior = await sb.from("digest_runs").select("outcome, posted_at").eq("digest_date", dateEt).abortSignal(AbortSignal.timeout(DB_TIMEOUT_MS)).maybeSingle();

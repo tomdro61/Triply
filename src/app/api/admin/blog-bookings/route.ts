@@ -27,6 +27,7 @@ import {
   type BlogBookingsResponse,
   type DateRange,
   type GscPage,
+  type NetSource,
   type NetSummary,
   type Section,
 } from "@/lib/admin/blog-bookings";
@@ -315,9 +316,15 @@ async function readArticleMeta(signal: AbortSignal): Promise<Array<[string, Arti
   throw new Error(`CMS has more than ${CMS_PAGE * CMS_MAX_PAGES} posts`);
 }
 
+/** Bump when NetData's shape changes, so an older cached entry is never read as the new shape. */
+const NET_CACHE_SHAPE = "v2";
+
 interface NetData {
   /** Booking id → net take (plain entries: unstable_cache JSON-serialises). */
   entries: Array<[string, number | null]>;
+  /** Ids in `entries` whose figure is an estimate: a Canadian-lot booking
+   *  converted at its own exchange rate (the reconciler's fx.kind "converted"). */
+  estimatedIds: string[];
   fetchErrors: number;
   /** Of fetchErrors, reads skipped because the deadline passed. */
   skipped: number;
@@ -363,8 +370,10 @@ async function computeNet(range: DateRange, ids: string[], deadline: number): Pr
   }
   const errors = result.reslab.fetchErrors;
   const failed = errors.filter((e) => e.err !== RESLAB_SKIPPED_TIME_BUDGET);
+  const entries: NetData["entries"] = result.bookings.map((b) => [b.id, netTakeOfDetail(b)]);
   return {
-    entries: result.bookings.map((b) => [b.id, netTakeOfDetail(b)]),
+    entries,
+    estimatedIds: result.bookings.filter((b, i) => b.fx?.kind === "converted" && entries[i][1] !== null).map((b) => b.id),
     fetchErrors: errors.length,
     skipped: errors.length - failed.length,
     errorSample: failed.slice(0, NET_ERROR_SAMPLE).map((e) => ({ reservation: e.resNum, error: e.err })),
@@ -406,7 +415,7 @@ async function readNet(
   fresh: boolean
 ): Promise<NetData> {
   if (ids.length === 0) {
-    return { entries: [], fetchErrors: 0, skipped: 0, errorSample: [], computedAt: new Date().toISOString() };
+    return { entries: [], estimatedIds: [], fetchErrors: 0, skipped: 0, errorSample: [], computedAt: new Date().toISOString() };
   }
   if (fresh) return computeNet(range, ids, deadline);
   try {
@@ -416,13 +425,25 @@ async function readNet(
         if (data.fetchErrors > 0) throw new UncachedNet(data);
         return data;
       },
-      ["admin-blog-bookings", "net", range.from, range.to, fingerprint, netCacheWindow(Date.now())],
+      // NET_CACHE_SHAPE: an entry written before NetData had `estimatedIds` must be a miss.
+      ["admin-blog-bookings", "net", NET_CACHE_SHAPE, range.from, range.to, fingerprint, netCacheWindow(Date.now())],
       { revalidate: 2 * NET_CACHE_S }
     )();
   } catch (err) {
     if (err instanceof UncachedNet) return err.data;
     throw err;
   }
+}
+
+/**
+ * A cached entry is JSON read back, so its shape is checked, not assumed: one
+ * without the estimated ids would otherwise print every figure as exact.
+ */
+function assertNetShape(data: NetData): NetData {
+  if (!Array.isArray(data.entries) || !Array.isArray(data.estimatedIds)) {
+    throw new Error("net take: the cached result has an unexpected shape (bump NET_CACHE_SHAPE)");
+  }
+  return data;
 }
 
 /**
@@ -435,7 +456,7 @@ async function netSection(
   rows: readonly BlogBookingRow[],
   deadline: number,
   fresh: boolean
-): Promise<{ section: Section<NetSummary>; netById?: Map<string, number | null> }> {
+): Promise<{ section: Section<NetSummary>; net?: NetSource }> {
   const days = rangeDays(range);
   if (days > MAX_NET_RANGE_DAYS) {
     return {
@@ -446,7 +467,7 @@ async function netSection(
     };
   }
   const ids = blogTouchedIds(rows, range);
-  const s = await section(() => readNet(range, ids, netFingerprint(ids, rows), deadline, fresh));
+  const s = await section(async () => assertNetShape(await readNet(range, ids, netFingerprint(ids, rows), deadline, fresh)));
   if (!s.ok) {
     reportSection("net", s);
     return { section: { ok: false, error: s.error } };
@@ -492,7 +513,7 @@ async function netSection(
     });
     return { section: { ok: false, error: netShortfallText(summary) } };
   }
-  return { section: { ok: true, data: summary }, netById };
+  return { section: { ok: true, data: summary }, net: { byId: netById, estimatedIds: new Set(s.data.estimatedIds) } };
 }
 
 export async function GET(request: NextRequest) {
@@ -560,7 +581,7 @@ export async function GET(request: NextRequest) {
     gscWindow: gsc.ok ? gsc.data.window : undefined,
     articleMeta: cms.ok ? new Map(cms.data) : undefined,
     redirects: BLOG_REDIRECTS,
-    netById: netResult?.netById,
+    net: netResult?.net,
   });
 
   const body: BlogBookingsResponse = {
