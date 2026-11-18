@@ -45,7 +45,10 @@ export interface FxRateSetting extends FxRate {
  * The test "the shipped setting" in __tests__/cad-usd.test.ts pins this value
  * and must change with it.
  */
-const CAD_USD: FxRateSetting | null = null;
+// 2026-11-18: Bank of Canada daily rate 0.6997 (Nov 17) + 3% cushion. ResLab
+// invoices the Canadian-dollar amount later at its own rate on the invoice
+// date; the cushion is what covers a rise in the Canadian dollar until then.
+const CAD_USD: FxRateSetting | null = { id: "2026-11-18a", micros: 720_700, validUntil: "2027-01-11" };
 
 /** Days ahead of the last valid day that the daily digest starts warning. */
 export const CAD_RATE_WARN_DAYS = 7;

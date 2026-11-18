@@ -96,11 +96,17 @@ describe("cadRateStatus", () => {
   ] as Array<[string, FxRateSetting | null]>)("a rate is on sale exactly when the status is live (%s)", (iso, s) => {
     expect(currentCadRate(new Date(iso), s) !== null).toBe(at(iso, s).kind === "live");
   });
-  it("the shipped setting: no rate, Canadian lots hidden", () => {
-    // The PR that sets a rate rewrites this to the exact { kind: "live", rate: { id, micros }, validUntil, ... }.
-    // The date is long before any validUntil, so the test does not depend on today or on when a rate expires.
-    expect(cadRateStatus(new Date("2000-01-01T00:00:00Z"))).toEqual({ kind: "off" });
-    expect(currentCadRate(new Date("2000-01-01T00:00:00Z"))).toBeNull();
+  it("the shipped setting: US$0.7207 per Canadian dollar, through 2027-01-11", () => {
+    // Pins the id to its figure and last day: a PR that changes one must change this, and a new
+    // figure needs a new id (the stale-page checks compare ids only). Set the rate back to null to
+    // stop on purpose. The clock is long before any validUntil, so this does not depend on today.
+    expect(cadRateStatus(new Date("2000-01-01T00:00:00Z"))).toMatchObject({
+      kind: "live",
+      rate: { id: "2026-11-18a", micros: 720_700 },
+      validUntil: "2027-01-11",
+    });
+    expect(currentCadRate(new Date("2027-01-11T23:59:59Z"))).toEqual({ id: "2026-11-18a", micros: 720_700 });
+    expect(currentCadRate(new Date("2027-01-12T00:00:00Z"))).toBeNull();
   });
 });
 
