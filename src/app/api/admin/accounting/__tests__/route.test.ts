@@ -38,6 +38,8 @@ describe("GET /api/admin/accounting — cadrate", () => {
       includeStripe: true,
       includeDirectDetail: false,
     });
+    // toEqual would let an `invoiceCadRate: undefined` key through.
+    expect(m.reconcile.mock.calls[0][0]).not.toHaveProperty("invoiceCadRate");
   });
 
   it("passes a rate through", async () => {
@@ -45,7 +47,7 @@ describe("GET /api/admin/accounting — cadrate", () => {
     expect(m.reconcile.mock.calls[0][0]).toMatchObject({ invoiceCadRate: 0.7215 });
   });
 
-  it.each(["1.38", "0.5", "0.4", "0", "-0.72", "abc", "0.72e1", ".72", "0.1234567", ""])("refuses %j before any read", async (bad) => {
+  it.each(["1.38", "0.5", "0.4", "0", "-0.72", "abc", "0.72e1", ".72", "0.1234567", "0.7234567", "0.72 ", ""])("refuses %j before any read", async (bad) => {
     const res = await get(`&cadrate=${encodeURIComponent(bad)}`);
     expect(res.status).toBe(400);
     expect(m.reconcile).not.toHaveBeenCalled();

@@ -7,7 +7,8 @@
  *    stamped on it, and fulfilment and the confirmation page convert with
  *    THAT rate — never with the current constant. Accounting converts
  *    ResLab's Canadian-dollar figures with the rate stored on the booking row
- *    (lib/accounting/reslab-currency.ts).
+ *    (lib/accounting/reconcile.ts, `inUsDollars`): an estimate, because ResLab
+ *    invoices at its own rate on the invoice date.
  *  - The rate is a code constant, changed by a PR. No outside service sits on
  *    the money path, and the page, the charge and the booking cannot disagree.
  *  - Integer arithmetic only: cents × micro-rate ÷ 1,000,000, half-up.
@@ -94,14 +95,30 @@ function wholeCents(dollars: unknown): number | null {
 }
 
 /**
- * One CAD amount as ResLab sends it (a number, or a numeric string) → US
- * dollars at `rate`. null for anything that is not a non-negative amount in
- * whole cents: the caller decides what an unconvertible figure means. Used by
- * accounting, which converts ResLab's settlement figures one at a time.
+ * One amount as ResLab sends it: a number, or a numeric string. NaN for
+ * anything else (missing, empty, text).
+ */
+export function reslabAmount(value: unknown): number {
+  return typeof value === "number" ? value : typeof value === "string" && value.trim() !== "" ? Number(value) : Number.NaN;
+}
+
+/**
+ * One ResLab amount in whole cents, or null when it is missing or is not a
+ * non-negative amount in whole cents. Accounting reads a Canadian
+ * reservation's settlement figures through this: an unreadable figure stays
+ * unknown, it never becomes 0.
+ */
+export function reslabAmountCents(value: unknown): number | null {
+  return wholeCents(reslabAmount(value));
+}
+
+/**
+ * One CAD amount as ResLab sends it → US dollars at `rate`. null for anything
+ * `reslabAmountCents` refuses: the caller decides what an unconvertible figure
+ * means.
  */
 export function cadDollarsToUsd(value: unknown, rate: FxRate): number | null {
-  const dollars = typeof value === "number" ? value : typeof value === "string" && value.trim() !== "" ? Number(value) : Number.NaN;
-  const cents = wholeCents(dollars);
+  const cents = reslabAmountCents(value);
   if (cents === null) return null;
   const usdCents = cadCentsToUsdCents(cents, rate);
   return usdCents === null ? null : usdCents / 100;

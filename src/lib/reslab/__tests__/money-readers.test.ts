@@ -74,8 +74,9 @@ describe("readers of ResLab money", () => {
   });
 
   it("only the client and accounting talk to ResLab's API directly", () => {
-    // Accounting's own fetch reads settlement figures, and puts a Canadian
-    // reservation's into US dollars before any of them is summed.
+    // Accounting's own fetch reads settlement figures. Every slice goes through
+    // inUsDollars before anything is summed: a Canadian reservation's figures
+    // are converted at the booking's rate, or left out of every US-dollar sum.
     const direct = files.filter((f) => /reservationslab\.com|RESLAB_API_URL/.test(f.text)).map((f) => f.file);
     expect(direct.sort()).toEqual(["lib/accounting/reconcile.ts", "lib/reslab/client.ts"]);
     const reconcile = files.find((f) => f.file === "lib/accounting/reconcile.ts")?.text ?? "";

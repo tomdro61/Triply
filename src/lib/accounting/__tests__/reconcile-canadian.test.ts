@@ -40,7 +40,7 @@ vi.mock("@/lib/stripe/client", () => ({
 
 import { reconcileRevenue } from "../reconcile";
 import { netTakeOfDetail } from "@/lib/admin/blog-bookings";
-import { classifyRowCurrency, CONVERSION_LIVE_FROM } from "../reslab-currency";
+import { canadianKindOf, classifyRowCurrency, CONVERSION_LIVE_FROM, isCurrencyFault } from "../reslab-currency";
 
 const OPTS: ReconcileOptions = {
   from: "2026-12-01",
@@ -167,6 +167,9 @@ beforeEach(() => {
       if (url.endsWith("/authenticate")) return { ok: true, json: async () => ({ token: "tok" }) } as unknown as Response;
       const data = h.reservations.get(url.split("/reservations/")[1] ?? "");
       if (data === undefined) return { ok: false, status: 404, json: async () => ({}) } as unknown as Response;
+      if (typeof data === "object" && data !== null && "__httpStatus" in data) {
+        return { ok: false, status: (data as { __httpStatus: number }).__httpStatus, json: async () => ({}) } as unknown as Response;
+      }
       return { ok: true, json: async () => data } as unknown as Response;
     })
   );
@@ -207,8 +210,11 @@ describe("a converted booking (row marked CAD with its own rate)", () => {
     expect(r.confirmed.channelTotal).toBe(15);
     expect(r.confirmed.channelFee).toBe(3);
     expect(r.confirmed.locationTotalOwed).toBe(71.25);
+    expect(r.confirmed.commissionsTotal).toBe(56.25);
     expect(r.confirmed.reslabSubtotal).toBe(75);
+    expect(r.confirmed.stripeParkingCollected).toBeCloseTo(92.25, 10);
     expect(r.takeRates.channelCommissionRate).toBeCloseTo(0.2, 10);
+    expect(r.takeRates.stripeTakeRate).toBeCloseTo(17.95 / 98.2, 10);
     // Net take for the blog-bookings page is US dollars too.
     expect(netTakeOfDetail(b)).toBeCloseTo(17.95, 10);
 
@@ -229,29 +235,43 @@ describe("a converted booking (row marked CAD with its own rate)", () => {
     expect(r.reslab.variance).toBe(-70);
 
     expect(r.canadian.converted).toBe(1);
-    expect(r.canadian.settlementRows).toBe(1);
-    expect(r.canadian.converted_owed).toEqual({ cad: 99, usdAtBookingRates: 74.25 }); // C$95 + C$4
+    expect(r.canadian.convertedOwed).toEqual({ rows: 1, cad: 99, usdAtBookingRates: 74.25 }); // C$95 + C$4
+    expect(r.canadian.legacyOwed).toEqual({ rows: 0, cad: 0 });
     expect(r.canadian.keepEstimate).toBe(12);
     expect(r.canadian.reservations).toEqual([{ resNum: "CA1", kind: "converted", reason: null }]);
 
     // No invoice rate: the Canadian part of the invoice is the booking-rate estimate.
-    expect(r.reslab.canadianInvoiceBasis).toBe("booking_rates");
-    expect(r.reslab.canadianInvoiceUsd).toBe(74.25);
+    expect(r.reslab.canadianInvoice).toEqual({ basis: "booking_rates", usd: 74.25, exchangeDifference: null, unpriced: 0 });
     expect(r.reslab.varianceInclCanadian).toBeCloseTo(4.25, 10);
-    expect(r.reslab.exchangeDifference).toBeNull();
   });
 
   it("with ResLab's invoice rate: every Canadian dollar at that rate, and the exchange difference", async () => {
     converted();
     const r = await reconcileRevenue({ ...OPTS, invoiceAmount: 70, invoiceCadRate: 0.72 });
 
-    expect(r.reslab.canadianInvoiceBasis).toBe("invoice_rate");
-    expect(r.reslab.canadianInvoiceUsd).toBe(71.28); // C$99 × 0.72
+    // C$99 × 0.72 = 71.28; against 74.25 at the booking rate: 2.97 cheaper.
+    expect(r.reslab.canadianInvoice).toEqual({ basis: "invoice_rate", usd: 71.28, exchangeDifference: -2.97, unpriced: 0 });
     expect(r.reslab.varianceInclCanadian).toBeCloseTo(1.28, 10);
-    expect(r.reslab.exchangeDifference).toBe(-2.97); // 71.28 − 74.25: cheaper than estimated
     // The invoice rate never moves what Triply kept.
     expect(r.triplyNet.total).toBeCloseTo(17.95, 10);
     expect(r.bookings[0].reslab_channel_total).toBe(15);
+  });
+
+  it("prices the invoice in whole cents, half-up: C$41.40 at 0.725 is US$30.02, not 30.01", async () => {
+    // 4140 × 0.725 = 3001.5 cents. Floating-point dollars round it down.
+    converted("CA1", {}, { ...CAD_HISTORY, location_total: 41.4, fees: [] });
+    const r = await reconcileRevenue({ ...OPTS, invoiceCadRate: 0.725 });
+
+    expect(r.canadian.convertedOwed.cad).toBe(41.4);
+    expect(r.reslab.canadianInvoice?.usd).toBe(30.02);
+    // 41.40 at the booking's 0.75 is 31.05.
+    expect(r.reslab.canadianInvoice?.exchangeDifference).toBe(-1.03);
+  });
+
+  it.each([1.38, 1, 0.5, 0.4, 0, -0.72, Number.NaN, 0.7212345])("refuses the invoice rate %s before reading anything", async (bad) => {
+    converted();
+    await expect(reconcileRevenue({ ...OPTS, invoiceCadRate: bad })).rejects.toThrow("invoiceCadRate must be above 0.5 and below 1");
+    expect(vi.mocked(fetch)).not.toHaveBeenCalled();
   });
 
   it("converts the parts one by one, as fulfilment did: C$34.56 at 0.725 is US$25.05, not 25.06", async () => {
@@ -266,13 +286,13 @@ describe("a converted booking (row marked CAD with its own rate)", () => {
     expect(r.reslab.grandTotalMismatches).toEqual([]);
   });
 
-  it("reports a booking one cent off its stamped rate", async () => {
+  it("reports a booking two cents off its stamped rate (one cent is the check's tolerance)", async () => {
     converted("CA1", { grand_total: 92.27 });
     const r = await reconcileRevenue(OPTS);
 
     expect(r.reslab.grandTotalMismatches).toHaveLength(1);
     expect(r.reslab.grandTotalMismatches[0]).toMatchObject({ resNum: "CA1", supabase: 92.27, reslab: 92.25 });
-    expect(r.reslab.grandTotalMismatches[0].note).toContain("C$123.00 at the booking's rate 0.750000");
+    expect(r.reslab.grandTotalMismatches[0].note).toBe("ResLab C$123.00 at the booking's rate 0.750000");
   });
 
   it("reports parts that do not add up, even when the single total happens to match", async () => {
@@ -280,7 +300,7 @@ describe("a converted booking (row marked CAD with its own rate)", () => {
     const r = await reconcileRevenue(OPTS);
 
     expect(r.reslab.grandTotalMismatches).toHaveLength(1);
-    expect(r.reslab.grandTotalMismatches[0].note).toContain("do not convert");
+    expect(r.reslab.grandTotalMismatches[0].note).toBe("ResLab's Canadian parts do not convert at the booking's rate 0.750000");
     // The settlement figures still convert: the row stays in the totals.
     expect(r.triplyNet.total).toBeCloseTo(17.95, 10);
   });
@@ -290,11 +310,13 @@ describe("a converted booking (row marked CAD with its own rate)", () => {
     const r = await reconcileRevenue(OPTS);
 
     expect(r.bookings[0].reslab_location_total).toBe(71.25);
+    expect(r.bookings[0].fx?.grand_total_cad).toBe(123);
     expect(r.reslab.grandTotalMismatches).toEqual([]);
   });
 
   it("is still converted when ResLab states no currency: the row is the witness", async () => {
-    const { location: _location, ...noCurrency } = CAD_HISTORY;
+    const noCurrency: Record<string, unknown> = { ...CAD_HISTORY };
+    delete noCurrency.location;
     converted("CA1", {}, noCurrency);
     const r = await reconcileRevenue(OPTS);
 
@@ -302,12 +324,25 @@ describe("a converted booking (row marked CAD with its own rate)", () => {
     expect(r.bookings[0].reslab_channel_total).toBe(15);
   });
 
-  it("a display-only figure that cannot be converted is unknown, not a fault", async () => {
+  it("a reservation with nothing due at the lot stated at all is read as 0 due, like fulfilment", async () => {
+    const noDue: Record<string, unknown> = { ...CAD_HISTORY };
+    delete noDue.due_at_location_total;
+    converted("CA1", {}, noDue);
+    const r = await reconcileRevenue(OPTS);
+
+    expect(r.canadian.faults).toBe(0);
+    expect(r.bookings[0].reslab_location_total).toBe(71.25);
+  });
+
+  it("an unreadable commissions or refund figure is unknown, and so is the period's commissions total: never $0", async () => {
     converted("CA1", {}, { ...CAD_HISTORY, refund_amount: -5, commissions_total: 75.123 });
     const r = await reconcileRevenue(OPTS);
 
     expect(r.bookings[0].reslab_refund_amount).toBeNull();
     expect(r.bookings[0].reslab_commissions_total).toBeNull();
+    expect(r.bookings[0].fx?.commissions_total_cad).toBeNull();
+    expect(r.confirmed.commissionsTotal).toBeNull();
+    // Triply's keep does not use it.
     expect(r.canadian.faults).toBe(0);
     expect(r.triplyNet.total).toBeCloseTo(17.95, 10);
   });
@@ -319,9 +354,53 @@ describe("a converted booking (row marked CAD with its own rate)", () => {
     const r = await reconcileRevenue(OPTS);
 
     expect(r.reslab.grandTotalMismatches).toEqual([]);
-    expect(r.canadian.settlementRows).toBe(0);
-    expect(r.canadian.converted_owed).toEqual({ cad: 0, usdAtBookingRates: 0 });
+    expect(r.canadian.convertedOwed).toEqual({ rows: 0, cad: 0, usdAtBookingRates: 0 });
+    expect(r.reslab.canadianInvoice?.unpriced).toBe(0);
     expect(r.triplyNet.total).toBeCloseTo(5.95, 10);
+  });
+
+  it("part due at the lot: owed is the location total less what the lot collects, in both currencies", async () => {
+    // C$20 of the C$123 is paid at the lot: US$15 at 0.75. The card paid 92.25 − 15 + 5.95.
+    row("CA1", { grand_total: 92.25, subtotal: 75, due_at_location: 15, reslab_currency: "CAD", fx_rate: "0.750000" });
+    pi("CA1", 8320);
+    reservation("CA1", { ...CAD_HISTORY, due_at_location_total: 20 });
+    const r = await reconcileRevenue(OPTS);
+    const b = r.bookings[0];
+
+    expect(b.reslab_location_total).toBe(56.25); // (95 − 20) × 0.75
+    expect(b.fx).toMatchObject({ location_total_cad: 75, due_at_location_cad: 20 });
+    expect(r.confirmed.locationTotalOwed).toBe(56.25);
+    expect(r.confirmed.reslabDueAtLot).toBe(15);
+    expect(r.canadian.convertedOwed).toEqual({ rows: 1, cad: 79, usdAtBookingRates: 59.25 }); // C$75 + C$4
+    expect(r.integrity.parkingFlowMismatches).toEqual([]);
+    expect(r.integrity.chargeMismatches).toEqual([]);
+    expect(r.reslab.grandTotalMismatches).toEqual([]);
+  });
+
+  it("a partial refund ResLab reports is converted too", async () => {
+    converted("CA1", {}, { ...CAD_HISTORY, partial_refund: 10, refund_amount: 10 });
+    const r = await reconcileRevenue(OPTS);
+
+    expect(r.bookings[0].reslab_partial_refund).toBe(7.5);
+    expect(r.bookings[0].reslab_refund_amount).toBe(7.5);
+  });
+
+  it("confirmed by us but cancelled at ResLab: ResLab bills no fee, so none comes off the estimate", async () => {
+    converted();
+    h.reservations.set("CA1", { ...(h.reservations.get("CA1") as object), cancelled: 1 });
+    const r = await reconcileRevenue(OPTS);
+
+    expect(r.canadian.keepEstimate).toBe(15);
+    expect(r.triplyNet.total).toBeCloseTo(20.95, 10);
+    expect(r.canadian.convertedOwed.rows).toBe(0);
+  });
+
+  it("a disputed booking ResLab has not cancelled is still billed", async () => {
+    converted("CA1", { status: "disputed" });
+    const r = await reconcileRevenue(OPTS);
+
+    expect(r.canadian.convertedOwed).toEqual({ rows: 1, cad: 99, usdAtBookingRates: 74.25 });
+    expect(r.canadian.confirmedConverted).toBe(0);
   });
 
   it("a mixed month: the US booking's figures are exactly what they are alone", async () => {
@@ -350,17 +429,27 @@ describe("an old booking charged one-for-one before conversion", () => {
 
     expect(r.canadian.noRateLegacy).toBe(1);
     expect(r.canadian.faults).toBe(0);
+    expect(r.canadian.billedFaults).toBe(0);
     expect(r.canadian.reservations).toEqual([
       { resNum: "OLD1", kind: "no_rate_legacy", reason: "booked before conversion: charged the Canadian figure one-for-one" },
     ]);
-    expect(r.canadian.noRateOwedCad).toBe(99);
-    expect(r.canadian.converted_owed).toEqual({ cad: 0, usdAtBookingRates: 0 });
+    expect(r.canadian.legacyOwed).toEqual({ rows: 1, cad: 99 });
+    expect(r.canadian.convertedOwed).toEqual({ rows: 0, cad: 0, usdAtBookingRates: 0 });
 
     // Nothing of ResLab's CAD reaches a US-dollar figure.
     expect(old?.reslab_location_total).toBeNull();
     expect(old?.reslab_channel_total).toBeNull();
     expect(old?.triply_total).toBeNull();
-    expect(old?.fx).toMatchObject({ kind: "no_rate", rate: null, channel_total_cad: 20, grand_total_cad: 123 });
+    expect(old?.fx).toEqual({
+      kind: "no_rate_legacy",
+      rate: null,
+      location_total_cad: 95,
+      due_at_location_cad: 0,
+      channel_fee_cad: 4,
+      channel_total_cad: 20,
+      commissions_total_cad: 75,
+      grand_total_cad: 123,
+    });
     expect(r.reslab.sumAmountOwed).toBe(86);
     expect(r.confirmed.channelTotal).toBe(18);
     expect(r.confirmed.locationTotalOwed).toBe(82);
@@ -372,8 +461,11 @@ describe("an old booking charged one-for-one before conversion", () => {
     expect(r.triplyNet.total).toBeCloseTo(18 - 4 + 5.95 + 5.95, 10);
     expect(r.triplyNet.canadianLeftOut).toBe(1);
 
-    // Its Stripe parking (128.95 − 5.95) is not in "net parking cash" or the take rates.
-    expect(r.confirmed.stripeParkingCollected).toBe(100);
+    // Its Stripe parking (128.95 − 5.95) IS in what Stripe collected, so "how
+    // customers paid" still adds up to the parking value; the page takes it
+    // out of "net parking cash". It is out of both sides of the take rates.
+    expect(r.grossRevenue).toBe(223);
+    expect(r.confirmed.stripeParkingCollected).toBe(223);
     expect(r.canadian.leftOutConfirmed).toBe(1);
     expect(r.canadian.leftOutStripeParking).toBe(123);
     expect(r.takeRates.stripeTakeRate).toBeCloseTo(19.95 / 105.95, 10);
@@ -382,33 +474,83 @@ describe("an old booking charged one-for-one before conversion", () => {
     expect(r.reslab.grandTotalMismatches).toEqual([]);
   });
 
+  it("without ResLab's rate the invoice comparison is withheld, never shown short", async () => {
+    us();
+    legacy();
+    const r = await reconcileRevenue({ ...OPTS, invoiceAmount: 157.28 });
+
+    expect(r.reslab.canadianInvoice).toEqual({ basis: "booking_rates", usd: 0, exchangeDifference: null, unpriced: 1 });
+    expect(r.reslab.varianceInclCanadian).toBeNull();
+    // The US-only figure is still there under its own name.
+    expect(r.reslab.variance).toBeCloseTo(86 - 157.28, 10);
+  });
+
+  it("ResLab's invoice rate prices what is owed for it", async () => {
+    us();
+    legacy();
+    const r = await reconcileRevenue({ ...OPTS, invoiceAmount: 157.28, invoiceCadRate: 0.72 });
+
+    // C$99 × 0.72 = 71.28, + US$86.
+    expect(r.reslab.canadianInvoice).toEqual({ basis: "invoice_rate", usd: 71.28, exchangeDifference: 0, unpriced: 0 });
+    expect(r.reslab.varianceInclCanadian).toBeCloseTo(0, 10);
+    // Entering the rate does not bring the row back into Triply's keep.
+    expect(r.triplyNet.total).toBeCloseTo(18 - 4 + 5.95 + 5.95, 10);
+  });
+
+  it("part due at the lot: only the rest is owed", async () => {
+    legacy("OLD1", { due_at_location: 20 });
+    pi("OLD1", 10895); // 123 − 20 + 5.95
+    reservation("OLD1", { ...CAD_HISTORY, due_at_location_total: 20 });
+    const r = await reconcileRevenue({ ...OPTS, invoiceCadRate: 0.72 });
+
+    expect(r.canadian.legacyOwed).toEqual({ rows: 1, cad: 79 });
+    expect(r.bookings[0].fx).toMatchObject({ location_total_cad: 75, due_at_location_cad: 20 });
+    expect(r.reslab.canadianInvoice?.usd).toBe(56.88); // C$79 × 0.72
+  });
+
   it("the same booking after the data fix (marked CAD at rate 1)", async () => {
     legacy("OLD1", { reslab_currency: "CAD", fx_rate: "1.000000" });
     const r = await reconcileRevenue(OPTS);
 
     expect(r.canadian.noRateLegacy).toBe(1);
     expect(r.canadian.faults).toBe(0);
+    expect(r.bookings[0].fx?.kind).toBe("no_rate_legacy");
     expect(r.triplyNet.total).toBeCloseTo(5.95, 10);
     expect(r.takeRates.stripeTakeRate).toBeNull(); // nothing left to measure
   });
 
-  it("ResLab's invoice rate prices what is owed for it", async () => {
-    legacy();
-    const r = await reconcileRevenue({ ...OPTS, invoiceAmount: 71.28, invoiceCadRate: 0.72 });
-
-    expect(r.reslab.canadianInvoiceUsd).toBe(71.28);
-    expect(r.reslab.varianceInclCanadian).toBeCloseTo(0, 10);
-    expect(r.reslab.exchangeDifference).toBe(0); // no converted booking to compare with
-    // Without the rate there is no estimate for it.
-    expect((await reconcileRevenue(OPTS)).reslab.canadianInvoiceUsd).toBe(0);
-  });
-
-  it("reports Stripe refunds on a confirmed Canadian booking", async () => {
-    legacy();
-    pi("OLD1", 12895, 3432);
+  it("refunded by us but not cancelled at ResLab: still billed, and the row says so for the page's warning", async () => {
+    legacy("OLD1", { status: "refunded" });
+    pi("OLD1", 12895, 12300);
     const r = await reconcileRevenue(OPTS);
 
-    expect(r.canadian.stripeRefunded).toBe(34.32);
+    expect(r.canadian.legacyOwed).toEqual({ rows: 1, cad: 99 });
+    expect(r.bookings[0]).toMatchObject({ status: "refunded", reslab_cancelled: false, reslab_location_total: null });
+    expect(r.bookings[0].fx?.location_total_cad).toBe(95);
+    // ResLab's figure does not match a refund: reported.
+    expect(r.reslab.grandTotalMismatches).toHaveLength(0);
+  });
+
+  it("cancelled at ResLab: not billed, with or without the invoice rate", async () => {
+    legacy("OLD1", { status: "refunded" });
+    h.reservations.set("OLD1", { ...(h.reservations.get("OLD1") as object), cancelled: 1 });
+    const r = await reconcileRevenue({ ...OPTS, invoiceCadRate: 0.72 });
+
+    expect(r.canadian.legacyOwed).toEqual({ rows: 0, cad: 0 });
+    expect(r.reslab.canadianInvoice).toEqual({ basis: "invoice_rate", usd: 0, exchangeDifference: 0, unpriced: 0 });
+    expect(r.bookings[0].reslab_cancelled).toBe(true);
+    expect(r.reslab.grandTotalMismatches).toEqual([]);
+    expect((await reconcileRevenue(OPTS)).reslab.canadianInvoice?.unpriced).toBe(0);
+  });
+
+  it("reports Stripe refunds on a confirmed Canadian booking; unknown when Stripe did not answer", async () => {
+    legacy();
+    pi("OLD1", 12895, 3432);
+    expect((await reconcileRevenue(OPTS)).canadian.stripeRefunded).toBe(34.32);
+
+    h.pis.delete("pi_OLD1");
+    expect((await reconcileRevenue(OPTS)).canadian.stripeRefunded).toBeNull();
+    expect((await reconcileRevenue({ ...OPTS, includeStripe: false })).canadian.stripeRefunded).toBeNull();
   });
 
   it("a row whose charge was not the Canadian figure is still a mismatch", async () => {
@@ -419,10 +561,30 @@ describe("an old booking charged one-for-one before conversion", () => {
       { resNum: "OLD1", supabase: 120, reslab: 123, diff: -3, note: "ResLab figure is Canadian dollars, compared one-for-one" },
     ]);
   });
+
+  it("a left-out row with Park Guard and a promo: exactly its keep leaves the take rate", async () => {
+    us();
+    legacy("OLD1", { protection_plan: "Plan A", protection_plan_price: 12.99, protection_plan_wholesale: 6, discount_amount: 5 });
+    pi("OLD1", 13694); // 123 + 5.95 + 12.99 − 5
+    const r = await reconcileRevenue(OPTS);
+
+    // Only the US row is measured: (18 − 4 + 5.95) ÷ 105.95.
+    expect(r.takeRates.stripeTakeRate).toBeCloseTo(19.95 / 105.95, 10);
+    expect(r.takeRates.totalTakeRate).toBeCloseTo(19.95 / 105.95, 10);
+    // Fees: 300 per payment in the fixture; only the US row's counts.
+    expect(r.takeRates.netStripeTakeRate).toBeCloseTo((19.95 - 3) / 105.95, 10);
+  });
 });
 
-describe("a currency fault withholds the headline", () => {
-  const faultCases: Array<[string, () => void, string, string]> = [
+describe("a currency fault withholds the headline and is in no figure", () => {
+  const unreadable = "a ResLab settlement figure is missing or could not be read";
+  const without = (key: string) => {
+    const hist: Record<string, unknown> = { ...CAD_HISTORY };
+    delete hist[key];
+    return hist;
+  };
+  // [name, arrange, kind, reason, the rate the row's fx reports]
+  const faultCases: Array<[string, () => void, string, string, string | null]> = [
     [
       "an unmarked Canadian reservation booked after conversion went live",
       () => {
@@ -432,15 +594,9 @@ describe("a currency fault withholds the headline", () => {
       },
       "no_rate",
       "ResLab reports CAD but the booking is not marked as converted",
+      null,
     ],
-    [
-      "a row marked CAD that ResLab says is US dollars",
-      () => {
-        converted("BAD", {}, { ...CAD_HISTORY, ...USD });
-      },
-      "conflict",
-      "the booking is marked CAD but ResLab reports USD",
-    ],
+    ["a row marked CAD that ResLab says is US dollars", () => converted("BAD", {}, { ...CAD_HISTORY, ...USD }), "conflict", "the booking is marked CAD but ResLab reports USD", "0.750000"],
     [
       "a third currency",
       () => {
@@ -450,47 +606,34 @@ describe("a currency fault withholds the headline", () => {
       },
       "conflict",
       "ResLab reports EUR",
+      null,
     ],
-    [
-      "a rate that cannot be read",
-      () => {
-        converted("BAD", { fx_rate: null });
-      },
-      "no_rate",
-      "the booking's rate cannot be read",
-    ],
-    [
-      "rate 1 on a booking made after conversion went live",
-      () => {
-        converted("BAD", { fx_rate: 1 });
-      },
-      "no_rate",
-      "marked at rate 1 after conversion went live",
-    ],
-    [
-      "a settlement figure that is not whole cents",
-      () => {
-        converted("BAD", {}, { ...CAD_HISTORY, channel_total: 20.005 });
-      },
-      "no_rate",
-      "a ResLab figure could not be converted",
-    ],
-    [
-      "a negative settlement figure",
-      () => {
-        converted("BAD", {}, { ...CAD_HISTORY, location_total: -1 });
-      },
-      "no_rate",
-      "a ResLab figure could not be converted",
-    ],
+    ["a rate that cannot be read", () => converted("BAD", { fx_rate: null }), "no_rate", "the booking's rate cannot be read", null],
+    ["rate 1 on a booking made after conversion went live", () => converted("BAD", { fx_rate: 1 }), "no_rate", "marked at rate 1 after conversion went live", null],
+    ["a settlement figure that is not whole cents", () => converted("BAD", {}, { ...CAD_HISTORY, channel_total: 20.005 }), "no_rate", unreadable, "0.750000"],
+    ["a negative settlement figure", () => converted("BAD", {}, { ...CAD_HISTORY, location_total: -1 }), "no_rate", unreadable, "0.750000"],
+    ["no channel_total in ResLab's answer", () => converted("BAD", {}, without("channel_total")), "no_rate", unreadable, "0.750000"],
+    ["no location_total in ResLab's answer", () => converted("BAD", {}, without("location_total")), "no_rate", unreadable, "0.750000"],
+    ["no subtotal in ResLab's answer", () => converted("BAD", {}, without("subtotal")), "no_rate", unreadable, "0.750000"],
+    ["a null settlement figure", () => converted("BAD", {}, { ...CAD_HISTORY, channel_total: null }), "no_rate", unreadable, "0.750000"],
+    ["text where a settlement figure belongs", () => converted("BAD", {}, { ...CAD_HISTORY, location_total: "n/a" }), "no_rate", unreadable, "0.750000"],
+    ["an unreadable amount due at the lot", () => converted("BAD", {}, { ...CAD_HISTORY, due_at_location_total: "x" }), "no_rate", unreadable, "0.750000"],
+    ["no grand total at all", () => converted("BAD", {}, without("grand_total")), "no_rate", unreadable, "0.750000"],
+    ["a grand total that is not whole cents", () => converted("BAD", {}, { ...CAD_HISTORY, grand_total: 123.005 }), "no_rate", unreadable, "0.750000"],
+    ["a subtotal that is not whole cents", () => converted("BAD", {}, { ...CAD_HISTORY, subtotal: 100.005 }), "no_rate", unreadable, "0.750000"],
+    ["an amount due at the lot that is not whole cents", () => converted("BAD", {}, { ...CAD_HISTORY, due_at_location_total: 20.005 }), "no_rate", unreadable, "0.750000"],
+    ["a negative ResLab fee line", () => converted("BAD", {}, { ...CAD_HISTORY, fees: [{ fee_type: "channel_fee", dollar_amount: -4 }] }), "no_rate", unreadable, "0.750000"],
   ];
 
-  it.each(faultCases)("%s", async (_name, arrange, kind, reason) => {
+  it.each(faultCases)("%s", async (_name, arrange, kind, reason, rate) => {
     us();
     arrange();
-    const r = await reconcileRevenue(OPTS);
+    const r = await reconcileRevenue({ ...OPTS, invoiceAmount: 100, invoiceCadRate: 0.72 });
 
     expect(r.canadian.faults).toBe(1);
+    expect(r.canadian.noRateLegacy).toBe(0);
+    expect(r.canadian.converted).toBe(0);
+    expect(r.canadian.billedFaults).toBe(1);
     expect(r.canadian.reservations).toEqual([{ resNum: "BAD", kind, reason }]);
     expect(r.reslab.dataIncomplete).toBe(true);
     expect(r.triplyNet.total).toBeNull();
@@ -498,21 +641,53 @@ describe("a currency fault withholds the headline", () => {
       "missing ResLab data for 1 of 2 confirmed bookings (1 with a currency problem: see Canadian lots)"
     );
     expect(r.takeRates.stripeTakeRate).toBeNull();
-    // Its ResLab figures are in no US-dollar sum.
+
+    // In no sum, in either currency, with or without ResLab's rate.
     expect(r.reslab.sumAmountOwed).toBe(86);
     expect(r.confirmed.channelTotal).toBe(18);
+    expect(r.canadian.convertedOwed).toEqual({ rows: 0, cad: 0, usdAtBookingRates: 0 });
+    expect(r.canadian.legacyOwed).toEqual({ rows: 0, cad: 0 });
+    expect(r.canadian.keepEstimate).toBe(0);
+    expect(r.reslab.canadianInvoice).toEqual({ basis: "invoice_rate", usd: 0, exchangeDifference: 0, unpriced: 1 });
+    // ResLab bills it and it is in no figure: no variance is claimed.
+    expect(r.reslab.varianceInclCanadian).toBeNull();
+
     const bad = r.bookings.find((b) => b.reslab_reservation_number === "BAD");
     expect(bad?.reslab_channel_total).toBeNull();
+    expect(bad?.reslab_location_total).toBeNull();
+    expect(bad?.triply_total).toBeNull();
+    expect(bad?.fx).toEqual({
+      kind,
+      rate,
+      location_total_cad: null,
+      due_at_location_cad: null,
+      channel_fee_cad: null,
+      channel_total_cad: null,
+      commissions_total_cad: null,
+      grand_total_cad: null,
+    });
     expect(bad?.note).toContain(`ResLab side left out: ${reason}`);
   });
 
-  it("a conflict is in no Canadian-dollar sum either", async () => {
-    converted("BAD", {}, { ...CAD_HISTORY, ...USD });
-    const r = await reconcileRevenue({ ...OPTS, invoiceCadRate: 0.72 });
+  it("a fault on a refunded booking is reported but does not take the blame for missing confirmed data", async () => {
+    us();
+    h.reservations.set("US1", { __httpStatus: 503 });
+    converted("BAD", { status: "refunded" }, { ...CAD_HISTORY, ...USD });
+    const r = await reconcileRevenue(OPTS);
 
-    expect(r.canadian.noRateOwedCad).toBe(0);
-    expect(r.canadian.settlementRows).toBe(0);
-    expect(r.reslab.canadianInvoiceUsd).toBe(0);
+    expect(r.canadian.faults).toBe(1);
+    expect(r.triplyNet.totalReason).toBe("missing ResLab data for 1 of 1 confirmed bookings");
+  });
+
+  it("a fault ResLab has cancelled is not billed, so it does not withhold the invoice comparison", async () => {
+    us();
+    converted("BAD", { status: "refunded" }, { ...CAD_HISTORY, ...USD });
+    h.reservations.set("BAD", { ...(h.reservations.get("BAD") as object), cancelled: 1 });
+    const r = await reconcileRevenue({ ...OPTS, invoiceAmount: 86 });
+
+    expect(r.canadian.faults).toBe(1);
+    expect(r.canadian.billedFaults).toBe(0);
+    expect(r.reslab.varianceInclCanadian).toBeCloseTo(0, 10);
   });
 });
 
@@ -523,7 +698,7 @@ describe("with the ResLab cross-check off", () => {
 
     expect(r.canadian.reservations).toEqual([]);
     expect(r.triplyNet.total).toBeNull();
-    expect(r.reslab.canadianInvoiceUsd).toBeNull();
+    expect(r.reslab.canadianInvoice).toBeNull();
     expect(r.reslab.varianceInclCanadian).toBeNull();
     expect(r.bookings[0].fx).toBeUndefined();
   });
@@ -543,19 +718,31 @@ describe("classifyRowCurrency", () => {
     expect(classifyRowCurrency({ created_at: after, reslab_currency: "CAD", fx_rate: 0.725 }, null)).toMatchObject({ kind: "cad", rate: { micros: 725_000 } });
   });
 
-  it("legacy means booked before conversion went live, and nothing else", () => {
+  it("legacy = booked before conversion went live AND unmarked or marked at rate 1", () => {
     expect(classifyRowCurrency({ created_at: before }, "CAD")).toMatchObject({ kind: "cad_no_rate", legacy: true });
     expect(classifyRowCurrency({ created_at: after }, "CAD")).toMatchObject({ kind: "cad_no_rate", legacy: false });
     expect(classifyRowCurrency({ created_at: CONVERSION_LIVE_FROM }, "CAD")).toMatchObject({ legacy: false });
+    expect(classifyRowCurrency({ created_at: "2026-11-16T23:59:59.999Z" }, "CAD")).toMatchObject({ legacy: true });
     expect(classifyRowCurrency({ created_at: "not a date" }, "CAD")).toMatchObject({ kind: "cad_no_rate", legacy: false });
     expect(classifyRowCurrency({ created_at: before, reslab_currency: "CAD", fx_rate: 1 }, "CAD")).toMatchObject({ kind: "cad_no_rate", legacy: true });
+    expect(classifyRowCurrency({ created_at: before, reslab_currency: "CAD", fx_rate: "1.000000" }, null)).toMatchObject({ kind: "cad_no_rate", legacy: true });
     // An unreadable rate is never legacy, however old the row.
     expect(classifyRowCurrency({ created_at: before, reslab_currency: "CAD", fx_rate: "0.4" }, "CAD")).toMatchObject({ kind: "cad_no_rate", legacy: false });
+    expect(classifyRowCurrency({ created_at: before, reslab_currency: "CAD", fx_rate: null }, "CAD")).toMatchObject({ kind: "cad_no_rate", legacy: false });
   });
 
   it("any disagreement is a conflict", () => {
     expect(classifyRowCurrency({ created_at: after, reslab_currency: "CAD", fx_rate: "0.75" }, "USD").kind).toBe("conflict");
     expect(classifyRowCurrency({ created_at: after, reslab_currency: "EUR", fx_rate: "0.75" }, "CAD").kind).toBe("conflict");
     expect(classifyRowCurrency({ created_at: before }, "MXN").kind).toBe("conflict");
+  });
+
+  it("one mapping to the kind the result and the page report", () => {
+    expect(canadianKindOf({ kind: "usd" })).toBeNull();
+    expect(canadianKindOf(classifyRowCurrency({ created_at: after, reslab_currency: "CAD", fx_rate: "0.75" }, "CAD"))).toBe("converted");
+    expect(canadianKindOf(classifyRowCurrency({ created_at: before }, "CAD"))).toBe("no_rate_legacy");
+    expect(canadianKindOf(classifyRowCurrency({ created_at: after }, "CAD"))).toBe("no_rate");
+    expect(canadianKindOf(classifyRowCurrency({ created_at: after }, "EUR"))).toBe("conflict");
+    expect(["converted", "no_rate_legacy", "no_rate", "conflict"].map((k) => isCurrencyFault(k as "converted"))).toEqual([false, false, true, true]);
   });
 });

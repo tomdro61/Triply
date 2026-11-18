@@ -282,9 +282,10 @@ for (let i = 0; i < real.length; i++) {
         // reservation's figures are Canadian dollars: stop rather than print
         // totals that mix the two. /admin/accounting handles them.
         const reslabCurrency = String(h.location?.currency?.code ?? '').trim().toUpperCase();
+        const rowCurrency = b.reslab_currency ?? reslabCurrency;
         if (b.reslab_currency != null || (reslabCurrency !== '' && reslabCurrency !== 'USD')) {
           console.error(
-            `\nERROR: ${b.reslab_reservation_number} is a ${b.reslab_currency ?? reslabCurrency} reservation. ` +
+            `\nERROR: ${b.reslab_reservation_number} is a ${rowCurrency} reservation. ` +
               `This script cannot total Canadian-dollar reservations. Use /admin/accounting for this period.`
           );
           process.exit(1);

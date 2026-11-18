@@ -122,8 +122,45 @@ async function main() {
   const history = current.history?.[0];
   if (!history) throw new Error('Reservation has no history entries');
 
+  // A reservation at a Canadian lot is in Canadian dollars at ResLab, while the
+  // booking row and the customer's charge are US dollars. Checked HERE, before
+  // anything is changed: --sync-supabase would write ResLab's figures over the
+  // row's US-dollar totals.
+  const reslabCurrency = String(history.location?.currency?.code ?? '').trim().toUpperCase();
+  const notUsd = reslabCurrency !== '' && reslabCurrency !== 'USD';
+  if (syncSupabase) {
+    const earlyUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const earlyKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!earlyUrl || !earlyKey) {
+      console.error('\nMissing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local');
+      process.exit(1);
+    }
+    const { data: marked, error: markErr } = await createSupabaseClient(earlyUrl, earlyKey)
+      .from('bookings')
+      .select('reslab_currency')
+      .eq('reslab_reservation_number', resNum)
+      .maybeSingle();
+    if (markErr) {
+      console.error(`\nCould not read the booking row for ${resNum}: ${markErr.message}. Nothing was changed.`);
+      process.exit(1);
+    }
+    if (notUsd || marked?.reslab_currency != null) {
+      console.error(
+        `\nERROR: ${resNum} is a ${marked?.reslab_currency ?? reslabCurrency} reservation. ` +
+          `--sync-supabase would write ResLab's Canadian-dollar figures over the booking's US-dollar totals. ` +
+          `Refusing. Nothing was changed at ResLab or in the database.\n` +
+          `  To change the dates: run with --apply alone, then update the row's dates and totals by hand ` +
+          `(a converted booking: ResLab's figures times the row's fx_rate; a booking made before conversion was charged one-for-one).`
+      );
+      process.exit(1);
+    }
+  }
+
   const currentDate = history.dates?.[0];
   if (!currentDate) throw new Error('Reservation has no date entry');
+  if (notUsd) {
+    console.log(`*** ${reslabCurrency} reservation: every "$" figure below is ${reslabCurrency}, not US dollars. Convert before charging or refunding a customer. ***`);
+  }
 
   console.log('--- CURRENT ---');
   console.log(`Reserved for: ${history.reserved_for}`);
@@ -260,24 +297,22 @@ async function main() {
     // production-equivalent behavior on null is to treat as 0. Warn so the
     // operator knows the back-derived tax may absorb what should have been
     // a facility fee, but don't block the sync.
-    // A Canadian-lot booking: the row holds US dollars (converted at the
-    // booking's own rate) while ResLab's figures are Canadian dollars. Writing
-    // them onto the row would turn its totals into CAD. The second check
-    // covers a Canadian reservation whose row is not marked.
-    const reslabCurrency = String(newHistory?.location?.currency?.code ?? '').trim().toUpperCase();
-    if (existing.reslab_currency != null || (reslabCurrency !== '' && reslabCurrency !== 'USD')) {
-      console.error(
-        `\nERROR: ${resNum} is a ${existing.reslab_currency ?? reslabCurrency} reservation. ` +
-          `--sync-supabase would write ResLab's ${existing.reslab_currency ?? reslabCurrency} figures over the booking's US-dollar totals. ` +
-          `Refusing. Update the row by hand, converting at the booking's fx_rate.`
-      );
-      process.exit(1);
-    }
-
     if (existing.fees_total == null) {
       console.warn(`\nWARN: bookings.fees_total is null for ${resNum} — treating as 0 (matches production fallback).`);
       console.warn('  If this lot actually has a facility fee, backfill before the next sync:');
       console.warn(`    UPDATE bookings SET fees_total = <amount> WHERE reslab_reservation_number = '${resNum}';`);
+    }
+
+    // Backstop for the check made before the update (above): the same refusal,
+    // from the row as it is now and from the history being synced.
+    const syncedCurrency = String(newHistory?.location?.currency?.code ?? '').trim().toUpperCase();
+    if (existing.reslab_currency != null || (syncedCurrency !== '' && syncedCurrency !== 'USD')) {
+      console.error(
+        `\nERROR: ${resNum} is a ${existing.reslab_currency ?? syncedCurrency} reservation: its ResLab figures are not US dollars. ` +
+          `The booking row was NOT updated.` +
+          (apply ? ` ResLab HAS already been updated to the new dates: update the row's dates and totals by hand.` : '')
+      );
+      process.exit(1);
     }
 
     const newSubtotal = Number(newHistory.subtotal);

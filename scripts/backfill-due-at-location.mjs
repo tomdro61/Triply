@@ -81,6 +81,7 @@ async function main() {
   let unchanged = 0;
   let failed = 0;
   let skipped = 0;
+  let skippedNotUsd = 0;
 
   for (const row of rows) {
     // Belt and braces with the inventory_source filter: never send a Triply
@@ -102,7 +103,7 @@ async function main() {
     // is US dollars. Never write one onto the other.
     if (row.reslab_currency != null || (result.currency !== '' && result.currency !== 'USD')) {
       console.log(`  - ${row.reslab_reservation_number}: ${row.reslab_currency ?? result.currency} reservation — ResLab's figure is not US dollars; skipped`);
-      skipped++;
+      skippedNotUsd++;
       continue;
     }
 
@@ -137,6 +138,7 @@ async function main() {
   console.log(`\n${WRITE ? 'Updated' : 'Would update'}: ${updated}`);
   console.log(`Unchanged (truly $0): ${unchanged}`);
   console.log(`Skipped (direct-lot TRP-): ${skipped}`);
+  console.log(`Skipped (not a US-dollar reservation): ${skippedNotUsd}`);
   console.log(`Failed: ${failed}`);
 
   if (!WRITE && updated > 0) {

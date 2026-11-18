@@ -63,7 +63,7 @@ const response = (
 const mixOf = (over?: Parameters<typeof response>[0]) => mixFromAccounting(accountingMixSchema.parse(response(over)));
 
 describe("mixFromAccounting", () => {
-  it("carries the Canadian-lot caveat; a month with commission left out is never cached as final", () => {
+  it("carries the Canadian-lot caveat; neither kind stops a month being kept (it does not change between loads)", () => {
     expect(mixOf().canadian).toEqual({ estimated: 0, leftOut: 0 });
     const estimated = mixOf({ canadianEstimated: 3 });
     expect(estimated.canadian).toEqual({ estimated: 3, leftOut: 0 });
@@ -71,12 +71,23 @@ describe("mixFromAccounting", () => {
     expect(isDefinitive(estimated)).toBe(true);
     const leftOut = mixOf({ canadianLeftOut: 2 });
     expect(leftOut.canadian).toEqual({ estimated: 0, leftOut: 2 });
-    expect(isDefinitive(leftOut)).toBe(false);
+    // The old bookings stay left out for good: re-asking every time would re-run the whole month.
+    expect(isDefinitive(leftOut)).toBe(true);
+    // A currency problem leaves no kept figures at all, which is what blocks the cache.
+    expect(isDefinitive(mixOf({ total: null, canadianLeftOut: 1 }))).toBe(false);
   });
 
   it("a response from before accounting knew about Canadian dollars does not parse (a cache miss)", () => {
-    const { canadianEstimated: _e, canadianLeftOut: _l, ...oldNet } = response().triplyNet;
-    expect(accountingMixSchema.safeParse({ ...response(), triplyNet: oldNet }).success).toBe(false);
+    const net = response().triplyNet;
+    const without = (key: "canadianEstimated" | "canadianLeftOut") => {
+      const copy: Record<string, unknown> = { ...net };
+      delete copy[key];
+      return accountingMixSchema.safeParse({ ...response(), triplyNet: copy }).success;
+    };
+    // Each one on its own is required.
+    expect(without("canadianEstimated")).toBe(false);
+    expect(without("canadianLeftOut")).toBe(false);
+    expect(accountingMixSchema.safeParse(response()).success).toBe(true);
   });
 
   it("maps paid from the confirmed figures and kept from triplyNet", () => {

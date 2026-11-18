@@ -60,7 +60,8 @@ const querySchema = z
       .transform((s) => parseFloat(s))
       .optional(),
     // The US-dollar value of one Canadian dollar ResLab used on the invoice
-    // (0.5 to 1, like the booking rates): only moves the invoice comparison.
+    // (above 0.5 and below 1, like the booking rates; reconcileRevenue checks
+    // it again): only moves the invoice comparison.
     cadrate: z
       .string()
       .regex(/^0\.\d{1,6}$/, "must be a rate like 0.7215")
@@ -131,7 +132,7 @@ export async function GET(request: NextRequest) {
     const e = err instanceof Error ? err : new Error(String(err));
     // Tag the query so Sentry triage doesn't require log spelunking.
     Sentry.withScope((scope) => {
-      scope.setContext("accounting_query", { from, to, by, invoiceAmount, includeReslab, includeStripe });
+      scope.setContext("accounting_query", { from, to, by, invoiceAmount, invoiceCadRate: cadrate ?? null, includeReslab, includeStripe });
       captureAPIError(e, { endpoint: "/api/admin/accounting", method: "GET" });
     });
     // Don't leak internal infra error messages to the client. Sentry has the detail.

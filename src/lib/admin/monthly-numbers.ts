@@ -223,6 +223,10 @@ export const accountingSliceSchema = z.object({
     total: z.number().nullable(),
     cashTotal: z.number().nullable(),
     totalReason: z.string().nullable(),
+    // Required: a response from before accounting knew about Canadian dollars
+    // is a miss, never a figure that counted them as US dollars.
+    canadianEstimated: z.number(),
+    canadianLeftOut: z.number(),
   }),
 });
 export type AccountingSlice = z.infer<typeof accountingSliceSchema>;
@@ -248,20 +252,38 @@ export interface NetTake {
   perBooking: number | null;
   /** Why gross is null, from the reconciler, when it says. */
   reason: string | null;
+  /**
+   * What a reader must know about a gross that IS shown: Canadian-lot bookings
+   * in it at an estimated exchange rate, or whose parking commission is left
+   * out of it. null for every other month.
+   */
+  caveat: string | null;
 }
 
 /**
  * Per booking divides GROSS by CONFIRMED bookings — the ones whose commission
- * is in the number.
+ * is in the number. When the commission on some confirmed bookings is left out
+ * (old Canadian-lot bookings with no exchange rate) there is no honest divisor:
+ * their service fee is in the gross and their commission is not. No per-booking
+ * figure is shown for that month.
  */
 export function netTakeFrom(a: AccountingSlice): NetTake {
-  const { cashTotal, total, totalReason } = a.triplyNet;
+  const { cashTotal, total, totalReason, canadianEstimated, canadianLeftOut } = a.triplyNet;
   const confirmed = a.counts.confirmed;
+  const s = (n: number) => (n === 1 ? "" : "s");
+  const caveat =
+    [
+      canadianEstimated > 0 ? `includes ${canadianEstimated} Canadian-lot booking${s(canadianEstimated)} at an estimated exchange rate` : "",
+      canadianLeftOut > 0 ? `the parking commission on ${canadianLeftOut} Canadian-lot booking${s(canadianLeftOut)} is left out` : "",
+    ]
+      .filter(Boolean)
+      .join("; ") || null;
   return {
     gross: total,
     cash: cashTotal,
-    perBooking: total !== null && confirmed > 0 ? total / confirmed : null,
+    perBooking: total !== null && confirmed > 0 && canadianLeftOut === 0 ? total / confirmed : null,
     reason: total === null ? (totalReason ?? "reconciler returned no total") : null,
+    caveat: total === null ? null : caveat,
   };
 }
 

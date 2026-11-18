@@ -81,8 +81,10 @@ function downloadCsv(bookings: BookingDetail[], filename: string) {
     "reslab_commissions_total", "reslab_refund_amount", "reslab_partial_refund",
     "reslab_cancelled", "reslab_error",
     "triply_fee_svc_plus_pg", "triply_total_incl_channel", "note",
-    // Canadian-lot bookings only. The reslab_* columns above are US dollars
-    // (converted at fx_rate) or empty (no rate); these are ResLab's CAD figures.
+    // Canadian-lot bookings only. The reslab_* columns above are then US
+    // dollars (fx_kind "converted": at fx_rate) or empty (anything else).
+    // These are ResLab's own figures in Canadian dollars; empty on a booking
+    // with a currency problem (fx_kind "no_rate" / "conflict").
     "fx_kind", "fx_rate", "reslab_grand_total_cad", "reslab_location_total_owed_cad",
     "reslab_channel_fee_cad", "reslab_channel_total_cad", "reslab_commissions_total_cad",
   ];
@@ -234,8 +236,8 @@ function RateRow({ label, question, numerator, denominator, useWhen, value }: {
 const cad = (v: number) => `C$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-/** The headline's subtitle when Canadian-lot bookings are in (or missing from) the figure. */
-function canadianHeadlineNote(result: ReconcileResult): string {
+/** What the headline must say first when Canadian-lot bookings are in (or missing from) the figure. Empty for a US-only period. */
+function canadianHeadlineClause(result: ReconcileResult): string {
   const parts: string[] = [];
   if (result.triplyNet.canadianEstimated > 0) {
     parts.push(
@@ -245,7 +247,6 @@ function canadianHeadlineNote(result: ReconcileResult): string {
   if (result.triplyNet.canadianLeftOut > 0) {
     parts.push(`parking commission on ${plural(result.triplyNet.canadianLeftOut, "Canadian booking", "Canadian bookings")} is not in it`);
   }
-  if (result.triplyNet.cashTotal !== null) parts.push(`net cash ≈ ${usd(result.triplyNet.cashTotal)} after Stripe fees`);
   return parts.join(" · ");
 }
 
@@ -256,63 +257,82 @@ function canadianHeadlineNote(result: ReconcileResult): string {
  */
 function CanadianLots({ result }: { result: ReconcileResult }) {
   const c = result.canadian;
-  const r = result.reslab;
+  const invoice = result.reslab.canadianInvoice;
   const faults = c.reservations.filter((x) => x.kind === "no_rate" || x.kind === "conflict");
   const legacy = c.reservations.filter((x) => x.kind === "no_rate_legacy");
+  const owed = result.reslab.sumAmountOwed;
   return (
     <div className="bg-white rounded-xl border border-amber-200 p-6 mb-6" data-testid="canadian-lots">
       <h3 className="font-semibold text-gray-900 mb-1">Canadian lots</h3>
       <p className="text-xs text-gray-500 mb-3">
         ResLab keeps these reservations in Canadian dollars and bills them on the same invoice in US dollars, at its
-        exchange rate on the invoice date. They are not in &ldquo;Owed to ResLab&rdquo; above.
+        exchange rate on the invoice date. They are not in the &ldquo;Owed to ResLab&rdquo; card above, which is
+        US-dollar lots only.
       </p>
-      {c.converted > 0 && (
+      {c.convertedOwed.rows > 0 && (
         <Row
-          label={`Owed for ${plural(c.converted, "converted booking", "converted bookings")}`}
-          value={cad(c.converted_owed.cad)}
-          sub={`about ${usd(c.converted_owed.usdAtBookingRates)} at each booking's own rate (an estimate until invoiced)`}
+          label={`Owed for ${plural(c.convertedOwed.rows, "converted booking", "converted bookings")}`}
+          value={cad(c.convertedOwed.cad)}
+          sub={`about ${usd(c.convertedOwed.usdAtBookingRates)} at each booking's own rate (an estimate until invoiced)`}
         />
       )}
-      {c.noRateLegacy > 0 && (
+      {c.legacyOwed.rows > 0 && (
         <Row
-          label={`Owed for ${plural(c.noRateLegacy, "booking", "bookings")} made before conversion`}
-          value={cad(c.noRateOwedCad)}
-          sub={`charged the Canadian figure one-for-one, so there is no rate to estimate with: ${legacy.map((x) => x.resNum).join(", ")}`}
+          label={`Owed for ${plural(c.legacyOwed.rows, "booking", "bookings")} made before conversion`}
+          value={cad(c.legacyOwed.cad)}
+          sub={`charged the Canadian figure one-for-one, so there is no rate to estimate with (${legacy.map((x) => x.resNum).join(", ")})`}
         />
       )}
-      {r.canadianInvoiceUsd !== null && (
+      {invoice !== null && (c.convertedOwed.rows > 0 || c.legacyOwed.rows > 0) && (
         <Row
-          label="On the invoice, in US dollars"
-          value={r.canadianInvoiceBasis === "invoice_rate" ? usd(r.canadianInvoiceUsd) : `≈ ${usd(r.canadianInvoiceUsd)}`}
+          label="Canadian lots on the invoice, in US dollars"
+          value={
+            invoice.basis === "invoice_rate"
+              ? usd(invoice.usd)
+              : c.legacyOwed.rows > 0
+              ? c.convertedOwed.rows > 0
+                ? `≈ ${usd(invoice.usd)} + ?`
+                : "—"
+              : `≈ ${usd(invoice.usd)}`
+          }
           sub={
-            r.canadianInvoiceBasis === "invoice_rate"
-              ? `every Canadian dollar owed at the rate you entered (${result.options.invoiceCadRate})`
-              : c.noRateLegacy > 0
-              ? "converted bookings only, at their own rates. Enter ResLab's rate above to include the rest and get the exact figure."
-              : "at each booking's own rate. Enter ResLab's rate above for the exact figure."
+            invoice.basis === "invoice_rate"
+              ? `every Canadian dollar above at the rate you entered (${result.options.invoiceCadRate})`
+              : c.legacyOwed.rows > 0
+              ? `${plural(c.legacyOwed.rows, "booking", "bookings")} made before conversion cannot be estimated. Enter ResLab's CAD rate above to price ${c.legacyOwed.rows === 1 ? "it" : "them"}.`
+              : "at each booking's own rate. Enter ResLab's CAD rate above for the exact figure."
           }
           emphasis
         />
       )}
-      {r.exchangeDifference !== null && c.converted > 0 && (
+      {invoice !== null && invoice.unpriced === 0 && owed !== null && (
+        <Row
+          label="Whole invoice expected"
+          value={invoice.basis === "invoice_rate" ? usd(owed + invoice.usd) : `≈ ${usd(owed + invoice.usd)}`}
+          sub={`${usd(owed)} US-dollar lots + ${usd(invoice.usd)} Canadian lots. The variance above compares this with the invoice.`}
+        />
+      )}
+      {invoice !== null && invoice.exchangeDifference !== null && c.convertedOwed.rows > 0 && (
         <Row
           label="Exchange difference"
-          value={usd(r.exchangeDifference)}
+          value={usd(Math.abs(invoice.exchangeDifference))}
           sub={
-            r.exchangeDifference > 0
-              ? "ResLab's rate cost this much more than the customers were charged for"
-              : "ResLab's rate cost this much less than the customers were charged for (negative = in Triply's favour)"
+            invoice.exchangeDifference > 0
+              ? "ResLab's rate made the converted bookings cost this much MORE than at the rates their customers were charged at"
+              : invoice.exchangeDifference < 0
+              ? "ResLab's rate made the converted bookings cost this much LESS than at the rates their customers were charged at"
+              : "no difference between ResLab's rate and the rates the customers were charged at"
           }
         />
       )}
       {c.leftOutConfirmed > 0 && (
         <p className="mt-3 text-xs text-amber-700">
-          {plural(c.leftOutConfirmed, "confirmed booking has", "confirmed bookings have")} no usable rate: {usd(c.leftOutStripeParking)} of
-          Stripe parking and the commission on {c.leftOutConfirmed === 1 ? "it" : "them"} are left out of &ldquo;Net parking cash&rdquo;,
-          &ldquo;Triply revenue&rdquo; and the take rates.
+          {plural(c.leftOutConfirmed, "confirmed booking has", "confirmed bookings have")} no usable rate or a currency
+          problem. {usd(c.leftOutStripeParking)} of Stripe parking is taken out of &ldquo;Net parking cash&rdquo;, and the
+          commission on {c.leftOutConfirmed === 1 ? "it" : "them"} is not in &ldquo;Triply revenue&rdquo; or the take rates.
         </p>
       )}
-      {c.stripeRefunded > 0 && (
+      {c.stripeRefunded !== null && c.stripeRefunded > 0 && (
         <p className="mt-2 text-xs text-amber-700">
           {usd(c.stripeRefunded)} was refunded to customers on confirmed Canadian bookings. A partial refund does not lower
           &ldquo;Triply revenue&rdquo; above.
@@ -320,8 +340,10 @@ function CanadianLots({ result }: { result: ReconcileResult }) {
       )}
       {faults.length > 0 && (
         <p className="mt-2 text-xs text-red-700" data-testid="canadian-faults">
-          ⚠ {plural(faults.length, "booking has", "bookings have")} a currency problem and {faults.length === 1 ? "is" : "are"} in no
-          total: {faults.map((x) => `${x.resNum} (${x.reason ?? x.kind})`).join("; ")}
+          ⚠ {plural(faults.length, "booking has", "bookings have")} a currency problem. What ResLab says about{" "}
+          {faults.length === 1 ? "it" : "them"} is in no figure on this page, in either currency
+          {c.billedFaults > 0 ? `, and ResLab still bills ${c.billedFaults === faults.length ? (faults.length === 1 ? "it" : "them") : `${c.billedFaults} of them`}` : ""}:{" "}
+          {faults.map((x) => `${x.resNum} (${x.reason ?? x.kind})`).join("; ")}
         </p>
       )}
     </div>
@@ -363,6 +385,11 @@ export default function AccountingPage() {
         throw new Error(msg);
       }
       const data = (await res.json()) as ReconcileResult;
+      // An answer from a build before this page (after a rollback, say) has no
+      // Canadian block. Stop here rather than render figures this page cannot read.
+      if (!data.canadian || data.reslab?.canadianInvoice === undefined) {
+        throw new Error("The report came back in an older format. Reload the page and run it again.");
+      }
       setResult(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -371,13 +398,12 @@ export default function AccountingPage() {
     }
   }, [from, to, by, invoiceInput, cadRateInput]);
 
-  // ResLab's one US-dollar invoice also bills Canadian reservations, so a
-  // period that has any is read against the figure that includes them.
-  const invoiceVariance = !result
-    ? null
-    : result.canadian.settlementRows > 0
-    ? result.reslab.varianceInclCanadian
-    : result.reslab.variance;
+  // ResLab's one US-dollar invoice also bills Canadian reservations. This is
+  // the same figure as `variance` for a US-only period, and null when a
+  // reservation ResLab bills could not be priced.
+  const hasCanadian = !!result && result.canadian.reservations.length > 0;
+  const invoiceVariance = result ? result.reslab.varianceInclCanadian : null;
+  const unpriced = result?.reslab.canadianInvoice?.unpriced ?? 0;
 
   const varianceVariant = useMemo<"neutral" | "good" | "warn" | "bad">(() => {
     if (!result || invoiceVariance === null) return "neutral";
@@ -539,13 +565,18 @@ export default function AccountingPage() {
                 sub={
                   result.triplyNet.totalReason
                     ? `unavailable — ${result.triplyNet.totalReason}`
-                    : result.triplyNet.canadianEstimated > 0 || result.triplyNet.canadianLeftOut > 0
-                    ? canadianHeadlineNote(result)
-                    : result.triplyNet.cashTotal !== null
-                    ? `net cash ≈ ${usd(result.triplyNet.cashTotal)} after Stripe fees`
-                    : // M3: gross is known, cash isn't — signal this in the headline
-                      // so admins don't over-quote the gross number to stakeholders.
-                      "service fee + channel commission − ResLab fee − promo discounts + PG margin · net cash unavailable (Stripe data missing)"
+                    : // The Canadian caveat (empty for a US-only period) goes IN FRONT of
+                      // the usual subtitle, never instead of it.
+                      [
+                        canadianHeadlineClause(result),
+                        result.triplyNet.cashTotal !== null
+                          ? `net cash ≈ ${usd(result.triplyNet.cashTotal)} after Stripe fees`
+                          : // M3: gross is known, cash isn't — signal this in the headline
+                            // so admins don't over-quote the gross number to stakeholders.
+                            "service fee + channel commission − ResLab fee − promo discounts + PG margin · net cash unavailable (Stripe data missing)",
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")
                 }
                 icon={Calculator}
                 accent="coral"
@@ -756,12 +787,12 @@ export default function AccountingPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <HeadlineCard
-                title="Owed to ResLab"
+                title={hasCanadian ? "Owed to ResLab (US-dollar lots)" : "Owed to ResLab"}
                 value={result.reslab.sumAmountOwed !== null ? usd(result.reslab.sumAmountOwed) : "—"}
                 sub={
-                  result.reslab.sumLocationTotal !== null && result.reslab.sumChannelFee !== null
+                  (result.reslab.sumLocationTotal !== null && result.reslab.sumChannelFee !== null
                     ? `${usd(result.reslab.sumLocationTotal)} lots + ${usd(result.reslab.sumChannelFee)} RL Fee · ${result.reslab.settlementRows} reservations`
-                    : `${result.reslab.settlementRows} reservations`
+                    : `${result.reslab.settlementRows} reservations`) + (hasCanadian ? " · Canadian lots are listed below" : "")
                 }
                 icon={Receipt}
                 accent="blue"
@@ -776,12 +807,19 @@ export default function AccountingPage() {
               <VarianceCard
                 value={invoiceVariance !== null && result.reslab.invoiceAmount > 0 ? usd(invoiceVariance) : "—"}
                 sub={
-                  invoiceVariance !== null && result.reslab.invoiceAmount > 0
+                  result.reslab.invoiceAmount > 0 && invoiceVariance === null && unpriced > 0
+                    ? // Never a number with a hole in it.
+                      result.reslab.canadianInvoice?.basis === "booking_rates" && result.canadian.legacyOwed.rows > 0 && result.canadian.billedFaults === 0
+                      ? `enter ResLab's CAD rate: ${plural(unpriced, "Canadian booking on this invoice has", "Canadian bookings on this invoice have")} no rate to estimate with`
+                      : `not shown: ${plural(unpriced, "Canadian booking ResLab bills is", "Canadian bookings ResLab bills are")} in no figure (see Canadian lots)`
+                    : invoiceVariance !== null && result.reslab.invoiceAmount > 0
                     ? `${invoiceVariance >= 0 ? "+" : ""}${((invoiceVariance / Math.max(1, result.reslab.invoiceAmount)) * 100).toFixed(2)}% vs invoice${
-                        result.canadian.settlementRows > 0
-                          ? result.reslab.canadianInvoiceBasis === "invoice_rate"
+                        hasCanadian && result.reslab.canadianInvoice
+                          ? result.reslab.canadianInvoice.basis === "invoice_rate"
                             ? " · Canadian lots at ResLab's rate"
-                            : " · Canadian lots estimated"
+                            : result.canadian.convertedOwed.rows > 0
+                            ? " · Canadian lots estimated"
+                            : ""
                           : ""
                       }`
                     : ""
@@ -886,7 +924,11 @@ export default function AccountingPage() {
                     />
                   );
                 }
-                const netParking = stripeCollected - owedReslab;
+                // Confirmed Canadian bookings whose ResLab side is left out: there
+                // is nothing owed to set against their Stripe parking, so it is
+                // taken out here (0 for every other period).
+                const leftOutParking = result.canadian.leftOutStripeParking;
+                const netParking = stripeCollected - leftOutParking - owedReslab;
                 const isNegative = netParking < 0;
                 return (
                   <>
@@ -895,10 +937,21 @@ export default function AccountingPage() {
                       value={isDerived ? `≈ ${usd(stripeCollected)}` : usd(stripeCollected)}
                       sub={isDerived ? "estimated — live Stripe unavailable" : "actual parking collected via Stripe"}
                     />
+                    {result.canadian.leftOutConfirmed > 0 && (
+                      <Row
+                        label="Canadian bookings left out"
+                        value={`−${usd(leftOutParking)}`}
+                        sub={`${plural(result.canadian.leftOutConfirmed, "confirmed booking", "confirmed bookings")} with no usable rate: what is owed for ${result.canadian.leftOutConfirmed === 1 ? "it" : "them"} is not in the next line (see Canadian lots)`}
+                      />
+                    )}
                     <Row
                       label="Owed to ResLab"
                       value={`−${usd(owedReslab)}`}
-                      sub={`${usd(owedLots ?? 0)} to the lots + ${usd(rlFee ?? 0)} RL Fee`}
+                      sub={`${usd(owedLots ?? 0)} to the lots + ${usd(rlFee ?? 0)} RL Fee${
+                        result.canadian.confirmedConverted > 0
+                          ? ` · includes ${plural(result.canadian.confirmedConverted, "converted Canadian booking", "converted Canadian bookings")} at an estimated rate`
+                          : ""
+                      }`}
                     />
                     <Row
                       label="Net parking cash"
@@ -928,6 +981,13 @@ export default function AccountingPage() {
               ) : result.reslab.grandTotalMismatches.length > 0 ? (
                 <div className="mt-3 text-xs text-amber-700">
                   ⚠ {result.reslab.grandTotalMismatches.length} grand_total mismatches (see CSV)
+                  {result.reslab.grandTotalMismatches
+                    .filter((m) => m.note)
+                    .map((m) => (
+                      <div key={m.resNum}>
+                        {m.resNum}: booking {usd(m.supabase)}, ResLab {usd(m.reslab)}. {m.note}
+                      </div>
+                    ))}
                 </div>
               ) : null}
               {result.reslab.fetchErrors.length > 0 && (
@@ -946,6 +1006,22 @@ export default function AccountingPage() {
                     ⚠ {stragglers.length} refunded booking{stragglers.length === 1 ? "" : "s"} still
                     show non-zero location_total in ResLab ({usd(sum)}). Verify the cancellation
                     propagated before paying.
+                  </div>
+                );
+              })()}
+              {(() => {
+                // The same warning for a Canadian booking whose ResLab side is
+                // left out: its US-dollar field above is empty, so read ResLab's own figure.
+                const stragglers = result.bookings.filter(
+                  (b) => b.status === "refunded" && b.fx && b.fx.kind !== "converted" && b.reslab_cancelled !== true && (b.fx.location_total_cad ?? 0) > 0
+                );
+                if (stragglers.length === 0) return null;
+                const sum = stragglers.reduce((s, b) => s + (b.fx?.location_total_cad ?? 0), 0);
+                return (
+                  <div className="mt-2 text-xs text-amber-700" data-testid="canadian-stragglers">
+                    ⚠ {plural(stragglers.length, "refunded Canadian booking still shows", "refunded Canadian bookings still show")} a
+                    non-zero location_total in ResLab ({cad(sum)}): {stragglers.map((b) => b.reslab_reservation_number).join(", ")}.
+                    Verify the cancellation propagated before paying.
                   </div>
                 );
               })()}
@@ -1171,8 +1247,17 @@ export default function AccountingPage() {
                         <td className="px-4 py-2 text-gray-700 max-w-xs truncate" title={b.location_name}>
                           {b.airport_code ? `${b.airport_code} — ` : ""}{b.location_name}
                           {b.fx && (
-                            <span className="ml-1 text-[10px] font-semibold text-amber-700" title={b.fx.kind === "converted" ? `ResLab figures converted from Canadian dollars at ${b.fx.rate}` : "Canadian-dollar reservation: ResLab side left out"}>
-                              {b.fx.kind === "converted" ? "C$→US$" : "C$"}
+                            <span
+                              className={`ml-1 text-[10px] font-semibold ${b.fx.kind === "no_rate" || b.fx.kind === "conflict" ? "text-red-700" : "text-amber-700"}`}
+                              title={
+                                b.fx.kind === "converted"
+                                  ? `ResLab figures converted from Canadian dollars at ${b.fx.rate}`
+                                  : b.fx.kind === "no_rate_legacy"
+                                  ? "Canadian-dollar reservation booked before conversion: ResLab side left out"
+                                  : "Currency problem: ResLab side left out (see Canadian lots)"
+                              }
+                            >
+                              {b.fx.kind === "converted" ? "C$→US$" : b.fx.kind === "no_rate_legacy" ? "C$" : "C$ ?"}
                             </span>
                           )}
                         </td>

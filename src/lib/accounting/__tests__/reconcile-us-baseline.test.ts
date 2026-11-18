@@ -158,9 +158,9 @@ function usView(result: Awaited<ReturnType<typeof reconcileRevenue>>) {
     noRateLegacy: 0,
     faults: 0,
     reservations: [],
-    settlementRows: 0,
-    converted_owed: { cad: 0, usdAtBookingRates: 0 },
-    noRateOwedCad: 0,
+    convertedOwed: { rows: 0, cad: 0, usdAtBookingRates: 0 },
+    legacyOwed: { rows: 0, cad: 0 },
+    billedFaults: 0,
     keepEstimate: 0,
     confirmedConverted: 0,
     leftOutConfirmed: 0,
@@ -169,12 +169,10 @@ function usView(result: Awaited<ReturnType<typeof reconcileRevenue>>) {
   });
   const { canadianEstimated, canadianLeftOut, ...triplyNet } = rest.triplyNet;
   expect([canadianEstimated, canadianLeftOut]).toEqual([0, 0]);
-  const { canadianInvoiceUsd, canadianInvoiceBasis, varianceInclCanadian, exchangeDifference, ...reslab } = rest.reslab;
+  const { canadianInvoice, varianceInclCanadian, ...reslab } = rest.reslab;
   // A US-only period: nothing Canadian on the invoice, so the two variances are one figure.
-  expect(canadianInvoiceUsd).toBe(rest.options.includeReslab ? 0 : null);
-  expect(canadianInvoiceBasis).toBe(rest.options.includeReslab ? "booking_rates" : null);
+  expect(canadianInvoice).toEqual(rest.options.includeReslab ? { basis: "booking_rates", usd: 0, exchangeDifference: null, unpriced: 0 } : null);
   expect(varianceInclCanadian).toBe(reslab.variance);
-  expect(exchangeDifference).toBeNull();
   for (const b of rest.bookings) expect(b.fx).toBeUndefined();
   return { ...rest, triplyNet, reslab };
 }

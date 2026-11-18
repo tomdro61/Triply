@@ -26,9 +26,10 @@ export type RowCurrency =
   /** Converted at checkout: ResLab's figures are CAD, converted here at the booking's own rate. */
   | { kind: "cad"; rate: FxRate; rateText: string }
   /**
-   * ResLab's figures are CAD and there is no rate to convert them with.
+   * ResLab's figures are CAD and cannot be converted: no usable rate on the
+   * row, or (reconcile.ts) a settlement figure that is missing or unreadable.
    * `legacy`: one of the old one-for-one bookings (expected, reported apart).
-   * Otherwise a data fault, which must hold the month's headline back.
+   * Otherwise a data fault; a confirmed one holds the month's headline back.
    */
   | { kind: "cad_no_rate"; legacy: boolean; reason: string }
   /** The row and ResLab disagree, or ResLab reports a third currency. Always a fault. */
@@ -85,6 +86,25 @@ export function classifyRowCurrency(row: CurrencyWitnessRow, reslabCode: string 
       : "the booking's rate cannot be read",
   };
 }
+
+/** How a Canadian-dollar reservation is reported. One mapping, used for the result and the page. */
+export type CanadianRowKind = "converted" | "no_rate_legacy" | "no_rate" | "conflict";
+
+export function canadianKindOf(c: RowCurrency): CanadianRowKind | null {
+  switch (c.kind) {
+    case "usd":
+      return null;
+    case "cad":
+      return "converted";
+    case "conflict":
+      return "conflict";
+    case "cad_no_rate":
+      return c.legacy ? "no_rate_legacy" : "no_rate";
+  }
+}
+
+/** A row whose currency cannot be handled: in no total, in either currency. */
+export const isCurrencyFault = (k: CanadianRowKind): boolean => k === "no_rate" || k === "conflict";
 
 /** ResLab's side of the row is left out of every US-dollar figure. */
 export const isLeftOut = (c: RowCurrency): boolean => c.kind === "cad_no_rate" || c.kind === "conflict";

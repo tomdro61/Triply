@@ -49,7 +49,7 @@ export function netGapParts(c: NetCountsInput): string[] {
   if (failed > 0) parts.push(`${plural(failed, "ResLab read", "ResLab reads")} failed`);
   if (c.skipped > 0) parts.push(`${plural(c.skipped, "booking", "bookings")} not read before the time limit`);
   if (other > 0) {
-    parts.push(`${plural(other, "booking", "bookings")} without a figure for another reason (disputed and direct-lot bookings have none)`);
+    parts.push(`${plural(other, "booking", "bookings")} without a figure for another reason (disputed and direct-lot bookings have none, nor does a Canadian-lot booking with no exchange rate)`);
   }
   return parts;
 }

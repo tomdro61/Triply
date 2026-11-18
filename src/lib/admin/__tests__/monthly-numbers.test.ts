@@ -195,11 +195,36 @@ describe("bookingsByMonth", () => {
 });
 
 describe("netTakeFrom", () => {
-  const slice = (confirmed: number, total: number | null, cashTotal: number | null, reason: string | null = null) =>
+  const slice = (confirmed: number, total: number | null, cashTotal: number | null, reason: string | null = null, canadian: [number, number] = [0, 0]) =>
     accountingSliceSchema.parse({
       counts: { confirmed, refunded: 2 },
-      triplyNet: { total, cashTotal, totalReason: reason, serviceFee: 1 },
+      triplyNet: { total, cashTotal, totalReason: reason, serviceFee: 1, canadianEstimated: canadian[0], canadianLeftOut: canadian[1] },
     });
+
+  it("a month with Canadian-lot bookings at an estimated rate: figures kept, with the caveat", () => {
+    expect(netTakeFrom(slice(10, 200, 180, null, [3, 0]))).toEqual({
+      gross: 200,
+      cash: 180,
+      perBooking: 20,
+      reason: null,
+      caveat: "includes 3 Canadian-lot bookings at an estimated exchange rate",
+    });
+  });
+  it("commission left out on some confirmed bookings: no per-booking figure (there is no honest divisor)", () => {
+    expect(netTakeFrom(slice(10, 200, 180, null, [1, 2]))).toEqual({
+      gross: 200,
+      cash: 180,
+      perBooking: null,
+      reason: null,
+      caveat: "includes 1 Canadian-lot booking at an estimated exchange rate; the parking commission on 2 Canadian-lot bookings is left out",
+    });
+  });
+  it("no caveat on a figure that is not shown", () => {
+    expect(netTakeFrom(slice(10, null, null, "missing ResLab data", [0, 1])).caveat).toBeNull();
+  });
+  it("a response from before accounting knew about Canadian dollars does not parse (a cache miss)", () => {
+    expect(accountingSliceSchema.safeParse({ counts: { confirmed: 1 }, triplyNet: { total: 1, cashTotal: 1, totalReason: null } }).success).toBe(false);
+  });
 
   it("carries BOTH of accounting's figures under its names: gross (headline) and cash (after Stripe); per booking = gross ÷ confirmed", () => {
     // 2026-10-07: the page led with the after-Stripe figure while
@@ -210,7 +235,7 @@ describe("netTakeFrom", () => {
     expect(n.perBooking).toBeCloseTo(20, 10);
   });
   it("keeps gross when Stripe fee data is incomplete (cash null), never substitutes one for the other", () => {
-    expect(netTakeFrom(slice(4, 100, null))).toMatchObject({ gross: 100, cash: null, perBooking: 25, reason: null });
+    expect(netTakeFrom(slice(4, 100, null))).toMatchObject({ gross: 100, cash: null, perBooking: 25, reason: null, caveat: null });
   });
   it("carries the reconciler's reason when there is no total", () => {
     expect(netTakeFrom(slice(4, null, null, "missing ResLab data for 1 of 4 confirmed bookings"))).toEqual({
@@ -218,6 +243,7 @@ describe("netTakeFrom", () => {
       cash: null,
       perBooking: null,
       reason: "missing ResLab data for 1 of 4 confirmed bookings",
+      caveat: null,
     });
   });
   it("no per-booking figure for a month with zero confirmed", () => {

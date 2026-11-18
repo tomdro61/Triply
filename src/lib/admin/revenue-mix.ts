@@ -82,9 +82,11 @@ export const keptStateOf = (mix: MoneyMix): KeptState => mix.kept ?? { unavailab
  * A result safe to keep for later: profit known, no Park Guard rows known to
  * overstate it. Anything else is usually a transient ResLab/Stripe miss or a
  * data repair in progress — ask again rather than serve it from a cache.
+ * Canadian-lot bookings do not block it: an estimate is the same on every
+ * load, the old bookings whose commission is left out stay left out, and a
+ * currency PROBLEM already leaves `kept` null.
  */
-export const isDefinitive = (mix: MoneyMix): boolean =>
-  mix.kept !== null && mix.pgWholesaleMissing === 0 && mix.canadian.leftOut === 0;
+export const isDefinitive = (mix: MoneyMix): boolean => mix.kept !== null && mix.pgWholesaleMissing === 0;
 
 /**
  * The slice of /api/admin/accounting the charts read. Separate from

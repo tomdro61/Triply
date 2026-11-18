@@ -24,7 +24,7 @@ describe("net take wording", () => {
   it("does not blame ResLab when no read failed", () => {
     const text = netShortfallText({ bookings: 10, known: 4, fetchErrors: 0, skipped: 0 });
     expect(text).toBe(
-      "net take has a figure for only 4 of 10 blog bookings: 6 bookings without a figure for another reason (disputed and direct-lot bookings have none)"
+      "net take has a figure for only 4 of 10 blog bookings: 6 bookings without a figure for another reason (disputed and direct-lot bookings have none, nor does a Canadian-lot booking with no exchange rate)"
     );
     expect(text).not.toMatch(/ResLab/);
   });
@@ -32,7 +32,7 @@ describe("net take wording", () => {
     expect(netGapParts({ bookings: 10, known: 4, fetchErrors: 3, skipped: 2 })).toEqual([
       "1 ResLab read failed",
       "2 bookings not read before the time limit",
-      "3 bookings without a figure for another reason (disputed and direct-lot bookings have none)",
+      "3 bookings without a figure for another reason (disputed and direct-lot bookings have none, nor does a Canadian-lot booking with no exchange rate)",
     ]);
   });
   it("is empty when every booking has a figure", () => {

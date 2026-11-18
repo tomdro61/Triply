@@ -67,6 +67,12 @@ export function AllLotsSummary({ result }: { result: ReconcileResult }) {
   const reslabCell = (v: number | null, approx = false) => (v === null ? "—" : `${approx ? "≈ " : ""}${usdCents(dollarsToCents(v))}`);
   const waiting = detail ? detail.bookings.filter((b) => b.state !== "ok").length : 0;
   const canadianCaveat = net.canadianEstimated > 0 || net.canadianLeftOut > 0;
+  const canadianNote = [
+    net.canadianEstimated > 0 ? `${net.canadianEstimated} Canadian-lot booking${net.canadianEstimated === 1 ? "" : "s"} at an estimated exchange rate` : "",
+    net.canadianLeftOut > 0 ? `the parking commission on ${net.canadianLeftOut} Canadian-lot booking${net.canadianLeftOut === 1 ? "" : "s"} is left out` : "",
+  ]
+    .filter(Boolean)
+    .join("; ");
 
   const rows: Array<{ label: string; hint: string; reslab: number | null; approx?: boolean; sum: DirectSum | null; strong?: boolean }> = [
     {
@@ -139,6 +145,7 @@ export function AllLotsSummary({ result }: { result: ReconcileResult }) {
       {!detail && !failed && direct.count > 0 && <p className="mt-3 text-sm text-amber-800">Direct-lot figures were not requested for this report.</p>}
       {net.total === null && net.totalReason && <p className="mt-3 text-xs text-amber-800">ResLab lots: Triply revenue unavailable — {net.totalReason}.</p>}
       {net.total !== null && net.cashTotal === null && <p className="mt-3 text-xs text-amber-800">ResLab lots: Stripe fees could not be read for every booking, so net cash is unavailable.</p>}
+      {net.total !== null && canadianCaveat && <p className="mt-3 text-xs text-amber-800">≈ ResLab lots: Triply revenue includes {canadianNote} (see Canadian lots below).</p>}
       {result.stripe.isDerived && <p className="mt-3 text-xs text-amber-800">≈ ResLab lots: collected online is partly estimated from the booking rows, not read from Stripe.</p>}
       {waiting > 0 && (
         <p className="mt-3 text-xs text-amber-800">
