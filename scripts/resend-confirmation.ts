@@ -79,7 +79,7 @@ async function main() {
   const { data: booking, error } = await supabase
     .from("bookings")
     .select(
-      "reslab_reservation_number, location_name, location_address, check_in, check_out, grand_total, triply_service_fee, discount_amount, due_at_location, vehicle_info, customer_id, protection_plan, protection_plan_price, pg_sync_status"
+      "reslab_reservation_number, location_name, location_address, check_in, check_out, grand_total, triply_service_fee, discount_amount, due_at_location, vehicle_info, customer_id, protection_plan, protection_plan_price, pg_sync_status, reslab_currency"
     )
     .eq("reslab_reservation_number", resNum)
     .single();
@@ -167,6 +167,8 @@ async function main() {
     checkInTime: formatTime(booking.check_in),
     checkOutTime: formatTime(booking.check_out),
     totalAmount,
+    // A Canadian-dollar lot's booking, charged in US dollars: amounts read "US$".
+    usdLabel: booking.reslab_currency === "CAD",
     dueAtLocation: Number(booking.due_at_location ?? 0),
     vehicleInfo,
     protectionPlan: booking.protection_plan ?? undefined,

@@ -1,5 +1,6 @@
 import * as React from "react";
 import { formatDate } from "@/lib/utils";
+import { USD_REFUND_LINE, currencySign } from "@/lib/fx/usd-label";
 
 interface CancellationConfirmationEmailProps {
   customerName: string;
@@ -10,6 +11,12 @@ interface CancellationConfirmationEmailProps {
   checkOutDate: string;
   refundAmount: number;
   wasRefunded: boolean;
+  /**
+   * The booking was charged in US dollars for a Canadian-dollar lot: amounts
+   * read "US$" and the refund block says the refund is in US dollars.
+   * Required, never defaulted.
+   */
+  usdLabel: boolean;
   /** Park Guard premium that was returned to the customer (if any). */
   protectionPlanRefund?: number;
   /** Non-refundable portion of the Parking Protection retained on a standard
@@ -28,10 +35,12 @@ export function CancellationConfirmationEmail({
   checkOutDate,
   refundAmount,
   wasRefunded,
+  usdLabel,
   serviceFee,
   protectionPlanRefund,
   protectionPlanRetained,
 }: CancellationConfirmationEmailProps) {
+  const sign = currencySign(usdLabel);
   // Refund breakdown shows what's being returned ("Parking" + "Parking Protection")
   // summing to the headline total. Service fee is shown separately as retained.
   // Clamp protectionRefund to refundAmount so the breakdown sum always equals
@@ -123,38 +132,43 @@ export function CancellationConfirmationEmail({
                   <>
                     <tr>
                       <td style={{ padding: "3px 0", color: "#475569", fontSize: "13px" }}>Parking</td>
-                      <td style={{ padding: "3px 0", color: "#475569", fontSize: "13px", textAlign: "right" }}>${parkingRefund.toFixed(2)}</td>
+                      <td style={{ padding: "3px 0", color: "#475569", fontSize: "13px", textAlign: "right" }}>{sign}{parkingRefund.toFixed(2)}</td>
                     </tr>
                     <tr>
                       <td style={{ padding: "3px 0", color: "#475569", fontSize: "13px" }}>Parking Protection</td>
-                      <td style={{ padding: "3px 0", color: "#475569", fontSize: "13px", textAlign: "right" }}>${protectionRefund.toFixed(2)}</td>
+                      <td style={{ padding: "3px 0", color: "#475569", fontSize: "13px", textAlign: "right" }}>{sign}{protectionRefund.toFixed(2)}</td>
                     </tr>
                     <tr>
                       <td style={{ padding: "10px 0 0", color: "#1e293b", fontSize: "15px", fontWeight: "700", borderTop: "1px solid #bbf7d0" }}>Total refund</td>
-                      <td style={{ padding: "10px 0 0", color: "#1e293b", fontSize: "15px", fontWeight: "700", textAlign: "right", borderTop: "1px solid #bbf7d0" }}>${refundAmount.toFixed(2)}</td>
+                      <td style={{ padding: "10px 0 0", color: "#1e293b", fontSize: "15px", fontWeight: "700", textAlign: "right", borderTop: "1px solid #bbf7d0" }}>{sign}{refundAmount.toFixed(2)}</td>
                     </tr>
                   </>
                 ) : (
                   <tr>
                     <td style={{ color: "#1e293b", fontSize: "15px", fontWeight: "700" }}>Refund Amount</td>
-                    <td style={{ color: "#1e293b", fontSize: "15px", fontWeight: "700", textAlign: "right" }}>${refundAmount.toFixed(2)}</td>
+                    <td style={{ color: "#1e293b", fontSize: "15px", fontWeight: "700", textAlign: "right" }}>{sign}{refundAmount.toFixed(2)}</td>
                   </tr>
                 )}
               </tbody>
             </table>
             {serviceFee != null && serviceFee > 0 && (
               <p style={{ color: "#92400e", fontSize: "12px", margin: "10px 0 0", lineHeight: "1.5" }}>
-                Service fee of ${serviceFee.toFixed(2)} is non-refundable and was retained.
+                {`Service fee of ${sign}`}{serviceFee.toFixed(2)} is non-refundable and was retained.
               </p>
             )}
             {protectionPlanRetained != null && protectionPlanRetained > 0 && (
               <p style={{ color: "#92400e", fontSize: "12px", margin: "10px 0 0", lineHeight: "1.5" }}>
-                ${protectionPlanRetained.toFixed(2)} of the Parking Protection is non-refundable and was retained.
+                {sign}{protectionPlanRetained.toFixed(2)} of the Parking Protection is non-refundable and was retained.
               </p>
             )}
             <p style={{ color: "#166534", fontSize: "12px", margin: "10px 0 0", lineHeight: "1.5" }}>
               Please allow 5-10 business days for the refund to appear on your statement, depending on your bank.
             </p>
+            {usdLabel && (
+              <p style={{ color: "#166534", fontSize: "12px", margin: "10px 0 0", lineHeight: "1.5" }}>
+                {USD_REFUND_LINE}
+              </p>
+            )}
           </div>
         )}
 

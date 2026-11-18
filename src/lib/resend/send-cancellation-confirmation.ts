@@ -13,6 +13,8 @@ interface SendCancellationConfirmationParams {
   checkOutDate: string;
   refundAmount: number;
   wasRefunded: boolean;
+  /** "US$" on the amounts: a booking charged in US dollars for a Canadian-dollar lot. Required. */
+  usdLabel: boolean;
   serviceFee?: number;
   protectionPlanRefund?: number;
   protectionPlanRetained?: number;
@@ -28,6 +30,7 @@ export async function sendCancellationConfirmation({
   checkOutDate,
   refundAmount,
   wasRefunded,
+  usdLabel,
   serviceFee,
   protectionPlanRefund,
   protectionPlanRetained,
@@ -43,6 +46,7 @@ export async function sendCancellationConfirmation({
         checkOutDate,
         refundAmount,
         wasRefunded,
+        usdLabel,
         serviceFee,
         protectionPlanRefund,
         protectionPlanRetained,

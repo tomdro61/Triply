@@ -1330,6 +1330,9 @@ export async function sendBookingEmails(
       checkInTime: convertTo12Hour(checkInTime24),
       checkOutTime: convertTo12Hour(checkOutTime24),
       totalAmount,
+      // Stamped CAD (the same test that writes reslab_currency on the row):
+      // the charge is US dollars for a Canadian-dollar lot.
+      usdLabel: fr.fx !== null,
       dueAtLocation: fr.money.dueAtLocation || 0,
       vehicleInfo,
       shuttleDetails,
@@ -1689,6 +1692,7 @@ export async function sendDirectCustomerConfirmation(
       checkInTime: convertTo12Hour(checkInTime24),
       checkOutTime: convertTo12Hour(checkOutTime24),
       totalAmount,
+      usdLabel: false, // a direct lot is priced in US dollars
       dueAtLocation: 0,
       vehicleInfo: `${v.make} ${v.model} (${v.color}) - ${v.licensePlate}`,
       shuttleDetails: stripHtml(fr.location.shuttleDetailsHtml ?? null) || undefined,

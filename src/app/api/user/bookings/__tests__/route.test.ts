@@ -73,6 +73,22 @@ describe("GET /api/user/bookings", () => {
     expect(sentry.captureBookingError).not.toHaveBeenCalled();
   });
 
+  it("a Canadian-dollar lot's booking gets usd_label: true; the currency column itself never leaves the server", async () => {
+    state.rows = [
+      row({ id: "b-cad", reslab_currency: "CAD" }),
+      row({ id: "b-us", reslab_reservation_number: "RTL9", reslab_currency: null }),
+      row({ id: "b-odd", reslab_reservation_number: "RTL8", reslab_currency: "USD" }),
+    ];
+    const res = await GET();
+    expect(state.selected.split(",").map((c) => c.trim())).toContain("reslab_currency");
+    const { bookings } = (await res.json()) as { bookings: Record<string, unknown>[] };
+    expect(bookings[0].usd_label).toBe(true);
+    for (const b of bookings) expect(b).not.toHaveProperty("reslab_currency");
+    // A US-dollar booking's row is exactly what it was: no new key.
+    expect(bookings[1]).not.toHaveProperty("usd_label");
+    expect(bookings[2]).not.toHaveProperty("usd_label");
+  });
+
   // The route's dedupe Set lives for the module (one server instance), so each
   // test uses its own booking ids.
   it("reports an unreadable row ONCE per booking, under one stable fingerprint", async () => {

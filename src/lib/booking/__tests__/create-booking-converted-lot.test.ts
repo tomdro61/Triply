@@ -450,6 +450,8 @@ describe("a converted booking: the paths around the normal one", () => {
     const sent = JSON.stringify([vi.mocked(sendBookingConfirmation).mock.calls, out]);
     expect(sent).not.toMatch(/107\.55|125\.81|12\.88|5\.38|12581|10755/);
     expect(sent).toMatch(/91\.21|97\.16|9121|9716/);
+    // …and the email is told to write them "US$".
+    expect(vi.mocked(sendBookingConfirmation).mock.calls.at(-1)?.[0]).toMatchObject({ usdLabel: true });
   });
 
   it("a promo code: the stamped discount is checked against the converted price and recorded", async () => {

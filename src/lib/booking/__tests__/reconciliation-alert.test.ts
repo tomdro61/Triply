@@ -182,6 +182,15 @@ describe("alertNeedsReconciliation", () => {
     expect(mail.html).toContain("you can book again");
     expect(mail.html).not.toContain("don't book again");
     expect(field(postToDiscord.mock.calls[0][1], "Money")).toContain("$25.37 REFUNDED in full");
+    expect(mail.html).not.toContain("US$");
+  });
+
+  it("a Canadian-dollar lot's payment (stamped CAD): the customer email and the team alert write US$", async () => {
+    readCard.mockResolvedValue(card({ money: { kind: "refunded", amountCents: 2537, currency: "usd", usdLabel: true } }));
+    await alertNeedsReconciliation(input());
+    expect(customerMail().html).toContain("US$25.37");
+    expect(customerMail().html).not.toMatch(/(?<!US)\$\d/);
+    expect(field(postToDiscord.mock.calls[0][1], "Money")).toContain("US$25.37 REFUNDED in full");
   });
 
   it("Discord unset → the team is emailed instead (PAYMENT_ALERT_EMAILS, idempotent), customer still emailed", async () => {

@@ -8,6 +8,7 @@ import {
 } from "@/lib/stripe/client";
 import { parkGuard, ParkGuardError } from "@/lib/parkguard/client";
 import { sendCancellationConfirmation } from "@/lib/resend/send-cancellation-confirmation";
+import { isUsdLabelledBooking } from "@/lib/fx/usd-label";
 import {
   captureAPIError,
   capturePaymentError,
@@ -56,6 +57,10 @@ export interface CancelBookingRow {
   /** Stripe mode of the booking (034). NULL on pre-015 rows, which are LIVE.
    *  REQUIRED for the same reason: dropping it disables the H-D mode guard. */
   livemode: boolean | null;
+  /** 'CAD' on a Canadian-dollar lot's booking (migration 052), else NULL: the
+   *  cancellation email's amounts then read "US$". REQUIRED, like the two
+   *  above, so a loader cannot drop it and send a bare "$". */
+  reslab_currency: string | null;
   customers: {
     email: string | null;
     first_name: string | null;
@@ -353,6 +358,7 @@ export async function finalizeCancelledReservation(
         checkOutDate: booking.check_out,
         refundAmount: refundDollars,
         wasRefunded,
+        usdLabel: isUsdLabelledBooking(booking),
         protectionPlanRefund:
           protectionPlanRefundDollars > 0 ? protectionPlanRefundDollars : undefined,
         protectionPlanRetained: pgWholesaleDollars > 0 ? pgWholesaleDollars : undefined,

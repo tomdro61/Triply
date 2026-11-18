@@ -4,8 +4,10 @@ import { captureBookingError } from "@/lib/sentry";
 import { getClaimableCustomerIds } from "@/lib/bookings/claimable";
 import { isCancellable } from "@/lib/cancellation/eligibility";
 import { reservationCardAmounts } from "@/lib/bookings/reservation-card-amounts";
+import { isUsdLabelledBooking } from "@/lib/fx/usd-label";
 
-// Column allowlist for the browser response. Excludes internal/sensitive
+// Column allowlist for the browser response (reslab_currency is read only to
+// set `usd_label` and is removed before the response). Excludes internal/sensitive
 // fields (stripe_payment_intent_id, pg_identifier, pg_sync_status) but KEEPS
 // protection_plan + protection_plan_price — both are consumed downstream (the
 // reservation-card total and the dirty-data check below). location_timezone is
@@ -16,7 +18,7 @@ import { reservationCardAmounts } from "@/lib/bookings/reservation-card-amounts"
 // discount_amount nets the promo out of the card's "Booking total";
 // due_at_location is its "Due at location" sub-line.
 const BOOKING_COLUMNS =
-  "id, reslab_reservation_number, reslab_location_id, inventory_source, direct_lot_id, location_name, location_address, airport_code, check_in, check_out, location_timezone, grand_total, subtotal, fees_total, tax_total, triply_service_fee, discount_amount, due_at_location, protection_plan, protection_plan_price, vehicle_info, vehicle_size, vehicle_size_label, vehicle_surcharge_cents, vehicle_surcharge_tax_cents, status, created_at";
+  "id, reslab_reservation_number, reslab_location_id, inventory_source, direct_lot_id, location_name, location_address, airport_code, check_in, check_out, location_timezone, grand_total, subtotal, fees_total, tax_total, triply_service_fee, discount_amount, due_at_location, protection_plan, protection_plan_price, vehicle_info, vehicle_size, vehicle_size_label, vehicle_surcharge_cents, vehicle_surcharge_tax_cents, status, created_at, reslab_currency";
 
 // Booking ids already reported as having an unreadable card amount (per
 // server instance; bounded). See the report in GET. (No test-reset export:
@@ -148,8 +150,11 @@ export async function GET() {
     // the browser renders this boolean, never the untrusted client clock). It's a
     // snapshot at fetch time; the cancel API re-validates on the actual action.
     const selfCancelEnabled = process.env.ENABLE_SELF_SERVE_CANCEL === "true";
-    const bookings = (linked ?? []).map((b) => ({
+    // The currency column stays server-side: the card gets `usd_label: true`
+    // on a Canadian-dollar lot's booking and nothing new on any other.
+    const bookings = (linked ?? []).map(({ reslab_currency, ...b }) => ({
       ...b,
+      ...(isUsdLabelledBooking({ reslab_currency }) && { usd_label: true as const }),
       cancellable:
         selfCancelEnabled && b.status === "confirmed"
           ? isCancellable(b.check_in, b.location_timezone).cancellable

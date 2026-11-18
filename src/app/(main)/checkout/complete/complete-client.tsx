@@ -26,6 +26,8 @@ interface MoneyOnCard {
   amountCents: number;
   currency: string;
   charge: "hold" | "captured";
+  /** A Canadian-dollar lot's payment, charged in US dollars: the amount reads "US$". */
+  usdLabel: boolean;
 }
 
 type ViewState =
@@ -49,16 +51,18 @@ function moneyFromAnswer(data: Record<string, unknown>): MoneyOnCard | null {
     typeof currency === "string" &&
     (charge === "hold" || charge === "captured")
   ) {
-    return { amountCents, currency, charge };
+    return { amountCents, currency, charge, usdLabel: data.usdLabel === true };
   }
   return null;
 }
 
 function formatMoney(money: MoneyOnCard): string {
   try {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: money.currency.toUpperCase() }).format(
+    const text = new Intl.NumberFormat("en-US", { style: "currency", currency: money.currency.toUpperCase() }).format(
       money.amountCents / 100
     );
+    // en-US writes US dollars as a bare "$".
+    return money.usdLabel && text.startsWith("$") ? `US${text}` : text;
   } catch {
     return `${(money.amountCents / 100).toFixed(2)} ${money.currency.toUpperCase()}`;
   }

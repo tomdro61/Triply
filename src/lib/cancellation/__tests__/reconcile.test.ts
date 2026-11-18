@@ -132,6 +132,7 @@ function mkRow(reservationNumber: string, over: Record<string, unknown> = {}) {
     cancel_claimed_at: STALE,
     inventory_source: "reslab" as string | null,
     livemode: false as boolean | null,
+    reslab_currency: null as string | null,
     ...over,
   };
 }

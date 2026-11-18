@@ -34,7 +34,7 @@ const BOOKING_SELECT = `
   id, status, reslab_reservation_number, location_name, location_address,
   check_in, check_out, location_timezone, protection_plan, protection_plan_price,
   protection_plan_wholesale, pg_identifier, stripe_payment_intent_id,
-  inventory_source, livemode,
+  inventory_source, livemode, reslab_currency,
   customers ( email, first_name, last_name )
 `;
 
@@ -116,6 +116,7 @@ export async function POST(
       // dropping livemode silently disabled the Stripe-mode refusal.
       inventory_source: booking.inventory_source,
       livemode: booking.livemode,
+      reslab_currency: booking.reslab_currency,
       customers: rawCustomer
         ? {
             email: rawCustomer.email,

@@ -54,7 +54,7 @@ const HOLD_STATES: HoldState[] = [
 ];
 
 const SCAN_COLUMNS =
-  "id, reslab_reservation_number, status, customer_id, location_name, location_address, check_in, check_out, location_timezone, protection_plan, protection_plan_price, protection_plan_wholesale, pg_identifier, stripe_payment_intent_id, cancel_state, cancel_claimed_at, inventory_source, livemode";
+  "id, reslab_reservation_number, status, customer_id, location_name, location_address, check_in, check_out, location_timezone, protection_plan, protection_plan_price, protection_plan_wholesale, pg_identifier, stripe_payment_intent_id, cancel_state, cancel_claimed_at, inventory_source, livemode, reslab_currency";
 
 interface ScanBookingRow {
   id: string;
@@ -75,6 +75,7 @@ interface ScanBookingRow {
   cancel_claimed_at: string;
   inventory_source: string | null;
   livemode: boolean | null;
+  reslab_currency: string | null;
 }
 
 export interface StalledCancel {
@@ -336,6 +337,7 @@ async function toCancelBookingRow(
     stripe_payment_intent_id: row.stripe_payment_intent_id,
     inventory_source: row.inventory_source,
     livemode: row.livemode,
+    reslab_currency: row.reslab_currency,
     customers: c
       ? { email: c.email, first_name: c.first_name, last_name: c.last_name }
       : null,

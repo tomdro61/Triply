@@ -52,6 +52,7 @@ const render = (
       costBreakdown,
       fallback: over.fallback ?? NO_FALLBACK,
       cancelled: over.cancelled ?? false,
+      usdLabel: false,
     })
   );
 

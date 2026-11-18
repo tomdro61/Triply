@@ -7,6 +7,8 @@ import { cancelSource } from "@/lib/cancellation/source-guard";
 import { buildDirectReservation, type GuestContact } from "@/lib/direct/reservation-view";
 import { buildCostBreakdown, fallbackDue, type CostBreakdownResult } from "@/lib/booking/cost-breakdown";
 import { reslabHistoryMoney } from "@/lib/booking/confirmation-money";
+import { isUsdLabelledBooking } from "@/lib/fx/usd-label";
+import { reslabCurrencyCode } from "@/lib/reslab/currency";
 import {
   cardSummary,
   describeFallback,
@@ -609,6 +611,17 @@ async function getReservation(
       );
     }
 
+    // "US$" on the page's amounts: the row says the lot is priced in Canadian
+    // dollars; or ResLab itself says so (a booking charged one for one before
+    // conversion existed and not yet marked, or a row whose currency columns
+    // were never written — every charge is US dollars, so the label is true);
+    // or the figures were withheld because ResLab's are not US dollars (the
+    // page then shows only Stripe's charge).
+    const usdLabel =
+      isUsdLabelledBooking(bookingData) ||
+      reslabCurrencyCode(history?.location?.currency?.code) === "CAD" ||
+      money.basis === "withheld";
+
     // Cancelled if EITHER side says so. Our row is cancelled/refunded only by a
     // cancel or a full refund, and two shipped paths write it while ResLab's
     // flag stays 0: an admin cancel whose ResLab call failed, and a full refund
@@ -775,6 +788,8 @@ async function getReservation(
         costBreakdown,
         cardPayment,
         fallbackDue: dueForFallback,
+        // Only when the row or ResLab says CAD, or non-US figures were withheld (a US response is unchanged).
+        ...(usdLabel && { usdLabel: true as const }),
         customer: {
           firstName,
           lastName,
