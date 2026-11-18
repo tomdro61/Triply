@@ -113,8 +113,15 @@ function booking(id: string, first: string) {
   };
 }
 
-function detail(id: string, triplyTotal: number | null) {
-  return { id, status: "confirmed", triply_total: triplyTotal, reslab_channel_fee: 0, reslab_cancelled: false };
+function detail(id: string, triplyTotal: number | null, fxKind?: string) {
+  return {
+    id,
+    status: "confirmed",
+    triply_total: triplyTotal,
+    reslab_channel_fee: 0,
+    reslab_cancelled: false,
+    ...(fxKind ? { fx: { kind: fxKind } } : {}),
+  };
 }
 
 function reconciled(bookings: ReturnType<typeof detail>[], fetchErrors: Array<{ resNum: string; err: string }> = []) {
@@ -190,8 +197,24 @@ describe("GET /api/admin/blog-bookings net section", () => {
       data: { bookings: 3, known: 3, fetchErrors: 0, skipped: 0, computedAt: expect.any(String) },
     });
     expect(Number.isNaN(Date.parse(body.net.data.computedAt))).toBe(false);
-    expect(body.report.totals.net).toEqual({ blogNet: 30, blogNetKnown: 3, blogNetUnknown: 0 });
+    expect(body.report.totals.net).toEqual({ blogNet: 30, blogNetKnown: 3, blogNetUnknown: 0, blogNetEstimated: 0 });
     expect(stageCalls("net")).toHaveLength(0);
+  });
+
+  it("marks a converted Canadian-lot booking's figure as estimated; one with no figure, or of another kind, is not", async () => {
+    h.reconcileRevenue.mockResolvedValue(
+      reconciled([detail("b1", 10, "converted"), detail("b2", null, "converted"), detail("b3", 8, "no_rate_legacy")])
+    );
+    const body = await (await GET(req(`${OCT}&net=1`))).json();
+    expect(body.report.totals.net).toEqual({ blogNet: 18, blogNetKnown: 2, blogNetUnknown: 1, blogNetEstimated: 1 });
+  });
+
+  it("keeps its cached figures under a key that names the cached shape", async () => {
+    h.reconcileRevenue.mockResolvedValue(reconciled([detail("b1", 10), detail("b2", 12), detail("b3", 8)]));
+    await GET(req(`${OCT}&net=1`));
+    const netKeys = [...h.cache.keys()].filter((k) => k.includes("|net|"));
+    expect(netKeys).toHaveLength(1);
+    expect(netKeys[0]).toContain("|net|v2|");
   });
 
   it("refuses a range past 60 days as a section error, without calling ResLab or Sentry", async () => {
@@ -219,7 +242,7 @@ describe("GET /api/admin/blog-bookings net section", () => {
       ok: true,
       data: { bookings: 3, known: 2, fetchErrors: 1, skipped: 0, computedAt: expect.any(String) },
     });
-    expect(body.report.totals.net).toEqual({ blogNet: 22, blogNetKnown: 2, blogNetUnknown: 1 });
+    expect(body.report.totals.net).toEqual({ blogNet: 22, blogNetKnown: 2, blogNetUnknown: 1, blogNetEstimated: 0 });
     const calls = stageCalls("net");
     expect(calls).toHaveLength(1);
     // A fixed message (so events group), the counts and a sample in `extra`.

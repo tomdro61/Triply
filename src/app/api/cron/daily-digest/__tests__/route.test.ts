@@ -29,6 +29,13 @@ const captureMock = vi.hoisted(() => ({ captureAPIError: vi.fn() }));
 vi.mock("@/lib/sentry", () => captureMock);
 const sentryMock = vi.hoisted(() => ({ captureCheckIn: vi.fn((..._args: unknown[]) => "chk"), flush: vi.fn(async () => true) }));
 vi.mock("@sentry/nextjs", () => sentryMock);
+// The shipped exchange-rate setting changes by PR and expires by date: these
+// tests set the status they need (default: no rate, so no flag).
+const fx = vi.hoisted(() => ({ status: { kind: "off" } as import("@/lib/fx/cad-usd").CadRateStatus }));
+vi.mock("@/lib/fx/cad-usd", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/fx/cad-usd")>()),
+  cadRateStatus: () => fx.status,
+}));
 
 import { GET } from "../route";
 import type { DigestData } from "@/lib/digest/types";
@@ -235,6 +242,25 @@ describe("GET /api/cron/daily-digest", () => {
     expect(runs.upserts).toHaveLength(0);
     expect(sentryMock.captureCheckIn).not.toHaveBeenCalled();
     expect(captureMock.captureAPIError).not.toHaveBeenCalled();
+  });
+
+  it("a Canadian exchange rate about to expire is a flag in the posted embed; none when the rate is off", async () => {
+    fx.status = { kind: "live", rate: { id: "r1", micros: 720_700 }, validUntil: "2026-10-01", daysLeft: 3 };
+    try {
+      const res = await GET(req());
+      const body = await res.json();
+      expect(body.flags.some((f: string) => f.includes("Canadian exchange rate expires in 3 days"))).toBe(true);
+      const embed = discordMock.postToDiscord.mock.calls[0][1] as { description: string };
+      expect(embed.description).toContain("Canadian exchange rate expires in 3 days");
+      // A warning is not a failed run: the outcome and the check-in stay clean.
+      expect(body).toMatchObject({ ok: true, outcome: "posted" });
+      expect(checkIns()).toEqual(["in_progress", "ok"]);
+    } finally {
+      fx.status = { kind: "off" };
+    }
+    discordMock.postToDiscord.mockClear();
+    const off = await (await GET(req("?force=1"))).json();
+    expect(off.flags.some((f: string) => f.includes("Canadian exchange rate"))).toBe(false);
   });
 
   it("?dry=1 does not post the crash embed either, and reports ok:false for a could-not-run day", async () => {

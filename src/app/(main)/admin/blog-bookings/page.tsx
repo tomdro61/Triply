@@ -22,7 +22,7 @@ import type {
   DateRange,
   NetFigures,
 } from "@/lib/admin/blog-bookings";
-import { fmtNet, partialNetNotice } from "@/lib/admin/blog-bookings-format";
+import { fmtNet, netEstimateNote, partialNetNotice } from "@/lib/admin/blog-bookings-format";
 
 /** Mirrors DEFAULT_RANGE_DAYS in src/lib/admin/blog-bookings.ts (60, so net take loads on the default range). */
 const DEFAULT_DAYS = 60;
@@ -103,8 +103,12 @@ function NetCell({ net, loading }: { net: NetFigures | null; loading: boolean })
       </span>
     );
   }
+  const notes = [
+    netEstimateNote(net),
+    net.blogNetUnknown > 0 ? `${net.blogNetUnknown} booking(s) with no net figure, not included` : null,
+  ].filter((t): t is string => t !== null);
   return (
-    <span title={net.blogNetUnknown > 0 ? `${net.blogNetUnknown} booking(s) with no net figure, not included` : undefined}>
+    <span title={notes.length > 0 ? notes.join("; ") : undefined}>
       {fmtNet(net)}
       {net.blogNetUnknown > 0 && <span className="ml-1 text-xs text-amber-700">+{net.blogNetUnknown}?</span>}
     </span>
@@ -549,9 +553,16 @@ export default function AdminBlogBookingsPage() {
                 label={netPartial && !netLoading ? "Blog net take (partial)" : "Blog net take"}
                 value={fmtNet(data.report.totals.net, netLoading)}
                 sub={
-                  !netLoading && data.report.totals.net && data.report.totals.net.blogNetUnknown > 0
-                    ? `${data.report.totals.net.blogNetUnknown} booking(s) without a figure`
-                    : undefined
+                  netLoading || !data.report.totals.net
+                    ? undefined
+                    : [
+                        netEstimateNote(data.report.totals.net),
+                        data.report.totals.net.blogNetUnknown > 0
+                          ? `${data.report.totals.net.blogNetUnknown} booking(s) without a figure`
+                          : null,
+                      ]
+                        .filter((t): t is string => t !== null)
+                        .join(" · ") || undefined
                 }
               />
             </div>
@@ -562,7 +573,8 @@ export default function AdminBlogBookingsPage() {
               accounting page&apos;s per-booking figure (commission − ResLab fee − promo discount + service fee + Park
               Guard margin, before Stripe fees). Disputed and direct-lot bookings never have one: they show as &ldquo;+N?&rdquo;
               (no figure) and are left out of the sum, not counted as $0. &ldquo;—&rdquo; = no booking in that cell has a
-              figure.
+              figure. &ldquo;≈&rdquo; = the figure includes a Canadian-lot booking, converted at that booking&apos;s own
+              exchange rate: an estimate until ResLab invoices it at its rate.
             </p>
           </Card>
 

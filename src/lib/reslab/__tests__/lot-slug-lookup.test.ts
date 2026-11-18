@@ -24,6 +24,13 @@ vi.mock("../search", async () => {
   return { ...actual, ...searchMock };
 });
 
+// No exchange rate here, whatever the shipped setting says today: these tests
+// are about a hidden Canadian lot and must not change when a rate is set or expires.
+vi.mock("@/lib/fx/cad-usd", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/fx/cad-usd")>()),
+  currentCadRate: () => null,
+}));
+
 import { findLotBySlug, getLotFromReslab } from "../get-lot";
 
 const FROM = "2026-09-01 10:00:00";

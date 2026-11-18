@@ -12,6 +12,12 @@ vi.mock("../search", async () => {
 const db = vi.hoisted(() => ({ rpc: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ createAdminClient: vi.fn(async () => db) }));
 vi.mock("@/lib/sentry", () => ({ captureAPIError: vi.fn() }));
+// No exchange rate here, whatever the shipped setting says today: these tests
+// are about a hidden Canadian lot and must not change when a rate is set or expires.
+vi.mock("@/lib/fx/cad-usd", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/fx/cad-usd")>()),
+  currentCadRate: () => null,
+}));
 
 import { lotSlugLookup, lotIdLookup, mayRenderDirectTwin } from "../get-lot";
 

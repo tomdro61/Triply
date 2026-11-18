@@ -8,7 +8,11 @@ export interface NetDisplayInput {
   blogNet: number;
   blogNetKnown: number;
   blogNetUnknown: number;
+  /** Of blogNetKnown, bookings whose figure is an estimate (a converted Canadian-lot booking). */
+  blogNetEstimated: number;
 }
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 export const fmtMoney = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -23,7 +27,17 @@ export function fmtNet(net: NetDisplayInput | null, loading = false): string {
   if (loading) return "…";
   if (!net) return "—";
   if (net.blogNetKnown === 0) return "—";
-  return fmtMoney(net.blogNet);
+  return `${net.blogNetEstimated > 0 ? "≈ " : ""}${fmtMoney(net.blogNet)}`;
+}
+
+/**
+ * Why a net figure carries "≈", or null when it is exact (or nothing is
+ * shown). A Canadian-lot booking's ResLab side is converted at the booking's
+ * own exchange rate; ResLab invoices it later at its own rate.
+ */
+export function netEstimateNote(net: NetDisplayInput | null): string | null {
+  if (!net || net.blogNetKnown === 0 || net.blogNetEstimated === 0) return null;
+  return `includes ${plural(net.blogNetEstimated, "Canadian-lot booking", "Canadian-lot bookings")}: estimated until ResLab's invoice`;
 }
 
 /** The NetSummary counts the wording needs (see src/lib/admin/blog-bookings.ts). */
@@ -34,7 +48,6 @@ export interface NetCountsInput {
   skipped: number;
 }
 
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 /**
  * Why some blog bookings have no net figure, from the counts: ResLab reads

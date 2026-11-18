@@ -231,6 +231,9 @@ export interface NetFigures {
   /** Blog bookings whose net is unknown (reconciler had no figure — including
    *  disputed and direct-lot bookings, which never have one). */
   blogNetUnknown: number;
+  /** Of blogNetKnown, bookings whose figure is an estimate: a Canadian-lot
+   *  booking converted at its own exchange rate (ResLab invoices at another). */
+  blogNetEstimated: number;
 }
 
 export interface AirportRow extends Counts {
@@ -284,6 +287,9 @@ export interface AggregateInput {
   range: DateRange;
   /** Booking id → net take. Omit until net is loaded; a missing id = unknown. */
   netById?: ReadonlyMap<string, number | null>;
+  /** Booking ids whose net figure is an estimate (see NetFigures.blogNetEstimated).
+   *  Required with netById: an absent set must never read as "no estimates". */
+  estimatedIds?: ReadonlySet<string>;
   /** Article slug → Search Console figures. Omit when Search Console is unavailable. */
   gscBySlug?: ReadonlyMap<string, GscPage>;
   /** The days gscBySlug covers (the range clipped to Search Console's last
@@ -306,14 +312,21 @@ const emptyCounts = (): Counts => ({
   unknownInvalid: 0,
 });
 
-const emptyNet = (): NetFigures => ({ blogNet: 0, blogNetKnown: 0, blogNetUnknown: 0 });
+const emptyNet = (): NetFigures => ({ blogNet: 0, blogNetKnown: 0, blogNetUnknown: 0, blogNetEstimated: 0 });
 
-function addNet(n: NetFigures, id: string, netById: ReadonlyMap<string, number | null>): void {
-  const v = netById.get(id);
+/** The loaded net figures: both parts or neither. */
+interface NetSource {
+  byId: ReadonlyMap<string, number | null>;
+  estimated: ReadonlySet<string>;
+}
+
+function addNet(n: NetFigures, id: string, src: NetSource): void {
+  const v = src.byId.get(id);
   if (v === undefined || v === null) n.blogNetUnknown += 1;
   else {
     n.blogNet += v;
     n.blogNetKnown += 1;
+    if (src.estimated.has(id)) n.blogNetEstimated += 1;
   }
 }
 
@@ -327,7 +340,14 @@ const blogShareOf = (c: Counts): number | null => {
 };
 
 export function aggregateBlogBookings(input: AggregateInput): BlogBookingsReport {
-  const { range, netById, articleMeta, gscWindow } = input;
+  const { range, articleMeta, gscWindow } = input;
+  if (input.netById !== undefined && input.estimatedIds === undefined) {
+    throw new Error("aggregateBlogBookings: netById was passed without estimatedIds");
+  }
+  const netById: NetSource | undefined =
+    input.netById !== undefined && input.estimatedIds !== undefined
+      ? { byId: input.netById, estimated: input.estimatedIds }
+      : undefined;
   const redirects = input.redirects ?? NO_REDIRECTS;
   const gscBySlug = input.gscBySlug && mergeRedirectedSlugs(input.gscBySlug, redirects);
   const hasNet = netById !== undefined;
