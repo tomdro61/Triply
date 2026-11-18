@@ -29,7 +29,7 @@ import { BookingDetails, type PaymentFallback } from "@/components/confirmation/
 import { ReservationCard, type ReservationCardBooking } from "@/components/reservations/reservation-card";
 import { BookingConfirmationEmail } from "@/lib/resend/templates/booking-confirmation";
 import { CancellationConfirmationEmail } from "@/lib/resend/templates/cancellation-confirmation";
-import { buildCostBreakdown, type CostBreakdownResult, type ReslabCostInput } from "@/lib/booking/cost-breakdown";
+import { buildCostBreakdown, type CostBreakdownResult, type DirectCostInput, type ReslabCostInput } from "@/lib/booking/cost-breakdown";
 import type { AnchoredFallback } from "@/lib/resend/anchored-fallback";
 import { buildEvidence, chargeFactsFrom, type DisputeBooking } from "@/lib/disputes/evidence";
 import {
@@ -122,6 +122,23 @@ const reslab = (over: Partial<ReslabCostInput> = {}): CostBreakdownResult =>
     cancelled: false,
     ...over,
   });
+const direct = (over: Partial<DirectCostInput> = {}): CostBreakdownResult =>
+  buildCostBreakdown({
+    source: "direct",
+    days: 2,
+    subtotal: "19.90",
+    tax: "3.18",
+    serviceFee: "5.95",
+    promoDiscount: "0.00",
+    promoCode: null,
+    expectedPromoCents: null,
+    protection: { name: "Plan A", premium: "12.99" },
+    anchorChargedCents: 4202,
+    refundedCents: 0,
+    cancelled: false,
+    atLot: { surchargeCents: 1000, surchargeTaxCents: 160, vehicleSizeLabel: "Small SUV" },
+    ...over,
+  });
 const ok = (b: CostBreakdownResult) => {
   if (!b.ok) throw new Error(`fixture breakdown not ok: ${b.reason}`);
   return b;
@@ -155,6 +172,18 @@ describe("confirmation page — Payment summary of a converted booking", () => {
     ["the breakdown with part due at the location", ok(reslab({ dueAtLocation: "20.00", anchorChargedCents: 12160 })), NO_FALLBACK, false, 6],
     ["the cancelled view with its refund", ok(reslab({ cancelled: true, refundedCents: 13440 })), NO_FALLBACK, true, 6],
     ["the fallback (Stripe's charge, a refund, a recorded due amount)", REFUSED, CHARGED_FALLBACK, false, 4],
+    ["a direct-lot breakdown with an at-lot estimate (never converted today; labelled all the same)", ok(direct()), NO_FALLBACK, false, 9],
+    [
+      "a direct-lot fallback with its estimate note",
+      REFUSED,
+      {
+        card: { status: "charged", chargedCents: 4202, refundedCents: 0, netPaidCents: 4202 },
+        due: { kind: "amount", cents: 1160 },
+        dueContext: { source: "direct", estimate: { vehicleSizeLabel: "Small SUV", surcharge: 10, surchargeTax: 1.6 } },
+      },
+      false,
+      4,
+    ],
   ];
 
   it.each(cases)("%s: every amount reads US$, and only the label differs from the US page", (_n, breakdown, fallback, cancelled, count) => {
@@ -197,6 +226,9 @@ describe("booking confirmation email of a converted booking", () => {
     ["breakdown", { breakdown: ok(reslab()) }, 4],
     ["breakdown, part due at the location", { breakdown: ok(reslab({ dueAtLocation: "20.00", anchorChargedCents: 12160 })) }, 6],
     ["anchored fallback", { breakdown: REFUSED, anchoredFallback: anchored }, 3],
+    ["anchored fallback, direct", { breakdown: REFUSED, anchoredFallback: anchored, direct: { vehicleSizeLabel: "Small SUV", atLotEstimate: 20, discount: 0 } }, 3],
+    ["breakdown, direct with an at-lot estimate", { breakdown: ok(direct()), direct: { vehicleSizeLabel: "Small SUV", atLotEstimate: 11.6, discount: 0 } }, 7],
+    ["breakdown, refunded", { breakdown: ok(reslab({ refundedCents: 2000 })) }, 6],
     ["legacy, nothing due", {}, 1],
     ["legacy, nothing due, with protection", { protectionPlan: "Plan A", protectionPlanPrice: 12.99, pgSyncStatus: "synced" }, 2],
     ["legacy, part due at the location", { dueAtLocation: 20, protectionPlan: "Plan A", protectionPlanPrice: 12.99, pgSyncStatus: "synced" }, 5],

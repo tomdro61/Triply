@@ -202,9 +202,12 @@ describe("the amount's currency label follows the PaymentIntent's stamp", () => 
       expect(r.candidates).toEqual([]);
       expect(r.skipped.currencyChanged).toBe(1);
     }
-    const noId = select("pi_bad", { reslabCurrency: "CAD" }, "r1");
-    expect(noId.candidates).toEqual([]);
-    expect(noId.skipped.currencyChanged).toBe(1);
+    // A CAD stamp with no rate id never matches, whatever the setting (absent === absent must not pass).
+    for (const current of [undefined, null, "r1"]) {
+      const noId = select("pi_bad", { reslabCurrency: "CAD" }, current);
+      expect(noId.candidates).toEqual([]);
+      expect(noId.skipped.currencyChanged).toBe(1);
+    }
   });
 
   it("a US lot's checkout is emailed whatever the rate setting", () => {

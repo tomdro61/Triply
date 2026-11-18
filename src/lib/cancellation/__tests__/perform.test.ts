@@ -146,6 +146,20 @@ beforeEach(() => {
   sendCancellationConfirmation.mockResolvedValue({ success: true });
 });
 
+describe("performSelfCancel — the cancellation email's currency label follows the booking row", () => {
+  it.each([
+    ["CAD", true],
+    [null, false],
+    [undefined, false],
+  ])("reslab_currency %s → usdLabel %s", async (reslab_currency, usdLabel) => {
+    seedDb();
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+    await performSelfCancel(mkBooking({ reslab_currency }), NOW_OK);
+    expect(sendCancellationConfirmation).toHaveBeenCalledTimes(1);
+    expect(sendCancellationConfirmation).toHaveBeenCalledWith(expect.objectContaining({ wasRefunded: true, usdLabel }));
+  });
+});
+
 describe("performSelfCancel — happy refund path", () => {
   it("succeeded PI + Park Guard: refunds amount − $6 wholesale, in CENTS, idempotent key", async () => {
     seedDb();

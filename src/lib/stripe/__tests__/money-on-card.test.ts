@@ -104,6 +104,8 @@ describe("formatMoneyOnCard", () => {
     expect(await moneyOnCard("pi_1")).toEqual({ kind: "hold", amountCents: 2537, currency: "usd", usdLabel: true });
     retrieve.mockResolvedValue(pi({ status: "succeeded", amount_received: 2537, metadata: { reslabCurrency: "CAD" } }));
     expect(await moneyOnCard("pi_1")).toMatchObject({ kind: "captured", usdLabel: true });
+    retrieve.mockResolvedValue(pi({ status: "succeeded", amount_received: 2537, latest_charge: { amount_refunded: 2537 }, metadata: { reslabCurrency: "CAD" } }));
+    expect(await moneyOnCard("pi_1")).toEqual({ kind: "refunded", amountCents: 2537, currency: "usd", usdLabel: true });
     retrieve.mockResolvedValue(pi({ status: "requires_capture", amount_capturable: 2537, metadata: { reslabCurrency: "USD" } }));
     expect(await moneyOnCard("pi_1")).toMatchObject({ usdLabel: false });
   });
