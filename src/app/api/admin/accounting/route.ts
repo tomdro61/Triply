@@ -59,6 +59,14 @@ const querySchema = z
       .regex(/^-?\d+(\.\d+)?$/, "must be a decimal number")
       .transform((s) => parseFloat(s))
       .optional(),
+    // The US-dollar value of one Canadian dollar ResLab used on the invoice
+    // (0.5 to 1, like the booking rates): only moves the invoice comparison.
+    cadrate: z
+      .string()
+      .regex(/^0\.\d{1,6}$/, "must be a rate like 0.7215")
+      .transform((s) => parseFloat(s))
+      .refine((r) => r > 0.5 && r < 1, "must be between 0.5 and 1")
+      .optional(),
     reslab: z.enum(["0", "1"]).optional(),
     stripe: z.enum(["0", "1"]).optional(),
     // Per-booking direct-lot profit. Only the accounting page asks for it.
@@ -79,6 +87,7 @@ export async function GET(request: NextRequest) {
     // invoice — invoices group by trip-completion month.
     by: params.get("by") ?? "created",
     invoice: params.get("invoice") ?? undefined,
+    cadrate: params.get("cadrate") ?? undefined,
     reslab: params.get("reslab") ?? undefined,
     stripe: params.get("stripe") ?? undefined,
     direct: params.get("direct") ?? undefined,
@@ -91,7 +100,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const { from, to, by, invoice, reslab, stripe, direct } = parsed.data;
+  const { from, to, by, invoice, cadrate, reslab, stripe, direct } = parsed.data;
   const includeReslab = reslab !== "0";
   const includeStripe = stripe !== "0";
   const invoiceAmount = invoice ?? 0;
@@ -111,6 +120,7 @@ export async function GET(request: NextRequest) {
       to,
       by,
       invoiceAmount,
+      ...(cadrate !== undefined && { invoiceCadRate: cadrate }),
       includeReslab,
       includeStripe,
       includeDirectDetail: direct === "1",

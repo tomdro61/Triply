@@ -62,6 +62,13 @@ interface MoneyMixBase {
    * repaired. Accounting warns about the same rows.
    */
   pgWholesaleMissing: number;
+  /**
+   * Confirmed bookings at Canadian lots. `estimated`: in the kept figures at
+   * each booking's own exchange rate, until ResLab invoices them. `leftOut`:
+   * their channel commission is NOT in the kept figures (old bookings charged
+   * before conversion, or a currency problem). Accounting shows both.
+   */
+  canadian: { estimated: number; leftOut: number };
 }
 export type MoneyMix = MoneyMixBase &
   ({ kept: KeptMix; keptReason: null } | { kept: null; keptReason: string });
@@ -76,7 +83,8 @@ export const keptStateOf = (mix: MoneyMix): KeptState => mix.kept ?? { unavailab
  * overstate it. Anything else is usually a transient ResLab/Stripe miss or a
  * data repair in progress — ask again rather than serve it from a cache.
  */
-export const isDefinitive = (mix: MoneyMix): boolean => mix.kept !== null && mix.pgWholesaleMissing === 0;
+export const isDefinitive = (mix: MoneyMix): boolean =>
+  mix.kept !== null && mix.pgWholesaleMissing === 0 && mix.canadian.leftOut === 0;
 
 /**
  * The slice of /api/admin/accounting the charts read. Separate from
@@ -104,6 +112,10 @@ export const accountingMixSchema = z.object({
     cashTotal: z.number().nullable(),
     stripeProcessingFees: z.number().nullable(),
     totalReason: z.string().nullable(),
+    // Required: a response cached before accounting knew about Canadian
+    // dollars is a miss (it counted them as US dollars), never served.
+    canadianEstimated: z.number(),
+    canadianLeftOut: z.number(),
   }),
   direct: z.object({ confirmed: z.number() }),
   pgWholesaleMissingReservations: z.array(z.string()),
@@ -129,6 +141,7 @@ export function mixFromAccounting(a: AccountingMix): MoneyMix {
     },
     directConfirmed: a.direct.confirmed,
     pgWholesaleMissing: a.pgWholesaleMissingReservations.length,
+    canadian: { estimated: a.triplyNet.canadianEstimated, leftOut: a.triplyNet.canadianLeftOut },
   };
   const t = a.triplyNet;
   if (t.total === null || t.parkingChannelCommission === null || t.reslabChannelFee === null || t.promoDiscounts === null) {

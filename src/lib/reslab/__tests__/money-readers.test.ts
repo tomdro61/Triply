@@ -74,10 +74,15 @@ describe("readers of ResLab money", () => {
   });
 
   it("only the client and accounting talk to ResLab's API directly", () => {
-    // Accounting's own fetch reads settlement figures; it does not convert yet,
-    // which is why no exchange rate may be set until it does (see fx/cad-usd.ts).
+    // Accounting's own fetch reads settlement figures, and puts a Canadian
+    // reservation's into US dollars before any of them is summed.
     const direct = files.filter((f) => /reservationslab\.com|RESLAB_API_URL/.test(f.text)).map((f) => f.file);
     expect(direct.sort()).toEqual(["lib/accounting/reconcile.ts", "lib/reslab/client.ts"]);
+    const reconcile = files.find((f) => f.file === "lib/accounting/reconcile.ts")?.text ?? "";
+    // Every slice read from ResLab goes through the currency step, and there is one such read.
+    expect(reconcile.match(/num\(h\.location_total\)/g)).toHaveLength(1);
+    expect(reconcile).toMatch(/return inUsDollars\(b, \{\s+locationTotal: num\(h\.location_total\)/);
+    expect(reconcile).toMatch(/classifyRowCurrency\(b, reslabCurrencyCode\(h\.location\?\.currency\?\.code\)\)/);
   });
 
   it("the confirmation route reads ResLab's money only through reslabHistoryMoney", () => {

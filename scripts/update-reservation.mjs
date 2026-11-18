@@ -246,7 +246,7 @@ async function main() {
     // out separately, so we treat it as constant and back-derive tax_total.
     const { data: existing, error: readErr } = await supabase
       .from('bookings')
-      .select('id, fees_total')
+      .select('id, fees_total, reslab_currency')
       .eq('reslab_reservation_number', resNum)
       .single();
 
@@ -260,6 +260,20 @@ async function main() {
     // production-equivalent behavior on null is to treat as 0. Warn so the
     // operator knows the back-derived tax may absorb what should have been
     // a facility fee, but don't block the sync.
+    // A Canadian-lot booking: the row holds US dollars (converted at the
+    // booking's own rate) while ResLab's figures are Canadian dollars. Writing
+    // them onto the row would turn its totals into CAD. The second check
+    // covers a Canadian reservation whose row is not marked.
+    const reslabCurrency = String(newHistory?.location?.currency?.code ?? '').trim().toUpperCase();
+    if (existing.reslab_currency != null || (reslabCurrency !== '' && reslabCurrency !== 'USD')) {
+      console.error(
+        `\nERROR: ${resNum} is a ${existing.reslab_currency ?? reslabCurrency} reservation. ` +
+          `--sync-supabase would write ResLab's ${existing.reslab_currency ?? reslabCurrency} figures over the booking's US-dollar totals. ` +
+          `Refusing. Update the row by hand, converting at the booking's fx_rate.`
+      );
+      process.exit(1);
+    }
+
     if (existing.fees_total == null) {
       console.warn(`\nWARN: bookings.fees_total is null for ${resNum} — treating as 0 (matches production fallback).`);
       console.warn('  If this lot actually has a facility fee, backfill before the next sync:');

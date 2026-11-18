@@ -66,6 +66,7 @@ export function AllLotsSummary({ result }: { result: ReconcileResult }) {
   const cents = (v: number | null) => (v === null ? null : dollarsToCents(v));
   const reslabCell = (v: number | null, approx = false) => (v === null ? "—" : `${approx ? "≈ " : ""}${usdCents(dollarsToCents(v))}`);
   const waiting = detail ? detail.bookings.filter((b) => b.state !== "ok").length : 0;
+  const canadianCaveat = net.canadianEstimated > 0 || net.canadianLeftOut > 0;
 
   const rows: Array<{ label: string; hint: string; reslab: number | null; approx?: boolean; sum: DirectSum | null; strong?: boolean }> = [
     {
@@ -79,10 +80,12 @@ export function AllLotsSummary({ result }: { result: ReconcileResult }) {
       label: "Triply revenue (before Stripe fees)",
       hint: "ResLab lots: service fee + channel commission − ResLab fee − promo discounts + Park Guard margin. Direct lots: what was collected, less what the lot is owed, Park Guard wholesale and tax Triply remits.",
       reslab: net.total,
+      // Canadian-lot bookings are in it at an estimated rate, or their commission is left out.
+      approx: canadianCaveat,
       sum: t?.gross ?? null,
     },
     { label: "Stripe fees", hint: "Stripe's processing fees on these bookings.", reslab: net.stripeProcessingFees, sum: t?.stripeFees ?? null },
-    { label: "Net cash to Triply", hint: "Triply revenue less Stripe fees.", reslab: net.cashTotal, sum: t?.net ?? null, strong: true },
+    { label: "Net cash to Triply", hint: "Triply revenue less Stripe fees.", reslab: net.cashTotal, approx: canadianCaveat, sum: t?.net ?? null, strong: true },
   ];
 
   return (

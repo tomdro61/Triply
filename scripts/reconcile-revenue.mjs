@@ -161,6 +161,7 @@ const { data: bookings, error } = await supabase
     reslab_location_id,
     location_name,
     airport_code,
+    reslab_currency,
     customers ( email )
   `)
   .gte(DATE_COLUMN, `${FROM_DATE}T00:00:00Z`)
@@ -277,6 +278,17 @@ for (let i = 0; i < real.length; i++) {
       if (h) {
         reslabLocationTotal = parseFloat(h.location_total ?? 0) || 0;
         reslabChannelTotal = parseFloat(h.channel_total ?? 0) || 0;
+        // This script adds ResLab's figures up as US dollars. A Canadian
+        // reservation's figures are Canadian dollars: stop rather than print
+        // totals that mix the two. /admin/accounting handles them.
+        const reslabCurrency = String(h.location?.currency?.code ?? '').trim().toUpperCase();
+        if (b.reslab_currency != null || (reslabCurrency !== '' && reslabCurrency !== 'USD')) {
+          console.error(
+            `\nERROR: ${b.reslab_reservation_number} is a ${b.reslab_currency ?? reslabCurrency} reservation. ` +
+              `This script cannot total Canadian-dollar reservations. Use /admin/accounting for this period.`
+          );
+          process.exit(1);
+        }
         reslabCommissionsTotal = parseFloat(h.commissions_total ?? 0) || 0;
         reslabGrandTotal = parseFloat(h.grand_total ?? 0) || 0;
         reslabRefundAmount = parseFloat(h.refund_amount ?? 0) || 0;

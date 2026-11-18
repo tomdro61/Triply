@@ -484,6 +484,7 @@ export default function MonthlyNumbersPage() {
                 kept={keptStateOf(selectedNet.mix)}
                 directConfirmed={selectedNet.mix.directConfirmed}
                 pgWholesaleMissing={selectedNet.mix.pgWholesaleMissing}
+                canadian={selectedNet.mix.canadian}
               />
             )}
           </div>

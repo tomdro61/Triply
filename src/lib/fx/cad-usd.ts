@@ -5,9 +5,9 @@
  * Rules this file exists to hold:
  *  - ONE rate per booking. It is chosen when the PaymentIntent is created,
  *    stamped on it, and fulfilment and the confirmation page convert with
- *    THAT rate — never with the current constant. (Accounting does not read
- *    it yet: its ResLab figures for a converted booking are still Canadian
- *    dollars. Do not set a rate below until it does.)
+ *    THAT rate — never with the current constant. Accounting converts
+ *    ResLab's Canadian-dollar figures with the rate stored on the booking row
+ *    (lib/accounting/reslab-currency.ts).
  *  - The rate is a code constant, changed by a PR. No outside service sits on
  *    the money path, and the page, the charge and the booking cannot disagree.
  *  - Integer arithmetic only: cents × micro-rate ÷ 1,000,000, half-up.
@@ -91,6 +91,20 @@ function wholeCents(dollars: unknown): number | null {
   const cents = Math.round(dollars * 100);
   if (!Number.isSafeInteger(cents) || Math.abs(dollars * 100 - cents) > 1e-6) return null;
   return cents;
+}
+
+/**
+ * One CAD amount as ResLab sends it (a number, or a numeric string) → US
+ * dollars at `rate`. null for anything that is not a non-negative amount in
+ * whole cents: the caller decides what an unconvertible figure means. Used by
+ * accounting, which converts ResLab's settlement figures one at a time.
+ */
+export function cadDollarsToUsd(value: unknown, rate: FxRate): number | null {
+  const dollars = typeof value === "number" ? value : typeof value === "string" && value.trim() !== "" ? Number(value) : Number.NaN;
+  const cents = wholeCents(dollars);
+  if (cents === null) return null;
+  const usdCents = cadCentsToUsdCents(cents, rate);
+  return usdCents === null ? null : usdCents / 100;
 }
 
 /**

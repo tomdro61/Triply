@@ -559,6 +559,7 @@ export default function AdminDashboard() {
           kept={monthKept}
           directConfirmed={monthLoaded ? monthLoaded.directConfirmed : null}
           pgWholesaleMissing={monthLoaded ? monthLoaded.pgWholesaleMissing : 0}
+          canadian={monthLoaded ? monthLoaded.canadian : undefined}
         />
       </div>
 

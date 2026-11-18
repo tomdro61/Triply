@@ -16,6 +16,13 @@ export interface ReconcileOptions {
   to: string; // YYYY-MM-DD inclusive
   by: DateField;
   invoiceAmount: number;
+  /**
+   * The US-dollar value of one Canadian dollar that ResLab used on this
+   * invoice (it converts what Canadian lots are owed on the invoice date).
+   * Omitted = not known: the Canadian part of the invoice is then estimated at
+   * each booking's own rate. Only moves the invoice comparison, never the keep.
+   */
+  invoiceCadRate?: number;
   includeReslab: boolean;
   includeStripe: boolean;
   /**
@@ -169,6 +176,24 @@ export interface BookingDetail {
   // refunded along with parking). For cancelled bookings, 0.
   triply_total: number | null;
   note: string;
+  /**
+   * Only on a booking whose ResLab reservation is in Canadian dollars. Every
+   * `reslab_*` field above is US dollars ("converted": at the booking's own
+   * rate, an estimate until ResLab invoices) or null (no rate / conflict: the
+   * ResLab side is left out). These are ResLab's own figures, in CAD.
+   */
+  fx?: {
+    kind: "converted" | "no_rate" | "conflict";
+    /** The booking's rate, six decimals; null when there is none. */
+    rate: string | null;
+    /** Owed to the lot (location_total − due at the lot), like `reslab_location_total`. */
+    location_total_cad: number | null;
+    due_at_location_cad: number | null;
+    channel_fee_cad: number | null;
+    channel_total_cad: number | null;
+    commissions_total_cad: number | null;
+    grand_total_cad: number | null;
+  };
 }
 
 /**
@@ -258,6 +283,35 @@ export interface ReconcileResult {
      * `{ error }` = its reads failed: the rest of the report is still good.
      */
     detail?: DirectDetail | { error: string };
+  };
+  /**
+   * Bookings whose ResLab reservation is in Canadian dollars (all zero for a
+   * US-only period). ResLab invoices them in US dollars at its own rate on the
+   * invoice date, so what is owed for them is kept apart from the US-dollar
+   * settlement figures in `reslab`.
+   */
+  canadian: {
+    /** Converted at checkout: in every figure of this result at the booking's own rate. */
+    converted: number;
+    /** The old bookings charged one-for-one before conversion: ResLab side left out. */
+    noRateLegacy: number;
+    /** Any other row whose currency cannot be handled. A confirmed one withholds the headline. */
+    faults: number;
+    reservations: Array<{ resNum: string; kind: "converted" | "no_rate_legacy" | "no_rate" | "conflict"; reason: string | null }>;
+    /** Reservations behind the owed figures below (ResLab's billing rule: not cancelled by ResLab). */
+    settlementRows: number;
+    /** Lot settlement + ResLab's fee for converted bookings: in CAD, and in US dollars at each booking's rate. */
+    converted_owed: { cad: number; usdAtBookingRates: number };
+    /** The same for the no-rate bookings. CAD only: there is no rate to estimate with. */
+    noRateOwedCad: number;
+    /** Channel commission − ResLab fee on confirmed converted bookings: their part of `triplyNet.total`. */
+    keepEstimate: number;
+    confirmedConverted: number;
+    /** Confirmed bookings whose ResLab side is left out, and their Stripe parking (not in "net parking cash"). */
+    leftOutConfirmed: number;
+    leftOutStripeParking: number;
+    /** Stripe refunds on confirmed Canadian bookings. A partial refund does not lower `triplyNet`. */
+    stripeRefunded: number;
   };
   // Reservation numbers of the rows counted in `counts.stagingExcluded` — the
   // audit trail for the exclusion (which specific bookings were dropped as
@@ -360,6 +414,11 @@ export interface ReconcileResult {
     // When `total` or `cashTotal` is null, explains why so the UI can
     // render an inline reason at the headline.
     totalReason: string | null;
+    // Confirmed Canadian bookings inside `total` at a booking-rate estimate.
+    canadianEstimated: number;
+    // Confirmed bookings whose channel commission is NOT in `total` (their
+    // ResLab side is left out: no rate, or a currency conflict).
+    canadianLeftOut: number;
   };
   takeRates: TakeRates;
   reslab: {
@@ -381,8 +440,21 @@ export interface ReconcileResult {
     // Reservations behind the settlement figures (non-cancelled, ResLab data
     // present). Differs from `fetched`, which is confirmed-only.
     settlementRows: number;
+    // US-dollar reservations only (as are the three sums above).
     variance: number | null;
-    grandTotalMismatches: Array<{ resNum: string; supabase: number; reslab: number; diff: number }>;
+    // What the invoice bills for Canadian reservations, in US dollars: at the
+    // rate ResLab used ("invoice_rate", when `options.invoiceCadRate` is set)
+    // or at each booking's own rate ("booking_rates", an estimate that leaves
+    // the no-rate bookings out). null when the ResLab cross-check is off.
+    canadianInvoiceUsd: number | null;
+    canadianInvoiceBasis: "invoice_rate" | "booking_rates" | null;
+    // sumAmountOwed + canadianInvoiceUsd − invoiceAmount. Equals `variance`
+    // for a US-only period.
+    varianceInclCanadian: number | null;
+    // With an invoice rate: what the rate move cost (+) or saved (−) against
+    // the booking-rate estimate, on converted bookings.
+    exchangeDifference: number | null;
+    grandTotalMismatches: Array<{ resNum: string; supabase: number; reslab: number; diff: number; note?: string }>;
     fetchErrors: Array<{ resNum: string; err: string }>;
     fetched: number;
     // Confirmed bookings that expected a ResLab fetch (have a reservation

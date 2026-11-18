@@ -152,7 +152,31 @@ function usMonth() {
 
 /** The result as `main` returned it: keys added since are checked empty, then removed. */
 function usView(result: Awaited<ReturnType<typeof reconcileRevenue>>) {
-  return result;
+  const { canadian, ...rest } = result;
+  expect(canadian).toEqual({
+    converted: 0,
+    noRateLegacy: 0,
+    faults: 0,
+    reservations: [],
+    settlementRows: 0,
+    converted_owed: { cad: 0, usdAtBookingRates: 0 },
+    noRateOwedCad: 0,
+    keepEstimate: 0,
+    confirmedConverted: 0,
+    leftOutConfirmed: 0,
+    leftOutStripeParking: 0,
+    stripeRefunded: 0,
+  });
+  const { canadianEstimated, canadianLeftOut, ...triplyNet } = rest.triplyNet;
+  expect([canadianEstimated, canadianLeftOut]).toEqual([0, 0]);
+  const { canadianInvoiceUsd, canadianInvoiceBasis, varianceInclCanadian, exchangeDifference, ...reslab } = rest.reslab;
+  // A US-only period: nothing Canadian on the invoice, so the two variances are one figure.
+  expect(canadianInvoiceUsd).toBe(rest.options.includeReslab ? 0 : null);
+  expect(canadianInvoiceBasis).toBe(rest.options.includeReslab ? "booking_rates" : null);
+  expect(varianceInclCanadian).toBe(reslab.variance);
+  expect(exchangeDifference).toBeNull();
+  for (const b of rest.bookings) expect(b.fx).toBeUndefined();
+  return { ...rest, triplyNet, reslab };
 }
 
 beforeEach(() => {
