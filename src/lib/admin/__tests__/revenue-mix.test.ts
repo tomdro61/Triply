@@ -35,6 +35,8 @@ const response = (
     fees?: number | null;
     pgMargin?: number;
     missing?: string[];
+    canadianEstimated?: number;
+    canadianLeftOut?: number;
   } = {}
 ) => ({
   counts: { confirmed: 41, refunded: 3 },
@@ -51,6 +53,8 @@ const response = (
     cashTotal: "cash" in over ? over.cash : 690.25,
     stripeProcessingFees: "fees" in over ? over.fees : 157.5,
     totalReason: null as string | null,
+    canadianEstimated: over.canadianEstimated ?? 0,
+    canadianLeftOut: over.canadianLeftOut ?? 0,
   },
   direct: { confirmed: 2 },
   pgWholesaleMissingReservations: over.missing ?? [],
@@ -59,6 +63,33 @@ const response = (
 const mixOf = (over?: Parameters<typeof response>[0]) => mixFromAccounting(accountingMixSchema.parse(response(over)));
 
 describe("mixFromAccounting", () => {
+  it("carries the Canadian-lot caveat; neither kind stops a month being kept (it does not change between loads)", () => {
+    expect(mixOf().canadian).toEqual({ estimated: 0, leftOut: 0 });
+    const estimated = mixOf({ canadianEstimated: 3 });
+    expect(estimated.canadian).toEqual({ estimated: 3, leftOut: 0 });
+    // An estimate does not change between loads: it may be kept.
+    expect(isDefinitive(estimated)).toBe(true);
+    const leftOut = mixOf({ canadianLeftOut: 2 });
+    expect(leftOut.canadian).toEqual({ estimated: 0, leftOut: 2 });
+    // The old bookings stay left out for good: re-asking every time would re-run the whole month.
+    expect(isDefinitive(leftOut)).toBe(true);
+    // A currency problem leaves no kept figures at all, which is what blocks the cache.
+    expect(isDefinitive(mixOf({ total: null, canadianLeftOut: 1 }))).toBe(false);
+  });
+
+  it("a response from before accounting knew about Canadian dollars does not parse (a cache miss)", () => {
+    const net = response().triplyNet;
+    const without = (key: "canadianEstimated" | "canadianLeftOut") => {
+      const copy: Record<string, unknown> = { ...net };
+      delete copy[key];
+      return accountingMixSchema.safeParse({ ...response(), triplyNet: copy }).success;
+    };
+    // Each one on its own is required.
+    expect(without("canadianEstimated")).toBe(false);
+    expect(without("canadianLeftOut")).toBe(false);
+    expect(accountingMixSchema.safeParse(response()).success).toBe(true);
+  });
+
   it("maps paid from the confirmed figures and kept from triplyNet", () => {
     const m = mixOf();
     expect(m.paid).toEqual({

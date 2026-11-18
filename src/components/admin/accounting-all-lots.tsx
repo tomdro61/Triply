@@ -66,6 +66,13 @@ export function AllLotsSummary({ result }: { result: ReconcileResult }) {
   const cents = (v: number | null) => (v === null ? null : dollarsToCents(v));
   const reslabCell = (v: number | null, approx = false) => (v === null ? "—" : `${approx ? "≈ " : ""}${usdCents(dollarsToCents(v))}`);
   const waiting = detail ? detail.bookings.filter((b) => b.state !== "ok").length : 0;
+  const canadianCaveat = net.canadianEstimated > 0 || net.canadianLeftOut > 0;
+  const canadianNote = [
+    net.canadianEstimated > 0 ? `${net.canadianEstimated} Canadian-lot booking${net.canadianEstimated === 1 ? "" : "s"} at an estimated exchange rate` : "",
+    net.canadianLeftOut > 0 ? `the parking commission on ${net.canadianLeftOut} Canadian-lot booking${net.canadianLeftOut === 1 ? "" : "s"} is left out` : "",
+  ]
+    .filter(Boolean)
+    .join("; ");
 
   const rows: Array<{ label: string; hint: string; reslab: number | null; approx?: boolean; sum: DirectSum | null; strong?: boolean }> = [
     {
@@ -79,10 +86,12 @@ export function AllLotsSummary({ result }: { result: ReconcileResult }) {
       label: "Triply revenue (before Stripe fees)",
       hint: "ResLab lots: service fee + channel commission − ResLab fee − promo discounts + Park Guard margin. Direct lots: what was collected, less what the lot is owed, Park Guard wholesale and tax Triply remits.",
       reslab: net.total,
+      // Canadian-lot bookings are in it at an estimated rate, or their commission is left out.
+      approx: canadianCaveat,
       sum: t?.gross ?? null,
     },
     { label: "Stripe fees", hint: "Stripe's processing fees on these bookings.", reslab: net.stripeProcessingFees, sum: t?.stripeFees ?? null },
-    { label: "Net cash to Triply", hint: "Triply revenue less Stripe fees.", reslab: net.cashTotal, sum: t?.net ?? null, strong: true },
+    { label: "Net cash to Triply", hint: "Triply revenue less Stripe fees.", reslab: net.cashTotal, approx: canadianCaveat, sum: t?.net ?? null, strong: true },
   ];
 
   return (
@@ -136,6 +145,7 @@ export function AllLotsSummary({ result }: { result: ReconcileResult }) {
       {!detail && !failed && direct.count > 0 && <p className="mt-3 text-sm text-amber-800">Direct-lot figures were not requested for this report.</p>}
       {net.total === null && net.totalReason && <p className="mt-3 text-xs text-amber-800">ResLab lots: Triply revenue unavailable — {net.totalReason}.</p>}
       {net.total !== null && net.cashTotal === null && <p className="mt-3 text-xs text-amber-800">ResLab lots: Stripe fees could not be read for every booking, so net cash is unavailable.</p>}
+      {net.total !== null && canadianCaveat && <p className="mt-3 text-xs text-amber-800">≈ ResLab lots: Triply revenue includes {canadianNote} (see Canadian lots below).</p>}
       {result.stripe.isDerived && <p className="mt-3 text-xs text-amber-800">≈ ResLab lots: collected online is partly estimated from the booking rows, not read from Stripe.</p>}
       {waiting > 0 && (
         <p className="mt-3 text-xs text-amber-800">

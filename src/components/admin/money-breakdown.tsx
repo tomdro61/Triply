@@ -98,6 +98,7 @@ export function MoneyBreakdown({
   kept,
   directConfirmed,
   pgWholesaleMissing,
+  canadian,
   paidNote,
 }: {
   /** null when the paid figures failed to load. */
@@ -111,6 +112,8 @@ export function MoneyBreakdown({
   directConfirmed: number | null;
   /** PG opt-ins whose missing wholesale overstates margin and profit (accounting's warning). */
   pgWholesaleMissing: number;
+  /** Confirmed Canadian-lot bookings in the kept figures as an estimate, or left out of them (accounting's note). */
+  canadian?: { estimated: number; leftOut: number };
   /** Where the revenue figures came from, when it isn't the reconciler. */
   paidNote?: string;
 }) {
@@ -169,6 +172,19 @@ export function MoneyBreakdown({
           <span>
             {pgWholesaleMissing} Park Guard booking{pgWholesaleMissing === 1 ? " has" : "s have"} no wholesale cost
             recorded, so Park Guard margin and profit are overstated until repaired (see Accounting).
+          </span>
+        </p>
+      )}
+
+      {canadian && (canadian.estimated > 0 || canadian.leftOut > 0) && (
+        <p className="mb-5 text-sm text-amber-700 flex items-start gap-1.5">
+          <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+          <span>
+            {canadian.estimated > 0 &&
+              `Includes ${canadian.estimated} Canadian-lot booking${canadian.estimated === 1 ? "" : "s"} at an estimated exchange rate, until ResLab invoices ${canadian.estimated === 1 ? "it" : "them"}. `}
+            {canadian.leftOut > 0 &&
+              `The parking commission on ${canadian.leftOut} Canadian-lot booking${canadian.leftOut === 1 ? " is" : "s is"} not in what we kept. `}
+            See Accounting.
           </span>
         </p>
       )}

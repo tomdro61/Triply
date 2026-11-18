@@ -339,6 +339,8 @@ export function MonthlyMoneyChart({
             // Already deducted from the parking commission above (Triply funds them) — listed for reference, not to add.
             if (m.kept.promoDiscounts > 0.005) rows.splice(2, 0, ["Promo discounts (already deducted)", formatNegative(m.kept.promoDiscounts)]);
             if (m.pgWholesaleMissing > 0) rows.push(["Overstated", `${m.pgWholesaleMissing} PG row(s) lack wholesale`]);
+            if (m.canadian.estimated > 0) rows.push(["Estimated", `${m.canadian.estimated} Canadian booking(s) at an estimated rate`]);
+            if (m.canadian.leftOut > 0) rows.push(["Left out", `commission on ${m.canadian.leftOut} Canadian booking(s)`]);
             return {
               segments: [
                 { value: s.commission, color: SERIES.commission.color },
@@ -346,7 +348,7 @@ export function MonthlyMoneyChart({
                 { value: s.pgMargin, color: SERIES.parkGuard.color },
               ],
               marker: m.kept.net,
-              warning: m.pgWholesaleMissing > 0,
+              warning: m.pgWholesaleMissing > 0 || m.canadian.leftOut > 0,
               tooltip: rows,
             };
           }}

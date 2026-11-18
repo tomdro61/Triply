@@ -25,6 +25,14 @@
  *     migration 022) counts $0 owed and is called out in its note.
  *   - ResLab invoices by trip-completion month: sum location_total for
  *     bookings whose check_out falls within the invoice period.
+ *   - A reservation at a Canadian lot is in Canadian dollars at ResLab, while
+ *     the booking row and Stripe are US dollars (reslab-currency.ts). A
+ *     converted row's ResLab figures enter `confirmed`, `triplyNet` and the
+ *     take rates at the booking's own rate: an estimate, because ResLab
+ *     invoices in US dollars at ITS rate on the invoice date. What is owed for
+ *     Canadian rows is kept out of the `reslab.sum*` figures and reported in
+ *     `canadian`. A row with no usable rate, or a currency conflict, has its
+ *     ResLab side left out.
  *   - A promo discount on a ResLab booking is FUNDED BY TRIPLY: ResLab never
  *     sees it and invoices the lot's full share, while the customer pays
  *     Triply the parking less the discount. `bookings.discount_amount` is
@@ -52,6 +60,9 @@ import { isAtTestLot, isTestBooking } from "@/config/admin";
 import { stripeKeyIsLive } from "@/lib/cancellation/source-guard";
 import { expectedPromoCents, parseDiscountPercent } from "@/lib/booking/confirmation-payment";
 import type { MoneyInput } from "@/lib/booking/cost-breakdown";
+import { cadCentsToUsdCents, cadDollarsToUsd, rateFromColumn, rateToColumn, reslabAmount, reslabAmountCents, toUsd, type FxRate } from "@/lib/fx/cad-usd";
+import { reslabCurrencyCode } from "@/lib/reslab/currency";
+import { canadianKindOf, classifyRowCurrency, isCurrencyFault, isLeftOut, isLegacyNoRate, USD_ROW, type RowCurrency } from "./reslab-currency";
 import type {
   DateField,
   ReconcileOptions,
@@ -133,6 +144,13 @@ interface ReslabHistoryEntry {
   refund_amount?: number | string;
   partial_refund?: number | string;
   due_at_location_total?: number | string;
+  // Read only for a Canadian-dollar reservation (the grand-total check).
+  total_fees?: number | string;
+  total_tax?: number | string;
+  long_term_discount?: number | string | null;
+  // The reservation's own currency. Absent on older reservations: USD for an
+  // unmarked row; a row marked CAD is still Canadian (the row is the witness).
+  location?: { currency?: { code?: unknown } | null } | null;
   // Per-reservation fee lines. Includes LOCATION fees (the lot's own add-ons)
   // and the CHANNEL fee ResLab bills us — invoiced as the "RL Fee" column.
   // Only `channel_fee` entries are ours; see channelFeeOf().
@@ -286,6 +304,12 @@ interface SupabaseRow {
   // ResLab row Triply funds it (see the money model above); on a direct row it
   // is part of the derived online charge.
   discount_amount: string | number | null;
+  // Migration 052. 'CAD' + the booking's own rate on a converted booking
+  // (ResLab's figures for it are Canadian dollars). NULL on a US-dollar lot,
+  // and on an old Canadian booking charged one-for-one until a data fix marks
+  // it 'CAD' at rate 1.
+  reslab_currency?: string | null;
+  fx_rate?: string | number | null;
   customers: CustomersJoin | CustomersJoin[];
 }
 
@@ -299,6 +323,7 @@ const BOOKINGS_SELECT = `
       stripe_payment_intent_id,
       reslab_location_id, location_name, airport_code,
       inventory_source, direct_lot_id, livemode, discount_amount,
+      reslab_currency, fx_rate,
       customers ( email )
     `;
 
@@ -370,7 +395,22 @@ async function readRowsByIds(
   return out.sort((a, b) => key(a).localeCompare(key(b)) || a.id.localeCompare(b.id));
 }
 
+/** `bookings.fx_rate` as six decimals when it is a usable rate, else null. */
+const rowRateText = (value: unknown): string | null => {
+  const rate = rateFromColumn(value);
+  return rate ? rateToColumn(rate) : null;
+};
+
 export async function reconcileRevenue(opts: ReconcileOptions): Promise<ReconcileResult> {
+  // Checked before anything is read: an upside-down rate (1.38) must never price an invoice.
+  // (rateFromColumn would round a seventh decimal away; refuse it instead.)
+  const invoiceRate: FxRate | null =
+    opts.invoiceCadRate === undefined || Number(opts.invoiceCadRate.toFixed(6)) !== opts.invoiceCadRate
+      ? null
+      : rateFromColumn(opts.invoiceCadRate, "invoice");
+  if (opts.invoiceCadRate !== undefined && invoiceRate === null) {
+    throw new Error("invoiceCadRate must be above 0.5 and below 1, with at most 6 decimals");
+  }
   const supabase = await createAdminClient();
   const dateCol = DATE_COLUMN[opts.by];
 
@@ -438,6 +478,16 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     // don't prove the reservation is missing. The staging exclusion keys on this
     // (not on `error`) so a transient blip can't be misread as "staging junk".
     reslabNotFound: boolean;
+    // Which currency ResLab's figures came in. For "cad" every figure above is
+    // ALREADY converted to US dollars at the booking's own rate; for a left-out
+    // row (no rate / conflict) every figure above is null. `cad` holds
+    // ResLab's Canadian figures for a converted row and for an old one-for-one
+    // row; it is null for a fault (its figures are in no sum, in any currency).
+    currency: RowCurrency;
+    cad: CadFigures | null;
+    // A converted row whose history parts toUsd refused: its grand total
+    // cannot be checked against the booking, so it is reported as a mismatch.
+    fxGrandUnusable: boolean;
   };
   const emptyReslab: ReslabSlice = {
     locationTotal: null,
@@ -453,6 +503,128 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     cancelled: null,
     reslabNotFound: false,
     error: null,
+    currency: USD_ROW,
+    cad: null,
+    fxGrandUnusable: false,
+  };
+
+  /** ResLab's figures for one Canadian reservation, in Canadian dollars. */
+  type CadFigures = {
+    /** location_total − due at the lot, never below 0: what ResLab bills for the lot. Whole cents. */
+    owedCents: number;
+    /** Σ channel_fee lines. Whole cents. */
+    channelFeeCents: number;
+    dueAtLocationTotal: number;
+    channelTotal: number;
+    /** null = ResLab's figure was missing or unreadable. */
+    commissionsTotal: number | null;
+    grandTotal: number;
+  };
+
+  /**
+   * Put a freshly read slice into US dollars. A US-dollar row comes back with
+   * the same values it went in with. A Canadian row is converted at the
+   * booking's own rate; when it cannot be (no rate, a conflict, a settlement
+   * figure missing or unreadable) every figure is null. Never throws.
+   */
+  const inUsDollars = (b: SupabaseRow, raw: ReslabSlice, h: ReslabHistoryEntry): ReslabSlice => {
+    const currency = classifyRowCurrency(b, reslabCurrencyCode(h.location?.currency?.code));
+    if (currency.kind === "usd") return raw;
+    const leftOut = (c: RowCurrency, cad: CadFigures | null): ReslabSlice => ({ ...emptyReslab, cancelled: raw.cancelled, currency: c, cad });
+    // Which currency a conflict row's figures are in is exactly what is not known.
+    if (currency.kind === "conflict") return leftOut(currency, null);
+
+    const unreadable: RowCurrency = { kind: "cad_no_rate", legacy: false, reason: "a ResLab settlement figure is missing or could not be read" };
+    // The figures the totals are built from must each be a real amount in
+    // whole cents. Unlike a US row (where `num` reads a missing figure as 0),
+    // a missing one here is a fault: 0 would be a confident wrong number.
+    const locationCents = reslabAmountCents(h.location_total);
+    const channelCents = reslabAmountCents(h.channel_total);
+    const subtotalCents = reslabAmountCents(h.subtotal);
+    // Not due at the lot = absent or 0, as fulfilment reads it.
+    const dueCents = h.due_at_location_total == null ? 0 : reslabAmountCents(h.due_at_location_total);
+    // ResLab's fee lines, each one read strictly and summed in cents (a
+    // reservation with none owes no fee). `channelFeeOf` would read an
+    // unreadable line as 0.
+    // Only an ABSENT list means "no fees": any other shape, or a line that
+    // does not say what it is, is unreadable (a renamed field must not read
+    // as a fee of 0).
+    let feeCents: number | null = 0;
+    const feeLines: unknown = h.fees;
+    if (feeLines != null && !Array.isArray(feeLines)) feeCents = null;
+    for (const f of Array.isArray(feeLines) ? (feeLines as Array<{ fee_type?: unknown; dollar_amount?: unknown } | null>) : []) {
+      if (feeCents === null) break;
+      if (typeof f?.fee_type !== "string") {
+        feeCents = null;
+      } else if (f.fee_type === "channel_fee") {
+        const line = reslabAmountCents(f.dollar_amount);
+        feeCents = line === null ? null : feeCents + line;
+      }
+    }
+    // The total as ResLab states it: the booking was charged from it.
+    const grandCad = reslabAmount(h.grand_total);
+    if (!Number.isFinite(grandCad)) return leftOut(unreadable, null);
+    if (locationCents === null || channelCents === null || subtotalCents === null || dueCents === null || feeCents === null) {
+      return leftOut(unreadable, null);
+    }
+    const commissionsCents = reslabAmountCents(h.commissions_total);
+    const cad: CadFigures = {
+      owedCents: Math.max(0, locationCents - dueCents),
+      channelFeeCents: feeCents,
+      dueAtLocationTotal: dueCents / 100,
+      channelTotal: channelCents / 100,
+      commissionsTotal: commissionsCents === null ? null : commissionsCents / 100,
+      grandTotal: grandCad,
+    };
+    // Only an old one-for-one row keeps its Canadian figures (they are summed,
+    // in CAD). Any other no-rate row is a fault: its figures go nowhere.
+    if (currency.kind !== "cad") return leftOut(currency, currency.legacy ? cad : null);
+
+    const rate: FxRate = currency.rate;
+    const usd = (cents: number): number | null => {
+      const converted = cadCentsToUsdCents(cents, rate);
+      return converted === null ? null : converted / 100;
+    };
+    const locationTotal = usd(locationCents);
+    const dueAtLocationTotal = usd(dueCents);
+    const channelTotal = usd(channelCents);
+    const subtotal = usd(subtotalCents);
+    const channelFee = usd(feeCents);
+    // The booking row's own figure: the parts converted one by one, the way
+    // fulfilment converted them (this reader also takes numeric strings).
+    const parts = toUsd(
+      {
+        subtotal: reslabAmount(h.subtotal),
+        feesTotal: reslabAmount(h.total_fees),
+        taxTotal: reslabAmount(h.total_tax),
+        longTermDiscount: h.long_term_discount == null ? 0 : reslabAmount(h.long_term_discount),
+        grandTotal: grandCad,
+        dueAtLocation: h.due_at_location_total == null ? 0 : reslabAmount(h.due_at_location_total),
+      },
+      rate
+    );
+    const grandTotal = parts.ok ? parts.usd.grandTotal : cadDollarsToUsd(h.grand_total, rate);
+    if (locationTotal === null || dueAtLocationTotal === null || channelTotal === null || subtotal === null || channelFee === null || grandTotal === null) {
+      return leftOut(unreadable, null);
+    }
+    return {
+      ...raw,
+      locationTotal,
+      dueAtLocationTotal,
+      channelFee,
+      channelTotal,
+      // Not needed for Triply's keep: an unreadable one is unknown, and the
+      // period's `confirmed.commissionsTotal` is then unknown too.
+      commissionsTotal: cadDollarsToUsd(h.commissions_total, rate),
+      grandTotal,
+      subtotal,
+      subtotalRaw: subtotal,
+      refundAmount: cadDollarsToUsd(h.refund_amount, rate),
+      partialRefund: cadDollarsToUsd(h.partial_refund, rate),
+      currency,
+      cad,
+      fxGrandUnusable: !parts.ok,
+    };
   };
 
   type StripeSlice = {
@@ -487,6 +659,30 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     discountStamped: false,
   };
 
+  /**
+   * A slice for a booking ResLab gave no figures for (a failed or skipped
+   * read, an empty history). When the row is MARKED Canadian it must still be
+   * known as Canadian: whether ResLab bills it is not known, so the invoice
+   * comparison has to say a reservation is unpriced, and its Stripe parking
+   * has nothing owed to set against. An unmarked row is unchanged.
+   */
+  const unread = (b: SupabaseRow, slice: ReslabSlice): ReslabSlice =>
+    b.reslab_currency == null
+      ? slice
+      : {
+          ...slice,
+          currency: {
+            kind: "cad_no_rate",
+            legacy: false,
+            unread: true,
+            // A 404 or an empty history will not clear on a rerun: say where to look.
+            reason:
+              slice.reslabNotFound || slice.error === "no history[0] in response"
+                ? "ResLab has no record or no history for this Canadian booking: check it in ResLab"
+                : "ResLab could not be read for this Canadian booking: run the report again",
+          },
+        };
+
   const reslabFetchErrors: ReconcileResult["reslab"]["fetchErrors"] = [];
   const stripeFetchErrors: ReconcileResult["stripeFetch"]["errors"] = [];
 
@@ -502,7 +698,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       if (!b.reslab_reservation_number) return { ...emptyReslab };
       if (token === null || pastDeadline()) {
         reslabFetchErrors.push({ resNum: b.reslab_reservation_number, err: RESLAB_SKIPPED_TIME_BUDGET });
-        return { ...emptyReslab, error: RESLAB_SKIPPED_TIME_BUDGET };
+        return unread(b, { ...emptyReslab, error: RESLAB_SKIPPED_TIME_BUDGET });
       }
       try {
         const data = await reslabReservation(b.reslab_reservation_number, token, opts.fetchTimeoutMs);
@@ -515,9 +711,9 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
             resNum: b.reslab_reservation_number,
             err: "no history[0] in response",
           });
-          return { ...emptyReslab, error: "no history[0] in response" };
+          return unread(b, { ...emptyReslab, error: "no history[0] in response" });
         }
-        return {
+        return inUsDollars(b, {
           locationTotal: num(h.location_total),
           dueAtLocationTotal: num(h.due_at_location_total),
           channelFee: channelFeeOf(h),
@@ -531,14 +727,17 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
           cancelled: !!data.cancelled,
           error: null,
           reslabNotFound: false,
-        };
+          currency: USD_ROW,
+          cad: null,
+          fxGrandUnusable: false,
+        }, h);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         const status = (e as { status?: number })?.status;
         reslabFetchErrors.push({ resNum: b.reslab_reservation_number, err: msg });
         // reslabNotFound only on a definitive 404. A 5xx / timeout / network error
         // is transient and must NOT corroborate exclusion (see slice comment).
-        return { ...emptyReslab, error: msg, reslabNotFound: status === 404 };
+        return unread(b, { ...emptyReslab, error: msg, reslabNotFound: status === 404 });
       }
     });
   })();
@@ -758,6 +957,42 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   let settleParkingOwed = 0;
   let settleChannelFee = 0;
   let settleRows = 0;
+  // ---- Canadian-dollar reservations (see reslab-currency.ts) ----
+  // Their settlement is kept OUT of the US-dollar sums above: ResLab bills it
+  // in US dollars at its own rate on the invoice date, so it is reported in
+  // CAD with the booking-rate estimate beside it.
+  const cadRows: ReconcileResult["canadian"]["reservations"] = [];
+  // What ResLab bills (its rule: not cancelled by ResLab), in whole cents.
+  let cadConvertedCents = 0; // converted rows, CAD
+  let cadConvertedUsdCents = 0; // the same rows at their booking rates
+  // Each converted reservation's CAD cents, for the exchange difference: both
+  // sides of it are converted one reservation at a time.
+  const cadConvertedRowCents: number[] = [];
+  // Marked Canadian rows ResLab gave no answer for. Billed or not is unknown.
+  let cadUnreadRows = 0;
+  let cadConvertedSettleRows = 0;
+  let cadLegacyCents = 0; // old one-for-one rows, CAD (no rate to estimate with)
+  let cadLegacySettleRows = 0;
+  // Fault rows ResLab has not cancelled: billed, and in no figure here.
+  let cadBilledFaults = 0;
+  let cadConfirmedConverted = 0;
+  let cadKeepEstimate = 0;
+  let cadStripeRefunded = 0;
+  let cadStripeUnread = 0;
+  // Confirmed rows whose ResLab side is left out (no rate / conflict / not
+  // read from ResLab): what
+  // they contributed on the Stripe side. Their parking is taken out of "net
+  // parking cash" on the page, and they are out of both sides of a take rate,
+  // because the ResLab side they would be measured against is missing.
+  let leftOutConfirmed = 0;
+  let leftOutStripeParking = 0;
+  let leftOutStripeGross = 0;
+  let leftOutIncome = 0;
+  let leftOutStripeFees = 0;
+  // Confirmed fault rows: the ones that hold the headline back.
+  let confirmedCurrencyFaults = 0;
+  // Confirmed rows whose ResLab commissions_total is unknown.
+  let confCommissionsUnknown = 0;
   // Authoritative parking cash collected (Stripe amount_received − service fee
   // − PG, per booking) with a per-booking Supabase fallback when live Stripe
   // is unavailable. `stripeParkingDerivedUsed` flips true if ANY confirmed
@@ -839,31 +1074,75 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       } else if (b.stripe_payment_intent_id) stripeDerivedFallbacks++;
     }
 
+    const cur = rl.currency;
+    const leftOut = isLeftOut(cur);
+    const cadKind = canadianKindOf(cur);
+    if (cadKind !== null) {
+      cadRows.push({ resNum: b.reslab_reservation_number, kind: cadKind, reason: cur.kind === "cad" || cur.kind === "usd" ? null : cur.reason });
+      if (isCurrencyFault(cadKind) && b.status === "confirmed") confirmedCurrencyFaults++;
+    }
+    // An old one-for-one booking was charged ResLab's Canadian figure as US
+    // dollars, so its row is compared with the raw figure. A converted row is
+    // compared with the figure converted the way fulfilment converted it.
+    const reslabGrand = isLegacyNoRate(cur) ? (rl.cad?.grandTotal ?? null) : rl.grandTotal;
     const bothAgreeCancelled =
       (b.status === "refunded" || b.status === "cancelled") &&
-      (rl.cancelled === true || rl.grandTotal === 0);
+      (rl.cancelled === true || reslabGrand === 0);
     if (
       opts.includeReslab &&
-      rl.grandTotal !== null &&
+      reslabGrand !== null &&
       !bothAgreeCancelled &&
-      Math.abs(rl.grandTotal - grandTotal) > 0.01
+      (rl.fxGrandUnusable || Math.abs(reslabGrand - grandTotal) > 0.01)
     ) {
       grandTotalMismatches.push({
         resNum: b.reslab_reservation_number,
         supabase: grandTotal,
-        reslab: rl.grandTotal,
-        diff: grandTotal - rl.grandTotal,
+        reslab: reslabGrand,
+        diff: grandTotal - reslabGrand,
+        ...(cur.kind !== "usd" && {
+          note:
+            cur.kind === "cad"
+              ? rl.fxGrandUnusable
+                ? `ResLab's Canadian parts do not convert at the booking's rate ${cur.rateText}`
+                : `ResLab C$${rl.cad?.grandTotal?.toFixed(2) ?? "?"} at the booking's rate ${cur.rateText}`
+              : "ResLab figure is Canadian dollars, compared one-for-one",
+        }),
       });
     }
 
     // Settlement accrual — mirrors ResLab's invoicing rule, NOT our booking
     // status (see the accumulator declarations above). Runs for every row with
-    // ResLab data that ResLab has not cancelled, so the total can be compared
-    // against the invoice directly.
-    if (opts.includeReslab && rl.locationTotal !== null && !rl.cancelled) {
-      settleParkingOwed += Math.max(0, rl.locationTotal - (rl.dueAtLocationTotal ?? 0));
-      settleChannelFee += rl.channelFee ?? 0;
-      settleRows++;
+    // ResLab data that ResLab has not cancelled. US-dollar rows go to the
+    // settle* sums; Canadian rows to the cad* sums, in Canadian cents.
+    if (opts.includeReslab && !rl.cancelled) {
+      if (cur.kind === "usd") {
+        // Only a US-dollar row may reach the US-dollar settlement.
+        if (rl.locationTotal !== null) {
+          settleParkingOwed += Math.max(0, rl.locationTotal - (rl.dueAtLocationTotal ?? 0));
+          settleChannelFee += rl.channelFee ?? 0;
+          settleRows++;
+        }
+      } else if (cur.kind === "cad" && rl.cad && rl.locationTotal !== null) {
+        // One conversion of the reservation's whole amount.
+        const rowCents = rl.cad.owedCents + rl.cad.channelFeeCents;
+        const rowUsdCents = cadCentsToUsdCents(rowCents, cur.rate);
+        // Each part already converted on its own, so only an absurd amount gets here. Never a silent 0.
+        if (rowUsdCents === null) throw new Error(`Canadian settlement for ${b.reslab_reservation_number} could not be converted`);
+        cadConvertedCents += rowCents;
+        cadConvertedUsdCents += rowUsdCents;
+        cadConvertedRowCents.push(rowCents);
+        cadConvertedSettleRows++;
+      } else if (isLegacyNoRate(cur) && rl.cad) {
+        cadLegacyCents += rl.cad.owedCents + rl.cad.channelFeeCents;
+        cadLegacySettleRows++;
+      } else if (cur.kind === "cad_no_rate" && cur.unread) {
+        // No answer from ResLab: billed or not, its amount is in no figure.
+        cadUnreadRows++;
+      } else {
+        // A fault ResLab still bills: its amount is in no figure, so the
+        // invoice comparison must say it is incomplete.
+        cadBilledFaults++;
+      }
     }
 
     let triplyKeeps = 0; // service fee + PG margin (on-top charges)
@@ -892,7 +1171,8 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       }
       const reslabAtGate = rl.dueAtLocationTotal ?? 0;
       if (opts.includeReslab && rl.locationTotal !== null) {
-        // "Amount Owed" formula — matches the ResLab dashboard column.
+        // "Amount Owed" formula — matches the ResLab dashboard column (for a
+        // converted Canadian row: that column's figure at the booking's rate).
         // Due-at-Lot=Yes bookings have location_total === due_at_location_total,
         // so this evaluates to $0 for those (customer paid lot at the gate).
         // Due-at-Lot=No bookings have due_at_location_total === 0, so this
@@ -904,10 +1184,20 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
         // `cancelled` rather than trusting the zeroed location_total.
         if (!rl.cancelled) confChannelFee += rl.channelFee ?? 0;
         confChannelTotal += rl.channelTotal ?? 0;
-        confCommissionsTotal += rl.commissionsTotal ?? 0;
+        if (rl.commissionsTotal === null) confCommissionsUnknown++;
+        else confCommissionsTotal += rl.commissionsTotal;
         confReslabDueAtLot += reslabAtGate;
         confReslabSubtotal += rl.subtotal ?? 0;
         confReslabSeen++;
+        if (cur.kind === "cad") {
+          cadConfirmedConverted++;
+          cadKeepEstimate += (rl.channelTotal ?? 0) - (rl.cancelled ? 0 : (rl.channelFee ?? 0));
+        }
+      }
+      if (cur.kind !== "usd") {
+        // Unknown stays unknown: a payment Stripe did not answer for is not $0 refunded.
+        if (usedRealStripe && stripeRefundedRow !== null) cadStripeRefunded += stripeRefundedRow;
+        else if (b.stripe_payment_intent_id) cadStripeUnread++;
       }
       if (usedRealStripe) {
         stripeGrossReal += stripeReceivedReal;
@@ -932,6 +1222,12 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
         stripeParkingDerivedUsed = true;
       }
       confStripeParking += stripeParkingRow;
+      if (leftOut) {
+        leftOutConfirmed++;
+        leftOutStripeParking += stripeParkingRow;
+        leftOutStripeGross += usedRealStripe && stripeReceivedReal !== null ? stripeReceivedReal : expectedStripe;
+        if (usedRealStripe) leftOutStripeFees += stripeFeeRow ?? 0;
+      }
 
       // Integrity check #1 — Supabase's expected charge vs the ACTUAL Stripe
       // capture. A gap means the Supabase booking record drifted from what the
@@ -1005,6 +1301,8 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
         }
       }
       triplyKeeps = serviceFee + (hasPG ? pgPremium - pgWholesale : 0);
+      // What a left-out row put into Triply's income: its keep, less its promo.
+      if (leftOut) leftOutIncome += triplyKeeps - discount;
       // Total keep = channel commission + on-top charges. Null when we
       // can't compute channel (no ResLab data for this row) — the UI/CSV
       // shows "—" in that case rather than an under-counted number.
@@ -1105,6 +1403,8 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     } else {
       counts.other++;
     }
+    if (cur.kind === "cad") note = (note ? note + "; " : "") + `ResLab figures converted from CAD at ${cur.rateText} (estimate until invoiced)`;
+    else if (cur.kind !== "usd") note = (note ? note + "; " : "") + `ResLab side left out: ${cur.reason}`;
     if (rl.error) note = (note ? note + "; " : "") + `reslab error: ${rl.error}`;
     if (st.error) note = (note ? note + "; " : "") + `stripe error: ${st.error}`;
 
@@ -1136,7 +1436,9 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       stripe_fee: stripeFeeRow,
       stripe_status: st.status,
       stripe_error: st.error,
-      // Per-booking "Amount Owed" — matches dashboard. For Due-at-Lot=Yes
+      // Per-booking "Amount Owed" — matches dashboard (a converted Canadian
+      // row: at the booking's rate; the dashboard's own figure is
+      // fx.location_total_cad). For Due-at-Lot=Yes
       // this is $0 (lot paid at gate); for Due-at-Lot=No it equals
       // location_total.
       reslab_location_total:
@@ -1158,6 +1460,19 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       triply_keeps: triplyKeeps,
       triply_total: triplyTotal,
       note,
+      ...(cadKind !== null && {
+        fx: {
+          kind: cadKind,
+          // The booking's own rate when it has one, even if a figure would not convert.
+          rate: cur.kind === "cad" ? cur.rateText : rowRateText(b.fx_rate),
+          location_total_cad: rl.cad ? rl.cad.owedCents / 100 : null,
+          due_at_location_cad: rl.cad?.dueAtLocationTotal ?? null,
+          channel_fee_cad: rl.cad ? rl.cad.channelFeeCents / 100 : null,
+          channel_total_cad: rl.cad?.channelTotal ?? null,
+          commissions_total_cad: rl.cad?.commissionsTotal ?? null,
+          grand_total_cad: rl.cad?.grandTotal ?? null,
+        },
+      }),
     });
   }
 
@@ -1185,11 +1500,16 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   // satisfied even though half the channel commission is missing).
   // `real` holds ResLab rows only — direct rows (no ResLab reservation to
   // fetch) were partitioned out up front, so they can never hold this gate open.
+  // An old one-for-one Canadian booking expects no cross-check (its ResLab
+  // side is reported apart), so it is not in the denominator. Any OTHER row
+  // whose currency cannot be handled stays in it and is never "seen": the
+  // headline is then withheld, as for missing data.
   const reslabConfirmedExpected = real.filter(
     (b, i) =>
       b.status === "confirmed" &&
       !!b.reslab_reservation_number &&
-      !stagingIdx.has(i)
+      !stagingIdx.has(i) &&
+      !isLegacyNoRate(reslabSlices[i]?.currency ?? USD_ROW)
   ).length;
   const reslabDataIncomplete =
     opts.includeReslab &&
@@ -1229,7 +1549,9 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       : !opts.includeReslab
       ? "ResLab cross-check disabled"
       : reslabDataIncomplete
-      ? `missing ResLab data for ${reslabConfirmedExpected - confReslabSeen} of ${reslabConfirmedExpected} confirmed bookings`
+      ? `missing ResLab data for ${reslabConfirmedExpected - confReslabSeen} of ${reslabConfirmedExpected} confirmed bookings${
+          confirmedCurrencyFaults > 0 ? ` (${confirmedCurrencyFaults} with a currency problem: see Canadian lots)` : ""
+        }`
       : null;
 
   // Take rate denominators reuse stripeGross / totalMoved / parkingSubtotal
@@ -1241,22 +1563,68 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   // cross-check is on (Supabase due_at_location can drift — see RTL753241);
   // falls back to the Supabase figure only when ResLab is disabled, in which
   // case totalTakeRate is null anyway (gated on channelDataOk below).
-  const totalMoved = stripeGross + (opts.includeReslab ? confReslabDueAtLot : confDueAtLot);
+  // Confirmed rows whose ResLab side is left out are out of BOTH sides of a take rate.
+  const rateIncome = triplyIncome - leftOutIncome;
+  const rateStripeGross = stripeGross - leftOutStripeGross;
+  const totalMoved = rateStripeGross + (opts.includeReslab ? confReslabDueAtLot : confDueAtLot);
   // Take rates whose numerator depends on channelTotal are also gated on
   // ResLab data being available (same reason as triplyTotal above).
   const channelDataOk = opts.includeReslab && !reslabDataIncomplete;
   const takeRates: TakeRates = {
-    stripeTakeRate: channelDataOk && stripeGross > 0 ? triplyIncome / stripeGross : null,
-    totalTakeRate: channelDataOk && totalMoved > 0 ? triplyIncome / totalMoved : null,
+    stripeTakeRate: channelDataOk && rateStripeGross > 0 ? rateIncome / rateStripeGross : null,
+    totalTakeRate: channelDataOk && totalMoved > 0 ? rateIncome / totalMoved : null,
     // Denominator is ResLab's authoritative subtotal (contract-level parking
     // pre-tax/fee), not the Supabase snapshot.
     channelCommissionRate:
       channelDataOk && confReslabSubtotal > 0 ? confChannelTotal / confReslabSubtotal : null,
     netStripeTakeRate:
-      channelDataOk && stripeProcessingFees !== null && stripeGross > 0
-        ? (triplyIncome - stripeProcessingFees) / stripeGross
+      channelDataOk && stripeProcessingFees !== null && rateStripeGross > 0
+        ? (rateIncome - (stripeProcessingFees - leftOutStripeFees)) / rateStripeGross
         : null,
   };
+
+  // ---- Canadian-dollar reservations: the settlement, and the invoice ----
+  const round2 = (v: number) => Math.round(v * 100) / 100;
+  const usSettlement = settleParkingOwed + settleChannelFee;
+  // What ResLab's US-dollar invoice bills for the Canadian reservations, in
+  // whole cents throughout.
+  //  - With the rate ResLab used on that invoice: every Canadian dollar owed
+  //    (converted and old one-for-one rows) at that rate.
+  //  - Without it: the converted rows at their own booking rates. The old rows
+  //    have no rate and cannot be estimated.
+  // `unpriced` counts the reservations ResLab bills that are NOT in the figure.
+  // Any at all, and the comparison with the invoice is withheld.
+  let canadianInvoice: ReconcileResult["reslab"]["canadianInvoice"] = null;
+  if (opts.includeReslab) {
+    if (invoiceRate !== null) {
+      // ResLab converts what is owed on the invoice as one amount (its email
+      // of Nov 17 2026), so the invoice figure is one conversion of the total.
+      const allAtInvoice = cadCentsToUsdCents(cadConvertedCents + cadLegacyCents, invoiceRate);
+      // The exchange difference compares like with like: each converted
+      // reservation at ResLab's rate against the same reservation at its
+      // booking rate. Equal rates then give exactly 0, however the cents fall.
+      let convertedAtInvoice = 0;
+      for (const cents of cadConvertedRowCents) {
+        const usdCents = cadCentsToUsdCents(cents, invoiceRate);
+        if (usdCents === null) throw new Error("Canadian settlement could not be converted at the invoice rate");
+        convertedAtInvoice += usdCents;
+      }
+      if (allAtInvoice === null) throw new Error("Canadian settlement could not be converted at the invoice rate");
+      canadianInvoice = {
+        basis: "invoice_rate",
+        usd: allAtInvoice / 100,
+        exchangeDifference: (convertedAtInvoice - cadConvertedUsdCents) / 100,
+        unpriced: cadBilledFaults + cadUnreadRows,
+      };
+    } else {
+      canadianInvoice = {
+        basis: "booking_rates",
+        usd: cadConvertedUsdCents / 100,
+        exchangeDifference: null,
+        unpriced: cadBilledFaults + cadUnreadRows + cadLegacySettleRows,
+      };
+    }
+  }
 
   // ---- Direct lots (inventory_source === "direct") ----
   // Their own figure, never folded into the ResLab settlement, the Stripe
@@ -1338,6 +1706,21 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     // exclusion is auditable instead of a bare count with no per-row trace.
     stagingExcludedReservations: [...modeExcludedResNums, ...stagingResNums],
     direct,
+    canadian: {
+      converted: cadRows.filter((r) => r.kind === "converted").length,
+      noRateLegacy: cadRows.filter((r) => r.kind === "no_rate_legacy").length,
+      faults: cadRows.filter((r) => isCurrencyFault(r.kind)).length,
+      reservations: cadRows,
+      convertedOwed: { rows: cadConvertedSettleRows, cad: cadConvertedCents / 100, usdAtBookingRates: cadConvertedUsdCents / 100 },
+      legacyOwed: { rows: cadLegacySettleRows, cad: cadLegacyCents / 100 },
+      billedFaults: cadBilledFaults,
+      unread: cadUnreadRows,
+      keepEstimate: round2(cadKeepEstimate),
+      confirmedConverted: cadConfirmedConverted,
+      leftOutConfirmed,
+      leftOutStripeParking: round2(leftOutStripeParking),
+      stripeRefunded: cadStripeUnread > 0 ? null : round2(cadStripeRefunded),
+    },
     pgWholesaleMissingReservations: pgWholesaleMissingResNums,
     grossRevenue,
     grossCustomerSpend,
@@ -1359,7 +1742,9 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       locationTotalOwed: opts.includeReslab ? confLocTotal : null,
       channelFee: opts.includeReslab ? confChannelFee : null,
       channelTotal: opts.includeReslab ? confChannelTotal : null,
-      commissionsTotal: opts.includeReslab ? confCommissionsTotal : null,
+      // Unknown when any confirmed row's figure is: one that would not
+      // convert, or a row whose ResLab side is left out.
+      commissionsTotal: opts.includeReslab && confCommissionsUnknown === 0 && leftOutConfirmed === 0 ? confCommissionsTotal : null,
       stripeParkingCollected: confStripeParking,
       stripeParkingIsDerived: stripeParkingDerivedUsed,
       reslabDueAtLot: opts.includeReslab ? confReslabDueAtLot : null,
@@ -1395,6 +1780,8 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       cashTotal: triplyCashTotal,
       stripeProcessingFees,
       totalReason: triplyTotalReason,
+      canadianEstimated: cadConfirmedConverted,
+      canadianLeftOut: leftOutConfirmed,
     },
     takeRates,
     reslab: {
@@ -1402,13 +1789,22 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       // What ResLab's invoice bills: lot settlement + their channel fee, over
       // every reservation they haven't cancelled. Compare against the invoice
       // total directly — on Aug 2026 this reproduces $4,194.62 exactly.
-      sumAmountOwed: opts.includeReslab ? settleParkingOwed + settleChannelFee : null,
+      // US-DOLLAR reservations only: in a period with Canadian reservations
+      // read `varianceInclCanadian` (the invoice bills those too).
+      sumAmountOwed: opts.includeReslab ? usSettlement : null,
       // The two components, so a variance can be attributed to one side.
       sumLocationTotal: opts.includeReslab ? settleParkingOwed : null,
       sumChannelFee: opts.includeReslab ? settleChannelFee : null,
       settlementRows: opts.includeReslab ? settleRows : 0,
       variance:
-        opts.includeReslab ? settleParkingOwed + settleChannelFee - opts.invoiceAmount : null,
+        opts.includeReslab ? usSettlement - opts.invoiceAmount : null,
+      // The invoice also bills the Canadian reservations: its total is
+      // sumAmountOwed + canadianInvoice.usd, so `varianceInclCanadian` is the
+      // variance to read when a period has any. null when a reservation ResLab
+      // bills could not be priced: a gap is never shown as a difference.
+      canadianInvoice,
+      varianceInclCanadian:
+        canadianInvoice !== null && canadianInvoice.unpriced === 0 ? usSettlement + canadianInvoice.usd - opts.invoiceAmount : null,
       grandTotalMismatches,
       // Scrub the excluded staging rows' expected prod-ResLab 404s — they're not
       // real fetch failures, and the "(see CSV)" pointer would dangle since the

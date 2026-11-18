@@ -198,12 +198,20 @@ function netCell(n: NetState | undefined, pick: "gross" | "cash" | "perBooking")
     return (
       <span
         className="text-gray-400"
-        title={pick === "cash" && n.gross !== null ? "Stripe fee data incomplete for this month" : (n.reason ?? "")}
+        title={
+          pick === "cash" && n.gross !== null
+            ? "Stripe fee data incomplete for this month"
+            : pick === "perBooking" && n.gross !== null && n.caveat
+            ? `No per-booking figure: ${n.caveat} (see Accounting)`
+            : (n.reason ?? "")
+        }
       >
         —
       </span>
     );
   }
+  // "≈": Canadian-lot bookings are in the figure at an estimated rate, or missing from it.
+  if (n.caveat) return <span title={`${NET_TITLES[pick]}. ${n.caveat} (see Accounting).`}>≈ {formatPrice(v)}</span>;
   return <span title={NET_TITLES[pick]}>{formatPrice(v)}</span>;
 }
 
@@ -484,6 +492,7 @@ export default function MonthlyNumbersPage() {
                 kept={keptStateOf(selectedNet.mix)}
                 directConfirmed={selectedNet.mix.directConfirmed}
                 pgWholesaleMissing={selectedNet.mix.pgWholesaleMissing}
+                canadian={selectedNet.mix.canadian}
               />
             )}
           </div>

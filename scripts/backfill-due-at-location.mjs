@@ -53,7 +53,10 @@ async function fetchDueAtLocation(token, reservationNumber) {
   const data = await res.json();
   const history = data?.history?.[0];
   if (!history) return { error: 'no history entry' };
-  return { dueAtLocation: Number(history.due_at_location_total) || 0 };
+  return {
+    dueAtLocation: Number(history.due_at_location_total) || 0,
+    currency: String(history.location?.currency?.code ?? '').trim().toUpperCase(),
+  };
 }
 
 async function main() {
@@ -65,7 +68,7 @@ async function main() {
   // really are $0 due at location, fetching and storing 0 is a harmless no-op.
   const { data: rows, error } = await supabase
     .from('bookings')
-    .select('id, reslab_reservation_number, location_name, grand_total, triply_service_fee, due_at_location')
+    .select('id, reslab_reservation_number, location_name, grand_total, triply_service_fee, due_at_location, reslab_currency')
     .eq('due_at_location', 0)
     // Direct-lot bookings (TRP- numbers) have no ResLab reservation to read.
     .eq('inventory_source', 'reslab')
@@ -78,6 +81,7 @@ async function main() {
   let unchanged = 0;
   let failed = 0;
   let skipped = 0;
+  let skippedNotUsd = 0;
 
   for (const row of rows) {
     // Belt and braces with the inventory_source filter: never send a Triply
@@ -92,6 +96,14 @@ async function main() {
     if (result.error) {
       console.log(`  ✗ ${row.reslab_reservation_number} (${row.location_name}): ${result.error}`);
       failed++;
+      continue;
+    }
+
+    // A Canadian-lot booking: ResLab's figure is Canadian dollars and the row
+    // is US dollars. Never write one onto the other.
+    if (row.reslab_currency != null || (result.currency !== '' && result.currency !== 'USD')) {
+      console.log(`  - ${row.reslab_reservation_number}: ${row.reslab_currency ?? result.currency} reservation — ResLab's figure is not US dollars; skipped`);
+      skippedNotUsd++;
       continue;
     }
 
@@ -126,6 +138,7 @@ async function main() {
   console.log(`\n${WRITE ? 'Updated' : 'Would update'}: ${updated}`);
   console.log(`Unchanged (truly $0): ${unchanged}`);
   console.log(`Skipped (direct-lot TRP-): ${skipped}`);
+  console.log(`Skipped (not a US-dollar reservation): ${skippedNotUsd}`);
   console.log(`Failed: ${failed}`);
 
   if (!WRITE && updated > 0) {
