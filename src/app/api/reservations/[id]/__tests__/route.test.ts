@@ -1935,6 +1935,65 @@ describe("ResLab booking on a lot priced in Canadian dollars (migration 052)", (
     const { reservation: r } = await (await call(RTL)).json();
     expect(r).toMatchObject({ subtotal: 0, feesTotal: 0, taxTotal: 0 });
     expect(JSON.stringify(r)).not.toMatch(/107\.55|125\.81/);
+    // Only Stripe's charge is shown: US dollars on a Canadian lot.
+    expect(r.usdLabel).toBe(true);
+  });
+
+  describe("the US-dollar label (`usdLabel`) on the response", () => {
+    it("a converted booking carries usdLabel: true", async () => {
+      h.state.detailRow = { data: row(), error: null };
+      const { reservation: r } = await (await call(RTL)).json();
+      expect(r.usdLabel).toBe(true);
+      expect(r.costBreakdown.ok).toBe(true);
+    });
+
+    it.each([
+      ["the stored rate is unusable", row({ fx_rate: "1.380000" }), reservation()],
+      ["the reservation's figures no longer add up", row(), reservation({ grand_total: 130 })],
+      ["the row has an unknown currency", row({ reslab_currency: "EUR" }), reservation()],
+    ])("the fallback view is labelled too when %s", async (_n, detail, live) => {
+      h.state.detailRow = { data: detail, error: null };
+      h.getReservation.mockResolvedValue(live);
+      const { reservation: r } = await (await call(RTL)).json();
+      expect(r.costBreakdown.ok).toBe(false);
+      expect(r.usdLabel).toBe(true);
+    });
+
+    it("a cancelled converted booking keeps the label", async () => {
+      h.state.detailRow = { data: row({ status: "refunded" }), error: null };
+      const { reservation: r } = await (await call(RTL)).json();
+      expect(r.status).toBe("cancelled");
+      expect(r.usdLabel).toBe(true);
+    });
+
+    it("a booking charged one for one before conversion existed is labelled, marked (CAD at rate 1) or not: ResLab's own currency says the lot is Canadian", async () => {
+      const legacy = { subtotal: "107.55", fees_total: "5.38", tax_total: "12.88", grand_total: "125.81" };
+      h.retrievePi.mockResolvedValue(settledPi(12581 + 595));
+      for (const columns of [{ reslab_currency: "CAD", fx_rate: "1.000000" }, { reslab_currency: null, fx_rate: null }]) {
+        h.state.detailRow = { data: row({ ...legacy, ...columns }), error: null };
+        const { reservation: r } = await (await call(RTL)).json();
+        expect(r.costBreakdown.ok).toBe(true);
+        expect(r.usdLabel).toBe(true);
+      }
+    });
+
+    it("an unmarked row whose reservation carries no currency at all has no key (nothing says the lot is Canadian)", async () => {
+      h.state.detailRow = { data: row({ reslab_currency: null, fx_rate: null, subtotal: "107.55", fees_total: "5.38", tax_total: "12.88", grand_total: "125.81" }), error: null };
+      h.getReservation.mockResolvedValue(reservation({}, null));
+      h.retrievePi.mockResolvedValue(settledPi(12581 + 595));
+      expect((await (await call(RTL)).json()).reservation).not.toHaveProperty("usdLabel");
+    });
+
+    it("a US-dollar booking's response has no usdLabel key at all", async () => {
+      // US figures, charged 125.81 + 5.95.
+      h.state.detailRow = { data: row({ reslab_currency: null, fx_rate: null, subtotal: "107.55", fees_total: "5.38", tax_total: "12.88", grand_total: "125.81" }), error: null };
+      h.getReservation.mockResolvedValue(reservation({}, "USD"));
+      h.retrievePi.mockResolvedValue(settledPi(12581 + 595));
+      const { reservation: r } = await (await call(RTL)).json();
+      expect(r.costBreakdown.ok).toBe(true);
+      expect(r).not.toHaveProperty("usdLabel");
+      expect(JSON.stringify(r)).not.toContain("usdLabel");
+    });
   });
 
   it("a long-stay discount and a pay-at-lot share on the reservation are converted too (never the Canadian figure)", async () => {

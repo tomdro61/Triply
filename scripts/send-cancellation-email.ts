@@ -64,7 +64,7 @@ async function main() {
     .from("bookings")
     .select(`
       status, location_name, location_address, check_in, check_out,
-      grand_total, protection_plan, protection_plan_price,
+      grand_total, protection_plan, protection_plan_price, reslab_currency,
       customers ( email, first_name, last_name )
     `)
     .eq("reslab_reservation_number", resNum)
@@ -102,6 +102,8 @@ async function main() {
     checkOutDate: booking.check_out as string,
     refundAmount,
     wasRefunded: true,
+    // A Canadian-dollar lot's booking, charged in US dollars: amounts read "US$".
+    usdLabel: booking.reslab_currency === "CAD",
     protectionPlanRefund: protectionPlanRefund > 0 ? protectionPlanRefund : undefined,
     // serviceFee intentionally omitted — this is a FULL refund (lot closure),
     // so the standard "service fee non-refundable / retained" line must NOT show.

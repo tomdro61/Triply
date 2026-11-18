@@ -110,6 +110,7 @@ describe("US baseline — confirmation page Payment summary", () => {
         costBreakdown,
         fallback,
         cancelled,
+        usdLabel: false,
       })
     );
 
@@ -157,6 +158,7 @@ describe("US baseline — booking confirmation email", () => {
     checkInTime: "10:00 AM",
     checkOutTime: "2:00 PM",
     totalAmount: 141.6,
+    usdLabel: false,
     dueAtLocation: 0,
   };
   const email = (props: Record<string, unknown>) =>
@@ -216,6 +218,7 @@ describe("US baseline — cancellation email", () => {
     checkOutDate: "2026-10-25",
     refundAmount: 135.65,
     wasRefunded: true,
+    usdLabel: false,
   };
   it("a plain refund", () => {
     expect(html(createElement(CancellationConfirmationEmail, base))).toMatchSnapshot();

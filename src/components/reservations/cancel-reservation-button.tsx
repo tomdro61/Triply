@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { Loader2, AlertCircle, CalendarX, X } from "lucide-react";
 import { PG_NONREFUNDABLE_SUMMARY } from "@/lib/parkguard/plans";
+import { USD_REFUND_LINE, money } from "@/lib/fx/usd-label";
 import {
   CUSTOMER_CANCELLATION_REASONS,
   CUSTOMER_REASON_LABELS,
@@ -43,6 +44,9 @@ const PreviewSchema = z.object({
   priorRefunded: z.number(),
   hasParkGuard: z.boolean(),
   isAuthorizationRelease: z.boolean(),
+  /** Present (true) only on a Canadian-dollar lot's booking: amounts read "US$".
+   *  Any boolean parses (a later `false` must not break the preview); only `true` labels. */
+  usdLabel: z.boolean().optional(),
 });
 type RefundPreview = z.infer<typeof PreviewSchema>;
 
@@ -50,7 +54,6 @@ type RefundPreview = z.infer<typeof PreviewSchema>;
 // or preventDefault — clicks don't reach the card navigation.
 type Phase = "idle" | "confirming" | "submitting" | "processing" | "error";
 
-const money = (n: number) => `$${n.toFixed(2)}`;
 
 /**
  * Preview failures that are NOT outages — they're the cancel path's own
@@ -74,6 +77,8 @@ export function CancelReservationButton({
   const [phase, setPhase] = useState<Phase>("idle");
   const [message, setMessage] = useState<string | null>(null);
   const [preview, setPreview] = useState<RefundPreview | null>(null);
+  // A Canadian-dollar lot's booking, charged in US dollars: amounts read "US$".
+  const usdLabel = preview?.usdLabel === true;
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewDeadEnd, setPreviewDeadEnd] = useState(false);
   // Optional "why?" dropdown (migration 032). "" = not answered; never required.
@@ -364,13 +369,13 @@ export function CancelReservationButton({
                         Refund to your card
                       </span>
                       <span className="text-xl font-bold text-gray-900">
-                        {money(preview.refundAmount)}
+                        {money(preview.refundAmount, usdLabel)}
                       </span>
                     </div>
                     <dl className="mt-3 space-y-1.5 border-t border-gray-200 pt-3 text-sm">
                       <div className="flex justify-between text-gray-600">
                         <dt>You paid</dt>
-                        <dd>{money(preview.paidTotal)}</dd>
+                        <dd>{money(preview.paidTotal, usdLabel)}</dd>
                       </div>
                       {preview.priorRefunded > 0 && (
                         // Without this the itemisation asserts
@@ -378,13 +383,13 @@ export function CancelReservationButton({
                         // leaves an unexplained hole that reads as an error.
                         <div className="flex justify-between text-gray-600">
                           <dt>Already refunded</dt>
-                          <dd>−{money(preview.priorRefunded)}</dd>
+                          <dd>−{money(preview.priorRefunded, usdLabel)}</dd>
                         </div>
                       )}
                       {preview.hasParkGuard && preview.parkGuardWithheld > 0 && (
                         <div className="flex justify-between text-gray-600">
                           <dt>Park Guard fee (non-refundable)</dt>
-                          <dd>−{money(preview.parkGuardWithheld)}</dd>
+                          <dd>−{money(preview.parkGuardWithheld, usdLabel)}</dd>
                         </div>
                       )}
                     </dl>
@@ -392,6 +397,11 @@ export function CancelReservationButton({
                       Refunds usually appear within 5–10 business days, depending
                       on your bank.
                     </p>
+                    {usdLabel && (
+                      <p className="mt-1.5 text-xs text-gray-500" data-testid="usd-refund-line">
+                        {USD_REFUND_LINE}
+                      </p>
+                    )}
                   </>
                 ))}
             </div>

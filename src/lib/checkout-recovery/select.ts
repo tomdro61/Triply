@@ -1,4 +1,5 @@
 import { FX_KEYS } from "@/lib/fx/cad-usd";
+import { isUsdLabelledPayment } from "@/lib/fx/usd-label";
 import type Stripe from "stripe";
 import { z } from "zod";
 import { format } from "date-fns";
@@ -149,6 +150,10 @@ export interface SelectionResult {
     /** `direct-*` lots cannot be booked yet (DIRECT_BOOKING_OPEN); never
      *  invite anyone back to a checkout that refuses them. */
     directLot: number;
+    /** A Canadian-dollar lot's checkout priced at a rate that is no longer in
+     *  force (or none is), or stamped with no rate id: the lot is hidden or
+     *  its price has changed. */
+    currencyChanged: number;
     checkinPassed: number;
     paidSince: number;
     /** The same address PAID for the same lot on any other PaymentIntent in
@@ -190,6 +195,13 @@ export interface SelectionOptions {
   /** ResLab locations hidden from the site (hiddenReslabLocationIds(): the blocked list, plus the test lots in production):
    *  never invite anyone back to a lot we have deliberately pulled. */
   blockedLocationIds?: ReadonlySet<number>;
+  /**
+   * The id of the exchange rate in force now (`currentCadRate()?.id`), or
+   * null / absent when none is. A checkout stamped CAD is emailed only when
+   * it was priced at THIS rate: with no rate the lot is hidden, and at
+   * another rate the amount in the email would no longer be the price.
+   */
+  currentFxRateId?: string | null;
 }
 
 export function selectRecoveryCandidates(
@@ -203,6 +215,7 @@ export function selectRecoveryCandidates(
     invalidMetadata: 0,
     blockedLot: 0,
     directLot: 0,
+    currencyChanged: 0,
     checkinPassed: 0,
     paidSince: 0,
     sameLotPaid: 0,
@@ -279,6 +292,14 @@ export function selectRecoveryCandidates(
       skipped.directLot++;
       continue;
     }
+    // The currency key alone marks a Canadian-dollar lot (see usdLabel below).
+    if (isUsdLabelledPayment(pi.metadata)) {
+      const stampedRateId = pi.metadata?.[FX_KEYS.rateId];
+      if (!options.currentFxRateId || stampedRateId !== options.currentFxRateId) {
+        skipped.currencyChanged++;
+        continue;
+      }
+    }
 
     // String comparison of two "YYYY-MM-DD HH:mm" wall clocks — no Date math
     // on the booking time.
@@ -327,9 +348,9 @@ export function selectRecoveryCandidates(
       email: m.customerEmail,
       createdMs,
       amountCents: pi.amount,
-      // The currency key alone decides: every charge is US dollars, so a CAD
-      // stamp means a converted lot even if its rate keys are unreadable.
-      usdLabel: pi.metadata?.[FX_KEYS.currency] === "CAD",
+      // The currency key decides (every charge is US dollars); a CAD stamp
+      // got here only at the rate in force (see the skip above).
+      usdLabel: isUsdLabelledPayment(pi.metadata),
       livemode: pi.livemode,
       lotId: m.lotId,
       locationId: m.locationId,

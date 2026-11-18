@@ -10,6 +10,7 @@ import {
   cancelPaymentIntent,
 } from "@/lib/stripe/client";
 import { sendCancellationConfirmation } from "@/lib/resend/send-cancellation-confirmation";
+import { isUsdLabelledBooking } from "@/lib/fx/usd-label";
 import { captureAPIError, captureParkGuardError } from "@/lib/sentry";
 import { parkGuard, ParkGuardError } from "@/lib/parkguard/client";
 import { adminClaim } from "@/lib/cancellation/claim";
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
       .select(`
         id, status, location_name, location_address, check_in, check_out, grand_total, triply_service_fee,
         protection_plan, protection_plan_price, protection_plan_wholesale, pg_identifier, stripe_payment_intent_id,
-        inventory_source, livemode,
+        inventory_source, livemode, reslab_currency,
         customers ( email, first_name, last_name )
       `)
       .eq("reslab_reservation_number", reservationNumber)
@@ -641,6 +642,7 @@ export async function POST(request: NextRequest) {
           checkOutDate: booking.check_out,
           refundAmount: totalRefunded,
           wasRefunded,
+          usdLabel: isUsdLabelledBooking(booking),
           // Only surface the fee as "retained" when it actually was. On a full
           // refund the fee is folded into refundAmount and no retained note shows.
           serviceFee: !serviceFeeRefunded && serviceFee > 0 ? serviceFee : undefined,

@@ -108,6 +108,15 @@ describe("GET cancel-preview — Stripe-mode guard (plan 4b §9 H-D)", () => {
     });
   });
 
+  it("a Canadian-dollar lot's booking adds usdLabel: true; a US booking's preview has no such key (asserted above by toEqual)", async () => {
+    current.row = { ...BASE_BOOKING, reslab_currency: "CAD" };
+    retrieve.mockResolvedValue({ id: "pi_1", status: "succeeded", amount_received: 10_000, latest_charge: { amount_refunded: 0 } });
+    const body = await (await GET(req(), params)).json();
+    expect(body).toMatchObject({ refundAmount: 100, usdLabel: true });
+    current.row = { ...BASE_BOOKING, reslab_currency: null };
+    expect(await (await GET(req(), params)).json()).not.toHaveProperty("usdLabel");
+  });
+
   it("a production deployment (live key) previews a pre-015 NULL row as before", async () => {
     vi.stubEnv("STRIPE_SECRET_KEY", "sk_live_x");
     try {

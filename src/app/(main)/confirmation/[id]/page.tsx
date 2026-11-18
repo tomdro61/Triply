@@ -65,6 +65,13 @@ interface ReservationDataBase {
   cardPayment: CardSummary;
   /** What the fallback may say is due at the location / lot — never a guessed 0. */
   fallbackDue: FallbackDue;
+  /**
+   * Present (true) only when the booking row or ResLab says the lot is priced
+   * in Canadian dollars, or ResLab's non-US-dollar figures were withheld: the
+   * charge is US dollars, so every amount reads "US$". Absent on every
+   * US-dollar booking.
+   */
+  usdLabel?: true;
   protectionPlan: string | null;
   protectionPlanPrice: number;
   pgSyncStatus: "pending" | "synced" | "skipped_missing_data" | null;
@@ -569,6 +576,7 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
                 costBreakdown={reservation.costBreakdown}
                 fallback={paymentFallback}
                 cancelled={isCancelled}
+                usdLabel={reservation.usdLabel === true}
               />
 
               {!isCancelled && reservation.protectionPlan && (

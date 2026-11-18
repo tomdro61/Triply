@@ -382,7 +382,7 @@ describe("no price surface is left out", () => {
     "lib/airport-page/data.ts": "builds the page's figures; the components and text builders print them",
     "lib/airport-page/schemas.ts": "structured data: bare numbers beside priceCurrency USD, which is right for a converted price",
   };
-  /** After paying, or staff-only: the record's label is its own piece of work (bookings.reslab_currency). */
+  /** After paying: covered by converted-record-markup.test.ts (a fixed list, not this scan). Staff-only surfaces carry no label. */
   const AFTER_PAYING = /^(components\/(confirmation|reservations|admin|partner|park-stay|support)\/|app\/\(main\)\/(admin|partner|confirmation|reservations|checkout\/complete|park-stay)\b)/;
 
   // A lot's money fields and helpers, or a literal "$" written before a value
@@ -437,6 +437,6 @@ describe("no price surface is left out", () => {
     expect((read("app/api/chat/route.ts").match(/money\([^)]*, isUsdLabelled\(lot\)\)/g) ?? []).length).toBe(2);
     expect(read("app/api/chat/route.ts")).not.toMatch(/`\$\$\{/);
     expect(read("lib/checkout-recovery/email.ts")).toMatch(/money\(c\.amountCents \/ 100, c\.usdLabel\)/);
-    expect(read("lib/checkout-recovery/select.ts")).toMatch(/usdLabel: pi\.metadata\?\.\[FX_KEYS\.currency\] === "CAD"/);
+    expect(read("lib/checkout-recovery/select.ts")).toMatch(/usdLabel: isUsdLabelledPayment\(pi\.metadata\),/);
   });
 });

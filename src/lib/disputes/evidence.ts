@@ -1,5 +1,7 @@
 import type Stripe from "stripe";
 import { termsTextFor } from "@/lib/checkout/terms-acceptance";
+import { FX_KEYS } from "@/lib/fx/cad-usd";
+import { currencyNoticeTextFor, currencySign, isUsdLabelledPayment } from "@/lib/fx/usd-label";
 
 /**
  * Dispute evidence + playbook, built from the booking row, the checkout
@@ -57,6 +59,12 @@ export type ChargeFacts = {
   /** The checkbox wording agreed to (PaymentIntent `termsVersion`); null for
    *  charges made before versioning, which quote nothing. */
   termsText: string | null;
+  /** The US-dollar sentence shown above the Pay button (PaymentIntent
+   *  `currencyNotice`, Canadian-dollar lots only); null on every other charge. */
+  currencyNoticeText: string | null;
+  /** The payment is stamped CAD (a Canadian-dollar lot, charged in US
+   *  dollars): the draft writes its US-dollar figures "US$". */
+  usdLabel: boolean;
   chargedAtISO: string | null;
   cvcCheck: string | null;
   postalCheck: string | null;
@@ -75,6 +83,8 @@ export function chargeFactsFrom(charge: Stripe.Charge, pi: Stripe.PaymentIntent 
     // The terms version lives on the PaymentIntent; Stripe doesn't copy PI
     // metadata onto the charge.
     termsText: typeof pi === "object" && pi ? termsTextFor(pi.metadata?.termsVersion) : null,
+    currencyNoticeText: typeof pi === "object" && pi ? currencyNoticeTextFor(pi.metadata?.[FX_KEYS.notice]) : null,
+    usdLabel: typeof pi === "object" && pi ? isUsdLabelledPayment(pi.metadata) : false,
     chargedAtISO: new Date(charge.created * 1000).toISOString(),
     cvcCheck: card?.checks?.cvc_check ?? null,
     postalCheck: card?.checks?.address_postal_code_check ?? null,
@@ -108,8 +118,10 @@ function cardCheckLines(c: ChargeFacts | null): string[] {
 // run it through Date (CLAUDE.md anti-pattern).
 const localTime = (s: string | null) => (s ? s.slice(0, 16).replace("T", " ") : "unknown");
 const day = (s: string | null) => (s ? s.slice(0, 10) : undefined);
-const money = (cents: number, currency: string) =>
-  currency.toLowerCase() === "usd" ? `$${(cents / 100).toFixed(2)}` : `${(cents / 100).toFixed(2)} ${currency.toUpperCase()}`;
+const money = (cents: number, currency: string, usdLabel: boolean) =>
+  currency.toLowerCase() === "usd"
+    ? `${currencySign(usdLabel)}${(cents / 100).toFixed(2)}`
+    : `${(cents / 100).toFixed(2)} ${currency.toUpperCase()}`;
 
 /**
  * Terms §5 as quoted below (self-cancel in My Reservations, 5-10 business day
@@ -253,10 +265,18 @@ export function buildEvidence(
     contactLine,
     `Facility: ${lot || "see booking"}${booking.airport_code ? ` (${booking.airport_code} airport)` : ""}.`,
     `Reserved stay: check-in ${localTime(booking.check_in)} to check-out ${localTime(booking.check_out)}, airport local time.`,
-    charge ? `Charged online by Triply: ${money(charge.capturedCents, currency)}.` : null,
-    charge && charge.refundedCents > 0 ? `Refunded to the card so far: ${money(charge.refundedCents, currency)}.` : null,
-    // No figure: ResLab prices some lots in CAD (the charge currency would
-    // mislabel it), and only the online charge is in dispute.
+    charge ? `Charged online by Triply: ${money(charge.capturedCents, currency, charge.usdLabel)}.` : null,
+    charge && charge.refundedCents > 0 ? `Refunded to the card so far: ${money(charge.refundedCents, currency, charge.usdLabel)}.` : null,
+    charge?.currencyNoticeText
+      ? // Only what the stamp backs: the wording of the Pay-step notice that
+        // the paying page sent. No claim about other amounts on the page
+        // (wallet sheets format their own) or about what the customer read.
+        `Triply's checkout places a notice above the Pay button for this facility. The notice wording recorded on this payment reads: "${charge.currencyNoticeText}"`
+      : null,
+    // No figure: due_at_location is US dollars on a converted row but
+    // ResLab's Canadian number on the Canadian bookings made before
+    // conversion, and this select cannot tell them apart. Only the online
+    // charge is in dispute.
     atLotCents > 0 ? "Part of the reservation price was payable directly at the facility; Triply did not charge it." : null,
     `Reservation status before the dispute: ${status ?? "not recorded"}${booking.cancelled_by ? ` (cancelled by ${booking.cancelled_by}${booking.cancellation_reason ? `, reason: ${booking.cancellation_reason}` : ""})` : ""}.`,
     ...cardCheckLines(charge),

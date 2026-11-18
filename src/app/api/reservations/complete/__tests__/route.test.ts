@@ -76,6 +76,15 @@ describe("POST /api/reservations/complete — needs_support answer", () => {
     expect(body.message).not.toMatch(/not (been )?charged/i);
     expect(body.message).not.toMatch(/charged twice/i);
     expect(body.message).not.toMatch(/business day/i); // no deadline the code can't enforce
+    // A US-dollar payment's answer has no currency-label key.
+    expect(body).not.toHaveProperty("usdLabel");
+  });
+
+  it("a Canadian-dollar lot's payment (stamped CAD) adds usdLabel: true, so the page writes US$", async () => {
+    retrieve.mockResolvedValue(pi("requires_capture", { metadata: { customerEmail: "ada@example.com", reslabCurrency: "CAD" } }));
+    createBooking.mockResolvedValue({ kind: "needs_reconciliation", reason: "ResLab ambiguous failure", retryable: false });
+    const body = await (await post({ paymentIntentId: "pi_abc", clientSecret: SECRET })).json();
+    expect(body).toMatchObject({ state: "needs_support", amountCents: 2537, currency: "usd", charge: "hold", usdLabel: true });
   });
 
   it("reads the card AFTER the engine ran: a hold before, captured after → says 'captured' (review High, Oct 28)", async () => {

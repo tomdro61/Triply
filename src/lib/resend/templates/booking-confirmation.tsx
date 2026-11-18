@@ -1,7 +1,8 @@
 import * as React from "react";
 import { formatDate } from "@/lib/utils";
 import { bulletLines } from "@/lib/utils/bullet-lines";
-import { formatUsd, type CostBreakdown, type CostBreakdownResult } from "@/lib/booking/cost-breakdown";
+import type { CostBreakdown, CostBreakdownResult } from "@/lib/booking/cost-breakdown";
+import { currencySign, moneyCents } from "@/lib/fx/usd-label";
 import type { AnchoredFallback } from "../anchored-fallback";
 
 /**
@@ -31,6 +32,12 @@ interface BookingConfirmationEmailProps {
   checkInTime: string;
   checkOutTime: string;
   totalAmount: number;
+  /**
+   * The booking is for a lot priced in Canadian dollars at the source and
+   * charged in US dollars: every amount reads "US$". Required, never
+   * defaulted: a sender that forgets it does not compile.
+   */
+  usdLabel: boolean;
   dueAtLocation?: number;
   vehicleInfo?: string;
   shuttlePhone?: string;
@@ -80,20 +87,21 @@ function AmountRow({ label, value, style }: { label: React.ReactNode; value: str
  * in it, and what is due at the location / lot when the core `fallbackDue`
  * says it can be stated (otherwise: the lot confirms it on arrival). No total.
  */
-function AnchoredFallbackRows({ f, directVehicleSizeLabel }: { f: AnchoredFallback; directVehicleSizeLabel: string | null }) {
+function AnchoredFallbackRows({ f, directVehicleSizeLabel, usdLabel }: { f: AnchoredFallback; directVehicleSizeLabel: string | null; usdLabel: boolean }) {
+  const usd = (cents: number, credit = false) => moneyCents(cents, usdLabel, credit);
   const dueStyle = { padding: "6px 0 0", color: "#b45309", fontSize: "14px", fontWeight: "600" } as const;
   return (
     <>
-      <AmountRow label="Charged to card" value={formatUsd(f.chargedCents)} style={f.due.kind !== "none" ? ruleCell : totalCell} />
+      <AmountRow label="Charged to card" value={usd(f.chargedCents)} style={f.due.kind !== "none" ? ruleCell : totalCell} />
       {f.protection && (
-        <AmountRow label={`Includes Parking Protection — ${f.protection.label}`} value={formatUsd(f.protection.premiumCents)} style={subCell} />
+        <AmountRow label={`Includes Parking Protection — ${f.protection.label}`} value={usd(f.protection.premiumCents)} style={subCell} />
       )}
       {f.due.kind === "amount" && directVehicleSizeLabel === null && (
-        <AmountRow label="Due at location (as recorded)" value={formatUsd(f.due.cents)} style={dueStyle} />
+        <AmountRow label="Due at location (as recorded)" value={usd(f.due.cents)} style={dueStyle} />
       )}
       {f.due.kind === "amount" && directVehicleSizeLabel !== null && (
         <>
-          <AmountRow label="Due at the lot (est.)" value={formatUsd(f.due.cents)} style={dueStyle} />
+          <AmountRow label="Due at the lot (est.)" value={usd(f.due.cents)} style={dueStyle} />
           <tr>
             <td colSpan={2} style={{ padding: "0 0 4px", color: "#64748b", fontSize: "12px", lineHeight: "1.5" }}>
               {directVehicleSizeLabel} surcharge incl. tax, paid at drop-off. The lot confirms your vehicle&rsquo;s size at the gate.
@@ -119,7 +127,8 @@ function AnchoredFallbackRows({ f, directVehicleSizeLabel }: { f: AnchoredFallba
  * location when something is due there). Direct: lines → Charged today (this
  * email is sent at booking) → Due at the lot (est.) → Trip total (est.).
  */
-function BreakdownRows({ b }: { b: CostBreakdown }) {
+function BreakdownRows({ b, usdLabel }: { b: CostBreakdown; usdLabel: boolean }) {
+  const usd = (cents: number, credit = false) => moneyCents(cents, usdLabel, credit);
   const cardLabel = b.totalLabel === "Charged to card" ? "Charged today" : b.totalLabel;
   const hasSecondStep = b.dueAtLocationCents > 0 || b.atLot !== null;
   return (
@@ -128,7 +137,7 @@ function BreakdownRows({ b }: { b: CostBreakdown }) {
         <AmountRow
           key={line.key}
           label={line.label}
-          value={formatUsd(line.cents, line.credit)}
+          value={usd(line.cents, line.credit)}
           style={line.credit ? { ...rowCell, color: "#15803d" } : rowCell}
         />
       ))}
@@ -142,15 +151,15 @@ function BreakdownRows({ b }: { b: CostBreakdown }) {
             cardLabel
           )
         }
-        value={formatUsd(b.totalCents)}
+        value={usd(b.totalCents)}
         style={hasSecondStep ? ruleCell : totalCell}
       />
       {b.dueAtLocationCents > 0 && (
         <>
-          <AmountRow label="Paid online (card)" value={formatUsd(b.paidOnlineCents)} style={subCell} />
+          <AmountRow label="Paid online (card)" value={usd(b.paidOnlineCents)} style={subCell} />
           <AmountRow
             label="Due at location"
-            value={formatUsd(b.dueAtLocationCents)}
+            value={usd(b.dueAtLocationCents)}
             style={{ ...rowCell, color: "#b45309", fontWeight: "600" }}
           />
         </>
@@ -159,7 +168,7 @@ function BreakdownRows({ b }: { b: CostBreakdown }) {
         <>
           <AmountRow
             label="Due at the lot (est.)"
-            value={formatUsd(b.atLot.cents)}
+            value={usd(b.atLot.cents)}
             style={{ padding: "6px 0 0", color: "#b45309", fontSize: "14px", fontWeight: "600" }}
           />
           <tr>
@@ -168,14 +177,14 @@ function BreakdownRows({ b }: { b: CostBreakdown }) {
             </td>
           </tr>
           {b.tripTotalCents !== null && (
-            <AmountRow label="Trip total (est.)" value={formatUsd(b.tripTotalCents)} style={totalCell} />
+            <AmountRow label="Trip total (est.)" value={usd(b.tripTotalCents)} style={totalCell} />
           )}
         </>
       )}
       {b.netPaidCents !== null && (
         <>
-          <AmountRow label="Refunded" value={formatUsd(b.refundedCents, true)} style={{ ...rowCell, color: "#15803d" }} />
-          <AmountRow label="Net paid" value={formatUsd(b.netPaidCents)} style={totalCell} />
+          <AmountRow label="Refunded" value={usd(b.refundedCents, true)} style={{ ...rowCell, color: "#15803d" }} />
+          <AmountRow label="Net paid" value={usd(b.netPaidCents)} style={totalCell} />
         </>
       )}
     </>
@@ -200,6 +209,7 @@ export function BookingConfirmationEmail({
   checkInTime,
   checkOutTime,
   totalAmount,
+  usdLabel,
   dueAtLocation,
   vehicleInfo,
   shuttlePhone,
@@ -212,6 +222,8 @@ export function BookingConfirmationEmail({
   breakdown,
   anchoredFallback,
 }: BookingConfirmationEmailProps) {
+  // "$", or "US$" on a booking charged in US dollars for a Canadian-dollar lot.
+  const sign = currencySign(usdLabel);
   // A direct lot's shuttle phone comes from its snapshot; ResLab never passes one.
   shuttlePhone = direct?.shuttlePhone ?? shuttlePhone;
   // Lot notes written as "- " lines render as a list (same rule as the lot page).
@@ -412,9 +424,9 @@ export function BookingConfirmationEmail({
           <table style={{ width: "100%" }}>
             <tbody>
               {breakdown?.ok ? (
-                <BreakdownRows b={breakdown} />
+                <BreakdownRows b={breakdown} usdLabel={usdLabel} />
               ) : breakdown && anchoredFallback ? (
-                <AnchoredFallbackRows f={anchoredFallback} directVehicleSizeLabel={direct ? direct.vehicleSizeLabel : null} />
+                <AnchoredFallbackRows f={anchoredFallback} directVehicleSizeLabel={direct ? direct.vehicleSizeLabel : null} usdLabel={usdLabel} />
               ) : direct && direct.atLotEstimate !== null && direct.atLotEstimate > 0 ? (
                 <>
                   {/* Direct lot with an oversized vehicle: money changes hands
@@ -424,27 +436,27 @@ export function BookingConfirmationEmail({
                       amount is display only and never part of totalAmount. */}
                   <tr>
                     <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px" }}>Parking, fees &amp; taxes</td>
-                    <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px", textAlign: "right" }}>${(totalAmount - (protectionPriceText ? parseFloat(protectionPriceText) : 0) + direct.discount).toFixed(2)}</td>
+                    <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px", textAlign: "right" }}>{sign}{(totalAmount - (protectionPriceText ? parseFloat(protectionPriceText) : 0) + direct.discount).toFixed(2)}</td>
                   </tr>
                   {direct.discount > 0 && (
                     <tr>
                       <td style={{ padding: "3px 0", color: "#15803d", fontSize: "14px" }}>Promo discount</td>
-                      <td style={{ padding: "3px 0", color: "#15803d", fontSize: "14px", textAlign: "right" }}>&minus;${direct.discount.toFixed(2)}</td>
+                      <td style={{ padding: "3px 0", color: "#15803d", fontSize: "14px", textAlign: "right" }}>{"\u2212" + sign}{direct.discount.toFixed(2)}</td>
                     </tr>
                   )}
                   {hasProtection && (
                     <tr>
                       <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px" }}>Parking Protection</td>
-                      <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px", textAlign: "right" }}>${protectionPriceText}</td>
+                      <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px", textAlign: "right" }}>{sign}{protectionPriceText}</td>
                     </tr>
                   )}
                   <tr>
                     <td style={{ padding: "10px 0 3px", color: "#1e293b", fontSize: "15px", fontWeight: "700", borderTop: "1px solid #fed7ca" }}>Charged today <span style={{ color: "#64748b", fontSize: "12px", fontWeight: "400" }}>(card)</span></td>
-                    <td style={{ padding: "10px 0 3px", color: "#1e293b", fontSize: "15px", fontWeight: "700", textAlign: "right", borderTop: "1px solid #fed7ca" }}>${totalAmount.toFixed(2)}</td>
+                    <td style={{ padding: "10px 0 3px", color: "#1e293b", fontSize: "15px", fontWeight: "700", textAlign: "right", borderTop: "1px solid #fed7ca" }}>{sign}{totalAmount.toFixed(2)}</td>
                   </tr>
                   <tr>
                     <td style={{ padding: "6px 0 0", color: "#b45309", fontSize: "14px", fontWeight: "600" }}>Due at the lot (est.)</td>
-                    <td style={{ padding: "6px 0 0", color: "#b45309", fontSize: "14px", fontWeight: "600", textAlign: "right" }}>${direct.atLotEstimate.toFixed(2)}</td>
+                    <td style={{ padding: "6px 0 0", color: "#b45309", fontSize: "14px", fontWeight: "600", textAlign: "right" }}>{sign}{direct.atLotEstimate.toFixed(2)}</td>
                   </tr>
                   <tr>
                     <td colSpan={2} style={{ padding: "0 0 4px", color: "#64748b", fontSize: "12px", lineHeight: "1.5" }}>
@@ -453,7 +465,7 @@ export function BookingConfirmationEmail({
                   </tr>
                   <tr>
                     <td style={{ padding: "10px 0 0", color: "#1e293b", fontSize: "17px", fontWeight: "700", borderTop: "1px solid #fed7ca" }}>Trip total (est.)</td>
-                    <td style={{ padding: "10px 0 0", color: "#1e293b", fontSize: "17px", textAlign: "right", fontWeight: "700", borderTop: "1px solid #fed7ca" }}>${(Math.round((totalAmount + direct.atLotEstimate) * 100) / 100).toFixed(2)}</td>
+                    <td style={{ padding: "10px 0 0", color: "#1e293b", fontSize: "17px", textAlign: "right", fontWeight: "700", borderTop: "1px solid #fed7ca" }}>{sign}{(Math.round((totalAmount + direct.atLotEstimate) * 100) / 100).toFixed(2)}</td>
                   </tr>
                 </>
               ) : dueAtLocation && dueAtLocation > 0 ? (
@@ -464,25 +476,25 @@ export function BookingConfirmationEmail({
                       and don't reconcile against Total. */}
                   <tr>
                     <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px" }}>Parking</td>
-                    <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px", textAlign: "right" }}>${(paidOnline - (protectionPriceText ? parseFloat(protectionPriceText) : 0)).toFixed(2)}</td>
+                    <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px", textAlign: "right" }}>{sign}{(paidOnline - (protectionPriceText ? parseFloat(protectionPriceText) : 0)).toFixed(2)}</td>
                   </tr>
                   {hasProtection && (
                     <tr>
                       <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px" }}>Parking Protection</td>
-                      <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px", textAlign: "right" }}>${protectionPriceText}</td>
+                      <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px", textAlign: "right" }}>{sign}{protectionPriceText}</td>
                     </tr>
                   )}
                   <tr>
                     <td style={{ padding: "3px 0", color: "#64748b", fontSize: "13px", fontStyle: "italic" }}>(Paid online)</td>
-                    <td style={{ padding: "3px 0", color: "#64748b", fontSize: "13px", textAlign: "right", fontStyle: "italic" }}>${paidOnline.toFixed(2)}</td>
+                    <td style={{ padding: "3px 0", color: "#64748b", fontSize: "13px", textAlign: "right", fontStyle: "italic" }}>{sign}{paidOnline.toFixed(2)}</td>
                   </tr>
                   <tr>
                     <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px" }}>Due at location</td>
-                    <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px", textAlign: "right" }}>${dueAtLocation.toFixed(2)}</td>
+                    <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px", textAlign: "right" }}>{sign}{dueAtLocation.toFixed(2)}</td>
                   </tr>
                   <tr>
                     <td style={{ padding: "10px 0 0", color: "#1e293b", fontSize: "17px", fontWeight: "700", borderTop: "1px solid #fed7ca" }}>Total</td>
-                    <td style={{ padding: "10px 0 0", color: "#1e293b", fontSize: "17px", textAlign: "right", fontWeight: "700", borderTop: "1px solid #fed7ca" }}>${totalAmount.toFixed(2)}</td>
+                    <td style={{ padding: "10px 0 0", color: "#1e293b", fontSize: "17px", textAlign: "right", fontWeight: "700", borderTop: "1px solid #fed7ca" }}>{sign}{totalAmount.toFixed(2)}</td>
                   </tr>
                 </>
               ) : (
@@ -490,12 +502,12 @@ export function BookingConfirmationEmail({
                   {hasProtection && (
                     <tr>
                       <td style={{ padding: "3px 0", color: "#64748b", fontSize: "13px" }}>Parking Protection</td>
-                      <td style={{ padding: "3px 0", color: "#64748b", fontSize: "13px", textAlign: "right" }}>${protectionPriceText}</td>
+                      <td style={{ padding: "3px 0", color: "#64748b", fontSize: "13px", textAlign: "right" }}>{sign}{protectionPriceText}</td>
                     </tr>
                   )}
                   <tr>
                     <td style={{ padding: "10px 0 0", color: "#1e293b", fontSize: "17px", fontWeight: "700", borderTop: hasProtection ? "1px solid #fed7ca" : "0" }}>Total Paid</td>
-                    <td style={{ padding: "10px 0 0", color: "#1e293b", fontSize: "17px", textAlign: "right", fontWeight: "700", borderTop: hasProtection ? "1px solid #fed7ca" : "0" }}>${totalAmount.toFixed(2)}</td>
+                    <td style={{ padding: "10px 0 0", color: "#1e293b", fontSize: "17px", textAlign: "right", fontWeight: "700", borderTop: hasProtection ? "1px solid #fed7ca" : "0" }}>{sign}{totalAmount.toFixed(2)}</td>
                   </tr>
                 </>
               )}

@@ -18,6 +18,8 @@ interface SendBookingConfirmationParams {
   checkInTime: string;
   checkOutTime: string;
   totalAmount: number;
+  /** "US$" on every amount: a booking charged in US dollars for a Canadian-dollar lot. Required. */
+  usdLabel: boolean;
   dueAtLocation?: number;
   vehicleInfo?: string;
   shuttleDetails?: string;
@@ -70,6 +72,7 @@ export async function sendBookingConfirmation({
   checkInTime,
   checkOutTime,
   totalAmount,
+  usdLabel,
   dueAtLocation,
   vehicleInfo,
   shuttleDetails,
@@ -99,6 +102,7 @@ export async function sendBookingConfirmation({
         checkInTime,
         checkOutTime,
         totalAmount,
+        usdLabel,
         dueAtLocation,
         vehicleInfo,
         shuttleDetails,

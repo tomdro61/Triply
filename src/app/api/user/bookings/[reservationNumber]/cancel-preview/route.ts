@@ -6,6 +6,7 @@ import { stripe } from "@/lib/stripe/client";
 import { planTeardown } from "@/lib/cancellation/finalize";
 import { isCancellable } from "@/lib/cancellation/eligibility";
 import { isOtherStripeMode, OTHER_MODE_CUSTOMER_MESSAGE } from "@/lib/cancellation/source-guard";
+import { isUsdLabelledBooking } from "@/lib/fx/usd-label";
 
 /**
  * Refund preview for the cancel confirmation dialog.
@@ -49,7 +50,7 @@ const BOOKING_SELECT = `
   id, status, reslab_reservation_number, location_name,
   check_in, check_out, location_timezone,
   protection_plan, protection_plan_price, protection_plan_wholesale, stripe_payment_intent_id,
-  livemode
+  livemode, reslab_currency
 `;
 
 export async function GET(
@@ -219,6 +220,8 @@ export async function GET(
         priorRefunded: plan.priorRefundedCents / 100,
         hasParkGuard: !!booking.protection_plan,
         isAuthorizationRelease,
+        // Only on a Canadian-dollar lot's booking (a US response is unchanged).
+        ...(isUsdLabelledBooking(booking) && { usdLabel: true as const }),
       },
       { headers: NO_STORE },
     );

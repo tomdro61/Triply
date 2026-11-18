@@ -14,6 +14,7 @@ import {
   assertWaitlistSigningSecret,
   isWaitlistConfigError,
 } from "@/lib/waitlist/unsubscribe-token";
+import { currentCadRate } from "@/lib/fx/cad-usd";
 import { recoveryUnsubscribeUrl } from "@/lib/checkout-recovery/unsubscribe-token";
 import {
   RECOVERY_MAX_AGE_MS,
@@ -691,6 +692,7 @@ async function run(postalAddress: string) {
 
   const { candidates: selected, skipped } = selectRecoveryCandidates(pis, nowMs, {
     blockedLocationIds: hiddenReslabLocationIds(),
+    currentFxRateId: currentCadRate(new Date(nowMs))?.id ?? null,
   });
 
   const supabase = await createAdminClient();

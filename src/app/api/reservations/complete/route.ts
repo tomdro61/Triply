@@ -65,10 +65,16 @@ async function buildConfirmationUrl(
  */
 async function moneyForAnswer(
   piId: string
-): Promise<{ amountCents: number; currency: string; charge: "hold" | "captured" } | Record<string, never>> {
+): Promise<{ amountCents: number; currency: string; charge: "hold" | "captured"; usdLabel?: true } | Record<string, never>> {
   const money = await moneyOnCard(piId);
   if (money.kind === "hold" || money.kind === "captured") {
-    return { amountCents: money.amountCents, currency: money.currency, charge: money.kind };
+    return {
+      amountCents: money.amountCents,
+      currency: money.currency,
+      charge: money.kind,
+      // Only on a Canadian-dollar lot's payment (a US answer is unchanged).
+      ...(money.usdLabel && { usdLabel: true as const }),
+    };
   }
   return {};
 }

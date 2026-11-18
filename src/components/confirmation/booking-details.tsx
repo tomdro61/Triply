@@ -15,13 +15,13 @@ import {
 import { UnifiedLot } from "@/types/lot";
 import { formatDate as sharedFormatDate } from "@/lib/utils";
 import {
-  formatUsd,
   toCents,
   type CostBreakdown,
   type CostBreakdownResult,
   type FallbackDue,
 } from "@/lib/booking/cost-breakdown";
 import type { CardSummary } from "@/lib/booking/confirmation-payment";
+import { moneyCents } from "@/lib/fx/usd-label";
 
 /**
  * What the plain fallback shows when the breakdown was refused (`ok: false`),
@@ -42,11 +42,14 @@ export interface PaymentFallback {
       };
 }
 
-function directDueNote(estimate: { vehicleSizeLabel: string; surcharge: number; surchargeTax: number } | null): string {
+function directDueNote(
+  estimate: { vehicleSizeLabel: string; surcharge: number; surchargeTax: number } | null,
+  usdLabel: boolean
+): string {
   const surcharge = estimate ? toCents(estimate.surcharge) : null;
   const tax = estimate ? toCents(estimate.surchargeTax) : null;
   if (!estimate || surcharge === null || tax === null) return "Paid at drop-off. Not charged online.";
-  return `${estimate.vehicleSizeLabel}: ${formatUsd(surcharge)}${tax > 0 ? ` + ${formatUsd(tax)} tax` : ""}, paid at drop-off. Not charged online.`;
+  return `${estimate.vehicleSizeLabel}: ${moneyCents(surcharge, usdLabel)}${tax > 0 ? ` + ${moneyCents(tax, usdLabel)} tax` : ""}, paid at drop-off. Not charged online.`;
 }
 
 interface BookingDetailsProps {
@@ -74,28 +77,35 @@ interface BookingDetailsProps {
    * location and Get Directions. Required, never defaulted (see ConfirmationHeader).
    */
   cancelled: boolean;
+  /**
+   * The booking is for a lot priced in Canadian dollars at the source and
+   * charged in US dollars: every amount reads "US$". Required, never defaulted.
+   */
+  usdLabel: boolean;
 }
 
 function Row({
   label,
   cents,
+  usdLabel,
   credit = false,
   className = "text-gray-700",
 }: {
   label: string;
   cents: number;
+  usdLabel: boolean;
   credit?: boolean;
   className?: string;
 }) {
   return (
     <div className={`flex justify-between gap-3 ${className}`}>
       <span>{label}</span>
-      <span className="tabular-nums whitespace-nowrap">{formatUsd(cents, credit)}</span>
+      <span className="tabular-nums whitespace-nowrap">{moneyCents(cents, usdLabel, credit)}</span>
     </div>
   );
 }
 
-function DueRow({ label, cents, note }: { label: string; cents: number; note: string }) {
+function DueRow({ label, cents, note, usdLabel }: { label: string; cents: number; note: string; usdLabel: boolean }) {
   return (
     <div>
       <div className="flex justify-between gap-3 font-medium text-amber-700">
@@ -103,7 +113,7 @@ function DueRow({ label, cents, note }: { label: string; cents: number; note: st
           <Wallet size={14} />
           {label}
         </span>
-        <span className="tabular-nums whitespace-nowrap font-semibold">{formatUsd(cents)}</span>
+        <span className="tabular-nums whitespace-nowrap font-semibold">{moneyCents(cents, usdLabel)}</span>
       </div>
       <p className="text-xs text-gray-500 mt-0.5">{note}</p>
     </div>
@@ -111,38 +121,38 @@ function DueRow({ label, cents, note }: { label: string; cents: number; note: st
 }
 
 /** The checked breakdown: lines → rule → total → (paid online / due) → refund. */
-function BreakdownSummary({ b }: { b: CostBreakdown }) {
+function BreakdownSummary({ b, usdLabel }: { b: CostBreakdown; usdLabel: boolean }) {
   // "Booking total" only where the card line IS the total; ResLab's "Total"
   // (the whole booking, incl. the share due at the location) keeps its label.
   const totalLabel = b.cancelled && b.totalLabel !== "Total" ? "Booking total" : b.totalLabel;
   return (
     <div className="space-y-1.5 text-sm">
       {b.lines.map((line) => (
-        <Row key={line.key} label={line.label} cents={line.cents} credit={line.credit} />
+        <Row usdLabel={usdLabel} key={line.key} label={line.label} cents={line.cents} credit={line.credit} />
       ))}
       <div className="border-t border-gray-200 pt-2 mt-2">
-        <Row label={totalLabel} cents={b.totalCents} className="font-semibold text-gray-900" />
+        <Row usdLabel={usdLabel} label={totalLabel} cents={b.totalCents} className="font-semibold text-gray-900" />
       </div>
       {b.totalLabel === "Total" && (
         <div className="space-y-1.5 pl-3">
-          <Row label="Paid online (card)" cents={b.paidOnlineCents} className="text-gray-600" />
+          <Row usdLabel={usdLabel} label="Paid online (card)" cents={b.paidOnlineCents} className="text-gray-600" />
           {b.dueAtLocationCents > 0 && (
-            <DueRow label="Due at location" cents={b.dueAtLocationCents} note="Paid when you arrive." />
+            <DueRow usdLabel={usdLabel} label="Due at location" cents={b.dueAtLocationCents} note="Paid when you arrive." />
           )}
         </div>
       )}
       {b.atLot && (
         <div className="space-y-1.5 pt-1">
-          <DueRow
+          <DueRow usdLabel={usdLabel}
             label="Due at the lot (est.)"
             cents={b.atLot.cents}
-            note={`${b.atLot.vehicleSizeLabel}: ${formatUsd(b.atLot.surchargeCents)}${
-              b.atLot.surchargeTaxCents > 0 ? ` + ${formatUsd(b.atLot.surchargeTaxCents)} tax` : ""
+            note={`${b.atLot.vehicleSizeLabel}: ${moneyCents(b.atLot.surchargeCents, usdLabel)}${
+              b.atLot.surchargeTaxCents > 0 ? ` + ${moneyCents(b.atLot.surchargeTaxCents, usdLabel)} tax` : ""
             }, paid at drop-off. Not charged online.`}
           />
           {b.tripTotalCents !== null && (
             <div className="border-t border-gray-200 pt-2 mt-2">
-              <Row
+              <Row usdLabel={usdLabel}
                 label={b.tripTotalIsEstimate ? "Trip total (est.)" : "Trip total"}
                 cents={b.tripTotalCents}
                 className="font-semibold text-gray-900"
@@ -153,8 +163,8 @@ function BreakdownSummary({ b }: { b: CostBreakdown }) {
       )}
       {b.refundedCents > 0 && b.netPaidCents !== null && (
         <div className="border-t border-gray-200 pt-2 mt-2 space-y-1.5">
-          <Row label="Refunded" cents={b.refundedCents} credit className="text-emerald-700" />
-          <Row label="Net paid" cents={b.netPaidCents} className="font-semibold text-gray-900" />
+          <Row usdLabel={usdLabel} label="Refunded" cents={b.refundedCents} credit className="text-emerald-700" />
+          <Row usdLabel={usdLabel} label="Net paid" cents={b.netPaidCents} className="font-semibold text-gray-900" />
         </div>
       )}
     </div>
@@ -165,17 +175,17 @@ function BreakdownSummary({ b }: { b: CostBreakdown }) {
  * The plain layout when the breakdown was refused — no itemisation, no
  * guesses. "Charged to card" appears ONLY for Stripe's own amount.
  */
-function FallbackSummary({ fallback, cancelled }: { fallback: PaymentFallback; cancelled: boolean }) {
+function FallbackSummary({ fallback, cancelled, usdLabel }: { fallback: PaymentFallback; cancelled: boolean; usdLabel: boolean }) {
   const { card, due } = fallback;
   return (
     <div className="space-y-1.5 text-sm">
       {card.status === "charged" ? (
         <>
-          <Row label="Charged to card" cents={card.chargedCents} className="font-semibold text-gray-900" />
+          <Row usdLabel={usdLabel} label="Charged to card" cents={card.chargedCents} className="font-semibold text-gray-900" />
           {card.refundedCents > 0 && card.netPaidCents !== null && (
             <div className="border-t border-gray-200 pt-2 mt-2 space-y-1.5">
-              <Row label="Refunded" cents={card.refundedCents} credit className="text-emerald-700" />
-              <Row label="Net paid" cents={card.netPaidCents} className="font-semibold text-gray-900" />
+              <Row usdLabel={usdLabel} label="Refunded" cents={card.refundedCents} credit className="text-emerald-700" />
+              <Row usdLabel={usdLabel} label="Net paid" cents={card.netPaidCents} className="font-semibold text-gray-900" />
             </div>
           )}
         </>
@@ -188,9 +198,9 @@ function FallbackSummary({ fallback, cancelled }: { fallback: PaymentFallback; c
       )}
       {!cancelled && due.kind === "amount" && (
         fallback.dueContext.source === "direct" ? (
-          <DueRow label="Due at the lot (est.)" cents={due.cents} note={directDueNote(fallback.dueContext.estimate)} />
+          <DueRow usdLabel={usdLabel} label="Due at the lot (est.)" cents={due.cents} note={directDueNote(fallback.dueContext.estimate, usdLabel)} />
         ) : (
-          <DueRow label="Due at location (as recorded)" cents={due.cents} note="Paid when you arrive." />
+          <DueRow usdLabel={usdLabel} label="Due at location (as recorded)" cents={due.cents} note="Paid when you arrive." />
         )
       )}
       {!cancelled && due.kind === "unconfirmed" && (
@@ -218,6 +228,7 @@ export function BookingDetails({
   costBreakdown,
   fallback,
   cancelled,
+  usdLabel,
 }: BookingDetailsProps) {
   const mainImage = lot.photos[0]?.url || "/placeholder-lot.jpg";
 
@@ -311,9 +322,9 @@ export function BookingDetails({
         <div className="p-4 border border-gray-200 rounded-lg mb-6">
           <h3 className="font-semibold text-gray-900 mb-3">Payment summary</h3>
           {costBreakdown.ok ? (
-            <BreakdownSummary b={costBreakdown} />
+            <BreakdownSummary b={costBreakdown} usdLabel={usdLabel} />
           ) : (
-            <FallbackSummary fallback={fallback} cancelled={cancelled} />
+            <FallbackSummary fallback={fallback} cancelled={cancelled} usdLabel={usdLabel} />
           )}
         </div>
 

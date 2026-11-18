@@ -60,6 +60,7 @@ describe("confirmationLink", () => {
         checkInTime: "8:00 AM",
         checkOutTime: "6:00 PM",
         totalAmount: 74,
+        usdLabel: false,
       })
     );
     expect(html).toContain(`href="${confirmationUrl.replace(/&/g, "&amp;")}"`);

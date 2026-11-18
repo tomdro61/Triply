@@ -182,13 +182,36 @@ describe("storedTripKey / literalWallClock", () => {
 describe("the amount's currency label follows the PaymentIntent's stamp", () => {
   // A lot priced in Canadian dollars at the source is charged in US dollars:
   // its abandoned-checkout email must say "US$", a US lot's a plain "$".
-  const candidate = (id: string, stamp: Record<string, string>) =>
-    selectRecoveryCandidates([pi(id, 60, { ...trip, customerEmail: `${id}@example.com`, ...stamp })], NOW).candidates[0];
+  const select = (id: string, stamp: Record<string, string>, currentFxRateId?: string | null) =>
+    selectRecoveryCandidates(
+      [pi(id, 60, { ...trip, customerEmail: `${id}@example.com`, ...stamp })],
+      NOW,
+      currentFxRateId === undefined ? {} : { currentFxRateId }
+    );
+  const CAD = { reslabCurrency: "CAD", fxRateId: "r1", fxRateMicros: "720000", currencyNotice: "2026-11-17" };
 
-  it("stamped CAD → labelled, even when the rate keys are missing; a US stamp or no stamp → not", () => {
-    expect(candidate("pi_cad", { reslabCurrency: "CAD", fxRateId: "r1", fxRateMicros: "720000", currencyNotice: "2026-11-17" }).usdLabel).toBe(true);
-    expect(candidate("pi_usd", { reslabCurrency: "USD" }).usdLabel).toBe(false);
-    expect(candidate("pi_old", {}).usdLabel).toBe(false);
-    expect(candidate("pi_bad", { reslabCurrency: "CAD" }).usdLabel).toBe(true);
+  it("stamped CAD at the rate in force → labelled; a US stamp or no stamp → not", () => {
+    expect(select("pi_cad", CAD, "r1").candidates[0].usdLabel).toBe(true);
+    expect(select("pi_usd", { reslabCurrency: "USD" }, "r1").candidates[0].usdLabel).toBe(false);
+    expect(select("pi_old", {}, "r1").candidates[0].usdLabel).toBe(false);
+  });
+
+  it("stamped CAD is not emailed when no rate is in force (the lot is hidden), at another rate, or with no readable rate id", () => {
+    for (const current of [undefined, null, "", "r2"]) {
+      const r = select("pi_cad", CAD, current);
+      expect(r.candidates).toEqual([]);
+      expect(r.skipped.currencyChanged).toBe(1);
+    }
+    const noId = select("pi_bad", { reslabCurrency: "CAD" }, "r1");
+    expect(noId.candidates).toEqual([]);
+    expect(noId.skipped.currencyChanged).toBe(1);
+  });
+
+  it("a US lot's checkout is emailed whatever the rate setting", () => {
+    for (const current of [undefined, null, "r1"]) {
+      const r = select("pi_usd", { reslabCurrency: "USD" }, current);
+      expect(r.candidates).toHaveLength(1);
+      expect(r.skipped.currencyChanged).toBe(0);
+    }
   });
 });

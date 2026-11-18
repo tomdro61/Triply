@@ -25,14 +25,14 @@ beforeEach(() => vi.clearAllMocks());
 describe("moneyOnCard / readCard", () => {
   it("reads AFTER the fact, bounded at 4 s with no retries, with the charge expanded", async () => {
     retrieve.mockResolvedValue(pi({ status: "requires_capture", amount_capturable: 2537 }));
-    expect(await moneyOnCard("pi_1")).toEqual({ kind: "hold", amountCents: 2537, currency: "usd" });
+    expect(await moneyOnCard("pi_1")).toEqual({ kind: "hold", amountCents: 2537, currency: "usd", usdLabel: false });
     expect(retrieve).toHaveBeenCalledWith("pi_1", { expand: ["latest_charge"] }, { timeout: 4_000, maxNetworkRetries: 0 });
   });
 
   it("readCard also returns the metadata email, livemode and the alerted marker", async () => {
     retrieve.mockResolvedValue(pi({ status: "requires_capture", amount_capturable: 2537, livemode: false, metadata: { customerEmail: " ada@example.com ", [ALERTED_METADATA_KEY]: "2026-10-28T20:00:00.000Z" } }));
     expect(await readCard("pi_1")).toEqual({
-      money: { kind: "hold", amountCents: 2537, currency: "usd" },
+      money: { kind: "hold", amountCents: 2537, currency: "usd", usdLabel: false },
       customerEmail: "ada@example.com",
       livemode: false,
       alreadyAlerted: true,
@@ -46,12 +46,12 @@ describe("moneyOnCard / readCard", () => {
 
   it("succeeded with nothing refunded → captured", async () => {
     retrieve.mockResolvedValue(pi({ status: "succeeded", amount_received: 2537, latest_charge: { id: "ch_1", amount_refunded: 0 } }));
-    expect(await moneyOnCard("pi_1")).toEqual({ kind: "captured", amountCents: 2537, currency: "usd" });
+    expect(await moneyOnCard("pi_1")).toEqual({ kind: "captured", amountCents: 2537, currency: "usd", usdLabel: false });
   });
 
   it("succeeded but refunded in full → refunded (never 'charged $X' for money already returned)", async () => {
     retrieve.mockResolvedValue(pi({ status: "succeeded", amount_received: 2537, latest_charge: { id: "ch_1", amount_refunded: 2537 } }));
-    expect(await moneyOnCard("pi_1")).toEqual({ kind: "refunded", amountCents: 2537, currency: "usd" });
+    expect(await moneyOnCard("pi_1")).toEqual({ kind: "refunded", amountCents: 2537, currency: "usd", usdLabel: false });
   });
 
   it("partially refunded → unknown (no figure is safer than a wrong one)", async () => {
@@ -61,7 +61,7 @@ describe("moneyOnCard / readCard", () => {
 
   it("an unexpanded charge id counts as not refunded", async () => {
     retrieve.mockResolvedValue(pi({ status: "succeeded", amount_received: 2537, latest_charge: "ch_1" }));
-    expect(await moneyOnCard("pi_1")).toEqual({ kind: "captured", amountCents: 2537, currency: "usd" });
+    expect(await moneyOnCard("pi_1")).toEqual({ kind: "captured", amountCents: 2537, currency: "usd", usdLabel: false });
   });
 
   it.each(["processing", "canceled", "requires_payment_method"])("%s → unknown", async (status) => {
@@ -92,8 +92,19 @@ describe("markAlerted", () => {
 
 describe("formatMoneyOnCard", () => {
   it("formats USD with a dollar sign, other currencies with their code, unknown as null", () => {
-    expect(formatMoneyOnCard({ kind: "hold", amountCents: 2537, currency: "usd" })).toBe("$25.37");
-    expect(formatMoneyOnCard({ kind: "captured", amountCents: 1000, currency: "cad" })).toBe("10.00 CAD");
+    expect(formatMoneyOnCard({ kind: "hold", amountCents: 2537, currency: "usd", usdLabel: false })).toBe("$25.37");
+    expect(formatMoneyOnCard({ kind: "captured", amountCents: 1000, currency: "cad", usdLabel: false })).toBe("10.00 CAD");
     expect(formatMoneyOnCard({ kind: "unknown" })).toBeNull();
+  });
+
+  it("a payment stamped CAD (a Canadian-dollar lot, charged in US dollars) is written US$", async () => {
+    expect(formatMoneyOnCard({ kind: "hold", amountCents: 2537, currency: "usd", usdLabel: true })).toBe("US$25.37");
+    expect(formatMoneyOnCard({ kind: "refunded", amountCents: 2537, currency: "usd", usdLabel: true })).toBe("US$25.37");
+    retrieve.mockResolvedValue(pi({ status: "requires_capture", amount_capturable: 2537, metadata: { reslabCurrency: "CAD" } }));
+    expect(await moneyOnCard("pi_1")).toEqual({ kind: "hold", amountCents: 2537, currency: "usd", usdLabel: true });
+    retrieve.mockResolvedValue(pi({ status: "succeeded", amount_received: 2537, metadata: { reslabCurrency: "CAD" } }));
+    expect(await moneyOnCard("pi_1")).toMatchObject({ kind: "captured", usdLabel: true });
+    retrieve.mockResolvedValue(pi({ status: "requires_capture", amount_capturable: 2537, metadata: { reslabCurrency: "USD" } }));
+    expect(await moneyOnCard("pi_1")).toMatchObject({ usdLabel: false });
   });
 });

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Calendar, MapPin, Car, Clock, ChevronRight, CheckCircle2 } from "lucide-react";
 import { format, parseISO, isPast, isToday } from "date-fns";
 import { CancelReservationButton } from "./cancel-reservation-button";
-import { formatUsd } from "@/lib/booking/cost-breakdown";
+import { money, moneyCents } from "@/lib/fx/usd-label";
 import { reservationCardAmounts } from "@/lib/bookings/reservation-card-amounts";
 import { rememberConfirmationEmail } from "@/lib/confirmation/guest-email";
 
@@ -51,6 +51,8 @@ export interface ReservationCardBooking {
   created_at: string;
   /** Server-computed airport-local 24h self-cancel eligibility. */
   cancellable: boolean;
+  /** Present (true) only on a Canadian-dollar lot's booking, charged in US dollars: amounts read "US$". */
+  usd_label?: true;
 }
 
 interface ReservationCardProps {
@@ -83,6 +85,7 @@ export function ReservationCard({
   onCancelled,
   justCancelledRefund,
 }: ReservationCardProps) {
+  const usdLabel = booking.usd_label === true;
   const checkInDate = parseISO(booking.check_in);
   const checkOutDate = parseISO(booking.check_out);
   const isUpcoming = !isPast(checkInDate) || isToday(checkInDate);
@@ -214,14 +217,14 @@ export function ReservationCard({
               <>
                 <p className="text-xs text-gray-500">Booking total</p>
                 <p className="font-bold text-brand-orange text-lg">
-                  {formatUsd(bookingTotalCents)}
+                  {moneyCents(bookingTotalCents, usdLabel)}
                 </p>
               </>
             )}
             {/* ResLab pay-at-lot share: inside the booking total above, paid at the location. */}
             {dueAtLocationCents > 0 && (
               <p className="text-xs text-amber-700">
-                Due at location {formatUsd(dueAtLocationCents)}
+                Due at location {moneyCents(dueAtLocationCents, usdLabel)}
               </p>
             )}
             {dueUnconfirmed && (
@@ -230,7 +233,7 @@ export function ReservationCard({
             {/* Direct lots: oversized-vehicle estimate paid at drop-off, outside the booking total above. */}
             {atLotCents > 0 && (
               <p className="text-xs text-amber-700">
-                Due at the lot (est.) {formatUsd(atLotCents)}
+                Due at the lot (est.) {moneyCents(atLotCents, usdLabel)}
               </p>
             )}
           </div>
@@ -251,7 +254,7 @@ export function ReservationCard({
               </p>
               <p className="mt-0.5 text-sm text-green-800">
                 {justCancelledRefund !== null
-                  ? `$${justCancelledRefund.toFixed(2)} has been refunded to your original payment method. It should appear within 5–10 business days.`
+                  ? `${money(justCancelledRefund, usdLabel)} has been refunded to your original payment method. It should appear within 5–10 business days.`
                   : "This reservation is cancelled. Check your email for the details."}
               </p>
             </div>

@@ -77,6 +77,8 @@ const PAID: ChargeFacts = {
   refundedCents: 0,
   currency: "usd",
   termsText: null,
+  currencyNoticeText: null,
+  usdLabel: false,
   chargedAtISO: null,
   cvcCheck: null,
   postalCheck: null,

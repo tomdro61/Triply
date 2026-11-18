@@ -24,7 +24,7 @@ const pi = (metadata: Record<string, string>): PaymentIntentLike => ({
   },
 });
 const email = (metadata: Record<string, string>) => {
-  const [candidate] = selectRecoveryCandidates([pi(metadata)], NOW).candidates;
+  const [candidate] = selectRecoveryCandidates([pi(metadata)], NOW, { currentFxRateId: "r1" }).candidates;
   const { subject, html, text } = buildRecoveryEmail(candidate, { name: "Test Lot", airportCode: "YUL" }, "https://example.com/u", "1 Test St");
   return [subject, html, text].join("\n");
 };
