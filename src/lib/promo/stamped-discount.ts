@@ -204,6 +204,17 @@ export function checkStampAgainstCharge(
 }
 
 /**
+ * The service fee a PaymentIntent was created with (`metadata.serviceFee`), in
+ * whole cents, for ANY checkout payment, promo or not. null when the key is
+ * absent or is not a fee as checkout writes it: never 0.
+ */
+export function readServiceFeeCents(metadata: Readonly<Record<string, string | undefined>> | null | undefined): number | null {
+  const feeRaw = metadata?.serviceFee;
+  if (feeRaw === undefined || !SERVICE_FEE_RE.test(feeRaw)) return null;
+  return Math.round(Number(feeRaw) * 100);
+}
+
+/**
  * The service fee a STAMPED PaymentIntent charged, in cents — checkout's
  * preDiscountOnline − onlineParking, when it equals `metadata.serviceFee` — or
  * null (no usable stamp, or figures that don't add up, which the stamp checks

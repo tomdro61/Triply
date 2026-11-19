@@ -239,6 +239,73 @@ export function captureRequiredFieldCheck(
   });
 }
 
+/** Which comparison, and the outcomes each can report (payment-compare.ts). */
+export type PaymentCompareOutcome = {
+  request: "match" | "differs" | "row_differs" | "fee_differs" | "fee_unknown" | "payment_record_unusable";
+  unstaged: "no_staged_row";
+  price_check: "match" | "payment_fee_over" | "payment_fee_within" | "fee_unreadable" | "unverified";
+  reservation: "match" | "differs";
+};
+export type PaymentCompareSite = keyof PaymentCompareOutcome;
+
+/**
+ * Reduces an event to what the comparison itself put on it: its message,
+ * level, tags, fingerprint and `detail` (plus the trace ids). Everything the
+ * SDK adds from its surroundings goes: the incoming request, breadcrumbs
+ * (console output and outgoing URLs from earlier in the same invocation),
+ * the user, `extra` and every other context.
+ */
+export function onlyOwnData<T extends { request?: unknown; breadcrumbs?: unknown; user?: unknown; extra?: unknown; contexts?: Record<string, unknown> }>(
+  event: T
+): T {
+  delete event.request;
+  delete event.breadcrumbs;
+  delete event.user;
+  delete event.extra;
+  const { detail, trace } = event.contexts ?? {};
+  event.contexts = { ...(detail !== undefined && { detail }), ...(trace !== undefined && { trace }) };
+  return event;
+}
+
+/**
+ * A report-only comparison at fulfilment (src/lib/booking/payment-compare.ts).
+ * Never a payment error: nothing was decided, nothing failed. `info` for a
+ * match, `warning` for every other outcome; one issue per site and outcome,
+ * so a level never changes inside an issue.
+ *
+ * The event is cut down to its own data (onlyOwnData). These fire on every
+ * path into the booking engine: POST /api/reservations (the body is the
+ * customer's details), /api/reservations/complete, the Stripe webhook (the
+ * body is the event, whose metadata holds the customer's email) and the sweep
+ * cron (several bookings in one invocation, so breadcrumbs from one would
+ * ride on the next).
+ */
+export function capturePaymentCompare<S extends PaymentCompareSite>(
+  site: S,
+  outcome: PaymentCompareOutcome[S] | "crashed",
+  context: {
+    stripePaymentIntentId: string;
+    livemode: boolean;
+    tags?: Record<string, string>;
+    /** Field names, ids and cents. Never customer details. */
+    detail?: Record<string, string | number | boolean | null | readonly string[]>;
+  }
+) {
+  Sentry.withScope((scope) => {
+    scope.setLevel(outcome === "match" ? "info" : "warning");
+    scope.setTag("check", "payment_compare");
+    scope.setTag("check.site", site);
+    scope.setTag("check.outcome", outcome);
+    scope.setTag("payment.intentId", context.stripePaymentIntentId);
+    scope.setTag("payment.livemode", context.livemode ? "live" : "test");
+    for (const [key, value] of Object.entries(context.tags ?? {})) scope.setTag(key, value);
+    scope.setFingerprint(["payment-compare", site, outcome]);
+    if (context.detail) scope.setContext("detail", context.detail);
+    scope.addEventProcessor(onlyOwnData);
+    Sentry.captureMessage(`payment compare: ${site} ${outcome}`);
+  });
+}
+
 /**
  * Direct-lot notice to the LOT (4b plan §3.4). The lot's only channel for a
  * booking or a cancellation — every failed or skipped send is an event, tagged

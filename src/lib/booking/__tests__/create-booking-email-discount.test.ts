@@ -46,6 +46,7 @@ vi.mock("@/lib/sentry", () => ({
   captureBookingError: vi.fn(),
   captureParkGuardError: vi.fn(),
   captureAPIError: vi.fn(),
+  capturePaymentCompare: vi.fn(),
 }));
 vi.mock("../fulfill", async () => {
   const actual = await vi.importActual<typeof import("../fulfill")>("../fulfill");
