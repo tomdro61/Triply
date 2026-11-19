@@ -1,7 +1,7 @@
 {
   "code": "TPA",
   "fullName": "Tampa International Airport",
-  "lastVerified": "2026-11-01",
+  "lastVerified": "2026-11-09",
   "overview": {
     "location": "Hillsborough County, Florida — 6 miles west of downtown Tampa",
     "iataCode": "TPA",
@@ -228,7 +228,7 @@
       "freeCancellation": true,
       "notes": "WARNING: No shuttle service. You must arrange your own ride to the terminal. Covered parking available — unusual for off-site lots in Tampa. Best for travelers who can rideshare cheaply.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-09"
     },
     {
       "name": "The Godfrey Hotel & Cabanas Tampa (TPA)",
@@ -244,7 +244,7 @@
       "freeCancellation": true,
       "notes": "Good value at $6/day with shuttle included. Confirm shuttle hours before booking for early morning or late night flights.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-09"
     },
     {
       "name": "DoubleTree by Hilton Tampa Airport - Westshore (TPA)",
@@ -260,7 +260,7 @@
       "freeCancellation": true,
       "notes": "24/7 shuttle is a major advantage — works for any flight time. DoubleTree is a trusted brand with good security. Slightly pricier than budget lots but the 24/7 shuttle justifies it.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-09"
     },
     {
       "name": "Hyatt Place Tampa Airport/Westshore (TPA)",
@@ -276,7 +276,7 @@
       "freeCancellation": true,
       "notes": "Early 4 AM shuttle start covers most morning departures. On-demand shuttle after 8 AM is convenient. Confirm late-night pickup availability for red-eye arrivals.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-09"
     },
     {
       "name": "Holiday Inn Tampa Westshore - Airport Area (TPA)",
@@ -292,7 +292,7 @@
       "freeCancellation": true,
       "notes": "Up to 21 days of parking makes this ideal for extended vacations or cruises. Confirm shuttle hours — may not run 24/7.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-09"
     },
     {
       "name": "Fairfield Inn & Suites Tampa Fairgrounds (TPA)",
@@ -308,7 +308,7 @@
       "freeCancellation": true,
       "notes": "Further from airport but cheaper. Up to 10 days of parking. Confirm shuttle schedule — may have limited hours.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-01"
+      "sellableCheckedOn": "2026-11-09"
     },
     {
       "name": "Quality Inn & Suites Tampa/Ybor City",
@@ -330,9 +330,9 @@
       "phone": "(813) 623-6000",
       "notes": "Added 2026-11-01 from live Triply search; details from the lot listing. The operator describes it for Tampa Cruise Port travelers; shuttle 10 AM-2 PM only, 7.9 mi out. Cheapest TPA lot by rate but NOT a lead recommendation for flights — confirm the airport shuttle first.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-06",
+      "sellableCheckedOn": "2026-11-09",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01",
+      "rateVerified": "2026-11-09",
       "reslabLocationId": 367
     },
     {
@@ -351,9 +351,9 @@
       "phone": "1-877-886-1583",
       "notes": "Added 2026-11-01 from live Triply search; details from the lot listing. CRUISE-PORT lot (1236 Channelside Dr, by Port Tampa Bay): the operator pitches it against port garage prices and the shuttle runs 7 AM-3 PM on demand. Do not present it as general TPA airport parking; confirm an airport shuttle before recommending it for flights.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-06",
+      "sellableCheckedOn": "2026-11-09",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01",
+      "rateVerified": "2026-11-09",
       "reslabLocationId": 230
     },
     {
@@ -373,9 +373,9 @@
       "phone": "(813) 874-1234",
       "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-06",
+      "sellableCheckedOn": "2026-11-09",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-11-01",
+      "rateVerified": "2026-11-09",
       "reslabLocationId": 455
     }
   ],

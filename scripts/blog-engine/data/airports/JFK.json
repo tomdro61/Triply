@@ -1,7 +1,7 @@
 {
   "code": "JFK",
   "fullName": "John F. Kennedy International Airport",
-  "lastVerified": "2026-11-06",
+  "lastVerified": "2026-11-09",
   "overview": {
     "location": "Queens, New York — 16 miles southeast of Midtown Manhattan",
     "passengerVolume": "55+ million passengers per year",
@@ -107,29 +107,39 @@
       "routes": "From Grand Central/Penn Station"
     }
   },
-  "parkingRates": "On-airport: Yellow/Blue Garage $6/half-hr ($80/day max, $48 pre-booked), Red Garage (T8) $4/half-hr ($70/day max, $36 pre-booked), Economy Lot 9 $29/first 24hrs then $10/hr. Off-site via Triply: $10.62-$30.45/day. IMPORTANT: AirTrain costs $8.50/person one-way — off-site lots with direct shuttles save this cost vs. on-airport parking + AirTrain from Lot 9.",
+  "parkingRates": "On-airport (jfkairport.com, checked 2026-11-10): Terminal garages $6 per half hour, $12 per additional half hour after 3 hours; T4 Blue $82/day max (as low as $66 pre-booked), T5 Yellow $75/day max (as low as $59), T8 Red $70/day max (as low as $56). Long-Term Parking Lot (Lot 9) $45/day max (as low as $35 pre-booked). Federal Circle Station Lot pre-book only, as low as $45/day. Off-site via Triply: $10.62-$30.45/day. IMPORTANT: AirTrain costs $8.50/person one-way — off-site lots with direct shuttles save this cost vs. on-airport parking + AirTrain from Lot 9.",
   "onAirportParking": {
     "yellowGarage": {
-      "rate": "$6 per half hour",
-      "dailyMax": 80,
-      "preBookRate": 48,
-      "terminals": "Terminal 1 area"
+      "lastVerified": "2026-11-10",
+      "source": "https://www.jfkairport.com/transportation/airport-parking",
+      "rate": "$6 per half hour, $12 per additional half hour after 3 hours",
+      "dailyMax": 75,
+      "preBookRate": 59,
+      "terminals": "Terminal 5"
     },
     "blueGarage": {
-      "rate": "$6 per half hour",
-      "dailyMax": 80,
-      "preBookRate": 48,
-      "terminals": "Terminal 4 area"
+      "lastVerified": "2026-11-10",
+      "source": "https://www.jfkairport.com/transportation/airport-parking",
+      "rate": "$6 per half hour, $12 per additional half hour after 3 hours",
+      "dailyMax": 82,
+      "preBookRate": 66,
+      "terminals": "Terminal 4"
     },
     "redGarage": {
-      "rate": "$4 per half hour",
+      "lastVerified": "2026-11-10",
+      "source": "https://www.jfkairport.com/transportation/airport-parking",
+      "rate": "$6 per half hour, $12 per additional half hour after 3 hours",
       "dailyMax": 70,
-      "preBookRate": 36,
+      "preBookRate": 56,
       "terminals": "Terminal 8"
     },
     "lot9Economy": {
-      "rate": "$29 for first 24 hours",
-      "additionalRate": "$10/hour after first 24 hours",
+      "name": "Long-Term Parking Lot (Lot 9)",
+      "dailyMax": 45,
+      "lastVerified": "2026-11-10",
+      "source": "https://www.jfkairport.com/transportation/airport-parking",
+      "rate": "$45 per 24 hours (24-hour maximum)",
+      "preBookRate": 35,
       "location": "Lefferts Boulevard",
       "connection": "Free AirTrain from Lefferts Blvd station to all terminals",
       "notes": "Cheapest on-airport option but still requires AirTrain transfer (free from Lot 9 station)"
@@ -140,6 +150,9 @@
       "rules": "Driver must remain with vehicle at all times"
     },
     "federalCircle": {
+      "parkingLot": "Federal Circle Station Lot: pre-book only, as low as $45/day",
+      "lastVerified": "2026-11-10",
+      "source": "https://www.jfkairport.com/transportation/airport-parking",
       "description": "AirTrain station for hotel shuttles, rental car offices, and off-site parking lot shuttles",
       "airTrainCost": "Free (no fare charged at Federal Circle)"
     },
@@ -179,9 +192,9 @@
       "freeCancellation": true,
       "knownCoupons": ["PARKJFK7 ($7 off)", "Up to 20% off via coupon aggregators"],
       "notes": "JFK construction may affect shuttle times. Every 7th day free on their direct website at $24.95/day.",
-      "rateVerified": "2026-11-06",
+      "rateVerified": "2026-11-09",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-06",
+      "sellableCheckedOn": "2026-11-09",
       "reslabLocationId": 428
     },
     {
@@ -202,9 +215,9 @@
       "freeCancellation": true,
       "knownCoupons": ["PARKJFK7 ($7 off)", "JFK319 ($8 off via AirportParkingReservations)"],
       "notes": "Third driveway on the right when traveling on South Conduit Avenue. Must leave keys.",
-      "rateVerified": "2026-11-06",
+      "rateVerified": "2026-11-09",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-06",
+      "sellableCheckedOn": "2026-11-09",
       "reslabLocationId": 199
     },
     {
@@ -225,9 +238,9 @@
       "freeCancellation": true,
       "knownCoupons": ["JFK319 ($8 off via AirportParkingReservations)"],
       "notes": "No taxes on Triply rate. Renovation traffic warning — arrive at least 3 hours before flight. Must leave keys.",
-      "rateVerified": "2026-11-06",
+      "rateVerified": "2026-11-09",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-06",
+      "sellableCheckedOn": "2026-11-09",
       "reslabLocationId": 132
     },
     {
@@ -248,17 +261,17 @@
       "freeCancellation": true,
       "knownCoupons": ["PARKJFK7 ($7 off)", "JFK319 ($8 off)", "Up to 70% off via aggregators"],
       "notes": "Direct website rate starts at $18.99/day. Must leave keys.",
-      "rateVerified": "2026-11-06",
+      "rateVerified": "2026-11-09",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-06",
+      "sellableCheckedOn": "2026-11-09",
       "reslabLocationId": 415
     },
     {
       "name": "ARB Parking (JFK)",
       "slug": "arb-parking-jfk",
-      "dailyRate": 19.96,
-      "totalFor6Days": 132.33,
-      "taxesFor6Days": 12.58,
+      "dailyRate": 17.2,
+      "totalFor6Days": 114.03,
+      "taxesFor6Days": 10.84,
       "paymentMethod": "Pay at Location",
       "distanceFromAirport": "2.5 mi",
       "driveTime": "5 minutes",
@@ -271,18 +284,18 @@
       "freeCancellation": true,
       "knownCoupons": ["PARKJFK7 ($7 off)", "B2PD25 ($3 off via Book2Park)", "Groupon deals available"],
       "notes": "Surcharge for SUVs: small SUV $5/day extra, large SUV/truck $7/day extra. Available on Groupon. Direct rate from $12.95/day.",
-      "rateVerified": "2026-11-06",
+      "rateVerified": "2026-11-09",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-06",
+      "sellableCheckedOn": "2026-11-09",
       "rateSpreadPct": 25.08,
       "reslabLocationId": 237
     },
     {
       "name": "PARK AC JFK Airport Parking (JFK)",
       "slug": "park-ac-jfk-airport-parking-jfk",
-      "dailyRate": 18.5,
-      "totalFor6Days": 121.96,
-      "taxesFor6Days": 10.97,
+      "dailyRate": 13.6,
+      "totalFor6Days": 89.65,
+      "taxesFor6Days": 8.06,
       "paymentMethod": "Pay at Location",
       "distanceFromAirport": "2.5 mi (0.5 mi direct)",
       "driveTime": "5 minutes",
@@ -295,9 +308,9 @@
       "freeCancellation": true,
       "knownCoupons": ["PARKJFK7 ($7 off)", "Groupon deals available"],
       "notes": "Lowest daily rate for JFK-proximity lots. JFK renovation may cause traffic delays — arrive 3 hours before flight. Mixed reviews on pickup wait times.",
-      "rateVerified": "2026-11-06",
+      "rateVerified": "2026-11-09",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-06",
+      "sellableCheckedOn": "2026-11-09",
       "rateSpreadPct": 54.05,
       "reslabLocationId": 275
     },
@@ -321,7 +334,7 @@
       "notes": "NO overnight shuttle — must use rideshare after 9 PM. Arrive 30-60 min before desired airport time. Farther away than other options.",
       "rateVerified": "2026-09-14",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-06"
+      "sellableCheckedOn": "2026-11-09"
     },
     {
       "name": "Hyatt Place Flushing - LAZ Parking (LGA)",
@@ -343,7 +356,7 @@
       "notes": "Technically an LGA lot but appears in JFK search results. Covered/indoor parking. No oversized vehicles. Arrive 2 hours before flight. Limited shuttle hours.",
       "rateVerified": "2026-10-05",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-06"
+      "sellableCheckedOn": "2026-11-09"
     },
     {
       "name": "Queens Crossing - LAZ Parking (LGA)",
@@ -365,7 +378,7 @@
       "notes": "Cheapest option but 8.7 mi from JFK. LGA lot appearing in JFK results. Limited availability badge shown. Must print receipt — no receipt = no service, no refund. Arrive 2 hours before flight. Limited shuttle hours.",
       "rateVerified": "2026-10-05",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-06"
+      "sellableCheckedOn": "2026-11-09"
     },
     {
       "name": "The Parking Point JFK",
@@ -376,9 +389,9 @@
       "shuttleInfo": "Shuttle to the terminal (about 10 min)",
       "paymentMethod": "Pay Online",
       "dailyRate": 9.95,
-      "rateVerified": "2026-11-06",
+      "rateVerified": "2026-11-09",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-06",
+      "sellableCheckedOn": "2026-11-09",
       "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
     },
     {
@@ -391,10 +404,10 @@
       "shuttleInfo": "24/7 every 10 minutes",
       "amenities": ["Valet", "Covered/Garage", "24/7 Front Desk"],
       "paymentMethod": "Pay at Location",
-      "dailyRate": 26.22,
-      "rateVerified": "2026-11-06",
+      "dailyRate": 23.97,
+      "rateVerified": "2026-11-09",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-06",
+      "sellableCheckedOn": "2026-11-09",
       "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled",
       "rateSpreadPct": 25.27
     },
@@ -410,9 +423,9 @@
       "minimumBookingDays": 2,
       "paymentMethod": "Pay Online",
       "dailyRate": 29.11,
-      "rateVerified": "2026-11-06",
+      "rateVerified": "2026-11-09",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-06",
+      "sellableCheckedOn": "2026-11-09",
       "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
     },
     {
@@ -426,9 +439,9 @@
       "amenities": ["24/7 Front Desk", "Valet", "Restaurant"],
       "paymentMethod": "Pay Online",
       "dailyRate": 38.17,
-      "rateVerified": "2026-11-06",
+      "rateVerified": "2026-11-09",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-06",
+      "sellableCheckedOn": "2026-11-09",
       "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
     }
   ],
@@ -558,16 +571,16 @@
     "scenario": "6-day trip for 2 travelers",
     "onAirport": {
       "lot9Economy": {
-        "parkingCost": "~$145 (estimated 6 days)",
+        "parkingCost": "~$270 (6 x $45; ~$210 at $35 pre-booked)",
         "airTrainCost": 0,
         "airTrainNote": "Free from Lot 9 Lefferts Blvd station",
-        "totalEstimate": "~$145"
+        "totalEstimate": "~$270"
       },
       "garagePreBooked": {
-        "parkingCost": "~$216-$288 (6 days at $36-$48/day pre-booked)",
+        "parkingCost": "~$336-$396 (6 days at $56-$66/day pre-booked)",
         "airTrainCost": 0,
         "airTrainNote": "Walk to terminal from garage",
-        "totalEstimate": "~$216-$288"
+        "totalEstimate": "~$336-$396"
       }
     },
     "offSiteWithShuttle": {
@@ -576,14 +589,14 @@
         "airTrainCost": 0,
         "airTrainNote": "Direct shuttle to terminal — no AirTrain needed",
         "totalEstimate": 85.76,
-        "savingsVsLot9": "~$59 saved vs Lot 9"
+        "savingsVsLot9": "~$184 saved vs Lot 9"
       },
       "arbParking": {
         "parkingCost": 102.78,
         "airTrainCost": 0,
         "airTrainNote": "Direct shuttle every 10-15 min — no AirTrain needed",
         "totalEstimate": 102.78,
-        "savingsVsLot9": "~$42 saved vs Lot 9"
+        "savingsVsLot9": "~$167 saved vs Lot 9"
       }
     },
     "publicTransit": {
