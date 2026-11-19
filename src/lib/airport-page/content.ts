@@ -1,6 +1,7 @@
 import { Airport } from "@/config/airports";
 import { AirportPageData } from "./data";
 import { anyUsdLabelled, money } from "@/lib/fx/usd-label";
+import { lotRunsShuttle } from "./shuttle";
 
 export interface SEOSection {
   heading: string;
@@ -26,7 +27,6 @@ export function generateSEOContent(
     cheapestLot,
     cheapestPrice,
     closestLot,
-    hasShuttle,
   } = data;
 
   // "US$" when the page lists a lot whose price we convert from Canadian dollars.
@@ -44,39 +44,69 @@ export function generateSEOContent(
     ];
   }
 
-  const priceText = priceRange
-    ? `${money(priceRange.min, usd, 0)}–${money(priceRange.max, usd, 0)}/day`
-    : "";
+  const one = totalLots === 1;
+  const shuttles = shuttleLotCount(data);
+  const minText = priceRange ? money(priceRange.min, usd, 0) : "";
+  const maxText = priceRange ? money(priceRange.max, usd, 0) : "";
+  // When the whole-dollar range collapses (one lot, or rates like $7.75 and
+  // $8.05), say the cheapest rate to the cent: "from $8.40/day", never
+  // "$8–$8/day", and never a rounded "$8" next to "$8.40/day" further down.
+  const priceText = !priceRange
+    ? ""
+    : minText === maxText
+      ? `, with rates from ${money(priceRange.min, usd)}/day`
+      : `, with daily rates ranging from ${minText}–${maxText}/day`;
 
   const sections: SEOSection[] = [
     {
       heading: `Parking at ${name}`,
-      body: `Triply partners with ${totalLots} off-airport parking ${totalLots === 1 ? "facility" : "facilities"} near ${name} (${code})${priceText ? `, with daily rates ranging from ${priceText}` : ""}. ${hasShuttle ? "Most lots offer complimentary shuttle service to and from the terminal." : "Select lots offer shuttle service to the terminal."} Compare options, book online, and save compared to on-airport garage rates.`,
+      body: `Triply partners with ${totalLots} off-airport parking ${one ? "facility" : "facilities"} near ${name} (${code})${priceText}. ${shuttleSentence(totalLots, shuttles)} Compare options with the airport's own garage rates and book online.`,
     },
     {
       heading: `Long-Term ${code} Parking`,
       body: cheapestLot
-        ? `For extended trips, ${cheapestLot.name} offers the lowest daily rate at ${money(cheapestLot.pricing?.minPrice ?? 0, usd)}/day${cheapestLot.distanceFromAirport ? `, located ${cheapestLot.distanceFromAirport.toFixed(1)} miles from the terminal` : ""}. Booking ahead through Triply typically saves 30–60% compared to on-airport long-term parking rates at ${code}.`
-        : `Off-airport parking near ${code} typically saves 30–60% compared to on-airport long-term rates. Book ahead through Triply to lock in the best price for your trip.`,
+        ? `For extended trips, ${cheapestLot.name} ${one ? "is bookable" : "offers the lowest daily rate"} at ${money(cheapestLot.pricing?.minPrice ?? 0, usd)}/day${cheapestLot.distanceFromAirport ? `, located ${cheapestLot.distanceFromAirport.toFixed(1)} miles from the terminal` : ""}. Compare it with ${code}'s own long-term rates before you book.`
+        : `Compare off-airport parking near ${code} with the airport's own long-term rates, and book ahead through Triply for your dates.`,
     },
     {
       heading: `Short-Term & Daily Parking`,
       body: closestLot
-        ? `${closestLot.name} is the closest option at ${(closestLot.distanceFromAirport ?? 0).toFixed(1)} miles from ${code}, ideal for quick trips or same-day travel. Off-airport lots near ${city} are a convenient alternative to expensive terminal-adjacent garages.`
+        ? `${closestLot.name} is ${one ? "" : "the closest option at "}${(closestLot.distanceFromAirport ?? 0).toFixed(1)} miles from ${code}, ideal for quick trips or same-day travel. Off-airport lots near ${city} are a convenient alternative to expensive terminal-adjacent garages.`
         : `Off-airport lots near ${city} offer a convenient, affordable alternative to terminal garages for short trips.`,
     },
     {
       heading: `Tips for Parking at ${name}`,
       body: [
         `• **Book ahead** — Rates are often lower when reserved in advance vs. drive-up pricing.`,
-        `• **Check shuttle schedules** — Most off-airport lots run shuttles every 5–15 minutes to ${code} terminals.`,
-        `• **Compare options** — Use Triply to see all ${totalLots} ${code} parking lots side by side with real-time rates.`,
-        `• **Allow extra time** — Plan to arrive 15–20 minutes earlier than you would for on-airport parking to account for the shuttle ride.`,
+        shuttles > 0
+          ? `• **Check shuttle hours** — Shuttle hours and frequency differ by lot; each lot's page lists them, so match them to your flight times.`
+          : `• **Plan the ride to the terminal** — ${one ? "This lot lists" : "These lots list"} no shuttle right now, so plan on a rideshare or taxi to ${code}.`,
+        one
+          ? `• **Check the details** — The lot's page shows its live rate, how to check in and how to reach the terminal.`
+          : `• **Compare options** — Use Triply to see all ${totalLots} ${code} parking lots side by side with real-time rates.`,
+        `• **Allow extra time** — Plan to arrive 15–20 minutes earlier than you would for on-airport parking to account for the ride to the terminal.`,
       ].join("\n"),
     },
   ];
 
   return sections;
+}
+
+/** Lots whose shuttle summary (or, without one, amenities) lists a shuttle. */
+function shuttleLotCount(data: AirportPageData): number {
+  return data.lots.filter(lotRunsShuttle).length;
+}
+
+/** What the page may say about shuttles, from the lots it lists. */
+function shuttleSentence(totalLots: number, shuttles: number): string {
+  if (totalLots === 1) {
+    return shuttles === 1
+      ? "It runs a shuttle to and from the terminal."
+      : "It lists no shuttle right now, so plan on a rideshare to the terminal.";
+  }
+  if (shuttles === totalLots) return "Every lot listed runs a shuttle to and from the terminal.";
+  if (shuttles === 0) return "None of these lots lists a shuttle right now, so plan on a rideshare to the terminal.";
+  return `${shuttles} of the ${totalLots} lots run a shuttle to the terminal; check each lot's shuttle hours before you book.`;
 }
 
 /**
@@ -91,7 +121,6 @@ export function generateFAQs(
     cheapestLot,
     cheapestPrice,
     distanceRange,
-    hasShuttle,
     totalLots,
   } = data;
 
@@ -104,6 +133,10 @@ export function generateFAQs(
     ];
   }
 
+  const shuttles = shuttleLotCount(data);
+  const minMi = distanceRange?.min.toFixed(1);
+  const maxMi = distanceRange?.max.toFixed(1);
+
   return [
     {
       question: `What is the cheapest parking near ${code}?`,
@@ -114,14 +147,15 @@ export function generateFAQs(
     {
       question: `How far are parking lots from ${name}?`,
       answer: distanceRange
-        ? `Off-airport parking lots near ${code} are between ${distanceRange.min.toFixed(1)} and ${distanceRange.max.toFixed(1)} miles from the terminal. Most facilities provide complimentary shuttle service.`
-        : `Parking lots near ${code} are a short shuttle ride from the terminal.`,
+        ? `${totalLots === 1 ? `Off-airport parking near ${code} is ${minMi} miles from the terminal.` : minMi === maxMi ? `Off-airport parking lots near ${code} start ${minMi} miles from the terminal.` : `Off-airport parking lots near ${code} are between ${minMi} and ${maxMi} miles from the terminal.`} Each lot's page shows how to reach the terminal.`
+        : `Each lot's page on Triply shows its distance from ${code} and how to reach the terminal.`,
     },
     {
       question: `Do ${code} parking lots offer shuttle service?`,
-      answer: hasShuttle
-        ? `Yes, most off-airport parking lots near ${code} provide free shuttle service to and from the terminal. Shuttles typically run every 5–15 minutes.`
-        : `Many off-airport lots near ${code} offer shuttle service to the terminal. Check individual lot details on Triply for shuttle information.`,
+      answer:
+        shuttles === 0
+          ? `${totalLots === 1 ? "The lot we list near" : "The lots we list near"} ${code} ${totalLots === 1 ? "lists" : "list"} no shuttle right now, so plan on a rideshare or taxi to the terminal. Each lot's page has the latest details.`
+          : `${shuttleSentence(totalLots, shuttles)} ${totalLots === 1 ? "The lot's page on Triply lists its shuttle hours." : "Shuttle hours and frequency differ by lot; each lot's page on Triply lists them."}`,
     },
     {
       question: `Can I cancel my ${code} parking reservation?`,
@@ -129,7 +163,7 @@ export function generateFAQs(
     },
     {
       question: `How do I book ${code} airport parking?`,
-      answer: `Search for ${code} parking on Triply, compare ${totalLots} available lots by price, distance, and amenities, then book online in minutes. You'll receive a confirmation email with a QR code — no printing needed.`,
+      answer: `Search for ${code} parking on Triply, ${totalLots === 1 ? "check the available lot's price, distance and amenities" : `compare ${totalLots} available lots by price, distance, and amenities`}, then book online in minutes. You'll receive a confirmation email with a QR code — no printing needed.`,
     },
     {
       question: `When should I book ${code} airport parking?`,

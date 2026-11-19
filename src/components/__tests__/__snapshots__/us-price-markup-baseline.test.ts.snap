@@ -3,11 +3,11 @@
 exports[`US lots — price markup baseline (the US$ label work must not change it) > airport page: generated text and FAQ 1`] = `
 [
   {
-    "body": "Triply partners with 2 off-airport parking facilities near John F. Kennedy International Airport (JFK), with daily rates ranging from $10–$25/day. Most lots offer complimentary shuttle service to and from the terminal. Compare options, book online, and save compared to on-airport garage rates.",
+    "body": "Triply partners with 2 off-airport parking facilities near John F. Kennedy International Airport (JFK), with daily rates ranging from $10–$25/day. None of these lots lists a shuttle right now, so plan on a rideshare to the terminal. Compare options with the airport's own garage rates and book online.",
     "heading": "Parking at John F. Kennedy International Airport",
   },
   {
-    "body": "For extended trips, Budget Lot offers the lowest daily rate at $9.50/day, located 2.3 miles from the terminal. Booking ahead through Triply typically saves 30–60% compared to on-airport long-term parking rates at JFK.",
+    "body": "For extended trips, Budget Lot offers the lowest daily rate at $9.50/day, located 2.3 miles from the terminal. Compare it with JFK's own long-term rates before you book.",
     "heading": "Long-Term JFK Parking",
   },
   {
@@ -16,9 +16,9 @@ exports[`US lots — price markup baseline (the US$ label work must not change i
   },
   {
     "body": "• **Book ahead** — Rates are often lower when reserved in advance vs. drive-up pricing.
-• **Check shuttle schedules** — Most off-airport lots run shuttles every 5–15 minutes to JFK terminals.
+• **Plan the ride to the terminal** — These lots list no shuttle right now, so plan on a rideshare or taxi to JFK.
 • **Compare options** — Use Triply to see all 2 JFK parking lots side by side with real-time rates.
-• **Allow extra time** — Plan to arrive 15–20 minutes earlier than you would for on-airport parking to account for the shuttle ride.",
+• **Allow extra time** — Plan to arrive 15–20 minutes earlier than you would for on-airport parking to account for the ride to the terminal.",
     "heading": "Tips for Parking at John F. Kennedy International Airport",
   },
 ]
@@ -31,11 +31,11 @@ exports[`US lots — price markup baseline (the US$ label work must not change i
     "question": "What is the cheapest parking near JFK?",
   },
   {
-    "answer": "Off-airport parking lots near JFK are between 0.8 and 2.3 miles from the terminal. Most facilities provide complimentary shuttle service.",
+    "answer": "Off-airport parking lots near JFK are between 0.8 and 2.3 miles from the terminal. Each lot's page shows how to reach the terminal.",
     "question": "How far are parking lots from John F. Kennedy International Airport?",
   },
   {
-    "answer": "Yes, most off-airport parking lots near JFK provide free shuttle service to and from the terminal. Shuttles typically run every 5–15 minutes.",
+    "answer": "The lots we list near JFK list no shuttle right now, so plan on a rideshare or taxi to the terminal. Each lot's page has the latest details.",
     "question": "Do JFK parking lots offer shuttle service?",
   },
   {
