@@ -161,7 +161,7 @@ describe("compareRequestWithPayment", () => {
   ] as const)("a staged fee of %j is %s", (fee, outcome, tag) => {
     compareRequestWithPayment(pi(), feeRow(fee), used, undefined);
     expect(last()[1]).toBe(outcome);
-    expect(last()[2].tags).toMatchObject({ "check.fee": tag, "check.payload_source": "row", "check.attempt": "first", "check.discount_stamp": "no" });
+    expect(last()[2].tags).toMatchObject({ "check.fee": tag, "check.payload_source": "row", "check.reservation_recorded": "no", "check.discount_stamp": "no" });
   });
 
   it("with a request, the fee compared is the request's, not the row's", () => {
@@ -185,7 +185,7 @@ describe("compareRequestWithPayment", () => {
 
   it("tags a resume and a discount stamp", () => {
     compareRequestWithPayment(pi({ ...META, discountCents: "500" }), { ...feeRow("5.95"), reslab_reservation_number: "RTL1" }, used, undefined);
-    expect(last()[2].tags).toMatchObject({ "check.attempt": "resume", "check.discount_stamp": "yes" });
+    expect(last()[2].tags).toMatchObject({ "check.reservation_recorded": "yes", "check.discount_stamp": "yes" });
   });
 });
 
@@ -394,5 +394,6 @@ describe("compareReservationWithPayment", () => {
     expect(last()[1]).toBe("match");
     compareReservationWithPayment(pi(), { ...fr(money), dates: [{ fromDate: "2026-08-14 10:00:00", toDate: "2026-08-18 15:00:00" }] }, null);
     expect(tags()).toMatchObject({ "check.dates": "match", "check.times": "mismatch" });
+    expect(last()[1]).toBe("differs");
   });
 });

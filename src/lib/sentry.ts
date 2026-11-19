@@ -256,13 +256,15 @@ export type PaymentCompareSite = keyof PaymentCompareOutcome;
  * the user, `extra` and every other context.
  */
 export function onlyOwnData<T extends { request?: unknown; breadcrumbs?: unknown; user?: unknown; extra?: unknown; contexts?: Record<string, unknown> }>(
-  event: T
+  event: T,
+  /** The caller's own detail: a `detail` context inherited from the surroundings is never kept. */
+  detail?: Record<string, unknown>
 ): T {
   delete event.request;
   delete event.breadcrumbs;
   delete event.user;
   delete event.extra;
-  const { detail, trace } = event.contexts ?? {};
+  const trace = event.contexts?.trace;
   event.contexts = { ...(detail !== undefined && { detail }), ...(trace !== undefined && { trace }) };
   return event;
 }
@@ -300,8 +302,7 @@ export function capturePaymentCompare<S extends PaymentCompareSite>(
     scope.setTag("payment.livemode", context.livemode ? "live" : "test");
     for (const [key, value] of Object.entries(context.tags ?? {})) scope.setTag(key, value);
     scope.setFingerprint(["payment-compare", site, outcome]);
-    if (context.detail) scope.setContext("detail", context.detail);
-    scope.addEventProcessor(onlyOwnData);
+    scope.addEventProcessor((event) => onlyOwnData(event, context.detail));
     Sentry.captureMessage(`payment compare: ${site} ${outcome}`);
   });
 }

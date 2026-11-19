@@ -51,6 +51,7 @@ beforeEach(() => {
   isolation.setUser({ id: "user_1", email: "grace@example.com" });
   isolation.setExtra("customer", "Grace Hopper");
   isolation.setContext("customer", { plate: "ABC123" });
+  isolation.setContext("detail", { note: "Grace Hopper" });
 });
 
 async function events(): Promise<ErrorEvent[]> {
@@ -91,6 +92,7 @@ describe("capturePaymentCompare, on the event Sentry would send", () => {
     expect(event.user).toBeUndefined();
     expect(event.extra).toBeUndefined();
     expect(Object.keys(event.contexts ?? {}).filter((key) => key !== "trace")).toEqual(["detail"]);
+    expect(event.contexts?.detail).toEqual({ fields: ["lot"], paymentLot: 42, usedLot: 43 });
     for (const secret of SECRETS) expect(wire(event)).not.toContain(secret);
   });
 
@@ -100,7 +102,13 @@ describe("capturePaymentCompare, on the event Sentry would send", () => {
     capturePaymentCompare("request", "fee_unknown", { stripePaymentIntentId: "pi_1", livemode: true });
     capturePaymentCompare("unstaged", "no_staged_row", { stripePaymentIntentId: "pi_1", livemode: true });
     capturePaymentCompare("price_check", "crashed", { stripePaymentIntentId: "pi_1", livemode: true });
-    expect((await events()).map((event) => event.level)).toEqual(["info", "warning", "warning", "warning", "warning"]);
+    const all = await events();
+    expect(all.map((event) => event.level)).toEqual(["info", "warning", "warning", "warning", "warning"]);
+    // None passed a detail, so none carries the one left on the surrounding scope.
+    for (const event of all) {
+      expect(event.contexts).not.toHaveProperty("detail");
+      expect(wire(event)).not.toContain("hopper");
+    }
   });
 
   it("groups by site and outcome, with its own tags and no payment-error tag", async () => {
@@ -138,18 +146,26 @@ describe("capturePaymentCompare, on the event Sentry would send", () => {
 });
 
 describe("onlyOwnData", () => {
-  it("keeps the message, tags, detail and trace, and removes the rest", () => {
-    expect(
-      onlyOwnData({
-        message: "m",
-        tags: { check: "payment_compare" },
-        request: { data: BODY },
-        breadcrumbs: [{ message: "x" }],
-        user: { id: "u" },
-        extra: { a: 1 },
-        contexts: { detail: { fields: ["lot"] }, trace: { trace_id: "t" }, customer: { plate: "ABC123" } },
-      })
-    ).toEqual({ message: "m", tags: { check: "payment_compare" }, contexts: { detail: { fields: ["lot"] }, trace: { trace_id: "t" } } });
+  const surrounded = () => ({
+    message: "m",
+    tags: { check: "payment_compare" },
+    request: { data: BODY },
+    breadcrumbs: [{ message: "x" }],
+    user: { id: "u" },
+    extra: { a: 1 },
+    contexts: { detail: { inherited: true }, trace: { trace_id: "t" }, customer: { plate: "ABC123" } },
+  });
+
+  it("keeps the message, tags, the caller's detail and the trace, and removes the rest", () => {
+    expect(onlyOwnData(surrounded(), { fields: ["lot"] })).toEqual({
+      message: "m",
+      tags: { check: "payment_compare" },
+      contexts: { detail: { fields: ["lot"] }, trace: { trace_id: "t" } },
+    });
+  });
+
+  it("drops an inherited detail when the caller passed none", () => {
+    expect(onlyOwnData(surrounded()).contexts).toEqual({ trace: { trace_id: "t" } });
   });
 
   it("copes with an event that has no contexts", () => {

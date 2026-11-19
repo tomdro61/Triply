@@ -341,7 +341,7 @@ describe("what each site reports", () => {
     expect(outcomes("request")).toEqual(["match"]);
     expect(reports("request")[0][2].tags).toEqual({
       "check.payload_source": "request",
-      "check.attempt": "first",
+      "check.reservation_recorded": "no",
       "check.discount_stamp": "no",
       "check.row_vs_request": "same",
       "check.fee": "same",
@@ -491,7 +491,7 @@ describe("what each site reports", () => {
     expect(reslabMock.getReservation).toHaveBeenCalledWith("RTL555");
     expect(reslabMock.createReservation).not.toHaveBeenCalled();
     expect(outcomes("request")).toEqual(["match"]);
-    expect(reports("request")[0][2].tags).toMatchObject({ "check.attempt": "resume" });
+    expect(reports("request")[0][2].tags).toMatchObject({ "check.reservation_recorded": "yes" });
     expect(outcomes("reservation")).toEqual([]);
     expect(outcomes("price_check")).toEqual([]);
   });

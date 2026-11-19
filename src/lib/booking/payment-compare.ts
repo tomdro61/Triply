@@ -164,7 +164,7 @@ export function compareRequestWithPayment(
     const tags: Record<string, string> = {
       "check.payload_source": request ? "request" : "row",
       // A retried or resumed fulfilment reports again: count PaymentIntents, not events.
-      "check.attempt": row.reslab_reservation_number ? "resume" : "first",
+      "check.reservation_recorded": row.reslab_reservation_number ? "yes" : "no",
       "check.discount_stamp": readStampedDiscount(pi.metadata).kind === "absent" ? "no" : "yes",
     };
     const detail: Record<string, string | number | readonly string[]> = {};
@@ -320,8 +320,8 @@ export function compareReservationWithPayment(
     const lot = typeof lotRaw === "number" ? lotRaw : typeof lotRaw === "string" && ID_RE.test(lotRaw) ? Number(lotRaw) : null;
     const lotResult = !bound.ok || lot === null ? "unknown" : lot === bound.locationId ? "match" : "mismatch";
     // The DAYS are compared. ResLab's reservation dates can come back as
-    // midnight whatever time was booked, so the clock time is its own tag and
-    // never part of the outcome.
+    // midnight whatever time was booked ("midnight_only", not a difference);
+    // any other clock time that is not the payment's is one.
     const first = fr.dates?.[0];
     const from = typeof first?.fromDate === "string" ? first.fromDate : null;
     const to = typeof first?.toDate === "string" ? first.toDate : null;
@@ -343,7 +343,7 @@ export function compareReservationWithPayment(
     const bucket = differenceBucket(differenceCents);
     // Charged above the reservation's figures (its price fell after checkout) or below them.
     const direction = differenceCents === null ? "unknown" : differenceCents === 0 ? "exact" : differenceCents > 0 ? "charged_more" : "charged_less";
-    const agrees = bucket === "0" && lotResult === "match" && datesResult === "match";
+    const agrees = bucket === "0" && lotResult === "match" && datesResult === "match" && timesResult !== "mismatch";
     capturePaymentCompare("reservation", agrees ? "match" : "differs", {
       stripePaymentIntentId: pi.id,
       livemode: pi.livemode,
