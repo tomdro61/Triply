@@ -7,6 +7,7 @@ import { PriceBreakdown } from "@/types/checkout";
 import { PromoCode, type ApplyPromoResult, type PromoLock } from "./promo-code";
 import { formatDate } from "@/lib/utils";
 import { currencySign } from "@/lib/fx/usd-label";
+import { totalRowLabel } from "@/lib/checkout/total-label";
 
 interface OrderSummaryProps {
   lot: UnifiedLot;
@@ -215,7 +216,7 @@ export function OrderSummary({
             <>
               <div className="border-t border-gray-200 pt-2 mt-2">
                 <div className="flex justify-between">
-                  <span className="font-bold text-gray-900">Charged today</span>
+                  <span className="font-bold text-gray-900">{totalRowLabel(vehicleEstimate, usdLabel)}</span>
                   <span className="font-bold text-gray-900 text-xl">
                     {sign}{priceBreakdown.total.toFixed(2)}
                   </span>
@@ -244,7 +245,7 @@ export function OrderSummary({
             <>
               <div className="border-t border-gray-200 pt-2 mt-2">
                 <div className="flex justify-between">
-                  <span className="font-bold text-gray-900">{usdLabel ? "Total (USD)" : "Total"}</span>
+                  <span className="font-bold text-gray-900">{totalRowLabel(vehicleEstimate, usdLabel)}</span>
                   <span className="font-bold text-gray-900 text-xl">
                     {sign}{priceBreakdown.total.toFixed(2)}
                   </span>

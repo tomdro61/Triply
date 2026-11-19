@@ -22,6 +22,8 @@ import { VehicleDetailsStep } from "./vehicle-details-step";
 import { StripeProvider } from "./stripe-provider";
 import { StripePaymentForm } from "./stripe-payment-form";
 import { OrderSummary } from "./order-summary";
+import { CheckoutTripStrip } from "./checkout-trip-strip";
+import { tripStripPrice } from "@/lib/checkout/total-label";
 import type { ApplyPromoResult } from "./promo-code";
 import { PROMO_PRICING_HEADER, PROMO_PRICING_VERSION, promoDiscountCents, promoRefusalMessage, type PromoRule } from "@/lib/promo/discount";
 import { cartFromCostData, createLatestGate, decideCheckoutPromo, ruleFromValidateResponse } from "@/lib/promo/checkout-promo";
@@ -81,6 +83,9 @@ interface CheckoutFormProps {
 const DEV_SKIP_PAYMENT =
   process.env.NODE_ENV === "development" &&
   process.env.NEXT_PUBLIC_DEV_SKIP_PAYMENT === "true";
+
+/** The order summary column: the details step's trip strip links here on phones. */
+const ORDER_SUMMARY_ID = "order-summary";
 
 // Matches /out of date/ so the checkout funnel buckets it as `stale_quote`.
 const DIRECT_PRICE_STALE_MESSAGE =
@@ -1375,6 +1380,21 @@ export function CheckoutForm({
           <CheckoutSteps currentStep={currentStep} />
 
           {currentStep === "details" && (
+            <CheckoutTripStrip
+              lotName={lot.name}
+              checkIn={checkIn}
+              checkOut={checkOut}
+              price={tripStripPrice({
+                priced: costData != null,
+                priceBreakdown,
+                vehicleEstimate,
+                usdLabel: converted,
+              })}
+              summaryId={ORDER_SUMMARY_ID}
+            />
+          )}
+
+          {currentStep === "details" && (
             <CustomerDetailsStep
               data={customerDetails}
               onChange={setCustomerDetails}
@@ -1511,7 +1531,7 @@ export function CheckoutForm({
       </div>
 
       {/* Order Summary Sidebar */}
-      <div className="lg:col-span-1">
+      <div id={ORDER_SUMMARY_ID} className="lg:col-span-1 scroll-mt-24">
         <OrderSummary
           lot={lot}
           usdLabel={converted}
