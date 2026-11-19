@@ -3,6 +3,7 @@ import { Airport } from "@/config/airports";
 import { UnifiedLot } from "@/types/lot";
 import { ArrowRight } from "lucide-react";
 import { currencySign, isUsdLabelled } from "@/lib/fx/usd-label";
+import { lotRunsShuttle } from "@/lib/airport-page/shuttle";
 
 interface RatesTableProps {
   airport: Airport;
@@ -58,7 +59,7 @@ export function RatesTable({ airport, lots }: RatesTableProps) {
                     : "—"}
                 </td>
                 <td className="py-3.5 px-4 text-sm text-gray-500 hidden md:table-cell">
-                  {lot.shuttleInfo ? "Yes" : "—"}
+                  {lotRunsShuttle(lot) ? "Yes" : "—"}
                 </td>
                 <td className="py-3.5 pl-4 text-right">
                   <span className="text-sm font-bold text-brand-orange">

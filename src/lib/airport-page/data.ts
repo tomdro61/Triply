@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { Airport } from "@/config/airports";
 import { searchParking, isLocationBackoffError } from "@/lib/reslab/search";
+import { lotRunsShuttle } from "./shuttle";
 import { ReslabError } from "@/lib/reslab/client";
 import { UnifiedLot } from "@/types/lot";
 import { captureAPIError } from "@/lib/sentry";
@@ -264,7 +265,7 @@ export const fetchAirportPageData = cache(async function fetchAirportPageData(
     return best;
   }, null);
 
-  const hasShuttle = lots.some((l) => l.shuttleInfo?.summary);
+  const hasShuttle = lots.some(lotRunsShuttle);
 
   // Count amenity frequency across all lots
   const amenityCounts = new Map<string, number>();

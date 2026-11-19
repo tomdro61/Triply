@@ -233,6 +233,12 @@ a human.
 
 One entry per reviewed PR: what the review found, by lesson number. Newest first.
 
+- **Airport guides for 9 pages just off page 1, template shuttle copy (Nov 19):** a fact-check agent against each airport's own site, three reviewers, then a pass on the fixes. Codex not installed on this machine (SKIPPED). No Critical.
+  - Lesson 1 (High, two reviewers): the copy said "no shuttle" for Norfolk's suspended lot while the rates table and lot card under it still said "Shuttle: Yes". Changing what a page says about a field means changing every place on that page that shows it.
+  - Lesson 1: free-text summaries need negation and partial-hours cases in the tests ("No free shuttle", "12:00 AM - 5:00 AM: No shuttle.", "Call 757-555-1234"); a digit-dash-digit is not a time range.
+  - Lesson 2: the fact-check found 6 wrong and about 30 unconfirmed claims in the first draft (a garage opening date, a premium rate, a closure date). Every figure in a guide is checked against the airport's own page by a second agent before review.
+  - Lesson 1: a rounded "from $8/day" sat next to "$8.40/day"; when a range collapses, show the cents. Lot counts in headings ("Five Hotel Lots") go stale with inventory: describe, don't count.
+
 - **Report-only payment comparison at fulfilment (Nov 19, #211):** five reviewers + Codex, then a pass on the fixes. No Critical. The "decides nothing" claim held (a reviewer removed each call-site guard in turn and the tests failed each time); everything found was in what the reports say.
   - Lesson 12 (two reviewers): one outcome carried two levels and two meanings: a fee difference and an unreadable fee were tags on `match`. A result that is not a match gets its own outcome and its own issue, or "no differs issue" is read as "nothing differed".
   - Lesson 1 / 13: a test named "a match at every site" passed while one site reported `differs`: the fixture had no dates and the test asserted two of the tags. Assert the outcome and the whole tag set. A second value was compared with itself: the payload's fee had already been set from the payment on stamped payments.
