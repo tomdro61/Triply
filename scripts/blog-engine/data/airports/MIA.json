@@ -376,7 +376,7 @@
       "shuttleInfo": "24/7 On demand",
       "amenities": ["Security", "24/7 Front Desk", "Restaurant"],
       "paymentMethod": "Pay Online",
-      "dailyRate": 12.14,
+      "dailyRate": 10.18,
       "rateVerified": "2026-11-06",
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
@@ -430,7 +430,7 @@
       "paymentMethod": "Pay at Location",
       "dailyRate": 16.92,
       "rateVerified": "2026-11-06",
-      "sellable": true,
+      "sellable": false,
       "sellableCheckedOn": "2026-11-06",
       "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled",
       "notes": "Added by lot-sync: looks like a cruise-port/downtown lot, not an airport-shuttle lot — do not use in CTAs until a human confirms it serves the airport."
