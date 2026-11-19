@@ -18,6 +18,10 @@ import { ArticleCta, ArticleCtaInline } from '@/components/blog/ArticleCta'
 import { ArticleEmailCapture } from '@/components/blog/ArticleEmailCapture'
 import { getMidArticleInsertIndex } from '@/lib/blog/article-split'
 import { isPromoPost } from '@/lib/blog/promo-post'
+import { BlogPriceCard } from '@/components/blog/BlogPriceCard'
+import { BlogPriceBar } from '@/components/blog/BlogPriceBar'
+import { getBlogPriceSnapshot, type BlogPriceSnapshot } from '@/lib/blog/price-snapshot'
+import { priceBarArm } from '@/lib/blog/price-bar-arm'
 
 // Cache each post page for 1 hour. The biggest single source of Supabase
 // egress was crawlers walking every /blog/[slug] URL; with this directive
@@ -72,9 +76,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 async function ArticleContent({
   post,
   midCtaIndex,
+  prices,
 }: {
   post: any
   midCtaIndex: number | null
+  /** Price arm with live prices: the mid-article block becomes the live price card. */
+  prices: BlogPriceSnapshot | null
 }) {
   const content = (
     <>
@@ -85,7 +92,11 @@ async function ArticleContent({
         articleSlug={post.slug}
         insertAfterIndex={midCtaIndex}
         insertContent={
-          midCtaIndex === null ? null : <ArticleCta airportCode={post.airportCode} placement="mid-article" />
+          midCtaIndex === null ? null : prices ? (
+            <BlogPriceCard snapshot={prices} />
+          ) : (
+            <ArticleCta airportCode={post.airportCode} placement="mid-article" />
+          )
         }
       />
 
@@ -135,6 +146,10 @@ export default async function BlogPostPage({ params }: Props) {
   // Where the "Ready to Book…" block goes inside the body (~30% down). null =
   // the article is too short to split, so the full block stays at the end.
   const midCtaIndex = getMidArticleInsertIndex(post.content)
+  // 50/50 test (price-bar-arm.ts): only the price arm loads live prices, so
+  // the control arm costs nothing extra. null = control arm, an airport we
+  // don't sell, nothing priced, or the search failed: today's layout.
+  const prices = priceBarArm(post.id) === 'price' ? await getBlogPriceSnapshot(post.airportCode) : null
 
   return (
     <>
@@ -256,7 +271,7 @@ export default async function BlogPostPage({ params }: Props) {
         {/* Article Content with Layout (holds the mid-article CTA) */}
         <div className="container mx-auto px-4 py-12">
           <div className="max-w-3xl mx-auto">
-            <ArticleContent post={post} midCtaIndex={midCtaIndex} />
+            <ArticleContent post={post} midCtaIndex={midCtaIndex} prices={prices} />
 
             {/* Email capture — where a reader who finished the article but
                 did not book lands. One per article, after the body/FAQ and
@@ -274,7 +289,12 @@ export default async function BlogPostPage({ params }: Props) {
         {midCtaIndex === null ? (
           <div className="container mx-auto px-4 pb-12">
             <div className="max-w-3xl mx-auto">
-              <ArticleCta airportCode={post.airportCode} placement="end-of-article" />
+              {/* Too short to split: the live price card (price arm) takes the end slot instead. */}
+              {prices ? (
+                <BlogPriceCard snapshot={prices} />
+              ) : (
+                <ArticleCta airportCode={post.airportCode} placement="end-of-article" />
+              )}
             </div>
           </div>
         ) : (
@@ -287,6 +307,14 @@ export default async function BlogPostPage({ params }: Props) {
       </article>
     </main>
     <Footer />
+    {/* After the footer: its spacer (shown with the bar) keeps the footer's last row clear. */}
+    {prices && (
+      <BlogPriceBar
+        airportCode={prices.airportCode}
+        fromPrice={prices.fromPrice}
+        fromUsdLabel={prices.fromUsdLabel}
+      />
+    )}
     </>
   )
 }

@@ -1,5 +1,6 @@
 import { getSellableAirportCode } from '@/config/airports'
 import { SearchWidget } from '@/components/airport/search-widget'
+import { BLOG_BOOKING_PROMPT_ID } from '@/lib/blog/price-bar-arm'
 
 interface ArticleBookingPromptProps {
   airportCode?: string | null
@@ -19,7 +20,7 @@ export function ArticleBookingPrompt({ airportCode }: ArticleBookingPromptProps)
   const preselected = getSellableAirportCode(airportCode)
 
   return (
-    <section className="bg-gray-50 border-b">
+    <section id={BLOG_BOOKING_PROMPT_ID} className="bg-gray-50 border-b">
       <div className="container mx-auto px-4 py-6">
         <div className="max-w-3xl mx-auto">
           <p className="text-sm font-semibold text-navy mb-2">

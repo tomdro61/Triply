@@ -7,7 +7,10 @@ import { trackBlogCtaClick } from '@/lib/analytics/gtag'
 interface ArticleCtaProps {
   airportCode?: string | null
   /** Where on the page this CTA renders — passed through to the GA4 event. */
-  placement: Exclude<Parameters<typeof trackBlogCtaClick>[0]['placement'], 'top-widget'>
+  placement: Exclude<
+    Parameters<typeof trackBlogCtaClick>[0]['placement'],
+    'top-widget' | 'price-bar' | 'price-card-lot' | 'price-card-all'
+  >
 }
 
 /**

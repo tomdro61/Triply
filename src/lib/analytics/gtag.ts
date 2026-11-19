@@ -388,7 +388,19 @@ export function trackPartnerInquirySubmit(airportCode: string) {
 export function trackBlogCtaClick(params: {
   /** Empty string when the article/reader hasn't picked an airport we sell. */
   airportCode: string;
-  placement: "top-widget" | "mid-article" | "end-of-article" | "end-of-article-inline";
+  /**
+   * price-bar: the sticky "Check prices" bar. price-card-lot / price-card-all:
+   * a lot row / the "see all lots" link in the mid-article live price card.
+   * The three price-* placements only exist on the price arm (price-bar-arm.ts).
+   */
+  placement:
+    | "top-widget"
+    | "mid-article"
+    | "end-of-article"
+    | "end-of-article-inline"
+    | "price-bar"
+    | "price-card-lot"
+    | "price-card-all";
 }) {
   if (typeof window !== "undefined" && window.gtag) {
     window.gtag("event", "blog_cta_click", {
