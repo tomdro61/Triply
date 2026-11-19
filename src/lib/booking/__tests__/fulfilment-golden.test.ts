@@ -84,6 +84,7 @@ vi.mock("@/lib/sentry", () => ({
   captureBookingError: vi.fn(),
   captureParkGuardError: vi.fn(),
   captureAPIError: vi.fn(),
+  capturePaymentCompare: vi.fn(),
 }));
 
 const { createBooking } = await import("../create-booking");

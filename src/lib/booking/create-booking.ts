@@ -97,6 +97,7 @@ import {
 } from "@/lib/direct/fulfilment";
 import { sendLotBookingNotice, type LotBookingNoticeContent, type LotNoticeOutcome } from "@/lib/direct/lot-notice";
 import { isOtherStripeMode } from "@/lib/cancellation/source-guard";
+import { compareRequestWithPayment, comparePriceCheck, compareReservationWithPayment, noteUnstagedPayment } from "./payment-compare";
 
 // =============================================================================
 // Tunables — three DISTINCT durations. They are not interchangeable.
@@ -1369,6 +1370,11 @@ async function createBookingInner(
     // Client path with an older bundle that never staged the row. Self-create so
     // the mutex and resume logic still apply.
     const payloadToStage = clientPayload;
+    try {
+      noteUnstagedPayment(pi);
+    } catch {
+      // Report-only (payment-compare.ts): decides nothing, and must never reach the booking.
+    }
     const { error: selfCreateError } = await supabase.from("pending_bookings").insert({
       stripe_payment_intent_id: stripePaymentIntentId,
       location_id: payloadToStage.locationId,
@@ -1626,6 +1632,11 @@ async function createBookingInner(
     // downgrade a signed-in booking to a guest one. Neither value can come
     // from the client, so this cannot reopen the takeover hole.
     payload.userId = claimed.user_id ?? payload.userId ?? null;
+    try {
+      compareRequestWithPayment(pi, claimed, payload, clientPayload);
+    } catch {
+      // Report-only (payment-compare.ts): decides nothing, and must never reach the booking.
+    }
     return await fulfilClaimed(pi, claimed, payload, source, input.attribution ?? null);
   } catch (unexpected) {
     // Any escape from the fulfilment path leaves money in an unknown state.
@@ -2011,6 +2022,14 @@ async function fulfilClaimed(
   // reservation's Canadian-dollar figures; when it cannot, it nulls the money
   // and says so in `fx` (Step 9.4 reports it).
   let fr = fromReslab(reservation, fxRate);
+  // Once per NEW reservation: a resume adopts one that was already compared.
+  if (!resuming) {
+    try {
+      compareReservationWithPayment(pi, fr, charged);
+    } catch {
+      // Report-only (payment-compare.ts): decides nothing, and must never reach the booking.
+    }
+  }
 
   // --- Step 9.4: the reservation's currency against the stamp — BEFORE capture
   // The reservation says which currency its lot is priced in. If that is not
@@ -2596,6 +2615,11 @@ async function refreshCost(
         cost.reservation.due_at_location +
         protectionPremium;
       freshCents = Math.round(freshDueNow * 100);
+      try {
+        comparePriceCheck(pi, payload, cost, promoDiscount, protectionPremium, freshCents);
+      } catch {
+        // Report-only (payment-compare.ts): decides nothing, and must never reach the booking.
+      }
     }
 
     // One cent of tolerance for rounding. Anything above the authorized amount

@@ -47,6 +47,7 @@ vi.mock("@/lib/sentry", () => ({
   captureBookingError: vi.fn(),
   captureParkGuardError: vi.fn(),
   captureAPIError: vi.fn(),
+  capturePaymentCompare: vi.fn(),
 }));
 // The CURRENT rate is deliberately different from the one stamped on every
 // PaymentIntent below (0.725): any figure computed with it would be wrong, so

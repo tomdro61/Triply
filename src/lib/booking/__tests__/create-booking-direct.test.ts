@@ -49,6 +49,7 @@ vi.mock("@/lib/sentry", () => ({
   captureBookingError: vi.fn(),
   captureParkGuardError: vi.fn(),
   captureAPIError: vi.fn(),
+  capturePaymentCompare: vi.fn(),
   captureDirectLotNotice: vi.fn(),
 }));
 // Deterministic numbers when a test queues them; random otherwise.
