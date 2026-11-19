@@ -233,6 +233,11 @@ a human.
 
 One entry per reviewed PR: what the review found, by lesson number. Newest first.
 
+- **Checkout details step, before typing (Nov 19, move 3):** four reviewers (bugs, silent failures, tests and comments, conversion). No Critical or High. Codex skipped (plugin not installed on this machine).
+  - Lesson 16 (two reviewers): the new trip strip copied the order summary's total-label rule by hand. Both now call `totalRowLabel` in `src/lib/checkout/total-label.ts`, and the strip's whole price comes from the tested `tripStripPrice`.
+  - Lesson 1: the strip showed the card charge alone on a lot that also collects at drop-off ("Charged today" with no at-lot amount, or "Total" with no due-now split). A price shown on its own must carry every payment the summary shows next to it.
+  - Not a lesson yet, worth knowing: moving the full trust list above the form pushed the first field a screen down on phones (measured 486px before, ~820 estimated after). Short chips put it at 644px. Measure the first field's position whenever content goes above a form.
+
 - **US$ labels on converted lots, before paying (Nov 17, #205):** six reviewers + Codex, then a second pass. No Critical or High.
   - Lesson 1 (found by Codex and four reviewers): a "label every amount" change missed the amounts that are built as text far from the page: a promo refusal's "needs at least $25", the abandoned-checkout email, the assistant's price strings. The scan test only walked the component folders; it now walks those too. When the rule is "every X", grep the message builders and emails, not only the JSX.
   - Lesson 2 / the #150 pattern: the stamp saying which sentence the checkout showed was written from the server's constant. A stamp that records what a page showed must be sent by the page (as `termsVersion` is) and checked.
