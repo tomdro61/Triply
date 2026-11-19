@@ -233,6 +233,12 @@ a human.
 
 One entry per reviewed PR: what the review found, by lesson number. Newest first.
 
+- **Live prices + sticky "Check prices" bar on blog posts (Nov 18, feat/blog-price-bar):** five reviewers (Codex not installed on this machine: SKIPPED), then four narrow passes on the fixes. No Critical.
+  - Lesson 1: a card printed "No shuttle" whenever shuttle data was missing. Missing data is not a negative fact; show only the claim the data supports (as lot-grid does).
+  - A timeout that returns "no prices" on an ISR page bakes that for an hour, and a cache key that changes every hour means the next rebuild misses again: slow airports would silently never show prices. A late result is not guaranteed to reach `unstable_cache` (its save is collected at render end). Fix: a generous timeout, `after()`, one Sentry warning per in-flight load, and a per-instance last-good snapshot bounded by when ResLab was asked (`fetchedAt`), not when the cache was read.
+  - A fallback must forget an old answer when the newest answer is "nothing priced", or it serves a price the latest data no longer supports.
+  - Lesson 21: `unstable_cache` doesn't merge simultaneous misses, and an hour-aligned key makes every airport expire at :00. Merge in-flight loads per key and offset each airport's window.
+
 - **US$ labels on converted lots, before paying (Nov 17, #205):** six reviewers + Codex, then a second pass. No Critical or High.
   - Lesson 1 (found by Codex and four reviewers): a "label every amount" change missed the amounts that are built as text far from the page: a promo refusal's "needs at least $25", the abandoned-checkout email, the assistant's price strings. The scan test only walked the component folders; it now walks those too. When the rule is "every X", grep the message builders and emails, not only the JSX.
   - Lesson 2 / the #150 pattern: the stamp saying which sentence the checkout showed was written from the server's constant. A stamp that records what a page showed must be sent by the page (as `termsVersion` is) and checked.
