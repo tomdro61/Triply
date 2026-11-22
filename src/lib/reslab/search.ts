@@ -78,7 +78,14 @@ export { generateSlug };
 // out and the lot detail page 404s them. Remove the ID to restore the lot.
 //   416 — Parking 4 Airport (JFK): repeatedly refused Triply customers on
 //         arrival (2026-09-15). Ask ResLab to unlink it from our channel too.
-export const BLOCKED_RESLAB_LOCATION_IDS: ReadonlySet<number> = new Set([416]);
+//   242 — Toronto (YYZ), production ResLab id: its Canadian-dollar price lists
+//         tax outside the total (95.70 + 4.79 fees = 100.49, tax 12.44 not in
+//         the sum), so the converter refuses it (fx_parts_do_not_add_up). Left
+//         in the search it was never shown, but counted as a pricing failure
+//         on nearly every YYZ search: no CDN cache and a Sentry event each
+//         (2026-11-18). Remove the id once a tax-included lot can be converted
+//         or ResLab's figures for it add up.
+export const BLOCKED_RESLAB_LOCATION_IDS: ReadonlySet<number> = new Set([416, 242]);
 
 // ResLab's TEST locations (194–197, see TEST_RESLAB_LOCATION_IDS) are real,
 // bookable listings in the production channel: "TEST - Due at location with

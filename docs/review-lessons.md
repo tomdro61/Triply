@@ -233,6 +233,10 @@ a human.
 
 One entry per reviewed PR: what the review found, by lesson number. Newest first.
 
+- **Hide Toronto lot 242, whose price will not convert (Nov 21):** plan reviewed by two reviewers, the 24-line diff by two more. No Critical, High or Medium.
+  - Lesson 13: a new assertion could never fail. `JSON.stringify(mock.calls)` drops an `Error`'s message, so `.not.toContain("pricing degraded")` passed whatever was reported. Read the message (`String(e)`) and find the call.
+  - Lesson 8: a hidden-lot id is a production ResLab id, and the list also applies on previews, where the staging account's ids differ. Checked that no test lot or fixture uses the id.
+
 - **Report-only payment comparison at fulfilment (Nov 19, #211):** five reviewers + Codex, then a pass on the fixes. No Critical. The "decides nothing" claim held (a reviewer removed each call-site guard in turn and the tests failed each time); everything found was in what the reports say.
   - Lesson 12 (two reviewers): one outcome carried two levels and two meanings: a fee difference and an unreadable fee were tags on `match`. A result that is not a match gets its own outcome and its own issue, or "no differs issue" is read as "nothing differed".
   - Lesson 1 / 13: a test named "a match at every site" passed while one site reported `differs`: the fixture had no dates and the test asserted two of the tags. Assert the outcome and the whole tag set. A second value was compared with itself: the payload's fee had already been set from the payment on stamped payments.
