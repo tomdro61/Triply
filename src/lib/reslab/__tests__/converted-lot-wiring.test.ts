@@ -123,6 +123,22 @@ describe("searchParking with an exchange rate set", () => {
     expect(r.results.map((l) => l.reslabLocationId)).toEqual([1]);
     expect(JSON.stringify(r.results)).not.toMatch(/130|107\.55/);
     expect(JSON.stringify(sentry.captureAPIError.mock.calls)).toContain("fx_parts_do_not_add_up");
+    // Any lot NOT on the hidden list keeps this signal (only lot 242 is hidden by id).
+    expect(r.degraded).toBe(true);
+  });
+
+  it("lot 242 (tax outside its total) is on the hidden list: never priced, so it cannot mark the search degraded", async () => {
+    reslabMock.searchLocations.mockResolvedValue([location(1), location(242, CAD_LOT)]);
+    // What ResLab answers for 242: 95.70 + 4.79 = 100.49, the 12.44 tax not in the sum.
+    const taxOutside = cadMinPrice({ sub_total: 95.7, fees_total: 4.79, tax_total: 12.44, grand_total: 100.49 });
+    reslabMock.getMinPrice.mockImplementation(async (id: number) => (id === 242 ? taxOutside : usMinPrice()));
+    const r = await search();
+    expect(reslabMock.getMinPrice.mock.calls.map((c) => c[0])).toEqual([1]);
+    expect(r.results.map((l) => l.reslabLocationId)).toEqual([1]);
+    expect(r.locationsConsidered).toBe(1);
+    expect(r.degraded).toBe(false);
+    // The report's text is in the Error's message, which JSON.stringify drops: read it.
+    expect(sentry.captureAPIError.mock.calls.find(([e]) => /pricing degraded/.test(String(e)))).toBeUndefined();
   });
 
   it.each([

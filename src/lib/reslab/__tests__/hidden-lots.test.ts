@@ -23,6 +23,7 @@ describe("hiddenReslabLocationIds", () => {
     expect(isHiddenReslabLocation(194)).toBe(true);
     expect(isHiddenReslabLocation(196)).toBe(true);
     expect(isHiddenReslabLocation(416)).toBe(true);
+    expect(isHiddenReslabLocation(242)).toBe(true); // Toronto lot whose price will not convert
     expect(isHiddenReslabLocation(422)).toBe(false); // a real lot (Broadway Motor Service, BOS)
   });
 
@@ -31,6 +32,7 @@ describe("hiddenReslabLocationIds", () => {
     expect(isHiddenReslabLocation(194)).toBe(false);
     expect(isHiddenReslabLocation(197)).toBe(false);
     expect(isHiddenReslabLocation(416)).toBe(true);
+    expect(isHiddenReslabLocation(242)).toBe(true);
     expect(hiddenReslabLocationIds()).toBe(BLOCKED_RESLAB_LOCATION_IDS);
   });
 
