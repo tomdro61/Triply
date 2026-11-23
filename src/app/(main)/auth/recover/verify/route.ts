@@ -10,9 +10,12 @@ import {
 } from "@/lib/auth/recovery";
 import { reportRecovery, thrownFailure } from "@/lib/auth/recovery-report";
 
-// Two short calls to Supabase. A hung one must not hold the page's spinner.
-export const maxDuration = 20;
-const SUPABASE_TIMEOUT_MS = 8_000;
+// Three short calls to Supabase. A hung one must not hold the page's spinner.
+export const maxDuration = 30;
+// Only for the best-effort look at who was signed in before. The call that
+// SPENDS the token has no deadline of ours: giving up on it while Supabase is
+// still answering would use the link up and sign nobody in.
+const PREVIOUS_SESSION_TIMEOUT_MS = 3_000;
 
 const WHERE = { endpoint: "/auth/recover/verify", method: "POST" } as const;
 
@@ -29,22 +32,30 @@ type Asked<T> = { data: T | null; failure: AuthFailure | null };
 async function ask<T>(
   call: () => Promise<{ data: T; error: null } | { data: unknown; error: AuthFailure }>
 ): Promise<Asked<T>> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    const timeout = new Promise<Asked<T>>((resolve) => {
-      timer = setTimeout(
-        () => resolve({ data: null, failure: { status: 0, name: "Timeout" } }),
-        SUPABASE_TIMEOUT_MS
-      );
-    });
-    const asked = call().then((result): Asked<T> =>
-      result.error
-        ? { data: null, failure: { status: result.error.status, code: result.error.code, name: result.error.name } }
-        : { data: result.data, failure: null }
-    );
-    return await Promise.race([asked, timeout]);
+    const result = await call();
+    return result.error
+      ? { data: null, failure: { status: result.error.status, code: result.error.code, name: result.error.name } }
+      : { data: result.data, failure: null };
   } catch (error) {
     return { data: null, failure: thrownFailure(error) };
+  }
+}
+
+/** The id of the account signed in before the link is spent, or null. Reads only; gives up early. */
+async function readPreviousUserId(
+  getUser: () => Promise<{ data: { user: { id?: string } | null } }>
+): Promise<string | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const gaveUp = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), PREVIOUS_SESSION_TIMEOUT_MS);
+    });
+    return await Promise.race([getUser().then(({ data }) => data.user?.id ?? null), gaveUp]);
+  } catch {
+    // Best effort by design: without it the page only loses the "you were
+    // signed in to another account" notice. Nothing is decided from it.
+    return null;
   } finally {
     if (timer) clearTimeout(timer);
   }
@@ -55,12 +66,17 @@ async function ask<T>(
  *
  * Spends the one-time token that `/auth/confirm` put in a cookie and signs
  * the person in for the password change. Answers:
- *   200 { email, userId, switched }  go on; the page shows whose password is
- *        being set. `switched`: the browser was signed in to another account.
+ *   200 { email, userId, switched, linkRefused }  go on; the page shows whose
+ *        password is being set. `switched`: the link replaced a different
+ *        signed-in account. `linkRefused`: the link did not work and the
+ *        account is the one the browser was already signed in to.
  *   403  the request did not come from our own page
  *   410  the link is spent or too old, and nobody is signed in
  *   502  no usable answer from Supabase. The token is kept for a retry, except
  *        when Supabase accepted it without naming an account (it is spent).
+ * If the platform ends the request while Supabase is still answering, whether
+ * the link was spent is unknown; the retry then says "expired" and the person
+ * asks for a new link.
  */
 export async function POST(request: Request) {
   // Our own page only. A browser sends Origin on every POST; a caller without
@@ -76,6 +92,7 @@ export async function POST(request: Request) {
     return answer(403, { error: "forbidden" }, false);
   }
 
+  let linkRefused = false;
   const cookieStore = await cookies();
   const stored = cookieStore.get(RECOVERY_COOKIE)?.value;
   const token = isRecoveryTokenShape(stored) ? stored : null;
@@ -84,8 +101,7 @@ export async function POST(request: Request) {
   if (token) {
     // Who the browser is signed in as now, to say so if the link changes it.
     // Best effort: a failure here only loses the notice.
-    const before = await ask(() => supabase.auth.getUser());
-    const previousUserId = before.data?.user?.id ?? null;
+    const previousUserId = await readPreviousUserId(() => supabase.auth.getUser());
 
     const verified = await ask(() => supabase.auth.verifyOtp({ type: "recovery", token_hash: token }));
     const result = classifyAuthFailure(verified.failure);
@@ -104,7 +120,12 @@ export async function POST(request: Request) {
       if (user?.id && user.email) {
         return answer(
           200,
-          { email: user.email, userId: user.id, switched: previousUserId !== null && previousUserId !== user.id },
+          {
+            email: user.email,
+            userId: user.id,
+            switched: previousUserId !== null && previousUserId !== user.id,
+            linkRefused: false,
+          },
           true
         );
       }
@@ -129,14 +150,16 @@ export async function POST(request: Request) {
       WHERE,
       verified.failure
     );
-    // Fall through: a second tab may have spent it a moment ago.
+    // Fall through: a second tab may have spent it a moment ago. The page is
+    // told, because the signed-in account may not be the one the link was for.
+    linkRefused = true;
   }
 
   // No token, or a spent one: someone already signed in can still go on.
   const session = await ask(() => supabase.auth.getUser());
   const user = session.data?.user;
   if (user?.id && user.email) {
-    return answer(200, { email: user.email, userId: user.id, switched: false }, true);
+    return answer(200, { email: user.email, userId: user.id, switched: false, linkRefused }, true);
   }
 
   // "Not signed in" is a refusal here; only a failure to ask is a fault.

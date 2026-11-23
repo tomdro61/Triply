@@ -13,6 +13,7 @@ import {
   newPasswordProblem,
   saveGuard,
   saveOutcome,
+  verifyNeedsPageReport,
   verifyOutcome,
 } from "../recovery";
 
@@ -128,7 +129,7 @@ describe("forgotOutcome", () => {
 });
 
 describe("verifyOutcome", () => {
-  const body = { email: "someone@example.com", userId: "u-1", switched: false };
+  const body = { email: "someone@example.com", userId: "u-1", switched: false, linkRefused: false };
 
   it("goes on with the account", () => {
     expect(verifyOutcome(200, body)).toEqual({ step: "form", ...body });
@@ -138,6 +139,12 @@ describe("verifyOutcome", () => {
     expect(verifyOutcome(200, { ...body, switched: true })).toMatchObject({ switched: true });
     expect(verifyOutcome(200, { ...body, switched: "yes" })).toMatchObject({ switched: false });
     expect(verifyOutcome(200, { email: body.email, userId: body.userId })).toMatchObject({ switched: false });
+  });
+
+  it("carries the refused-link notice only when the route said true", () => {
+    expect(verifyOutcome(200, { ...body, linkRefused: true })).toMatchObject({ linkRefused: true });
+    expect(verifyOutcome(200, { ...body, linkRefused: 1 })).toMatchObject({ linkRefused: false });
+    expect(verifyOutcome(200, { email: body.email, userId: body.userId })).toMatchObject({ linkRefused: false });
   });
 
   it.each([
@@ -160,6 +167,17 @@ describe("verifyOutcome", () => {
   it.each([0, 403, 429, 500, 502])("never calls status %i expired, even with an account in the body", (status) => {
     expect(verifyOutcome(status, body)).toEqual({ step: "check_failed" });
   });
+});
+
+describe("verifyNeedsPageReport", () => {
+  // The route reports these itself; a second report from the page would double them.
+  it.each([403, 410, 502])("is false for the route's own answer %i", (status) =>
+    expect(verifyNeedsPageReport(status)).toBe(false)
+  );
+
+  it.each([0, 200, 404, 500, 504])("is true for %i, which the route never saw or never sends", (status) =>
+    expect(verifyNeedsPageReport(status)).toBe(true)
+  );
 });
 
 describe("directVisitOutcome", () => {

@@ -69,7 +69,7 @@ describe("POST /auth/recover/verify", () => {
     const res = await press();
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ email: "someone@example.com", userId: "u-1", switched: false });
+    expect(await res.json()).toEqual({ email: "someone@example.com", userId: "u-1", switched: false, linkRefused: false });
     expect(h.verifyOtp).toHaveBeenCalledWith({ type: "recovery", token_hash: TOKEN });
     expect(clearsToken(res)).toBe(true);
     expect(res.headers.get("cache-control")).toBe("no-store");
@@ -81,7 +81,7 @@ describe("POST /auth/recover/verify", () => {
 
     const res = await press();
 
-    expect(await res.json()).toEqual({ email: "someone@example.com", userId: "u-1", switched: true });
+    expect(await res.json()).toEqual({ email: "someone@example.com", userId: "u-1", switched: true, linkRefused: false });
   });
 
   it("does not say 'switched' for the same account, or when the earlier session could not be read", async () => {
@@ -146,7 +146,8 @@ describe("POST /auth/recover/verify", () => {
     const res = await press();
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ email: "someone@example.com", userId: "u-1", switched: false });
+    // Told that the link did not work: the signed-in account may not be the one it was for.
+    expect(await res.json()).toEqual({ email: "someone@example.com", userId: "u-1", switched: false, linkRefused: true });
     expect(clearsToken(res)).toBe(true);
   });
 
@@ -182,17 +183,46 @@ describe("POST /auth/recover/verify", () => {
     expect(h.capture.mock.calls[0][1].extra).toMatchObject({ status: 0, name: "TypeError" });
   });
 
-  it("does not wait forever on Supabase: 502 and the token kept after the time limit", async () => {
+  it("gives up early on the look at the earlier session, and still spends the link", async () => {
     vi.useFakeTimers();
-    h.verifyOtp.mockReturnValue(new Promise(() => {}));
+    h.getUser.mockReturnValue(new Promise(() => {}));
 
     const pending = press();
-    await vi.advanceTimersByTimeAsync(8_001);
+    await vi.advanceTimersByTimeAsync(3_001);
     const res = await pending;
 
-    expect(res.status).toBe(502);
-    expect(clearsToken(res)).toBe(false);
-    expect(h.capture.mock.calls[0][1].extra).toMatchObject({ name: "Timeout" });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ email: "someone@example.com", userId: "u-1", switched: false, linkRefused: false });
+    expect(h.capture).not.toHaveBeenCalled();
+  });
+
+  it("[codex] never gives up on the call that spends the link: a slow answer is still the answer", async () => {
+    vi.useFakeTimers();
+    let answer: (result: Result) => void = () => {};
+    h.verifyOtp.mockReturnValue(new Promise<Result>((resolve) => (answer = resolve)));
+
+    let settled = false;
+    const pending = press().then((res) => {
+      settled = true;
+      return res;
+    });
+    // Well past any deadline we could have set: still waiting, nothing answered.
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(settled).toBe(false);
+
+    answer(found(ACCOUNT));
+    const res = await pending;
+    expect(res.status).toBe(200);
+    expect(clearsToken(res)).toBe(true);
+  });
+
+  it("a thrown error from the look at the earlier session changes nothing", async () => {
+    h.getUser.mockRejectedValueOnce(new Error("boom"));
+
+    const res = await press();
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ switched: false });
   });
 
   it.each([
@@ -216,7 +246,7 @@ describe("POST /auth/recover/verify", () => {
     const res = await press();
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ email: "someone@example.com", userId: "u-1", switched: false });
+    expect(await res.json()).toEqual({ email: "someone@example.com", userId: "u-1", switched: false, linkRefused: false });
     expect(h.verifyOtp).not.toHaveBeenCalled();
     expect(clearsToken(res)).toBe(true);
     expect(h.capture).not.toHaveBeenCalled();

@@ -10,8 +10,7 @@ import {
   RECOVERY_COPY,
   directVisitOutcome,
   newPasswordProblem,
-  saveGuard,
-  saveOutcome,
+  verifyNeedsPageReport,
   verifyOutcome,
   type AuthFailure,
   type DirectVisitOutcome,
@@ -19,6 +18,7 @@ import {
   type VerifyOutcome,
 } from "@/lib/auth/recovery";
 import { reportRecovery, thrownFailure } from "@/lib/auth/recovery-report";
+import { saveNewPassword } from "@/lib/auth/recovery-save";
 
 type Step =
   | "loading"
@@ -46,6 +46,10 @@ function ResetPasswordForm() {
   const [step, setStep] = useState<Step>(cameFromLink ? "ready" : "loading");
   const [account, setAccount] = useState<{ email: string; userId: string } | null>(null);
   const [switched, setSwitched] = useState(false);
+  const [linkRefused, setLinkRefused] = useState(false);
+  // Set while "Sign out" runs: its own SIGNED_OUT event must not be read as
+  // "your link expired".
+  const leaving = useRef(false);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -59,29 +63,36 @@ function ResetPasswordForm() {
   // Decided once, on the first render: after Continue the address loses
   // `link=1`, and that must not start this check over a form already shown.
   const openedWithoutLink = useRef(!cameFromLink);
+  const mounted = useRef(true);
   useEffect(() => {
-    if (!openedWithoutLink.current) return;
-    let cancelled = false;
-    createClient()
-      .auth.getUser()
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        const outcome = directVisitOutcome(data.user, kept(error));
-        if (outcome.step === "form") setAccount({ email: outcome.email, userId: outcome.userId });
-        setStep(outcome.step);
-      })
-      .catch((thrown: unknown) => {
-        if (cancelled) return;
-        reportRecovery(
-          { message: "password reset: the session could not be read on the reset page", key: "reset-page-session" },
-          { endpoint: "supabase.auth.getUser", method: "GET" },
-          thrownFailure(thrown)
-        );
-        setStep("check_failed");
-      });
+    mounted.current = true;
     return () => {
-      cancelled = true;
+      mounted.current = false;
     };
+  }, []);
+
+  /** Who is signed in, for a visit with no link. Also the retry after it failed. */
+  const checkDirectVisit = async () => {
+    let outcome: ReturnType<typeof directVisitOutcome>;
+    try {
+      const { data, error } = await createClient().auth.getUser();
+      outcome = directVisitOutcome(data.user, kept(error));
+    } catch (thrown) {
+      reportRecovery(
+        { message: "password reset: the session could not be read on the reset page", key: "reset-page-session" },
+        { endpoint: "supabase.auth.getUser", method: "GET" },
+        thrownFailure(thrown)
+      );
+      outcome = { step: "check_failed" };
+    }
+    if (!mounted.current) return;
+    if (outcome.step === "form") setAccount({ email: outcome.email, userId: outcome.userId });
+    setStep(outcome.step);
+  };
+
+  useEffect(() => {
+    if (openedWithoutLink.current) void checkDirectVisit();
+    // Runs once: the choice was fixed on the first render (see above).
   }, []);
 
   // While the form is open, another tab can sign this browser in to a
@@ -92,7 +103,9 @@ function ResetPasswordForm() {
   useEffect(() => {
     if (!formOpen || !expectedUserId) return;
     const { data } = createClient().auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_OUT") setStep("expired");
+      if (leaving.current) return;
+      // Someone who never had a link is not told one expired.
+      if (event === "SIGNED_OUT") setStep(openedWithoutLink.current ? "needs_link" : "expired");
       else if (session?.user?.id && session.user.id !== expectedUserId) setStep("account_changed");
     });
     return () => data.subscription.unsubscribe();
@@ -109,8 +122,17 @@ function ResetPasswordForm() {
     inFlight.current = true;
     setStep("verifying");
 
+    // No link was ever stored for this visit: the retry is the session check
+    // again, not the route that spends a link.
+    if (openedWithoutLink.current) {
+      await checkDirectVisit();
+      inFlight.current = false;
+      return;
+    }
+
     let status = 0;
     let body: unknown = null;
+    let thrownName: string | null = null;
     try {
       const res = await fetch("/auth/recover/verify", {
         method: "POST",
@@ -120,24 +142,26 @@ function ResetPasswordForm() {
       status = res.status;
       // A reply that is not JSON reads as "could not check" (verifyOutcome).
       body = await res.json().catch(() => null);
-    } catch {
+    } catch (thrown) {
       // No answer at all (offline, timed out): status stays 0, "could not check".
+      thrownName = thrownFailure(thrown).name ?? null;
     }
 
     const outcome = verifyOutcome(status, body);
     if (outcome.step === "form") {
       setAccount({ email: outcome.email, userId: outcome.userId });
       setSwitched(outcome.switched);
+      setLinkRefused(outcome.linkRefused);
       setStep("form");
       // Drop `link=1`, so a refresh shows the form instead of Continue.
       router.replace("/auth/reset-password");
     } else {
-      if (outcome.step === "check_failed") {
+      if (outcome.step === "check_failed" && verifyNeedsPageReport(status)) {
         // The route reports its own faults; this covers the ones it never saw.
         reportRecovery(
           { message: "password reset: Continue got no usable answer", key: "reset-page-verify" },
           { endpoint: "/auth/recover/verify", method: "POST" },
-          { status }
+          { status, name: thrownName ?? undefined }
         );
       }
       setStep(outcome.step);
@@ -158,46 +182,38 @@ function ResetPasswordForm() {
     inFlight.current = true;
     setFormError(null);
     setStep("saving");
-    const supabase = createClient();
 
     try {
-      // `updateUser` acts on whatever session the browser holds NOW. Check it
-      // is still the account this form names before changing a password.
-      const { data: current, error: currentError } = await supabase.auth.getUser();
-      const guard = saveGuard(account.userId, current.user, kept(currentError));
-      if (!guard.ok) {
-        reportRecovery(guard.report, { endpoint: "supabase.auth.getUser", method: "GET" }, kept(currentError));
-        if (guard.step === "check_failed") {
-          setFormError(RECOVERY_COPY.saveFailed);
-          setStep("form");
-        } else {
-          setStep(guard.step);
-        }
-        return;
-      }
+      // The check that this is still the form's account and the save itself
+      // use one captured token (lib/auth/recovery-save.ts). Supabase signs out
+      // every other session of the account itself.
+      const result = await saveNewPassword({
+        auth: createClient().auth,
+        expectedUserId: account.userId,
+        password,
+        supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      });
+      reportRecovery(result.report, { endpoint: "supabase.auth.updateUser", method: "PUT" }, result.failure);
 
-      // Supabase signs out every other session of this account itself.
-      const { error } = await supabase.auth.updateUser({ password });
-      const failure = kept(error);
-      const outcome = saveOutcome(failure);
-      reportRecovery(outcome.report, { endpoint: "supabase.auth.updateUser", method: "PUT" }, failure);
-
-      switch (outcome.step) {
+      switch (result.step) {
         case "done":
           setPassword("");
           setConfirm("");
           setStep("done");
           break;
         case "expired":
-          setStep("expired");
+        case "account_changed":
+          setStep(result.step);
           break;
+        case "check_failed":
         case "form":
-          setFormError(outcome.message);
+          setFormError(result.message ?? RECOVERY_COPY.saveFailed);
           setStep("form");
           break;
         default: {
-          const unhandled: never = outcome;
-          throw new Error(`unhandled save outcome: ${JSON.stringify(unhandled)}`);
+          const unhandled: never = result.step;
+          throw new Error(`unhandled save step: ${String(unhandled)}`);
         }
       }
     } catch (thrown) {
@@ -218,11 +234,26 @@ function ResetPasswordForm() {
   const handleNotMe = async () => {
     if (inFlight.current) return;
     inFlight.current = true;
+    leaving.current = true;
+    let failure: AuthFailure | null;
     try {
-      await createClient().auth.signOut({ scope: "local" });
-    } catch {
-      // Signing out is best effort here: the person is leaving this form
-      // either way, and the sign-in page works with or without a session.
+      const { error } = await createClient().auth.signOut({ scope: "local" });
+      failure = kept(error);
+    } catch (thrown) {
+      failure = thrownFailure(thrown);
+    }
+    if (failure) {
+      // Still signed in to the account they said is not theirs: say so, and
+      // keep them on the form instead of sending them on as if it had worked.
+      reportRecovery(
+        { message: "password reset: sign-out from the form failed", key: "reset-page-signout" },
+        { endpoint: "supabase.auth.signOut", method: "POST" },
+        failure
+      );
+      setFormError(RECOVERY_COPY.signOutFailed);
+      leaving.current = false;
+      inFlight.current = false;
+      return;
     }
     router.replace("/auth/login");
   };
@@ -294,6 +325,16 @@ function ResetPasswordForm() {
 
           {(step === "form" || step === "saving") && account && (
             <form onSubmit={handleSave} className="space-y-4" data-clarity-mask="true">
+              {linkRefused && (
+                <div
+                  role="status"
+                  className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg text-sm"
+                >
+                  That link had expired or was already used. You&apos;re signed in, so you can set a new
+                  password for the account below. If it isn&apos;t the one you meant, sign out and ask for a
+                  new link.
+                </div>
+              )}
               {switched && (
                 <div
                   role="status"

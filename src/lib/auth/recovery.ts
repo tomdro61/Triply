@@ -45,6 +45,7 @@ export const RECOVERY_COPY = {
   needsLink: "To choose a new password, ask for a reset link first.",
   checkFailed: "We couldn't check your link. Please try again.",
   saveFailed: "We couldn't save your new password. Please try again.",
+  signOutFailed: "We couldn't sign you out. Please try again.",
   accountChanged: "You're now signed in to a different account in this browser. Ask for a new link to continue.",
   tooShort: `Your password needs at least ${MIN_PASSWORD_LENGTH} characters.`,
   mismatch: "The two passwords don't match.",
@@ -115,9 +116,19 @@ export function forgotOutcome(error: AuthFailure | null): ForgotOutcome {
   };
 }
 
+/**
+ * Whether the reset page should report a Continue that did not work. The route
+ * reports its own 403 and 502; the page reports only what the route never saw:
+ * no answer at all (0), a 200 it could not read, or a status the route does
+ * not send.
+ */
+export function verifyNeedsPageReport(status: number): boolean {
+  return status !== 403 && status !== 410 && status !== 502;
+}
+
 /** What the verify route answered, read by the reset page. */
 export type VerifyOutcome =
-  | { step: "form"; email: string; userId: string; switched: boolean }
+  | { step: "form"; email: string; userId: string; switched: boolean; linkRefused: boolean }
   | { step: "expired" }
   | { step: "check_failed" };
 
@@ -135,7 +146,13 @@ export function verifyOutcome(status: number, body: unknown): VerifyOutcome {
     const email = field(body, "email");
     const userId = field(body, "userId");
     if (typeof email === "string" && email.length > 0 && typeof userId === "string" && userId.length > 0) {
-      return { step: "form", email, userId, switched: field(body, "switched") === true };
+      return {
+        step: "form",
+        email,
+        userId,
+        switched: field(body, "switched") === true,
+        linkRefused: field(body, "linkRefused") === true,
+      };
     }
     return { step: "check_failed" };
   }
