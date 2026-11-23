@@ -1,7 +1,7 @@
 {
   "code": "LGA",
   "fullName": "LaGuardia Airport",
-  "lastVerified": "2026-11-06",
+  "lastVerified": "2026-11-09",
   "overview": {
     "location": "East Elmhurst, Queens, New York — 8 miles east of Midtown Manhattan",
     "passengerVolume": "33.5 million passengers per year (31.8M domestic, 1.7M international)",
@@ -96,9 +96,12 @@
       "note": "NYC City Council has a proposal (Int 1170-2025) for ferry service to LGA and JFK, but it remains a proposal only."
     }
   },
-  "parkingRates": "On-airport: Terminal B Garage $80/day ($55 pre-booked), Terminal C Garage $89/day ($60 pre-booked), Economy Lot 3 $39/day (~$29 pre-booked). Cell Phone Lot: Free. Off-site via Triply: from $10.62/day. IMPORTANT: Unlike JFK, LGA has no AirTrain cost — the comparison is purely parking rate vs. rate plus shuttle convenience.",
+  "parkingRates": "On-airport (laguardiaairport.com, checked 2026-11-10): Terminal A $75/day max (as low as $50 pre-booked), Terminal B $80/day max (as low as $55), Terminal C $89/day max (as low as $60); Prepaid Economy Parking pre-book only, as low as $40/day. Cell Phone Lot: Free. Off-site via Triply: from $10.62/day. IMPORTANT: Unlike JFK, LGA has no AirTrain cost — the comparison is purely parking rate vs. rate plus shuttle convenience.",
   "onAirportParking": {
+    "terminalAGarage": {"rate": "$5 per first 30 min, $10 per additional 30 min after 3 hours", "dailyMax": 75, "preBookRate": 50, "terminals": "Terminal A", "features": "E-ZPass Plus not accepted in the Terminal A lot", "lastVerified": "2026-11-10", "source": "https://www.laguardiaairport.com/transportation/airport-parking"},
     "terminalBGarage": {
+      "lastVerified": "2026-11-10",
+      "source": "https://www.laguardiaairport.com/transportation/airport-parking",
       "rate": "$5 per first 30 min, $10 per additional 30 min",
       "dailyMax": 80,
       "preBookRate": 55,
@@ -106,14 +109,19 @@
       "features": "Pedestrian bridge directly to Terminal B"
     },
     "terminalCGarage": {
+      "lastVerified": "2026-11-10",
+      "source": "https://www.laguardiaairport.com/transportation/airport-parking",
       "rate": "$6 per first 30 min, $12 per additional 30 min",
       "dailyMax": 89,
       "preBookRate": 60,
       "terminals": "Terminal C (Delta)"
     },
     "economyLot3": {
-      "rate": "$39/day drive-up",
-      "preBookRate": "~$29 first 24 hrs, then $14.50/12 hrs",
+      "name": "Prepaid Economy Parking",
+      "lastVerified": "2026-11-10",
+      "source": "https://www.laguardiaairport.com/transportation/airport-parking",
+      "rate": "Prepaid only (no drive-up rate listed)",
+      "preBookRate": "As low as $40 per day",
       "connection": "Shuttle service to all terminals"
     },
     "cellPhoneLot": {
@@ -145,17 +153,17 @@
       "googleRating": "4.3/5 (580+ reviews)",
       "knownCoupons": ["PRIME15 (15% off)", "SUMMER20 (20% off)", "SAVE10", "Military 25% off"],
       "notes": "Most-reviewed LGA lot. Priciest option at $28.94/day but most established. Recurring shuttle delay complaints (45+ min in bad weather). No large vehicles. Also has Westchester location.",
-      "rateVerified": "2026-11-06",
+      "rateVerified": "2026-11-09",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-06",
+      "sellableCheckedOn": "2026-11-09",
       "reslabLocationId": 249
     },
     {
       "name": "Carvia Parking (LGA)",
       "slug": "carvia-parking-lga",
-      "dailyRate": 20.95,
-      "totalFor4Days": 92.07,
-      "taxesFor4Days": 8.28,
+      "dailyRate": 16.75,
+      "totalFor4Days": 73.61,
+      "taxesFor4Days": 6.62,
       "paymentMethod": "Pay at Location",
       "distanceFromAirport": "0.6 mi",
       "driveTime": "5 minutes",
@@ -169,9 +177,9 @@
       "googleRating": "4.6/5 on AirportParkingReservations (35 reviews)",
       "knownCoupons": ["Groupon deal available (no code needed)"],
       "notes": "Relatively new operation (likely opened 2024-2025). Good value at $15.45/day with 24/7 shuttle. SUV surcharges: small/midsize $6/day, large SUV/trucks $10/day. May share location with Parking Place LGA (same address block). Available on Groupon.",
-      "rateVerified": "2026-11-06",
+      "rateVerified": "2026-11-09",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-06",
+      "sellableCheckedOn": "2026-11-09",
       "rateSpreadPct": 50.16,
       "reslabLocationId": 388
     },
@@ -193,17 +201,17 @@
       "freeCancellation": true,
       "knownCoupons": [],
       "notes": "Open and bookable on Triply (confirmed stays parked here in Aug, Sep and Oct 2026). An earlier closure note (Jan 31, 2026, construction) is out of date; older Triply posts still repeat it — do not.",
-      "rateVerified": "2026-11-06",
+      "rateVerified": "2026-11-09",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-06",
+      "sellableCheckedOn": "2026-11-09",
       "reslabLocationId": 454
     },
     {
       "name": "Parking Place (LGA)",
       "slug": "parking-place-lga",
-      "dailyRate": 22,
-      "totalFor4Days": 96.68,
-      "taxesFor4Days": 8.69,
+      "dailyRate": 17.8,
+      "totalFor4Days": 78.22,
+      "taxesFor4Days": 7.03,
       "paymentMethod": "Pay at Location",
       "distanceFromAirport": "0.7 mi",
       "driveTime": "5 minutes",
@@ -217,9 +225,9 @@
       "googleRating": "4.7/5 (3 reviews on ParkingNearAirports)",
       "knownCoupons": [],
       "notes": "Cheapest close-proximity LGA lot at $14.95/day with 24/7 shuttle. Very few reviews (newer operation). Likely same physical lot as Carvia Parking (same address block, identical amenities, same 848 area code phones, same surcharges). SUV surcharges: $6/day small, $10/day large.",
-      "rateVerified": "2026-11-06",
+      "rateVerified": "2026-11-09",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-06",
+      "sellableCheckedOn": "2026-11-09",
       "reslabLocationId": 387,
       "rateSpreadPct": 47.2
     },
@@ -243,9 +251,9 @@
       "googleRating": "3.8/5 (107 reviews Google), 2.0/5 (31 reviews Trustpilot)",
       "knownCoupons": [],
       "notes": "CAUTION: Trustpilot rating is 2.0/5. Multiple reports of unauthorized mileage on vehicles (14-91+ extra miles), vehicle damage (scratches, cracked windshields), 30-90 minute pickup waits, and unresponsive phone/email. Customers must take their own photos as the company keeps no records. Convenient terminal drop-off concept but trust concerns.",
-      "rateVerified": "2026-11-06",
+      "rateVerified": "2026-11-09",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-06",
+      "sellableCheckedOn": "2026-11-09",
       "reslabLocationId": 343
     },
     {
@@ -269,7 +277,7 @@
       "knownCoupons": ["LGA7 ($7 off, valid through 12/31/2026)"],
       "notes": "CAUTION: BBB F rating with 10 unanswered complaints. Hidden fees reported: 4% credit card surcharge, 3.75% service charge, $5/day SUV surcharge. No shuttle 8PM-4AM. Cheapest LGA lot but numerous complaints about misleading pricing, unprofessional staff, and safety concerns. Advertised low price is misleading once surcharges are added.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-06"
+      "sellableCheckedOn": "2026-11-09"
     },
     {
       "name": "Hyatt Place Flushing - LAZ Parking (LGA)",
@@ -289,9 +297,9 @@
       "freeCancellation": true,
       "knownCoupons": [],
       "notes": "Covered/indoor parking — only covered option near LGA. No oversized vehicles. Arrive 2 hours before flight. Limited shuttle hours — NO overnight service. 2.5 mi from airport.",
-      "rateVerified": "2026-11-06",
+      "rateVerified": "2026-11-09",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-06",
+      "sellableCheckedOn": "2026-11-09",
       "reslabLocationId": 159
     },
     {
@@ -312,9 +320,9 @@
       "freeCancellation": true,
       "knownCoupons": [],
       "notes": "Cheapest Triply option for LGA at $10.95/day. Must print receipt — no receipt = no service, no refund. Limited shuttle hours — NO overnight service. 2.6 mi from airport.",
-      "rateVerified": "2026-11-06",
+      "rateVerified": "2026-11-09",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-06",
+      "sellableCheckedOn": "2026-11-09",
       "reslabLocationId": 112
     },
     {
@@ -336,9 +344,9 @@
       "googleRating": "No reviews yet",
       "knownCoupons": [],
       "notes": "POOR VALUE: At $20.95/day with NO shuttle, effective daily cost is $35-70+ including Uber/Lyft each way ($15-25). This is a residential building garage, not a purpose-built airport lot. Oversized vehicle surcharge: $10/day. Zero reviews. Only advantage is covered/indoor parking.",
-      "rateVerified": "2026-11-06",
+      "rateVerified": "2026-11-09",
       "sellable": true,
-      "sellableCheckedOn": "2026-11-06",
+      "sellableCheckedOn": "2026-11-09",
       "reslabLocationId": 440
     }
   ],
@@ -491,21 +499,21 @@
         "totalEstimate": "~$360"
       },
       "economyLot3": {
-        "parkingCost": "~$234 (6 days at $39/day)",
-        "totalEstimate": "~$234"
+        "parkingCost": "~$240 (6 days at $40/day prepaid)",
+        "totalEstimate": "~$240"
       }
     },
     "offSiteWithShuttle": {
       "queensCrossing": {
         "parkingCost": 68.97,
         "totalEstimate": 68.97,
-        "savingsVsEconomy": "~$165 saved vs Economy Lot 3",
+        "savingsVsEconomy": "~$171 saved vs Prepaid Economy",
         "caveat": "Limited shuttle hours (6:30 AM-10:30 PM only)"
       },
       "hyattPlaceFlushing": {
         "parkingCost": 76.52,
         "totalEstimate": 76.52,
-        "savingsVsEconomy": "~$157 saved vs Economy Lot 3",
+        "savingsVsEconomy": "~$163 saved vs Prepaid Economy",
         "caveat": "Limited shuttle hours (7 AM-10 PM only)"
       }
     },
