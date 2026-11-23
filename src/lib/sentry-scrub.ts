@@ -9,6 +9,7 @@
 // request in breadcrumbs and spans, and that token lets anyone post as us.
 
 import { RECORDED_URL_SECRET_PARAMS } from "./privacy/recorded-url-params";
+import { RECOVERY_COOKIE } from "./auth/recovery";
 
 const REVIEW_PATH = /\/review\/[0-9a-zA-Z._-]{20,}/g;
 // The token classes stop at quotes and backslashes: the text being scrubbed is
@@ -51,6 +52,18 @@ const CLIENT_SECRET = /(pi_[A-Za-z0-9]+)_secret_[A-Za-z0-9]+/g;
 const SECRET_HEADER =
   /("(?:http\.request\.header\.)?x[-_](?:booking[-_](?:email|key)|payment[-_]client[-_]secret)"\s*:\s*")(?:[^"\\]|\\.)*(")/gi;
 
+// The password-reset token while it waits in its cookie (lib/auth/recovery.ts).
+// The server SDK can attach request cookies to an event three ways: a parsed
+// `cookies` object ("name":"value"), the raw Cookie / Set-Cookie header
+// (name=value), and a span attribute whose key ends in the cookie's name. The
+// SDK filters this cookie by its name; this is ours, in case that changes.
+// The value is letters, digits, "-" and "_" only, so the match cannot run on.
+// `\\\\?"` = a quote, or an escaped one when the JSON sits inside a string.
+const RECOVERY_COOKIE_VALUE = new RegExp(
+  `(${RECOVERY_COOKIE}(?:\\\\?"\\s*:\\s*\\\\?"|=))[A-Za-z0-9_-]+`,
+  "gi"
+);
+
 /** A query param's name as URLSearchParams reads it: percent-decoded, `+` as a space. */
 function decodedParamName(name: string): string {
   try {
@@ -91,7 +104,8 @@ export function scrubUrlCredentials(text: string): string {
   )
     .replace(SECRET_QUERY_ENCODED, "$1[redacted]")
     .replace(CLIENT_SECRET, "$1_secret_[redacted]")
-    .replace(SECRET_HEADER, "$1[redacted]$2");
+    .replace(SECRET_HEADER, "$1[redacted]$2")
+    .replace(RECOVERY_COOKIE_VALUE, "$1[redacted]");
 }
 
 /**
