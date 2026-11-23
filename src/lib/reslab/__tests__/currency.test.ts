@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   convertCost,
   convertMinPrice,
+  isLotPriceRefusal,
   isSellableLocation,
   lotCurrency,
   lotFxFields,
   minPriceInUsd,
   pricingCurrencyFields,
   stampedCurrencyProblem,
+  unconvertiblePriceFingerprint,
 } from "../currency";
 import type { ReslabCostResponse, ReslabMinPriceResponse } from "../client";
 
@@ -156,6 +158,37 @@ describe("minPriceInUsd", () => {
   });
   it("a hidden lot never yields a price", () => {
     expect(minPriceInUsd(minPrice(), { kind: "hidden", reason: "no_rate" })).toEqual({ data: null, unusable: "hidden_no_rate" });
+  });
+});
+
+describe("isLotPriceRefusal: which unusable prices leave a lot out of a search without marking it degraded", () => {
+  it.each([
+    "fx_parts_do_not_add_up",
+    "fx_due_above_total",
+    "fx_discount",
+    "fx_pay_at_lot",
+    "hidden_no_rate",
+    "hidden_pay_at_lot",
+    "hidden_currency",
+    "hidden_currency_missing",
+  ])("%s is about the lot's own price", (reason) => {
+    expect(isLotPriceRefusal(reason)).toBe(true);
+  });
+  // A malformed or partial answer, or a broken rate: a pricing failure.
+  it.each(["fx_bad_amount", "fx_bad_rate", "fx_something_new", "timeout", ""])("%s is not", (reason) => {
+    expect(isLotPriceRefusal(reason)).toBe(false);
+  });
+  it("the reasons minPriceInUsd really produces are classified as intended", () => {
+    const cad = { kind: "cad", rate: RATE } as const;
+    const reasonFor = (over: Parameters<typeof minPrice>[0]) => minPriceInUsd(minPrice(over), cad).unusable ?? "";
+    expect(isLotPriceRefusal(reasonFor({ grand_total: 1 }))).toBe(true);
+    expect(isLotPriceRefusal(reasonFor({ discount: 3 }))).toBe(true);
+    expect(isLotPriceRefusal(reasonFor({ due_at_location: 10 }))).toBe(true);
+    expect(reasonFor({ sub_total: Number.NaN })).toBe("fx_bad_amount");
+    expect(isLotPriceRefusal(reasonFor({ sub_total: Number.NaN }))).toBe(false);
+  });
+  it("the Sentry issue key is the lot and the reason", () => {
+    expect(unconvertiblePriceFingerprint(558, "fx_discount")).toEqual(["reslab-price-unconvertible", "558", "fx_discount"]);
   });
 });
 

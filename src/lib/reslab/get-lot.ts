@@ -11,7 +11,7 @@ import type { PricingWindow } from "@/lib/reslab/pricing-window";
 import { calculateDistance } from "@/lib/utils/geo";
 import { generateSlug } from "@/lib/utils/slug";
 import { deriveAvailability } from "./availability";
-import { isSellableLocation, lotCurrency, lotFxFields, minPriceInUsd, pricingCurrencyFields, type LotCurrency } from "./currency";
+import { isSellableLocation, lotCurrency, lotFxFields, minPriceInUsd, pricingCurrencyFields, unconvertiblePriceFingerprint, type LotCurrency } from "./currency";
 import { captureAPIError } from "@/lib/sentry";
 // One-way dependency: search.ts does NOT import get-lot.ts, so no cycle.
 import {
@@ -208,6 +208,7 @@ function reportUnconvertiblePrice(locationId: number, reason: string) {
   captureAPIError(new Error(`ResLab price for lot ${locationId} could not be converted (${reason})`), {
     endpoint: "getLotFromReslab",
     method: "GET",
+    fingerprint: unconvertiblePriceFingerprint(locationId, reason),
   });
 }
 

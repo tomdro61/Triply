@@ -38,6 +38,13 @@ vi.mock("@/lib/direct/flag", async () => {
   return { ...actual, get DIRECT_BOOKING_OPEN() { return flagState.bookingOpen; } };
 });
 
+// A fixed exchange rate, so the one Canadian-dollar case below does not depend
+// on the shipped rate or its last valid day. No other lot here is Canadian.
+vi.mock("@/lib/fx/cad-usd", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/fx/cad-usd")>()),
+  currentCadRate: () => ({ id: "r1", micros: 725_000 }),
+}));
+
 import { searchParking, __resetLocationListCacheForTests } from "../search";
 import { __resetAvailabilityLogWarnStateForTests } from "@/lib/availability/log";
 import { __resetSearchEventsLogWarnStateForTests } from "@/lib/search-events/log";
@@ -285,6 +292,25 @@ describe("searchParking — direct lots ON", () => {
 
     expect(result.results.map((l) => l.id)).toEqual(["direct-1"]);
     expect(result.degraded).toBe(true);
+  });
+
+  it("the only ResLab lot's price will not convert, a direct lot can be shown: answered as ResLab unavailable, as before", async () => {
+    reslabMock.searchLocations.mockResolvedValue([
+      { ...fixtureLocation(1), currency: { id: 1, name: "Canadian Dollar", code: "CAD" }, country: { code: "CA" } },
+    ]);
+    // Canadian dollars whose parts do not add up to the total (100 + 0 + 0 against 130).
+    const notAddingUp = minPrice();
+    notAddingUp.reservation.grand_total = 130;
+    reslabMock.getMinPrice.mockResolvedValue(notAddingUp);
+    directRows([directLotRow()]);
+
+    const result = await search();
+    await flush();
+
+    expect(result.results.map((l) => l.id)).toEqual(["direct-1"]);
+    expect(result.reslabUnavailable).toBe(true);
+    expect(result.degraded).toBe(true);
+    expect(searchEventRow()).toMatchObject({ degraded: true, results_count: 0 });
   });
 
   it("still 502s on an all-pricing failure when there is nothing direct to show", async () => {

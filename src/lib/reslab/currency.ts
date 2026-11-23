@@ -80,6 +80,29 @@ export function minPriceInUsd(
   return converted.ok ? { data: converted.value, unusable: null } : { data: null, unusable: `fx_${converted.reason}` };
 }
 
+/**
+ * True when `unusable` (from minPriceInUsd) says something about the LOT'S
+ * PRICE: its parts do not add up, it carries a discount or a pay-at-lot
+ * share, or the lot is not sold. Such a lot is left out of a search like a
+ * hidden one. False for `fx_bad_amount` / `fx_bad_rate`: a malformed or
+ * partial answer (or a broken rate) is a pricing failure, and a search must
+ * not be cached without the lot on the strength of one.
+ */
+export function isLotPriceRefusal(unusable: string): boolean {
+  return (
+    unusable.startsWith("hidden_") ||
+    unusable === "fx_parts_do_not_add_up" ||
+    unusable === "fx_due_above_total" ||
+    unusable === "fx_discount" ||
+    unusable === "fx_pay_at_lot"
+  );
+}
+
+/** One Sentry issue per lot and reason, shared by search and the lot page. */
+export function unconvertiblePriceFingerprint(locationId: number, reason: string): string[] {
+  return ["reslab-price-unconvertible", String(locationId), reason];
+}
+
 type PriceReservation = ReslabMinPriceResponse["reservation"] | ReslabCostResponse["reservation"];
 /** The shape both price responses share (a cost response only adds optional fields). */
 type ConvertedReservation = ReslabMinPriceResponse["reservation"];

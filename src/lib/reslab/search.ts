@@ -43,11 +43,13 @@ import {
 import { logSearchEvent, type SearchEventSource } from "@/lib/search-events/log";
 import { deriveAvailability } from "@/lib/reslab/availability";
 import {
+  isLotPriceRefusal,
   isSellableLocation,
   lotCurrency,
   lotFxFields,
   minPriceInUsd,
   pricingCurrencyFields,
+  unconvertiblePriceFingerprint,
   type LotCurrency,
 } from "@/lib/reslab/currency";
 import { DIRECT_BOOKING_OPEN, isDirectLotsEnabled } from "@/lib/direct/flag";
@@ -577,6 +579,43 @@ const AVAILABILITY_REPORT_INTERVAL_MS = 10 * 60 * 1000;
 // Per-airport throttle for the own-airport fallback log line (below).
 const lastOwnFallbackLogAt = new Map<string, number>();
 
+// A lot left out of a search because its price will not convert: one event
+// per lot and reason per warm instance every 5 minutes (it refuses the same
+// way on every search). Keys are lot ids from the channel list, so the map
+// stays small.
+const UNCONVERTIBLE_REPORT_EVERY_MS = 5 * 60_000;
+const lastUnconvertibleReportAt = new Map<string, number>();
+
+/**
+ * Reports each lot left out for its price, under the lot's own Sentry issue
+ * (shared with the lot page). Never throws: a reporting defect must not fail
+ * the search it describes.
+ */
+function reportUnconvertibleLots(
+  lots: readonly { id: number; reason: string }[],
+  airportCode: string,
+  source: string
+): void {
+  try {
+    const now = Date.now();
+    for (const { id, reason } of lots) {
+      const key = `${id}:${reason}`;
+      const last = lastUnconvertibleReportAt.get(key);
+      if (last !== undefined && now - last < UNCONVERTIBLE_REPORT_EVERY_MS) continue;
+      lastUnconvertibleReportAt.set(key, now);
+      captureAPIError(new Error(`ResLab price for lot ${id} could not be converted (${reason})`), {
+        endpoint: "searchParking",
+        method: "GET",
+        stage: "price_unconvertible",
+        fingerprint: unconvertiblePriceFingerprint(id, reason),
+        extra: { airport: airportCode, source },
+      });
+    }
+  } catch (err) {
+    console.error("reportUnconvertibleLots failed:", err);
+  }
+}
+
 /**
  * The own-airport filter fell back to the full radius list (src/lib/search/
  * airport-ownership.ts). Usually a sell-out night — not an error, so no Sentry
@@ -619,6 +658,7 @@ export function __resetLocationListCacheForTests(): void {
   lastBackoffReportAt = null;
   lastAvailabilityReportAt = null;
   lastOwnFallbackLogAt.clear();
+  lastUnconvertibleReportAt.clear();
   lastAvailabilityDateSkipReportAt = null;
   lastSearchEventReportAt = null;
   buildPhaseSweeps = 0;
@@ -1637,6 +1677,10 @@ export async function searchParking(
   // genuine "everything is sold out" empty from a ResLab degradation (below).
   let pricingErrors = 0;
   const pricingFailureReasons = new Map<string, number>();
+  // Lots left out because their price will not convert (isLotPriceRefusal).
+  // NOT pricing errors: the lot is not sellable, like a hidden one, so it
+  // neither marks the search degraded nor joins the shared outage report.
+  const unconvertibleLots: { id: number; reason: string }[] = [];
   // Keep the raw minPriceData alongside each transformed lot: transformLocation
   // collapses sold_out/available_spots into one `availability` string and the
   // filter below then drops the sold-out lots entirely, so this is the only
@@ -1656,6 +1700,7 @@ export async function searchParking(
           location,
           minPriceData,
           closedToday: true,
+          unconvertible: false,
         };
       }
 
@@ -1676,12 +1721,20 @@ export async function searchParking(
         pricingFailureReasons.set(reason, (pricingFailureReasons.get(reason) ?? 0) + 1);
       }
       // A lot priced in Canadian dollars: every figure below this line is US
-      // dollars. A price that cannot be converted (its parts do not add up, a
-      // pay-at-lot share) is an unpriced lot, counted like a pricing failure.
+      // dollars. A price that cannot be converted is an unpriced lot. When
+      // the reason is the lot's own price (its parts do not add up, a
+      // pay-at-lot share) the lot is left out and reported on its own; a
+      // malformed answer or a bad rate is counted like a pricing failure.
       const inUsd = minPriceInUsd(minPriceData, currency);
+      let unconvertible = false;
       if (inUsd.unusable !== null) {
-        pricingErrors++;
-        pricingFailureReasons.set(inUsd.unusable, (pricingFailureReasons.get(inUsd.unusable) ?? 0) + 1);
+        if (isLotPriceRefusal(inUsd.unusable)) {
+          unconvertible = true;
+          unconvertibleLots.push({ id: location.id, reason: inUsd.unusable });
+        } else {
+          pricingErrors++;
+          pricingFailureReasons.set(inUsd.unusable, (pricingFailureReasons.get(inUsd.unusable) ?? 0) + 1);
+        }
       }
       minPriceData = inUsd.data;
 
@@ -1696,9 +1749,11 @@ export async function searchParking(
         location,
         minPriceData,
         closedToday: false,
+        unconvertible,
       };
     })
   );
+  reportUnconvertibleLots(unconvertibleLots, airportInfo.code, source);
   // Telemetry (availability_log, search_events) records only lots we asked
   // ResLab about; a lot closed for today was never an observation.
   const pricedLots = allPricedLots.filter((p) => !p.closedToday);
@@ -1817,9 +1872,12 @@ export async function searchParking(
     ? availableLots.filter((lot) => lotBelongsToAirport(lot, airportInfo))
     : availableLots;
   const ownPriced = ownFilter ? pricedLots.filter((p) => belongsHere(p.location)) : pricedLots;
-  // In pricedLots, a null minPriceData means exactly "getMinPrice threw"
-  // (closed-for-today lots were removed above).
-  const ownPricingErrors = ownPriced.filter((p) => p.minPriceData === null).length;
+  // In pricedLots, a null minPriceData means "getMinPrice threw" or "the
+  // price would not convert" (closed-for-today lots were removed above). Only
+  // the first is a pricing error; `unconvertible` marks the second.
+  const isPricingError = (p: { minPriceData: ReslabMinPriceResponse | null; unconvertible: boolean }) =>
+    p.minPriceData === null && !p.unconvertible;
+  const ownPricingErrors = ownPriced.filter(isPricingError).length;
   const bookableDirect = DIRECT_BOOKING_OPEN ? directUnified.length : 0;
   // A bookable direct lot stands in for sold-out own lots, but not for own
   // lots that FAILED to price — that is an outage, and the other airport's
@@ -1833,7 +1891,9 @@ export async function searchParking(
   // The pricing pass for the lots shown, so search_events' results_count and
   // sold_out_count describe the same set (the digest divides one by the other).
   const shownPriced = ownAirportFallback ? pricedLots : ownPriced;
-  const shownPricingErrors = shownPriced.filter((p) => p.minPriceData === null).length;
+  const shownPricingErrors = shownPriced.filter(isPricingError).length;
+  // Every shown lot with no price, whatever the reason: "was anything priced?"
+  const shownUnpriced = shownPriced.filter((p) => p.minPriceData === null).length;
   if (ownAirportFallback) reportOwnAirportFallback(airportInfo.code, ownPriced, ownPricingErrors);
   // The "Most booked" leader is ALWAYS chosen from this airport's own lots —
   // with the filter switched off and on the fallback too — so another airport's
@@ -1854,9 +1914,14 @@ export async function searchParking(
   // airport ISR pages / chat key on this flag to treat that 200 as the outage
   // it is (review H1). Only ever set with the flag on, because without direct
   // lots both cases still throw.
+  // "Nothing priced" counts a lot whose price would not convert together
+  // with the failures, so that case answers exactly as it always has.
+  const unpricedLots = pricingErrors + unconvertibleLots.length;
   const reslabUnavailable =
     reslabFailure !== null ||
-    (directUnified.length > 0 && locations.length > 0 && availableLots.length === 0 && pricingErrors > 0);
+    (directUnified.length > 0 && locations.length > 0 && availableLots.length === 0 && unpricedLots > 0);
+  // The throw below, decided here so the search_events row agrees with it.
+  const nothingPricedThrow = availableLots.length === 0 && unpricedLots > 0 && directUnified.length === 0;
   const isDegraded = pricingErrors > 0 || listBuildIncomplete || reslabUnavailable;
   // The same judgement for the lots the customer is SHOWN: a hidden other-
   // airport lot failing to price does not make this airport's list partial.
@@ -1873,11 +1938,13 @@ export async function searchParking(
     // sold-out count and the cheapest floor all describe the page they saw.
     // availability_log above still records every lot priced.
     results_count: shownReslabLots.length,
-    degraded: shownDegraded,
+    // A search about to be answered as an error is recorded as degraded even
+    // when the only unpriced lots are ones whose price would not convert.
+    degraded: shownDegraded || nothingPricedThrow,
     stale: listBuildStale,
     priced: shownPriced,
     available: shownReslabLots,
-    pricingErrors: shownPricingErrors,
+    pricingErrors: shownUnpriced,
     directCount,
     directSkipped,
   });
@@ -1887,11 +1954,13 @@ export async function searchParking(
   // uncacheable 5xx rather than caching a misleading "no parking" result —
   // unless direct lots can still be shown, in which case the result goes out
   // degraded (no-store) with the partial-pricing capture below.
-  if (availableLots.length === 0 && pricingErrors > 0 && directUnified.length === 0) {
+  if (nothingPricedThrow) {
+    const allReasons = new Map(pricingFailureReasons);
+    for (const { reason } of unconvertibleLots) allReasons.set(reason, (allReasons.get(reason) ?? 0) + 1);
     throw new ReslabError(
       502,
       // The rest of the lots were sold out; only the failures carry a reason.
-      `ResLab pricing unavailable for all ${pricedLots.length} ${airportCode} location(s); ${pricingErrors} failed (${formatPricingFailureReasons(pricingFailureReasons)})`
+      `ResLab pricing unavailable for all ${pricedLots.length} ${airportCode} location(s); ${unpricedLots} failed (${formatPricingFailureReasons(allReasons)})`
     );
   }
 
