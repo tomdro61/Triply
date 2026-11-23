@@ -387,8 +387,8 @@
     {
       "name": "Best Rate Airport Parking",
       "slug": "best-rate-airport-parking",
-      "dailyRate": 28,
-      "reservationRate": 28,
+      "dailyRate": 24.42,
+      "reservationRate": 24.42,
       "amenities": [
         "Valet",
         "Security",

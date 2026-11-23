@@ -379,11 +379,12 @@
       "shuttleInfo": "5:00 AM - 10:30 PM: Shuttle runs every 40 minutes. 10:30 PM - 5:00 AM: No shuttle.",
       "amenities": ["24/7 Front Desk", "Restaurant", "Wheelchair Access"],
       "paymentMethod": "Pay Online",
-      "dailyRate": 18.08,
+      "dailyRate": 20.92,
       "rateVerified": "2026-11-06",
       "sellable": true,
       "sellableCheckedOn": "2026-11-06",
-      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled"
+      "needsReview": "added by lot-sync 2026-11-06 from live search: parkingType, driveTime and overview not filled",
+      "rateSpreadPct": 46.18
     },
     {
       "name": "Pride Airport Parking",
