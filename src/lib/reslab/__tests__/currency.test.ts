@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   convertCost,
   convertMinPrice,
+  isLotPriceRefusal,
   isSellableLocation,
   lotCurrency,
   lotFxFields,
   minPriceInUsd,
   pricingCurrencyFields,
   stampedCurrencyProblem,
+  unconvertiblePriceFingerprint,
 } from "../currency";
 import type { ReslabCostResponse, ReslabMinPriceResponse } from "../client";
 
@@ -130,7 +132,8 @@ describe("convertMinPrice / convertCost", () => {
     ["parts that do not add up", { grand_total: 125.82 }, "parts_do_not_add_up"],
     ["a pay-at-lot share", { due_at_location: 20 }, "pay_at_lot"],
     ["a nonzero discount", { discount: 5 }, "discount"],
-    ["a discount that is not a number", { discount: "5" as unknown as number }, "discount"],
+    // Refused as malformed, not as "the lot has a discount" (search tells the two apart).
+    ["a discount that is not a number", { discount: "5" as unknown as number }, "bad_amount"],
     ["a missing amount", { tax_total: undefined as unknown as number }, "bad_amount"],
   ])("refuses %s", (_n, bad, reason) => {
     expect(convertMinPrice(minPrice(bad), RATE)).toEqual({ ok: false, reason });
@@ -156,6 +159,53 @@ describe("minPriceInUsd", () => {
   });
   it("a hidden lot never yields a price", () => {
     expect(minPriceInUsd(minPrice(), { kind: "hidden", reason: "no_rate" })).toEqual({ data: null, unusable: "hidden_no_rate" });
+  });
+});
+
+describe("isLotPriceRefusal: which unusable prices leave a lot out of a search without marking it degraded", () => {
+  it.each([
+    "fx_parts_do_not_add_up",
+    "fx_due_above_total",
+    "fx_discount",
+    "fx_pay_at_lot",
+    "hidden_no_rate",
+    "hidden_pay_at_lot",
+    "hidden_currency",
+    "hidden_currency_missing",
+  ])("%s is about the lot's own price", (reason) => {
+    expect(isLotPriceRefusal(reason)).toBe(true);
+  });
+  // A malformed or partial answer, or a broken rate: a pricing failure.
+  it.each(["fx_bad_amount", "fx_bad_rate", "fx_something_new", "timeout", ""])("%s is not", (reason) => {
+    expect(isLotPriceRefusal(reason)).toBe(false);
+  });
+  it("the reasons minPriceInUsd really produces are classified as intended", () => {
+    const cad = { kind: "cad", rate: RATE } as const;
+    const reasonFor = (over: Parameters<typeof minPrice>[0]) => minPriceInUsd(minPrice(over), cad).unusable ?? "";
+    expect(isLotPriceRefusal(reasonFor({ grand_total: 1 }))).toBe(true);
+    expect(isLotPriceRefusal(reasonFor({ discount: 3 }))).toBe(true);
+    expect(isLotPriceRefusal(reasonFor({ due_at_location: 10 }))).toBe(true);
+    expect(reasonFor({ due_at_location: 200 })).toBe("fx_due_above_total");
+    expect(isLotPriceRefusal(reasonFor({ due_at_location: 200 }))).toBe(true);
+    expect(reasonFor({ sub_total: Number.NaN })).toBe("fx_bad_amount");
+    expect(isLotPriceRefusal(reasonFor({ sub_total: Number.NaN }))).toBe(false);
+  });
+  it("a malformed answer is named as malformed even when it also carries a discount", () => {
+    const cad = { kind: "cad", rate: RATE } as const;
+    const reasonFor = (over: Record<string, unknown>) =>
+      minPriceInUsd(minPrice(over as Parameters<typeof minPrice>[0]), cad).unusable;
+    expect(reasonFor({ discount: 5 })).toBe("fx_discount");
+    // A discount on a price whose parts do not add up is still about the lot's price.
+    expect(reasonFor({ discount: 5, grand_total: 1 })).toBe("fx_discount");
+    expect(reasonFor({ discount: 5, tax_total: undefined })).toBe("fx_bad_amount");
+    expect(reasonFor({ discount: "0" })).toBe("fx_bad_amount");
+    expect(reasonFor({ discount: "5.00" })).toBe("fx_bad_amount");
+    expect(reasonFor({ discount: Number.NaN })).toBe("fx_bad_amount");
+    expect(reasonFor({ discount: null })).toBeNull();
+    expect(reasonFor({ discount: 0 })).toBeNull();
+  });
+  it("the Sentry issue key is the lot and the reason", () => {
+    expect(unconvertiblePriceFingerprint(558, "fx_discount")).toEqual(["reslab-price-unconvertible", "558", "fx_discount"]);
   });
 });
 

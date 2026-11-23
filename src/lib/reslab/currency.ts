@@ -80,6 +80,47 @@ export function minPriceInUsd(
   return converted.ok ? { data: converted.value, unusable: null } : { data: null, unusable: `fx_${converted.reason}` };
 }
 
+type PriceRefusalReason = Extract<ConvertedPrice<unknown>, { ok: false }>["reason"];
+/**
+ * Every reason a conversion can be refused for, classified: true = the refusal
+ * is about the LOT'S OWN PRICE. A renamed or added reason does not compile
+ * until it is classified here.
+ */
+const IS_LOT_PRICE_REASON = {
+  parts_do_not_add_up: true,
+  due_above_total: true,
+  discount: true,
+  pay_at_lot: true,
+  // A malformed or partial answer, or a broken rate: a pricing failure.
+  bad_amount: false,
+  bad_rate: false,
+} satisfies Record<PriceRefusalReason, boolean>;
+const LOT_PRICE_REFUSALS: ReadonlySet<string> = new Set(
+  Object.entries(IS_LOT_PRICE_REASON)
+    .filter(([, isLotPrice]) => isLotPrice)
+    .map(([reason]) => `fx_${reason}`)
+);
+
+/**
+ * True when `unusable` (from minPriceInUsd) says something about the LOT'S
+ * PRICE: its parts do not add up, it carries a discount or a pay-at-lot
+ * share, or the lot is not sold. A search leaves such a lot out without
+ * calling the result partial, as long as some ResLab lot can be booked
+ * (priced and not sold out); when none can, the lot counts with the failures
+ * (search.ts, `unpricedLots`). False for `fx_bad_amount` / `fx_bad_rate` and for anything
+ * unknown: a malformed or partial answer (or a broken rate) is a pricing
+ * failure, and a search must not be cached without the lot on the strength
+ * of one.
+ */
+export function isLotPriceRefusal(unusable: string): boolean {
+  return unusable.startsWith("hidden_") || LOT_PRICE_REFUSALS.has(unusable);
+}
+
+/** One Sentry issue per lot and reason, shared by search and the lot page. */
+export function unconvertiblePriceFingerprint(locationId: number, reason: string): string[] {
+  return ["reslab-price-unconvertible", String(locationId), reason];
+}
+
 type PriceReservation = ReslabMinPriceResponse["reservation"] | ReslabCostResponse["reservation"];
 /** The shape both price responses share (a cost response only adds optional fields). */
 type ConvertedReservation = ReslabMinPriceResponse["reservation"];
@@ -97,7 +138,6 @@ export type ConvertedPrice<T> = { ok: true; value: T } | { ok: false; reason: Fx
  *  - any pay-at-lot amount (collected in Canadian dollars).
  */
 function convertReservation(r: PriceReservation, rate: FxRate): ConvertedPrice<ConvertedReservation> {
-  if (r?.discount != null && r.discount !== 0) return { ok: false, reason: "discount" };
   const fx = toUsd(
     {
       subtotal: r?.sub_total,
@@ -109,6 +149,15 @@ function convertReservation(r: PriceReservation, rate: FxRate): ConvertedPrice<C
     },
     rate
   );
+  // Refused either way; only the reason differs. A malformed answer (a bad
+  // amount, a bad rate, a discount that is not a number) is named as such even
+  // when it also carries a discount: "discount" is a statement about the lot's
+  // price, and search treats the two differently (isLotPriceRefusal).
+  if (!fx.ok && !IS_LOT_PRICE_REASON[fx.reason]) return fx;
+  const discount: unknown = r?.discount;
+  if (discount != null && discount !== 0) {
+    return { ok: false, reason: typeof discount === "number" && Number.isFinite(discount) ? "discount" : "bad_amount" };
+  }
   if (!fx.ok) return fx;
   if (fx.usdCents.dueAtLocation > 0) return { ok: false, reason: "pay_at_lot" };
   const value: ConvertedReservation = {

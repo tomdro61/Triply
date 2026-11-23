@@ -92,9 +92,12 @@ export function captureAPIError(
     /** Opt-in severity for an expected degradation (e.g. a time budget ran
      *  out). Omitted = Sentry's default for an exception, as before. */
     level?: "warning" | "info";
+    /** Group events by this instead of the stack trace (one Sentry issue per key). */
+    fingerprint?: string[];
   }
 ) {
   Sentry.withScope((scope) => {
+    if (context.fingerprint) scope.setFingerprint(context.fingerprint);
     scope.setTag("api.endpoint", context.endpoint);
     scope.setTag("api.method", context.method);
     if (context.statusCode) {

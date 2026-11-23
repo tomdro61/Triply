@@ -11,7 +11,7 @@ import type { PricingWindow } from "@/lib/reslab/pricing-window";
 import { calculateDistance } from "@/lib/utils/geo";
 import { generateSlug } from "@/lib/utils/slug";
 import { deriveAvailability } from "./availability";
-import { isSellableLocation, lotCurrency, lotFxFields, minPriceInUsd, pricingCurrencyFields, type LotCurrency } from "./currency";
+import { isSellableLocation, lotCurrency, lotFxFields, minPriceInUsd, pricingCurrencyFields, unconvertiblePriceFingerprint, type LotCurrency } from "./currency";
 import { captureAPIError } from "@/lib/sentry";
 // One-way dependency: search.ts does NOT import get-lot.ts, so no cycle.
 import {
@@ -195,19 +195,22 @@ function transformLocationToLot(
  */
 export type ReslabPricingWindowFn = (location: ReslabLocation) => PricingWindow | null;
 
-// One event per lot per warm instance every 5 minutes: a lot whose price
+// One event per lot and reason per warm instance every 5 minutes (the key
+// of its Sentry issue: unconvertiblePriceFingerprint): a lot whose price
 // will not convert fails the same way on every render, the lot page renders
 // it twice per view (page + metadata), and crawlers visit these pages.
 const UNCONVERTIBLE_REPORT_EVERY_MS = 5 * 60_000;
-const lastUnconvertibleReportAt = new Map<number, number>();
+const lastUnconvertibleReportAt = new Map<string, number>();
 function reportUnconvertiblePrice(locationId: number, reason: string) {
   const now = Date.now();
-  const last = lastUnconvertibleReportAt.get(locationId);
+  const key = `${locationId}:${reason}`;
+  const last = lastUnconvertibleReportAt.get(key);
   if (last !== undefined && now - last < UNCONVERTIBLE_REPORT_EVERY_MS) return;
-  lastUnconvertibleReportAt.set(locationId, now);
+  lastUnconvertibleReportAt.set(key, now);
   captureAPIError(new Error(`ResLab price for lot ${locationId} could not be converted (${reason})`), {
     endpoint: "getLotFromReslab",
     method: "GET",
+    fingerprint: unconvertiblePriceFingerprint(locationId, reason),
   });
 }
 

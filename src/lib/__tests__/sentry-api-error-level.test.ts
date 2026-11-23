@@ -34,3 +34,16 @@ describe("captureAPIError level (opt-in)", () => {
     expect(captureException).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("captureAPIError fingerprint (opt-in)", () => {
+  it("groups by the fingerprint it is given", () => {
+    captureAPIError(new Error("lot"), { endpoint: "/x", method: "GET", fingerprint: ["a", "1"] });
+    expect(scope.setFingerprint).toHaveBeenCalledWith(["a", "1"]);
+    expect(captureException).toHaveBeenCalledTimes(1);
+  });
+
+  it("without one, grouping is left to Sentry, as every existing caller expects", () => {
+    captureAPIError(new Error("boom"), { endpoint: "/x", method: "GET" });
+    expect(scope.setFingerprint).not.toHaveBeenCalled();
+  });
+});
