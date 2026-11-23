@@ -233,6 +233,13 @@ a human.
 
 One entry per reviewed PR: what the review found, by lesson number. Newest first.
 
+- **A refused Canadian price leaves the lot out without degrading the search (Nov 22, #216):** plan reviewed by two reviewers, the diff by eight + Codex. No Critical or High.
+  - Codex (Medium), and one reviewer: a reason was returned before the input was validated. `convertReservation` answered `discount` for any discount that was not `0`, including the text `"0"` and a discount beside a missing amount. Harmless while every refusal was treated alike; once search treated "the lot has a discount" differently from "the answer is malformed", a malformed answer could be cached as a complete result. When a new caller starts to read a reason, re-check the order the reasons are decided in.
+  - Lessons 10 and 14 (five reviewers): "exactly as before" was false for one record. Writing `degraded` on every 502 changed the `search_events` row for a US search that the own-airport filter had kept clean. Every test used a test airport, which is exempt from that filter. Reproduce the old value from the old inputs, and test one case on an airport the filter applies to.
+  - Lesson 12, at plan time: the lot's own report was planned at `warning`. The one alert rule is for high-priority issues, so it would have told no one.
+  - Lesson 13: a flag named `unconvertible` was false for a lot whose price could not be converted (a malformed amount), and its comment said the opposite of the code. Named for what it decides (`priceRefused`). A list of string reasons is now a typed table (`satisfies Record<Reason, boolean>`), so a renamed or new reason cannot land on a side by accident.
+  - Tests: three wrong versions passed (one throttle key for every lot, `return` for `continue`, reporting only the first lot) until a test had two refused lots in one search.
+
 - **Hide Toronto lot 242, whose price will not convert (Nov 21):** plan reviewed by two reviewers, the 24-line diff by two more. No Critical, High or Medium.
   - Lesson 13: a new assertion could never fail. `JSON.stringify(mock.calls)` drops an `Error`'s message, so `.not.toContain("pricing degraded")` passed whatever was reported. Read the message (`String(e)`) and find the call.
   - Lesson 8: a hidden-lot id is a production ResLab id, and the list also applies on previews, where the staging account's ids differ. Checked that no test lot or fixture uses the id.

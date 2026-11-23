@@ -159,6 +159,16 @@ describe("searchParking — own-airport results", () => {
     expect(searchEventRow()?.cheapest_price_cents).toBe(7665);
   });
 
+  it("nothing priced: own lots sold out and ANOTHER airport's lot failed: the 502, and the row is not degraded (it describes the lots shown)", async () => {
+    reslabMock.getMinPrice.mockImplementation(async (id: number) => {
+      if (id === 159) throw new Error("ResLab 502");
+      return minPrice(LOTS[id].total, true);
+    });
+    await expect(search("JFK")).rejects.toThrow(/pricing unavailable for all/);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(searchEventRow()).toMatchObject({ degraded: false, results_count: 0 });
+  });
+
   it("the normal case is not flagged as a fallback", async () => {
     expect((await search("JFK")).ownAirportFallback).toBeUndefined();
   });

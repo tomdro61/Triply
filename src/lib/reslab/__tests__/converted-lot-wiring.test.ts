@@ -172,6 +172,48 @@ describe("searchParking with an exchange rate set", () => {
     expect(own[0][1]).not.toHaveProperty("level");
     // The record of the search agrees: complete, with a real cheapest price.
     expect(searchEventRow()).toMatchObject({ degraded: false, results_count: 1, cheapest_price_cents: 10500 });
+    // The lot is still an observation in the availability log: looked at, nothing known.
+    const availability = inserts.find((c) => c.table === "availability_log")?.rows as Record<string, unknown>[];
+    expect(availability.find((row) => row.reslab_location_id === 558)).toMatchObject({ sold_out: null, available_spots: null, grand_total_cents: null });
+  });
+
+  it("the result beside a left-out lot is complete: the 'Lowest total' badge is shown", async () => {
+    reslabMock.searchLocations.mockResolvedValue([location(1), location(558, CAD_LOT)]);
+    withCadAnswer(NOT_ADDING_UP);
+    const r = await search();
+    expect(r.results.find((l) => l.reslabLocationId === 1)?.badges).toContain("lowest_total");
+  });
+
+  it("two lots left out in one search are each reported, under their own keys", async () => {
+    reslabMock.searchLocations.mockResolvedValue([location(1), location(558, CAD_LOT), location(559, CAD_LOT)]);
+    reslabMock.getMinPrice.mockImplementation(async (id: number) => (id === 1 ? usMinPrice() : cadMinPrice(NOT_ADDING_UP)));
+    await search();
+    await search();
+    expect(reports(UNCONVERTIBLE).map((c) => c[1].fingerprint[1]).sort()).toEqual(["558", "559"]);
+  });
+
+  it("a report that throws never fails the search it describes", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    reslabMock.searchLocations.mockResolvedValue([location(1), location(558, CAD_LOT)]);
+    withCadAnswer(NOT_ADDING_UP);
+    sentry.captureAPIError.mockImplementationOnce(() => { throw new Error("sentry down"); });
+    const r = await search();
+    expect(r.results.map((l) => l.reslabLocationId)).toEqual([1]);
+    expect(r.degraded).toBe(false);
+  });
+
+  it.each([
+    ["a discount and a missing amount", { discount: 5, tax_total: undefined }],
+    ["a discount sent as text", { discount: "0" }],
+    ["a discount that is not a number", { discount: Number.NaN }],
+  ])("a malformed answer stays a pricing failure even when it mentions a discount: %s", async (_n, over) => {
+    reslabMock.searchLocations.mockResolvedValue([location(1), location(558, CAD_LOT)]);
+    withCadAnswer(over);
+    const r = await search();
+    expect(r.results.map((l) => l.reslabLocationId)).toEqual([1]);
+    expect(r.degraded).toBe(true);
+    expect(reports(UNCONVERTIBLE)).toHaveLength(0);
+    expect(String(reports(DEGRADED)[0]?.[0])).toContain("fx_bad_amount");
   });
 
   it.each([
@@ -218,6 +260,8 @@ describe("searchParking with an exchange rate set", () => {
     await expect(search()).rejects.toThrow(/pricing unavailable for all 1 TEST-NY location\(s\); 1 failed \(fx_parts_do_not_add_up ×1\)/);
     await flush();
     expect(searchEventRow()).toMatchObject({ degraded: true, results_count: 0, sold_out_count: null });
+    // The lot's own issue opens here too, not only the route's report of the 502.
+    expect(reports(UNCONVERTIBLE)).toHaveLength(1);
   });
 
   it("nothing priced: the other lot is sold out and one will not convert: still the 502, still recorded as degraded", async () => {
@@ -227,6 +271,7 @@ describe("searchParking with an exchange rate set", () => {
     await expect(search()).rejects.toThrow(/pricing unavailable for all 2 TEST-NY location\(s\); 1 failed/);
     await flush();
     expect(searchEventRow()).toMatchObject({ degraded: true, results_count: 0, sold_out_count: 1 });
+    expect(reports(UNCONVERTIBLE)).toHaveLength(1);
   });
 
   it("the lot's report is sent once per reason, not on every search; a new reason is a new report", async () => {
@@ -311,6 +356,10 @@ describe("getLotFromReslab with an exchange rate set", () => {
     expect(String(sent[0][0])).toContain("fx_parts_do_not_add_up");
     // The same issue a search opens for this lot and reason.
     expect(sent[0][1].fingerprint).toEqual(["reslab-price-unconvertible", "331", "fx_parts_do_not_add_up"]);
+    // A different reason on the same lot is a different issue: reported, not throttled away.
+    reslabMock.getMinPrice.mockResolvedValue(cadMinPrice({ discount: 5 }));
+    await getLotFromReslab(331, FROM, TO);
+    expect(reports(UNCONVERTIBLE).map((c) => c[1].fingerprint[2])).toEqual(["fx_parts_do_not_add_up", "fx_discount"]);
   });
 
   it.each([
