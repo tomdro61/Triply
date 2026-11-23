@@ -115,6 +115,35 @@ describe("sentry-scrub", () => {
     }
   });
 
+  it("removes the password-reset token from the link's URL, query string and span attributes", () => {
+    const RESET = "pkce_" + "0123456789abcdef".repeat(3);
+    const link = `/auth/confirm?token_hash=${RESET}&type=recovery`;
+    const out = scrub({
+      transaction: "GET /auth/confirm",
+      request: { url: `https://www.triplypro.com${link}`, query_string: `token_hash=${RESET}&type=recovery` },
+      spans: [{ data: { "http.target": link, "url.full": `https://www.triplypro.com${link}`, "url.query": `?token_hash=${RESET}` } }],
+    });
+    expect(JSON.stringify(out)).not.toContain(RESET);
+    expect(out.request.query_string).toBe("token_hash=[redacted]&type=recovery");
+    expect(out.spans[0].data["http.target"]).toBe("/auth/confirm?token_hash=[redacted]&type=recovery");
+  });
+
+  it("[codex] removes the password-reset token while it waits in its cookie, in every form the SDK records", () => {
+    const RESET = "pkce_" + "0123456789abcdef".repeat(3);
+    const out = scrub({
+      request: {
+        cookies: { triply_recovery_token: RESET, other: "kept" },
+        headers: { cookie: `a=1; triply_recovery_token=${RESET}; b=2`, "set-cookie": `triply_recovery_token=${RESET}; Path=/auth/recover` },
+      },
+      contexts: { trace: { data: { "http.request.header.cookie.triply_recovery_token": RESET } } },
+      extra: { nested: JSON.stringify({ triply_recovery_token: RESET }) },
+    });
+    expect(JSON.stringify(out)).not.toContain(RESET);
+    expect(out.request.cookies).toEqual({ triply_recovery_token: "[redacted]", other: "kept" });
+    expect(out.request.headers.cookie).toBe("a=1; triply_recovery_token=[redacted]; b=2");
+    expect(out.request.headers["set-cookie"]).toBe("triply_recovery_token=[redacted]; Path=/auth/recover");
+  });
+
   it("[codex] a percent-encoded param NAME is read like the plain one, so it is scrubbed too", () => {
     const KEY = "AbCdEfGhIjKlMnOpQrStUv";
     expect(scrubUrlCredentials(`/confirmation/RTL1?booking%5Fkey=${KEY}&lot=x`)).toBe("/confirmation/RTL1?booking%5Fkey=[redacted]&lot=x");

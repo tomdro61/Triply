@@ -5,10 +5,16 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Loader2, Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { captureAPIError } from "@/lib/sentry";
-import { RECOVERY_COPY, RESEND_COOLDOWN_MS, forgotOutcome } from "@/lib/auth/recovery";
+import {
+  RECOVERY_COPY,
+  RESEND_COOLDOWN_MS,
+  forgotOutcome,
+  type AuthFailure,
+  type ForgotOutcome,
+} from "@/lib/auth/recovery";
+import { reportRecovery, thrownFailure } from "@/lib/auth/recovery-report";
 
-type Status = "idle" | "sending" | "sent" | "invalid" | "failed";
+type Status = "idle" | "sending" | ForgotOutcome["view"];
 
 function ForgotPasswordForm() {
   const searchParams = useSearchParams();
@@ -33,38 +39,23 @@ function ForgotPasswordForm() {
     inFlight.current = true;
     setStatus("sending");
 
-    let failure: { status?: number; code?: string } | null;
+    let failure: AuthFailure | null;
     try {
       const { error } = await createClient().auth.resetPasswordForEmail(email.trim());
-      failure = error ? { status: error.status, code: error.code } : null;
-    } catch {
-      // The request never got an answer (offline, blocked).
-      failure = { status: 0 };
+      failure = error ? { status: error.status, code: error.code, name: error.name } : null;
+    } catch (thrown) {
+      // supabase-js returns a network failure as an error, so anything caught
+      // here is a fault of another kind (a browser lock, storage, crypto).
+      failure = thrownFailure(thrown);
     }
 
     const outcome = forgotOutcome(failure);
-    if (outcome.report !== "none") {
-      // A fixed message: Supabase's own text can quote the email address.
-      captureAPIError(
-        new Error(
-          outcome.report === "info"
-            ? "password reset: email rate limit reached"
-            : "password reset: the email could not be requested"
-        ),
-        {
-          endpoint: "supabase.auth.resetPasswordForEmail",
-          method: "POST",
-          statusCode: failure?.status,
-          code: failure?.code,
-          ...(outcome.report === "info" ? { level: "info" as const } : {}),
-        }
-      );
-    }
+    reportRecovery(outcome.report, { endpoint: "supabase.auth.resetPasswordForEmail", method: "POST" }, failure);
 
     setStatus(outcome.view);
     if (outcome.view === "sent") {
-      // A second request inside a minute is refused, and it would also stop
-      // the first email's link from working.
+      // Supabase refuses a second email inside a minute; one sent after that
+      // replaces the first email's link.
       setCoolingDown(true);
       cooldownTimer.current = setTimeout(() => setCoolingDown(false), RESEND_COOLDOWN_MS);
     }
@@ -151,12 +142,12 @@ function ForgotPasswordForm() {
           <div className="mt-6 border-t border-gray-200 pt-4 text-sm text-gray-600">
             <p className="font-medium text-gray-900">Booked without an account?</p>
             <p className="mt-1">
-              Then there is no password to reset. Open your booking from your confirmation email,
-              or{" "}
+              Then there is no password to reset. Open your booking from your confirmation email.
+              To manage it online, go to{" "}
               <Link href="/auth/login" className="text-brand-orange hover:text-orange-500">
-                create an account
+                sign in
               </Link>{" "}
-              with the email you booked with.
+              and choose &quot;Sign up&quot; with the email you booked with.
             </p>
           </div>
 

@@ -5,24 +5,37 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CheckCircle2, Eye, EyeOff, Loader2, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { captureAPIError } from "@/lib/sentry";
 import {
   MIN_PASSWORD_LENGTH,
   RECOVERY_COPY,
+  directVisitOutcome,
   newPasswordProblem,
+  saveGuard,
   saveOutcome,
   verifyOutcome,
+  type AuthFailure,
+  type DirectVisitOutcome,
+  type SaveGuard,
+  type VerifyOutcome,
 } from "@/lib/auth/recovery";
+import { reportRecovery, thrownFailure } from "@/lib/auth/recovery-report";
 
 type Step =
   | "loading"
   | "ready"
   | "verifying"
-  | "form"
   | "saving"
   | "done"
-  | "expired"
-  | "check_failed";
+  | VerifyOutcome["step"]
+  | DirectVisitOutcome["step"]
+  | Extract<SaveGuard, { ok: false }>["step"];
+
+const VERIFY_TIMEOUT_MS = 25_000;
+
+/** What we keep of a Supabase error: never its message, which can quote the email. */
+function kept(error: { status?: number; code?: string; name?: string } | null): AuthFailure | null {
+  return error ? { status: error.status, code: error.code, name: error.name } : null;
+}
 
 function ResetPasswordForm() {
   const router = useRouter();
@@ -31,12 +44,15 @@ function ResetPasswordForm() {
   const cameFromLink = searchParams.get("link") === "1";
 
   const [step, setStep] = useState<Step>(cameFromLink ? "ready" : "loading");
-  const [accountEmail, setAccountEmail] = useState<string | null>(null);
+  const [account, setAccount] = useState<{ email: string; userId: string } | null>(null);
+  const [switched, setSwitched] = useState(false);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const inFlight = useRef(false);
+  const passwordInput = useRef<HTMLInputElement>(null);
+  const doneHeading = useRef<HTMLHeadingElement>(null);
 
   // Opened without a link: someone signed in may set a password for their own
   // account (as the account page allows); anyone else needs a link.
@@ -50,22 +66,43 @@ function ResetPasswordForm() {
       .auth.getUser()
       .then(({ data, error }) => {
         if (cancelled) return;
-        if (data.user?.email) {
-          setAccountEmail(data.user.email);
-          setStep("form");
-        } else if (error && (error.status === undefined || error.status === 0 || error.status >= 500)) {
-          setStep("check_failed");
-        } else {
-          setStep("expired");
-        }
+        const outcome = directVisitOutcome(data.user, kept(error));
+        if (outcome.step === "form") setAccount({ email: outcome.email, userId: outcome.userId });
+        setStep(outcome.step);
       })
-      .catch(() => {
-        if (!cancelled) setStep("check_failed");
+      .catch((thrown: unknown) => {
+        if (cancelled) return;
+        reportRecovery(
+          { message: "password reset: the session could not be read on the reset page", key: "reset-page-session" },
+          { endpoint: "supabase.auth.getUser", method: "GET" },
+          thrownFailure(thrown)
+        );
+        setStep("check_failed");
       });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  // While the form is open, another tab can sign this browser in to a
+  // different account, or out. The form must not then save under a name it no
+  // longer matches.
+  const formOpen = step === "form";
+  const expectedUserId = account?.userId;
+  useEffect(() => {
+    if (!formOpen || !expectedUserId) return;
+    const { data } = createClient().auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") setStep("expired");
+      else if (session?.user?.id && session.user.id !== expectedUserId) setStep("account_changed");
+    });
+    return () => data.subscription.unsubscribe();
+  }, [formOpen, expectedUserId]);
+
+  // A step change removes the button that had focus: move it somewhere useful.
+  useEffect(() => {
+    if (step === "form") passwordInput.current?.focus();
+    if (step === "done") doneHeading.current?.focus();
+  }, [step]);
 
   const handleContinue = async () => {
     if (inFlight.current) return;
@@ -75,20 +112,34 @@ function ResetPasswordForm() {
     let status = 0;
     let body: unknown = null;
     try {
-      const res = await fetch("/auth/recover/verify", { method: "POST", cache: "no-store" });
+      const res = await fetch("/auth/recover/verify", {
+        method: "POST",
+        cache: "no-store",
+        signal: AbortSignal.timeout(VERIFY_TIMEOUT_MS),
+      });
       status = res.status;
+      // A reply that is not JSON reads as "could not check" (verifyOutcome).
       body = await res.json().catch(() => null);
     } catch {
-      // No answer at all: status stays 0, which reads as "could not check".
+      // No answer at all (offline, timed out): status stays 0, "could not check".
     }
 
     const outcome = verifyOutcome(status, body);
     if (outcome.step === "form") {
-      setAccountEmail(outcome.email);
+      setAccount({ email: outcome.email, userId: outcome.userId });
+      setSwitched(outcome.switched);
       setStep("form");
       // Drop `link=1`, so a refresh shows the form instead of Continue.
       router.replace("/auth/reset-password");
     } else {
+      if (outcome.step === "check_failed") {
+        // The route reports its own faults; this covers the ones it never saw.
+        reportRecovery(
+          { message: "password reset: Continue got no usable answer", key: "reset-page-verify" },
+          { endpoint: "/auth/recover/verify", method: "POST" },
+          { status }
+        );
+      }
       setStep(outcome.step);
     }
     inFlight.current = false;
@@ -96,7 +147,7 @@ function ResetPasswordForm() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (inFlight.current) return;
+    if (inFlight.current || !account) return;
 
     const problem = newPasswordProblem(password, confirm);
     if (problem) {
@@ -107,45 +158,73 @@ function ResetPasswordForm() {
     inFlight.current = true;
     setFormError(null);
     setStep("saving");
+    const supabase = createClient();
 
-    let failure: { status?: number; code?: string } | null;
     try {
-      // Supabase signs out every other session of this account itself.
-      const { error } = await createClient().auth.updateUser({ password });
-      failure = error ? { status: error.status, code: error.code } : null;
-    } catch {
-      failure = { status: 0 };
-    }
-
-    const outcome = saveOutcome(failure);
-    if (outcome.step !== "done" && outcome.report !== "none") {
-      captureAPIError(
-        new Error(
-          outcome.report === "info"
-            ? "password reset: the session was gone when saving"
-            : "password reset: the new password could not be saved"
-        ),
-        {
-          endpoint: "supabase.auth.updateUser",
-          method: "PUT",
-          statusCode: failure?.status,
-          code: failure?.code,
-          ...(outcome.report === "info" ? { level: "info" as const } : {}),
+      // `updateUser` acts on whatever session the browser holds NOW. Check it
+      // is still the account this form names before changing a password.
+      const { data: current, error: currentError } = await supabase.auth.getUser();
+      const guard = saveGuard(account.userId, current.user, kept(currentError));
+      if (!guard.ok) {
+        reportRecovery(guard.report, { endpoint: "supabase.auth.getUser", method: "GET" }, kept(currentError));
+        if (guard.step === "check_failed") {
+          setFormError(RECOVERY_COPY.saveFailed);
+          setStep("form");
+        } else {
+          setStep(guard.step);
         }
-      );
-    }
+        return;
+      }
 
-    if (outcome.step === "done") {
-      setPassword("");
-      setConfirm("");
-      setStep("done");
-    } else if (outcome.step === "expired") {
-      setStep("expired");
-    } else {
-      setFormError(outcome.message);
+      // Supabase signs out every other session of this account itself.
+      const { error } = await supabase.auth.updateUser({ password });
+      const failure = kept(error);
+      const outcome = saveOutcome(failure);
+      reportRecovery(outcome.report, { endpoint: "supabase.auth.updateUser", method: "PUT" }, failure);
+
+      switch (outcome.step) {
+        case "done":
+          setPassword("");
+          setConfirm("");
+          setStep("done");
+          break;
+        case "expired":
+          setStep("expired");
+          break;
+        case "form":
+          setFormError(outcome.message);
+          setStep("form");
+          break;
+        default: {
+          const unhandled: never = outcome;
+          throw new Error(`unhandled save outcome: ${JSON.stringify(unhandled)}`);
+        }
+      }
+    } catch (thrown) {
+      // supabase-js returns network failures as errors, so this is a fault of
+      // another kind (a browser lock, storage). Say so; never "expired".
+      reportRecovery(
+        { message: "password reset: saving threw", key: "save-threw" },
+        { endpoint: "supabase.auth.updateUser", method: "PUT" },
+        thrownFailure(thrown)
+      );
+      setFormError(RECOVERY_COPY.saveFailed);
       setStep("form");
+    } finally {
+      inFlight.current = false;
     }
-    inFlight.current = false;
+  };
+
+  const handleNotMe = async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    try {
+      await createClient().auth.signOut({ scope: "local" });
+    } catch {
+      // Signing out is best effort here: the person is leaving this form
+      // either way, and the sign-in page works with or without a session.
+    }
+    router.replace("/auth/login");
   };
 
   const saving = step === "saving";
@@ -192,28 +271,40 @@ function ResetPasswordForm() {
             </div>
           )}
 
-          {step === "expired" && (
+          {(step === "expired" || step === "needs_link" || step === "account_changed") && (
             <div className="text-center">
               <div
                 role="alert"
                 className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg text-sm text-left"
               >
-                {RECOVERY_COPY.expired}
+                {step === "expired"
+                  ? RECOVERY_COPY.expired
+                  : step === "needs_link"
+                    ? RECOVERY_COPY.needsLink
+                    : RECOVERY_COPY.accountChanged}
               </div>
               <Link
                 href="/auth/forgot-password"
                 className="mt-6 w-full flex items-center justify-center bg-brand-orange text-white font-bold py-3 px-4 rounded-lg hover:bg-orange-600 transition-colors"
               >
-                Get a new link
+                {step === "needs_link" ? "Get a reset link" : "Get a new link"}
               </Link>
             </div>
           )}
 
-          {(step === "form" || step === "saving") && (
+          {(step === "form" || step === "saving") && account && (
             <form onSubmit={handleSave} className="space-y-4" data-clarity-mask="true">
+              {switched && (
+                <div
+                  role="status"
+                  className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg text-sm"
+                >
+                  This link signed you in to a different account than the one this browser was using.
+                </div>
+              )}
               <p className="text-sm text-gray-600">
                 Setting a new password for{" "}
-                <span className="font-semibold text-gray-900 break-all">{accountEmail}</span>
+                <span className="font-semibold text-gray-900 break-all">{account.email}</span>
               </p>
 
               <div>
@@ -224,8 +315,10 @@ function ResetPasswordForm() {
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                   <input
                     id="new-password"
+                    ref={passwordInput}
                     type={showPassword ? "text" : "password"}
                     autoComplete="new-password"
+                    aria-describedby="new-password-hint"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -241,7 +334,9 @@ function ResetPasswordForm() {
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
                 </div>
-                <p className="mt-1 text-xs text-gray-500">At least {MIN_PASSWORD_LENGTH} characters.</p>
+                <p id="new-password-hint" className="mt-1 text-xs text-gray-500">
+                  At least {MIN_PASSWORD_LENGTH} characters.
+                </p>
               </div>
 
               <div>
@@ -279,6 +374,18 @@ function ResetPasswordForm() {
                 {saving && <Loader2 className="h-5 w-5 animate-spin" />}
                 Save new password
               </button>
+
+              <p className="text-center text-sm text-gray-600">
+                Not your account?{" "}
+                <button
+                  type="button"
+                  onClick={handleNotMe}
+                  disabled={saving}
+                  className="text-brand-orange hover:text-orange-500 disabled:opacity-50"
+                >
+                  Sign out
+                </button>
+              </p>
             </form>
           )}
 
@@ -287,7 +394,9 @@ function ResetPasswordForm() {
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <CheckCircle2 className="h-8 w-8 text-green-600" />
               </div>
-              <h2 className="text-xl font-bold text-gray-900 mb-2">Your password is changed</h2>
+              <h2 ref={doneHeading} tabIndex={-1} className="text-xl font-bold text-gray-900 mb-2 outline-none">
+                Your password has been changed
+              </h2>
               <p className="text-gray-600 mb-6">
                 You&apos;re signed in on this device. Other devices have been signed out.
               </p>

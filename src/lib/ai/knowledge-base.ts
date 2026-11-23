@@ -50,7 +50,7 @@ Q: Can I modify my reservation?
 A: There is no edit option yet. If check-in is more than 24 hours away, cancel the reservation from My Reservations (free — everything paid online comes back) and book again with the new details. Closer to check-in, or for a guest booking the customer can't see, email support@triplypro.com.
 
 Q: How do I cancel my reservation?
-A: Sign in to the account the reservation is linked to (a guest booking has no account yet: create one with the booking email first), go to My Reservations, select the booking and click "Cancel Reservation". More than 24 hours before check-in you get back everything you paid online. Within 24 hours of check-in, and for no-shows, cancellation can't be done online and isn't refunded online — contact support, handled case by case.
+A: Sign in to the account the reservation is linked to (a guest booking: sign in with the booking email first, or sign up with it if there is no account), go to My Reservations, select the booking and click "Cancel Reservation". More than 24 hours before check-in you get back everything you paid online. Within 24 hours of check-in, and for no-shows, cancellation can't be done online and isn't refunded online — contact support, handled case by case.
 
 Q: What if I need to extend my parking?
 A: Contact the parking facility directly using the phone number on your confirmation. Extensions are subject to availability and will be charged at the daily rate.
@@ -111,7 +111,7 @@ Q: Do I need an account to book?
 A: No, you can book as a guest without creating an account. However, creating an account lets you see your reservations in one place, cancel an eligible one yourself, and check out faster next time.
 
 Q: How do I reset my password?
-A: Click "Forgot your password?" on the login page and enter your email address. We'll send you a link to choose a new password. The link works for a short time, so use it soon; if you ask more than once, use the newest email. A customer who booked as a guest has no password yet: they create an account with the email they booked with.
+A: Click "Forgot your password?" on the login page and enter your email address. We'll send you a link to choose a new password. The link works for a short time, so use it soon; if you ask more than once, use the newest email. A customer who booked as a guest and never made an account has no password to reset: they sign up with the email they booked with.
 
 Q: How can I contact customer support?
 A: Email support@triplypro.com — we reply within 24-48 hours on business days. Triply does not have a phone line. For urgent parking issues, contact the facility directly using the number on your confirmation.

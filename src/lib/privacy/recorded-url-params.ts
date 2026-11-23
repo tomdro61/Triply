@@ -8,7 +8,10 @@
  *   - `booking_key`: a signed key for one booking on a confirmation link. It
  *     opens that booking on its own, like a password, so it never reaches a
  *     recorder (and stays listed even when no link carries it, so a revert of
- *     the links that do can't leak one).
+ *     the links that do can't leak one);
+ *   - `token_hash`: the one-time token on the password-reset email's link
+ *     (/auth/confirm?token_hash=…). Until it is spent it signs its holder in to
+ *     that account. No page is rendered with it, but the request is traced.
  *
  * Matched by NAME only — never a text search: our email links carry
  * `utm_medium=email`.
@@ -16,7 +19,7 @@
  * Used by the layout's inline guards (interpolated into the scripts),
  * instrumentation-client.ts (deferring replay) and lib/sentry-scrub.ts.
  */
-export const RECORDED_URL_SECRET_PARAMS = ["email", "payment_intent_client_secret", "booking_key"] as const;
+export const RECORDED_URL_SECRET_PARAMS = ["email", "payment_intent_client_secret", "booking_key", "token_hash"] as const;
 
 /** True when `href` carries any RECORDED_URL_SECRET_PARAMS. */
 export function hasRecordedUrlSecret(href: string): boolean {
