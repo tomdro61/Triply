@@ -58,7 +58,7 @@ const faqCategories: FAQCategory[] = [
       {
         question: "I don't see a Cancel button on my reservation. Why?",
         answer:
-          "A few reasons this can happen: your check-in is within 24 hours (contact support and we'll help); the reservation isn't linked to the account you're signed in to — if you booked as a guest, sign in with the same email and add it to your account from My Reservations; or the reservation is already cancelled or completed. Still stuck? Contact support and we'll sort it out.",
+          "A few reasons this can happen: your check-in is within 24 hours (contact support and we'll help); the reservation isn't linked to the account you're signed in to — if you booked as a guest you have no account yet, so create one with the same email, then add the booking from My Reservations; or the reservation is already cancelled or completed. Still stuck? Contact support and we'll sort it out.",
       },
       {
         question: "What if I need to extend my parking?",
@@ -100,7 +100,7 @@ const faqCategories: FAQCategory[] = [
       {
         question: "What is your refund policy?",
         answer:
-          `If you cancel more than 24 hours before check-in, you get back everything you paid online — parking, taxes, and the Triply service fee. If you added a Park Guard protection plan, a portion of the plan price is non-refundable (${PG_NONREFUNDABLE_SUMMARY}), and the rest is returned along with your other charges. Anything marked as due at the lot was never charged by us, so it isn't part of the refund. You cancel from the account the reservation is linked to — if you booked as a guest, sign in with the booking email first. Cancellations within 24 hours of check-in aren't refunded online — contact support and we'll do what we can; no-shows aren't refunded. Refunds go back to your original payment method and usually appear within 5-10 business days, depending on your bank.`,
+          `If you cancel more than 24 hours before check-in, you get back everything you paid online — parking, taxes, and the Triply service fee. If you added a Park Guard protection plan, a portion of the plan price is non-refundable (${PG_NONREFUNDABLE_SUMMARY}), and the rest is returned along with your other charges. Anything marked as due at the lot was never charged by us, so it isn't part of the refund. You cancel from the account the reservation is linked to — if you booked as a guest, create an account with the booking email first. Cancellations within 24 hours of check-in aren't refunded online — contact support and we'll do what we can; no-shows aren't refunded. Refunds go back to your original payment method and usually appear within 5-10 business days, depending on your bank.`,
       },
     ],
   },
@@ -208,7 +208,7 @@ const faqCategories: FAQCategory[] = [
       {
         question: "How do I reset my password?",
         answer:
-          "Click 'Forgot your password?' on the login page and enter your email address. We'll send you a link to reset your password. The link expires after 24 hours for security.",
+          "Click 'Forgot your password?' on the login page and enter your email address. We'll send you a link to choose a new password. The link works for a short time, so use it soon; if you ask more than once, use the newest email. If you booked as a guest you have no password yet: create an account with the email you booked with.",
       },
       {
         question: "How can I contact customer support?",
