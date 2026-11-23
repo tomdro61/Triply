@@ -6,7 +6,7 @@
  * converting, converts with one value and labels with another, or loses the
  * lot's "I am converted" marker when the lot has no price.
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, onTestFinished } from "vitest";
 
 vi.mock("next/server", async () => {
   const actual = await vi.importActual<typeof import("next/server")>("next/server");
@@ -193,13 +193,27 @@ describe("searchParking with an exchange rate set", () => {
   });
 
   it("a report that throws never fails the search it describes", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    onTestFinished(() => logged.mockRestore());
     reslabMock.searchLocations.mockResolvedValue([location(1), location(558, CAD_LOT)]);
     withCadAnswer(NOT_ADDING_UP);
     sentry.captureAPIError.mockImplementationOnce(() => { throw new Error("sentry down"); });
     const r = await search();
     expect(r.results.map((l) => l.reslabLocationId)).toEqual([1]);
     expect(r.degraded).toBe(false);
+    // The throw did happen, and was logged rather than lost.
+    expect(logged).toHaveBeenCalledWith("reportRefusedLots failed:", expect.any(Error));
+  });
+
+  it("a lot already reported does not hold back the report of a lot refused later", async () => {
+    reslabMock.searchLocations.mockResolvedValue([location(1), location(558, CAD_LOT), location(559, CAD_LOT)]);
+    // First search: only 558 is refused. Second: 558 (now inside its quiet period) and 559.
+    reslabMock.getMinPrice.mockImplementation(async (id: number) => (id === 558 ? cadMinPrice(NOT_ADDING_UP) : id === 559 ? cadMinPrice() : usMinPrice()));
+    await search();
+    expect(reports(UNCONVERTIBLE).map((c) => c[1].fingerprint[1])).toEqual(["558"]);
+    reslabMock.getMinPrice.mockImplementation(async (id: number) => (id === 1 ? usMinPrice() : cadMinPrice(NOT_ADDING_UP)));
+    await search();
+    expect(reports(UNCONVERTIBLE).map((c) => c[1].fingerprint[1])).toEqual(["558", "559"]);
   });
 
   it.each([

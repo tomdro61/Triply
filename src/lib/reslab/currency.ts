@@ -105,9 +105,9 @@ const LOT_PRICE_REFUSALS: ReadonlySet<string> = new Set(
  * True when `unusable` (from minPriceInUsd) says something about the LOT'S
  * PRICE: its parts do not add up, it carries a discount or a pay-at-lot
  * share, or the lot is not sold. A search leaves such a lot out without
- * calling the result partial, as long as some other lot priced; when nothing
- * at the airport priced, the lot counts with the failures (search.ts,
- * `unpricedLots`). False for `fx_bad_amount` / `fx_bad_rate` and for anything
+ * calling the result partial, as long as some ResLab lot can be booked
+ * (priced and not sold out); when none can, the lot counts with the failures
+ * (search.ts, `unpricedLots`). False for `fx_bad_amount` / `fx_bad_rate` and for anything
  * unknown: a malformed or partial answer (or a broken rate) is a pricing
  * failure, and a search must not be cached without the lot on the strength
  * of one.
@@ -153,7 +153,7 @@ function convertReservation(r: PriceReservation, rate: FxRate): ConvertedPrice<C
   // amount, a bad rate, a discount that is not a number) is named as such even
   // when it also carries a discount: "discount" is a statement about the lot's
   // price, and search treats the two differently (isLotPriceRefusal).
-  if (!fx.ok && (fx.reason === "bad_amount" || fx.reason === "bad_rate")) return fx;
+  if (!fx.ok && !IS_LOT_PRICE_REASON[fx.reason]) return fx;
   const discount: unknown = r?.discount;
   if (discount != null && discount !== 0) {
     return { ok: false, reason: typeof discount === "number" && Number.isFinite(discount) ? "discount" : "bad_amount" };

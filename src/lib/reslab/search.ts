@@ -1680,9 +1680,10 @@ export async function searchParking(
   const pricingFailureReasons = new Map<string, number>();
   // Lots left out because ResLab's price for them is refused for a reason
   // about the price itself (isLotPriceRefusal). NOT pricing errors: beside a
-  // lot that priced, such a lot neither marks the search degraded nor joins
-  // the shared "pricing degraded" report; it has its own (reportRefusedLots).
-  // When NOTHING at the airport priced they count with the failures
+  // ResLab lot that can be booked (priced and not sold out), such a lot
+  // neither marks the search degraded nor joins the shared "pricing degraded"
+  // report; it has its own (reportRefusedLots). When NO ResLab lot can be
+  // booked (sold-out lots included) they count with the failures
   // (`unpricedLots` below), so that search answers as it always has: the
   // same 502, or the same `reslabUnavailable` beside direct lots.
   const refusedLots: { id: number; reason: string }[] = [];
