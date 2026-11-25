@@ -233,6 +233,12 @@ a human.
 
 One entry per reviewed PR: what the review found, by lesson number. Newest first.
 
+- **Support ticket booking card (Nov 24):** three reviewers, then two passes on the fixes. One Critical, four Highs, all fixed before the PR.
+  - Lesson 18 (two reviewers): the booking query asked `bookings` for `cancellation_note`, but the staff note lives in the private `booking_cancellation_notes` table. PostgREST would have rejected every lookup, so the card would have shown an error on every ticket. Read private booking data from its own table with the service-role client.
+  - Lesson 13: the route test's fake ignored the column list, so it could never have caught that. A fake query builder records what was selected, and a test checks it.
+  - Lesson 5: a 200 that wasn't a booking answer, and a missing `grand_total`, would have shown as "No booking found" and "Paid online $0.00". The client now checks the answer with zod, and an unreadable total says "not recorded".
+  - Lesson 15 (pass 2): the fix for that checked for a negative sum before rounding to cents, so a true $0.00 booking (a 100% promo) came out at -4e-16 and showed "not recorded". Round first, then check.
+  - A status of "refunded" is a cancelled booking: a cancel that refunds money sets it. Match the Bookings modal's `cancelled || refunded`.
 - **Password reset pages (Nov 23, #217):** plan reviewed by two reviewers, the diff by eight + Codex. No Critical; the Highs below were found before merge.
   - Lesson 9 (four reviewers + Codex): a new secret in a URL was not in the recorder list. The reset link's `token_hash` is never on a rendered page, but its own request is traced, and `RECORDED_URL_SECRET_PARAMS` did not name it. Codex also showed the cookie holding the token is attached to server events. A new link parameter or cookie that works like a password goes into the list and the scrubber in the same commit, with a test through `scrubEventCredentials`.
   - Third-party contract, read from the source not assumed (three reviewers): supabase-js reports "no session" as status 400 with no code. Sorting failures by status alone told a customer whose session had gone to "choose a different password", for ever, with nothing in Sentry. Decide on the error's code and class; the tests had pinned a status/code pair Supabase never sends.
