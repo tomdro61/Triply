@@ -13,6 +13,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
+import { SupportBookingPanel } from "./booking-panel";
 
 interface Ticket {
   id: string;
@@ -392,6 +393,12 @@ export default function AdminSupportPage() {
                   </div>
                 )}
               </div>
+
+              <SupportBookingPanel
+                key={selected.id}
+                ticketId={selected.id}
+                hasReservationNumber={!!selected.reservation_number || !!selected.booking_id}
+              />
 
               <div className="mt-4 whitespace-pre-wrap rounded-lg border border-gray-200 p-4 text-sm leading-relaxed text-gray-800">
                 {selected.message}
